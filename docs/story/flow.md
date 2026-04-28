@@ -50,6 +50,6 @@ Readable draft под текущую day-структуру. Карта пока
 
 ## Концовки
 
-- `scenes/day_03_tbd/ending_lust.md` — падение / слияние с искушением.
-- `scenes/day_03_tbd/ending_romance.md` — сохранение человечности.
-- `scenes/day_03_tbd/ending_purity.md` — сопротивление и борьба с демонами.
+- `ending_lust` — падение / слияние с искушением.
+- `ending_romance` — сохранение человечности.
+- `ending_purity` — сопротивление и борьба с демонами.
