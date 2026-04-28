@@ -22,21 +22,27 @@
 How I Fall/
   docs/story/
     README.md
-    world.md
-    characters.md
-    variables.md
-    flow.md
     workflow.md
+    flow.md
+
+    core/
+      world.md
+      characters.md
+      variables.md
+
+    planning/
+      visual_bible.md
+      locations.md
+      assets_plan.md
+      audio_plan.md
+      art_generation_brief.md
+      prompt_strategy.md
+
     scenes/
-      prologue_party.md
-      scene_succubus_first_contact.md
-      route_lust_intro.md
-      route_romance_intro.md
-      route_purity_intro.md
-      first_morning_after.md
-      first_whispers.md
-      school_tension.md
-      summer_free_days.md
+      day_00_prologue/
+      day_01_afterparty/
+      day_02_tbd/
+      day_03_tbd/
   game/
 ```
 
@@ -45,11 +51,11 @@ How I Fall/
 Начинать лучше с:
 
 1. `docs/story/README.md`
-2. `docs/story/world.md`
-3. `docs/story/characters.md`
-4. `docs/story/variables.md`
-5. `docs/story/flow.md`
-6. `docs/story/workflow.md`
+2. `docs/story/workflow.md`
+3. `docs/story/flow.md`
+4. `docs/story/core/world.md`
+5. `docs/story/core/characters.md`
+6. `docs/story/core/variables.md`
 
 `workflow.md` описывает рекомендуемый порядок чтения и работы со сценами.
 
@@ -57,21 +63,24 @@ How I Fall/
 
 Текущая последовательность:
 
-1. `docs/story/scenes/prologue_party.md`
-2. `docs/story/scenes/scene_succubus_first_contact.md`
+1. `docs/story/scenes/day_00_prologue/prologue_party.md`
+2. `docs/story/scenes/day_00_prologue/scene_succubus_first_contact.md`
 
 После первого контакта идут альтернативные ранние route-сцены:
 
-- `docs/story/scenes/route_lust_intro.md`
-- `docs/story/scenes/route_romance_intro.md`
-- `docs/story/scenes/route_purity_intro.md`
+- `docs/story/scenes/day_00_prologue/route_lust_intro.md`
+- `docs/story/scenes/day_00_prologue/route_romance_intro.md`
+- `docs/story/scenes/day_00_prologue/route_purity_intro.md`
 
-Затем история снова собирается в общий поток:
+Общий поток после первой ночи:
 
-- `docs/story/scenes/first_morning_after.md`
-- `docs/story/scenes/first_whispers.md`
-- `docs/story/scenes/school_tension.md`
-- `docs/story/scenes/summer_free_days.md`
+- `docs/story/scenes/day_01_afterparty/first_morning_after.md`
+- `docs/story/scenes/day_01_afterparty/first_whispers.md`
+- `docs/story/scenes/day_01_afterparty/school_tension.md`
+- `docs/story/scenes/day_01_afterparty/summer_free_days.md`
+- `docs/story/scenes/day_01_afterparty/investigation_intro.md`
+- `docs/story/scenes/day_01_afterparty/artem_private_talk.md`
+- `docs/story/scenes/day_01_afterparty/lera_followup.md`
 
 ## Основные маршруты
 
