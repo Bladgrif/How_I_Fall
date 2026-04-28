@@ -13,12 +13,12 @@
 
 Рекомендуемый стартовый demo-блок:
 
-- `prologue_party.md`
-- `scene_succubus_first_contact.md`
-- `route_lust_intro.md`
-- `route_romance_intro.md`
-- `route_purity_intro.md`
-- `first_morning_after.md`
+- `scenes/day_00_prologue/prologue_party.md`
+- `scenes/day_00_prologue/scene_succubus_first_contact.md`
+- `scenes/day_00_prologue/route_lust_intro.md`
+- `scenes/day_00_prologue/route_romance_intro.md`
+- `scenes/day_00_prologue/route_purity_intro.md`
+- `scenes/day_01_afterparty/first_morning_after.md`
 
 Этот блок должен сразу задать:
 
@@ -39,10 +39,10 @@
 - Фон кухни с напитками, упаковками из конбини, тесным светом.
 - Фон коридора.
 - Персонажные спрайты:
-  - ГГ;
-  - Маша;
-  - Артём;
-  - Лера.
+    - ГГ;
+    - Маша;
+    - Артём;
+    - Лера.
 - Музыка: party / uneasy party.
 - Возможный CG: момент ритуального предложения.
 - Важно: сразу считать японский летний городской быт.
@@ -55,8 +55,8 @@
 - Особая тревожная вариация света.
 - Звук / музыкальное состояние ритуала.
 - Возможный CG:
-  - отражение не совпадает;
-  - первое ощущение присутствия.
+    - отражение не совпадает;
+    - первое ощущение присутствия.
 - Ранний эффект присутствия суккубы через стекло, отражение, свет и пустоту в кадре.
 
 ### route_lust_intro.md

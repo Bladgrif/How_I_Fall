@@ -57,12 +57,12 @@
 
 Первый визуальный пакет должен покрывать:
 
-- `prologue_party.md`
-- `scene_succubus_first_contact.md`
-- `route_lust_intro.md`
-- `route_romance_intro.md`
-- `route_purity_intro.md`
-- `first_morning_after.md`
+- `scenes/day_00_prologue/prologue_party.md`
+- `scenes/day_00_prologue/scene_succubus_first_contact.md`
+- `scenes/day_00_prologue/route_lust_intro.md`
+- `scenes/day_00_prologue/route_romance_intro.md`
+- `scenes/day_00_prologue/route_purity_intro.md`
+- `scenes/day_01_afterparty/first_morning_after.md`
 
 Этот блок уже показывает тон, мистику, route-разницу и бытовое продолжение.
 

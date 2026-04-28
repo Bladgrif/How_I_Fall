@@ -14,40 +14,48 @@
 ## Базовый порядок чтения файлов
 
 1. `README.md`
-    - Вход в проект: общая концепция, стартовая точка и базовые маршруты.
+    - Вход в story-документацию.
 
-2. `world.md`
+2. `workflow.md`
+    - Правила работы с файлами, сценами и вкладками.
+
+3. `flow.md`
+    - Карта сюжета и порядок сцен.
+
+4. `core/world.md`
     - Правила мира, тон истории и скрытый мистический слой.
 
-3. `characters.md`
-    - Характеры, роли и функции персонажей в сюжете.
+5. `core/characters.md`
+    - Характеры, роли и функции персонажей.
 
-4. `variables.md`
+6. `core/variables.md`
     - Внутренняя логика выборов, состояний героя, route-влияния и последствий.
-
-5. `flow.md`
-    - Карта сюжета, порядок сцен и место развилок.
 
 ## Порядок чтения сцен
 
-1. `scenes/prologue_party.md`
-2. `scenes/scene_succubus_first_contact.md`
+### День 0 — пролог
+
+- `scenes/day_00_prologue/prologue_party.md`
+- `scenes/day_00_prologue/scene_succubus_first_contact.md`
 
 ### Альтернативные ранние route-сцены
 
-- `scenes/route_lust_intro.md`
-- `scenes/route_romance_intro.md`
-- `scenes/route_purity_intro.md`
+- `scenes/day_00_prologue/route_lust_intro.md`
+- `scenes/day_00_prologue/route_romance_intro.md`
+- `scenes/day_00_prologue/route_purity_intro.md`
 
-Эти три файла не читаются как линейная цепочка одной истории. Они используются как альтернативные ранние отклонения
-маршрута после первого контакта.
+Эти три файла не читаются как линейная цепочка одной истории. Это альтернативные ранние отклонения внутри конца
+пролога / ночи ритуала.
 
-### Общий поток после ранней развилки
+### День 1 — aftermath / afterparty
 
-- `scenes/first_morning_after.md`
-- `scenes/first_whispers.md`
-- `scenes/school_tension.md`
-- `scenes/summer_free_days.md`
+- `scenes/day_01_afterparty/first_morning_after.md`
+- `scenes/day_01_afterparty/first_whispers.md`
+- `scenes/day_01_afterparty/school_tension.md`
+- `scenes/day_01_afterparty/summer_free_days.md`
+- `scenes/day_01_afterparty/investigation_intro.md`
+- `scenes/day_01_afterparty/artem_private_talk.md`
+- `scenes/day_01_afterparty/lera_followup.md`
 
 ## Как работать над новой сценой
 
@@ -55,15 +63,15 @@
 
 1. `flow.md`
 2. нужная текущая сцена
-3. `characters.md`
-4. `variables.md`
+3. `core/characters.md`
+4. `core/variables.md`
 
 Зачем:
 
 - `flow.md` нужен, чтобы понимать место сцены в истории;
 - текущая сцена — основной рабочий файл;
-- `characters.md` нужен, чтобы не ломать характеры;
-- `variables.md` нужен, чтобы не забывать про последствия, route-влияние и внутренние сдвиги.
+- `core/characters.md` нужен, чтобы не ломать характеры;
+- `core/variables.md` нужен, чтобы не забывать про последствия, route-влияние и внутренние сдвиги.
 
 ## Как проверять уже написанную сцену
 
@@ -84,16 +92,16 @@
 
 Файлы:
 
-- `route_lust_intro.md`
-- `route_romance_intro.md`
-- `route_purity_intro.md`
+- `scenes/day_00_prologue/route_lust_intro.md`
+- `scenes/day_00_prologue/route_romance_intro.md`
+- `scenes/day_00_prologue/route_purity_intro.md`
 
 нужно использовать как сравнительный блок.
 
 При проектировании новых route-событий полезно держать открытыми сразу:
 
 - `flow.md`
-- `variables.md`
+- `core/variables.md`
 - все три route-сцены
 
 Чтобы:
@@ -106,22 +114,34 @@
 
 ```text
 README.md
-world.md
-characters.md
-variables.md
+workflow.md
 flow.md
 
-scenes/prologue_party.md
-scenes/scene_succubus_first_contact.md
+core/world.md
+core/characters.md
+core/variables.md
 
-scenes/route_lust_intro.md
-scenes/route_romance_intro.md
-scenes/route_purity_intro.md
+planning/visual_bible.md
+planning/locations.md
+planning/assets_plan.md
+planning/audio_plan.md
+planning/art_generation_brief.md
+planning/prompt_strategy.md
 
-scenes/first_morning_after.md
-scenes/first_whispers.md
-scenes/school_tension.md
-scenes/summer_free_days.md
+scenes/day_00_prologue/prologue_party.md
+scenes/day_00_prologue/scene_succubus_first_contact.md
+
+scenes/day_00_prologue/route_lust_intro.md
+scenes/day_00_prologue/route_romance_intro.md
+scenes/day_00_prologue/route_purity_intro.md
+
+scenes/day_01_afterparty/first_morning_after.md
+scenes/day_01_afterparty/first_whispers.md
+scenes/day_01_afterparty/school_tension.md
+scenes/day_01_afterparty/summer_free_days.md
+scenes/day_01_afterparty/investigation_intro.md
+scenes/day_01_afterparty/artem_private_talk.md
+scenes/day_01_afterparty/lera_followup.md
 ```
 
 ## Рекомендуемый набор вкладок в IDE
@@ -129,22 +149,22 @@ scenes/summer_free_days.md
 Удобно держать закреплёнными:
 
 - `flow.md`
-- `characters.md`
-- `variables.md`
+- `core/characters.md`
+- `core/variables.md`
 - текущую сцену
 
 При необходимости дополнительно открывать:
 
-- предыдущую сцену
-- следующую сцену
-- `world.md`, если нужно свериться с тоном и правилами мира
+- предыдущую сцену;
+- следующую сцену;
+- `core/world.md`, если нужно свериться с тоном и правилами мира.
 
 ## Чего не делать
 
 Не стоит:
 
-- писать сцену без `flow.md`
-- делать выборы без сверки с `variables.md`
-- менять характер персонажей без сверки с `characters.md`
-- читать route-сцены как одну линейную цепочку
-- переходить в папку `game/`, пока не устаканена `docs/story`
+- писать сцену без `flow.md`;
+- делать выборы без сверки с `core/variables.md`;
+- менять характер персонажей без сверки с `core/characters.md`;
+- читать route-сцены как одну линейную цепочку;
+- переходить в папку `game/`, пока не устаканена `docs/story`.
