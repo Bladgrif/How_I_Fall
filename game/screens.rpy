@@ -350,13 +350,26 @@ style navigation_button_text:
 ##
 ## https://www.renpy.org/doc/html/screen_special.html#main-menu
 
+transform main_menu_bg_drift:
+    subpixel True
+    xalign 0.5
+    yalign 0.5
+    zoom 1.03
+    linear 18.0 xalign 0.48 yalign 0.49
+    linear 18.0 xalign 0.52 yalign 0.51
+    repeat
+
 screen main_menu():
 
     ## Этот тег гарантирует, что любой другой экран с тем же тегом будет
     ## заменять этот.
     tag menu
 
-    add gui.main_menu_background
+    add Transform(
+        gui.main_menu_background,
+        xysize=(config.screen_width, config.screen_height),
+        fit="cover"
+    ) at main_menu_bg_drift
 
     ## Эта пустая рамка затеняет главное меню.
     frame:
@@ -421,7 +434,11 @@ screen game_menu(title, scroll=None, yinitial=0.0, spacing=0):
     style_prefix "game_menu"
 
     if main_menu:
-        add gui.main_menu_background
+        add Transform(
+            gui.main_menu_background,
+            xysize=(config.screen_width, config.screen_height),
+            fit="cover"
+        ) at main_menu_bg_drift
     else:
         add gui.game_menu_background
 
