@@ -358,9 +358,9 @@ transform main_menu_bg_drift:
     subpixel True
     xalign 0.5
     yalign 0.5
-    zoom 1.03
-    linear 18.0 xalign 0.48 yalign 0.49
-    linear 18.0 xalign 0.52 yalign 0.51
+    zoom 1.06
+    linear 18.0 xalign 0.49 yalign 0.495
+    linear 18.0 xalign 0.51 yalign 0.505
     repeat
 
 screen main_menu():
