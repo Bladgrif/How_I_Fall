@@ -130,6 +130,9 @@ default preferences.text_cps = 0
 default preferences.afm_time = 15
 
 
+default preferences.fullscreen = True
+
+
 ## Директория сохранений #######################################################
 ##
 ## Контролирует зависимое от платформы место, куда Ren'Py будет складывать файлы

@@ -295,7 +295,7 @@ screen navigation():
         xpos gui.navigation_xpos
         yalign 0.5
 
-        spacing gui.navigation_spacing
+        spacing 14 if main_menu else gui.navigation_spacing
 
         if main_menu:
 
@@ -342,8 +342,9 @@ style navigation_button:
 
 style navigation_button_text:
     properties gui.text_properties("navigation_button")
+    font gui.interface_text_font
     idle_color "#e8e0e6"
-    hover_color "#ffffff"
+    hover_color "#ffd6ec"
     selected_color "#ffffff"
     insensitive_color "#777077"
 
@@ -386,10 +387,10 @@ style main_menu_title is main_menu_text
 style main_menu_version is main_menu_text
 
 style main_menu_frame:
-    xsize 360
+    xsize 330
     yfill True
 
-    background Solid("#111111B8")
+    background Solid("#11111180")
 
 style main_menu_vbox:
     xalign 1.0
@@ -1558,7 +1559,7 @@ style nvl_window:
 
 style main_menu_frame:
     variant "small"
-    background Solid("#111111B8")
+    background Solid("#11111180")
 
 style game_menu_outer_frame:
     variant "small"
