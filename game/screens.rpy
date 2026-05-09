@@ -342,6 +342,10 @@ style navigation_button:
 
 style navigation_button_text:
     properties gui.text_properties("navigation_button")
+    idle_color "#e8e0e6"
+    hover_color "#ffffff"
+    selected_color "#ffffff"
+    insensitive_color "#777077"
 
 
 ## Экран главного меню #########################################################
@@ -379,18 +383,6 @@ screen main_menu():
     ## содержание главного меню находится на экране навигации.
     use navigation
 
-    if gui.show_name:
-
-        vbox:
-            style "main_menu_vbox"
-
-            text "[config.name!t]":
-                style "main_menu_title"
-
-            text "[config.version]":
-                style "main_menu_version"
-
-
 style main_menu_frame is empty
 style main_menu_vbox is vbox
 style main_menu_text is gui_text
@@ -398,10 +390,10 @@ style main_menu_title is main_menu_text
 style main_menu_version is main_menu_text
 
 style main_menu_frame:
-    xsize 420
+    xsize 360
     yfill True
 
-    background "gui/overlay/main_menu.png"
+    background Solid("#111111B8")
 
 style main_menu_vbox:
     xalign 1.0
@@ -1570,7 +1562,7 @@ style nvl_window:
 
 style main_menu_frame:
     variant "small"
-    background "gui/phone/overlay/main_menu.png"
+    background Solid("#111111B8")
 
 style game_menu_outer_frame:
     variant "small"
