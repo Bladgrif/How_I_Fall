@@ -358,7 +358,7 @@ transform main_menu_bg_drift:
     subpixel True
     xalign 0.5
     yalign 0.5
-    zoom 1.06
+    zoom 1.08
     linear 18.0 xalign 0.49 yalign 0.495
     linear 18.0 xalign 0.51 yalign 0.505
     repeat
@@ -371,7 +371,7 @@ screen main_menu():
 
     add Transform(
         gui.main_menu_background,
-        xysize=(config.screen_width, config.screen_height),
+        xysize=(2048, 1152),
         fit="cover"
     ) at main_menu_bg_drift
 
@@ -428,7 +428,7 @@ screen game_menu(title, scroll=None, yinitial=0.0, spacing=0):
     if main_menu:
         add Transform(
             gui.main_menu_background,
-            xysize=(config.screen_width, config.screen_height),
+            xysize=(2048, 1152),
             fit="cover"
         ) at main_menu_bg_drift
     else:
