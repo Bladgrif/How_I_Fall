@@ -395,6 +395,9 @@ style navigation_button_text is gui_button_text
 style navigation_button:
     size_group "navigation"
     properties gui.button_properties("navigation_button")
+    background None
+    hover_background Solid("#ffd6ec1a")
+    selected_background Solid("#ffd6ec1a")
 
 style navigation_button_text:
     properties gui.text_properties("navigation_button")
@@ -589,16 +592,19 @@ style game_menu_outer_frame:
     bottom_padding 45
     top_padding 180
 
-    background "gui/overlay/game_menu.png"
+    background Solid("#100d15cc")
 
 style game_menu_navigation_frame:
     xsize 420
     yfill True
+    background Solid("#15111999")
 
 style game_menu_content_frame:
     left_margin 60
     right_margin 30
     top_margin 15
+    padding (36, 28, 42, 32)
+    background Frame(Solid("#100d15b8"), 18, 18)
 
 style game_menu_viewport:
     xsize 1380
@@ -615,13 +621,15 @@ style game_menu_label:
 
 style game_menu_label_text:
     size 75
-    color gui.accent_color
+    color "#ffd6ec"
     yalign 0.5
 
 style return_button:
     xpos gui.navigation_xpos
     yalign 1.0
     yoffset -45
+    background None
+    hover_background Solid("#ffd6ec1a")
 
 
 ## Экран Об игре ###############################################################
@@ -659,6 +667,13 @@ style about_text is gui_text
 
 style about_label_text:
     size gui.label_text_size
+    color "#ffd6ec"
+
+style about_text:
+    color "#f4edf3"
+    size 30
+    line_spacing 4
+    outlines [(1, "#08060acc", 0, 1)]
 
 
 ## Экраны загрузки и сохранения ################################################
