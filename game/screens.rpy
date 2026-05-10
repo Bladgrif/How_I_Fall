@@ -289,48 +289,73 @@ style quick_button_text:
 
 screen navigation():
 
-    vbox:
-        style_prefix "navigation"
+    if main_menu:
 
-        xpos gui.navigation_xpos
-        yalign 0.5
+        frame:
+            style "main_menu_card"
 
-        spacing (14 if main_menu else gui.navigation_spacing)
+            vbox:
+                style_prefix "main_menu_navigation"
 
-        if main_menu:
+                textbutton _("Начать") action Start()
+                add Solid("#e8e0e633") xsize 220 ysize 1 xalign 0.5
 
-            textbutton _("Начать") action Start()
+                textbutton _("Загрузить") action ShowMenu("load")
+                add Solid("#e8e0e633") xsize 220 ysize 1 xalign 0.5
 
-        else:
+                textbutton _("Настройки") action ShowMenu("preferences")
+                add Solid("#e8e0e633") xsize 220 ysize 1 xalign 0.5
+
+                textbutton _("Об игре") action ShowMenu("about")
+
+                if renpy.variant("pc") or (renpy.variant("web") and not renpy.variant("mobile")):
+
+                    add Solid("#e8e0e633") xsize 220 ysize 1 xalign 0.5
+                    textbutton _("Помощь") action ShowMenu("help")
+
+                if renpy.variant("pc"):
+
+                    add Solid("#e8e0e633") xsize 220 ysize 1 xalign 0.5
+                    textbutton _("Выход") action Quit(confirm=not main_menu)
+
+    else:
+
+        vbox:
+            style_prefix "navigation"
+
+            xpos gui.navigation_xpos
+            yalign 0.5
+
+            spacing gui.navigation_spacing
 
             textbutton _("История") action ShowMenu("history")
 
             textbutton _("Сохранить") action ShowMenu("save")
 
-        textbutton _("Загрузить") action ShowMenu("load")
+            textbutton _("Загрузить") action ShowMenu("load")
 
-        textbutton _("Настройки") action ShowMenu("preferences")
+            textbutton _("Настройки") action ShowMenu("preferences")
 
-        if _in_replay:
+            if _in_replay:
 
-            textbutton _("Завершить повтор") action EndReplay(confirm=True)
+                textbutton _("Завершить повтор") action EndReplay(confirm=True)
 
-        elif not main_menu:
+            else:
 
-            textbutton _("Главное меню") action MainMenu()
+                textbutton _("Главное меню") action MainMenu()
 
-        textbutton _("Об игре") action ShowMenu("about")
+            textbutton _("Об игре") action ShowMenu("about")
 
-        if renpy.variant("pc") or (renpy.variant("web") and not renpy.variant("mobile")):
+            if renpy.variant("pc") or (renpy.variant("web") and not renpy.variant("mobile")):
 
-            ## Помощь не необходима и не относится к мобильным устройствам.
-            textbutton _("Помощь") action ShowMenu("help")
+                ## Помощь не необходима и не относится к мобильным устройствам.
+                textbutton _("Помощь") action ShowMenu("help")
 
-        if renpy.variant("pc"):
+            if renpy.variant("pc"):
 
-            ## Кнопка выхода блокирована в iOS и не нужна на Android и в веб-
-            ## версии.
-            textbutton _("Выход") action Quit(confirm=not main_menu)
+                ## Кнопка выхода блокирована в iOS и не нужна на Android и в веб-
+                ## версии.
+                textbutton _("Выход") action Quit(confirm=not main_menu)
 
 
 style navigation_button is gui_button
@@ -343,6 +368,33 @@ style navigation_button:
 style navigation_button_text:
     properties gui.text_properties("navigation_button")
     font gui.interface_text_font
+    idle_color "#e8e0e6"
+    hover_color "#ffd6ec"
+    selected_color "#ffffff"
+    insensitive_color "#777077"
+
+style main_menu_card is empty:
+    xpos 82
+    yalign 0.5
+    xsize 340
+    padding (34, 30, 34, 30)
+    background Frame(Solid("#151119cc"), 16, 16)
+
+style main_menu_navigation_vbox is vbox:
+    xfill True
+    spacing 12
+
+style main_menu_navigation_button is gui_button:
+    xfill True
+    ysize 44
+    background None
+    hover_background Solid("#ffd6ec1a")
+
+style main_menu_navigation_button_text is gui_button_text:
+    xalign 0.5
+    yalign 0.5
+    font gui.interface_text_font
+    size 32
     idle_color "#e8e0e6"
     hover_color "#ffd6ec"
     selected_color "#ffffff"
@@ -371,10 +423,6 @@ screen main_menu():
         xysize=(config.screen_width, config.screen_height),
         fit="contain"
     )
-
-    ## Эта пустая рамка затеняет главное меню.
-    frame:
-        style "main_menu_frame"
 
     ## Оператор use включает отображение другого экрана в данном. Актуальное
     ## содержание главного меню находится на экране навигации.
