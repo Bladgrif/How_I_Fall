@@ -7,7 +7,7 @@ label intro_school_meet:
 
     p "Я останавливаюсь на секунду, будто жду, что здание первым заметит меня."
 
-    show masha neutral at sprite_left with dissolve
+    show masha neutral at sprite_solo with dissolve
 
     m "Ты всё-таки пришёл."
 

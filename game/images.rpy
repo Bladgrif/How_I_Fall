@@ -27,3 +27,9 @@ transform sprite_center:
     yalign 1.0
     yoffset 650
     zoom 1.05
+
+transform sprite_solo:
+    xalign 0.43
+    yalign 1.0
+    yoffset 650
+    zoom 1.05
