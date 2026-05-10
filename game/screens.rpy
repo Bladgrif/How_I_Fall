@@ -177,7 +177,7 @@ style say_dialogue:
 style say_narration is say_dialogue:
     xpos 78
     xsize 1360
-    ypos 42
+    ypos 24
     size 31
     color "#f4edf3"
     line_spacing 4
