@@ -7,6 +7,8 @@ label intro_school_meet:
 
     p "Я останавливаюсь на секунду, будто жду, что здание первым заметит меня."
 
+    show masha neutral at left with dissolve
+
     m "Ты всё-таки пришёл."
 
     p "Маша улыбается осторожно, как будто проверяет, не исчезну ли я прямо перед ней."
@@ -17,7 +19,11 @@ label intro_school_meet:
 
     m "Эй. Ты в порядке?"
 
+    hide masha
     scene bg school_entrance_morning with dissolve
+
+    show masha neutral at left
+    show artem smile at right with dissolve
 
     a "Если он в порядке, значит, вечеринка была скучной. А она точно не была скучной."
 
@@ -31,7 +37,12 @@ label intro_school_meet:
 
     p "Я всё-таки улыбаюсь. На секунду школа кажется обычной."
 
+    hide masha
+    hide artem
     scene bg classroom_day with dissolve
+
+    show masha neutral at left
+    show artem smile at right
 
     p "В классе шумно, но этот шум привычный: стулья, тетради, чужие голоса, звонкий смех у окна."
 
@@ -45,9 +56,13 @@ label intro_school_meet:
 
     p "Я слушаю их и пытаюсь не думать о том, почему вчерашний ритуал кажется ближе, чем это утро."
 
+    hide masha
+    hide artem
     scene bg school_corridor_break with dissolve
 
     p "На перемене коридор наполняется движением, но у дальней стены стоит девушка, которую я не помню среди одноклассников."
+
+    show lera neutral at center with dissolve
 
     l "Ты тоже это слышишь?"
 
@@ -79,6 +94,8 @@ label intro_school_meet:
             jump intro_scene_end
 
 label intro_scene_end:
+
+    hide lera
 
     m "Звонок скоро. Пойдём, пока нас не потеряли окончательно."
 
