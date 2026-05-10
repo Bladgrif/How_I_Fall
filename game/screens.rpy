@@ -131,40 +131,40 @@ style namebox_label is say_label
 
 style window:
     xalign 0.5
-    xsize 1680
+    xsize 1580
     yalign gui.textbox_yalign
-    ysize 250
+    ysize 220
 
     background Frame(Solid("#100d15d9"), 24, 24)
-    padding (72, 48, 72, 42)
+    padding (64, 34, 64, 32)
 
 style namebox:
-    xpos 64
-    ypos -28
-    xminimum 260
-    yminimum 56
+    xpos 56
+    ypos -24
+    xminimum 220
+    yminimum 48
 
     background Frame(Solid("#3f243acc"), 16, 16)
-    padding (24, 8, 24, 8)
+    padding (22, 6, 22, 6)
 
 style say_label:
     properties gui.text_properties("name", accent=True)
     xalign 0.5
     yalign 0.5
     font gui.name_text_font
-    size 34
+    size 32
     color "#ffd6ec"
     outlines [(1, "#120915cc", 0, 1)]
 
 style say_dialogue:
     properties gui.text_properties("dialogue")
 
-    xpos 86
-    xsize 1508
-    ypos 78
+    xpos 78
+    xsize 1424
+    ypos 66
 
     font gui.text_font
-    size 34
+    size 32
     color "#f4edf3"
     line_spacing 4
     outlines [(1, "#08060acc", 0, 1)]
@@ -229,17 +229,17 @@ style choice_vbox:
     xalign 0.5
     ypos 430
     yanchor 0.5
-    xsize 860
+    xsize 820
     spacing 20
 
 style choice_button is default:
     xfill True
     yminimum 72
     padding (34, 16, 34, 16)
-    background Frame(Composite((860, 72), (0, 0), Solid("#f4edf326"), (1, 1), Solid("#100d15d9")), 18, 18)
-    hover_background Frame(Composite((860, 72), (0, 0), Solid("#ffd6ec66"), (1, 1), Solid("#3f243acc")), 18, 18)
-    selected_background Frame(Composite((860, 72), (0, 0), Solid("#ffd6ec66"), (1, 1), Solid("#3f243acc")), 18, 18)
-    insensitive_background Frame(Composite((860, 72), (0, 0), Solid("#f4edf314"), (1, 1), Solid("#100d1588")), 18, 18)
+    background Frame(Composite((820, 72), (0, 0), Solid("#f4edf326"), (1, 1), Solid("#100d15d9")), 18, 18)
+    hover_background Frame(Composite((820, 72), (0, 0), Solid("#ffd6ec66"), (1, 1), Solid("#3f243acc")), 18, 18)
+    selected_background Frame(Composite((820, 72), (0, 0), Solid("#ffd6ec66"), (1, 1), Solid("#3f243acc")), 18, 18)
+    insensitive_background Frame(Composite((820, 72), (0, 0), Solid("#f4edf314"), (1, 1), Solid("#100d1588")), 18, 18)
 
 style choice_button_text is default:
     font gui.interface_text_font
@@ -293,16 +293,20 @@ style quick_button_text is button_text
 style quick_menu:
     xalign 0.5
     yalign 1.0
+    yoffset -6
 
 style quick_button:
     properties gui.button_properties("quick_button")
+    yminimum 22
+    padding (8, 2, 8, 2)
 
 style quick_button_text:
     properties gui.text_properties("quick_button")
-    idle_color "#b9acb8"
-    hover_color "#ffd6ec"
-    selected_color "#e8d2df"
-    insensitive_color "#6f6570"
+    size 18
+    idle_color "#9c909c"
+    hover_color "#d9b8cc"
+    selected_color "#c9a9bd"
+    insensitive_color "#5d555e"
 
 
 ################################################################################
