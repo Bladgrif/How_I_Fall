@@ -227,16 +227,30 @@ style choice_button_text is button_text
 
 style choice_vbox:
     xalign 0.5
-    ypos 405
+    ypos 430
     yanchor 0.5
-
-    spacing gui.choice_spacing
+    xsize 860
+    spacing 20
 
 style choice_button is default:
-    properties gui.button_properties("choice_button")
+    xfill True
+    yminimum 72
+    padding (34, 16, 34, 16)
+    background Frame(Solid("#100d15d9"), 18, 18)
+    hover_background Frame(Solid("#3f243acc"), 18, 18)
+    selected_background Frame(Solid("#3f243acc"), 18, 18)
+    insensitive_background Frame(Solid("#100d1588"), 18, 18)
 
 style choice_button_text is default:
-    properties gui.text_properties("choice_button")
+    font gui.interface_text_font
+    size 32
+    xalign 0.5
+    textalign 0.5
+    color "#f4edf3"
+    hover_color "#ffd6ec"
+    selected_color "#ffd6ec"
+    insensitive_color "#7a707a"
+    outlines [(1, "#08060acc", 0, 1)]
 
 
 ## Экран быстрого меню #########################################################
