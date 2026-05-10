@@ -13,14 +13,14 @@ image lera neutral = "images/ch/lera_neutral.png"
 transform sprite_left:
     xalign 0.22
     yalign 1.0
-    zoom 0.72
+    zoom 0.45
 
 transform sprite_right:
     xalign 0.78
     yalign 1.0
-    zoom 0.72
+    zoom 0.45
 
 transform sprite_center:
     xalign 0.5
     yalign 1.0
-    zoom 0.72
+    zoom 0.45
