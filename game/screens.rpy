@@ -131,12 +131,12 @@ style namebox_label is say_label
 
 style window:
     xalign 0.5
-    xsize 1580
+    xsize 1500
     yalign gui.textbox_yalign
-    ysize 220
+    ysize 190
 
-    background Frame(Solid("#100d15d9"), 24, 24)
-    padding (64, 34, 64, 32)
+    background Frame(Solid("#100d15d0"), 24, 24)
+    padding (56, 28, 56, 28)
 
 style namebox:
     xpos 56
@@ -160,11 +160,11 @@ style say_dialogue:
     properties gui.text_properties("dialogue")
 
     xpos 78
-    xsize 1424
-    ypos 66
+    xsize 1360
+    ypos 57
 
     font gui.text_font
-    size 32
+    size 31
     color "#f4edf3"
     line_spacing 4
     outlines [(1, "#08060acc", 0, 1)]
@@ -284,7 +284,7 @@ screen quick_menu():
 init python:
     config.overlay_screens.append("quick_menu")
 
-default quick_menu = True
+default quick_menu = False
 
 style quick_menu is hbox
 style quick_button is default
@@ -293,20 +293,20 @@ style quick_button_text is button_text
 style quick_menu:
     xalign 0.5
     yalign 1.0
-    yoffset -6
+    yoffset -4
 
 style quick_button:
     properties gui.button_properties("quick_button")
-    yminimum 22
+    yminimum 20
     padding (8, 2, 8, 2)
 
 style quick_button_text:
     properties gui.text_properties("quick_button")
-    size 18
-    idle_color "#9c909c"
-    hover_color "#d9b8cc"
-    selected_color "#c9a9bd"
-    insensitive_color "#5d555e"
+    size 16
+    idle_color "#817781"
+    hover_color "#c8a8bb"
+    selected_color "#b79aad"
+    insensitive_color "#4f4850"
 
 
 ################################################################################
