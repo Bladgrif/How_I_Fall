@@ -7,7 +7,7 @@ label intro_school_meet:
 
     p "Я останавливаюсь на секунду, будто жду, что здание первым заметит меня."
 
-    show masha neutral at left with dissolve
+    show masha neutral at sprite_left with dissolve
 
     m "Ты всё-таки пришёл."
 
@@ -22,8 +22,8 @@ label intro_school_meet:
     hide masha
     scene bg school_entrance_morning with dissolve
 
-    show masha neutral at left
-    show artem smile at right with dissolve
+    show masha neutral at sprite_left
+    show artem smile at sprite_right with dissolve
 
     a "Если он в порядке, значит, вечеринка была скучной. А она точно не была скучной."
 
@@ -41,8 +41,8 @@ label intro_school_meet:
     hide artem
     scene bg classroom_day with dissolve
 
-    show masha neutral at left
-    show artem smile at right
+    show masha neutral at sprite_left
+    show artem smile at sprite_right
 
     p "В классе шумно, но этот шум привычный: стулья, тетради, чужие голоса, звонкий смех у окна."
 
@@ -62,7 +62,7 @@ label intro_school_meet:
 
     p "На перемене коридор наполняется движением, но у дальней стены стоит девушка, которую я не помню среди одноклассников."
 
-    show lera neutral at center with dissolve
+    show lera neutral at sprite_center with dissolve
 
     l "Ты тоже это слышишь?"
 
