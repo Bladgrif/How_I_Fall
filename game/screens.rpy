@@ -131,34 +131,43 @@ style namebox_label is say_label
 
 style window:
     xalign 0.5
-    xfill True
+    xsize 1680
     yalign gui.textbox_yalign
-    ysize gui.textbox_height
+    ysize 250
 
-    background Image("gui/textbox.png", xalign=0.5, yalign=1.0)
+    background Frame(Solid("#100d15d9"), 24, 24)
+    padding (72, 48, 72, 42)
 
 style namebox:
-    xpos gui.name_xpos
-    xanchor gui.name_xalign
-    xsize gui.namebox_width
-    ypos gui.name_ypos
-    ysize gui.namebox_height
+    xpos 64
+    ypos -28
+    xminimum 260
+    yminimum 56
 
-    background Frame("gui/namebox.png", gui.namebox_borders, tile=gui.namebox_tile, xalign=gui.name_xalign)
-    padding gui.namebox_borders.padding
+    background Frame(Solid("#3f243acc"), 16, 16)
+    padding (24, 8, 24, 8)
 
 style say_label:
     properties gui.text_properties("name", accent=True)
-    xalign gui.name_xalign
+    xalign 0.5
     yalign 0.5
+    font gui.name_text_font
+    size 34
+    color "#ffd6ec"
+    outlines [(1, "#120915cc", 0, 1)]
 
 style say_dialogue:
     properties gui.text_properties("dialogue")
 
-    xpos gui.dialogue_xpos
-    xsize gui.dialogue_width
-    ypos gui.dialogue_ypos
+    xpos 86
+    xsize 1508
+    ypos 78
 
+    font gui.text_font
+    size 34
+    color "#f4edf3"
+    line_spacing 4
+    outlines [(1, "#08060acc", 0, 1)]
     adjust_spacing False
 
 ## Экран ввода #################################################################
@@ -276,6 +285,10 @@ style quick_button:
 
 style quick_button_text:
     properties gui.text_properties("quick_button")
+    idle_color "#b9acb8"
+    hover_color "#ffd6ec"
+    selected_color "#e8d2df"
+    insensitive_color "#6f6570"
 
 
 ################################################################################
