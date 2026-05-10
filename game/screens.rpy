@@ -236,10 +236,10 @@ style choice_button is default:
     xfill True
     yminimum 72
     padding (34, 16, 34, 16)
-    background Frame(Solid("#100d15d9"), 18, 18)
-    hover_background Frame(Solid("#3f243acc"), 18, 18)
-    selected_background Frame(Solid("#3f243acc"), 18, 18)
-    insensitive_background Frame(Solid("#100d1588"), 18, 18)
+    background Frame(Composite((860, 72), (0, 0), Solid("#f4edf326"), (1, 1), Solid("#100d15d9")), 18, 18)
+    hover_background Frame(Composite((860, 72), (0, 0), Solid("#ffd6ec66"), (1, 1), Solid("#3f243acc")), 18, 18)
+    selected_background Frame(Composite((860, 72), (0, 0), Solid("#ffd6ec66"), (1, 1), Solid("#3f243acc")), 18, 18)
+    insensitive_background Frame(Composite((860, 72), (0, 0), Solid("#f4edf314"), (1, 1), Solid("#100d1588")), 18, 18)
 
 style choice_button_text is default:
     font gui.interface_text_font
