@@ -110,7 +110,12 @@ screen say(who, what):
 
         else:
 
-            text what id "what" style "say_narration"
+            vbox:
+                xpos 78
+                ypos 28
+                xsize 1360
+
+                text what id "what" style "say_narration"
 
 
     ## Если есть боковое изображение ("голова"), показывает её поверх текста.
@@ -174,10 +179,8 @@ style say_dialogue:
     outlines [(1, "#08060acc", 0, 1)]
     adjust_spacing False
 
-style say_narration is say_dialogue:
-    xpos 78
-    xsize 1360
-    ypos 24
+style say_narration is default:
+    font gui.text_font
     size 31
     color "#f4edf3"
     line_spacing 4
