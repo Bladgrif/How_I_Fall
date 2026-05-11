@@ -106,17 +106,7 @@ screen say(who, what):
                 style "namebox"
                 text who id "who"
 
-            text what id "what" style "say_dialogue"
-
-        else:
-
-            fixed:
-                xpos 78
-                ypos 0
-                xsize 1360
-                ysize 190
-
-                text what id "what" style "say_narration"
+        text what id "what" style "say_dialogue"
 
 
     ## Если есть боковое изображение ("голова"), показывает её поверх текста.
@@ -179,17 +169,6 @@ style say_dialogue:
     line_spacing 4
     outlines [(1, "#08060acc", 0, 1)]
     adjust_spacing False
-
-style say_narration is default:
-    font gui.text_font
-    size 31
-    color "#f4edf3"
-    line_spacing 4
-    outlines [(1, "#08060acc", 0, 1)]
-    adjust_spacing False
-    xalign 0.0
-    yalign 0.5
-    textalign 0.0
 
 ## Экран ввода #################################################################
 ##
