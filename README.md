@@ -1,6 +1,6 @@
 # How I Fall
 
-`How I Fall` — визуальная новелла на Ren'Py.
+`How I Fall` — мистическая визуальная новелла / интерактивная история на Unity.
 
 Жанры: мистика, подростковая драма, эротическое напряжение, романтика, детектив.
 
@@ -9,42 +9,54 @@
 
 ## Текущий статус проекта
 
-Проект находится на этапе pre-production / сюжетной разработки.
+Проект находится на этапе pre-production / Unity prototype.
 
-Основной фокус сейчас — папка `docs/story`.
+Основной игровой прототип находится в `unity-prototype/How I Fall Unity Prototype/`.
 
-Папка `game/` пока не является главным направлением работы. Сначала собирается сюжетная документация: структура сцен,
-ветки, персонажи, переменные и правила развития маршрутов.
+Сюжетная документация находится в `docs/story/`.
+
+Ren'Py-прототип удалён из рабочей структуры после перехода на Unity.
 
 ## Структура проекта
 
 ```text
 How I Fall/
-  docs/story/
-    README.md
-    workflow.md
-    flow.md
-
-    core/
-      world.md
-      characters.md
-      variables.md
-
-    planning/
-      visual_bible.md
-      locations.md
-      assets_plan.md
-      audio_plan.md
-      art_generation_brief.md
-      prompt_strategy.md
-
-    scenes/
-      day_00_prologue/
-      day_01_afterparty/
-      day_02_tbd/
-      day_03_tbd/
-  game/
+  docs/story/                         # сюжетная документация
+  unity-prototype/
+    How I Fall Unity Prototype/       # основной Unity-проект
 ```
+
+## Текущий технический вектор
+
+- Основной движок: Unity.
+- Целевые платформы: PC и Android.
+- Причина выбора Unity:
+    - поддержка PC и Android из одного проекта
+    - живые фоны
+    - 2.5D-композиция
+    - анимированный свет
+    - кастомный UI
+    - мини-игры и интерактивные сцены
+
+## Unity prototype
+
+Путь:
+
+`unity-prototype/How I Fall Unity Prototype/`
+
+Текущая сцена:
+
+`Assets/HowIFall/Scenes/VNPrototype.unity`
+
+Что уже есть:
+
+- VN textbox
+- namebox
+- кнопка Next
+- выборы
+- debug stats
+- базовые переменные маршрутов
+- тестовая Android APK сборка
 
 ## Где читать сюжет
 
@@ -90,4 +102,4 @@ How I Fall/
 
 ## Рабочий принцип
 
-Сначала фиксируется сюжетная основа в `docs/story`, затем материалы можно переносить в Ren'Py-структуру внутри `game/`.
+Сначала фиксируется сюжетная основа в `docs/story`, затем игровые сцены и механики реализуются в Unity-проекте.
