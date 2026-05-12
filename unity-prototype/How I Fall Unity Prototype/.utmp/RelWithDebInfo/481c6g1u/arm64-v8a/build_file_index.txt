@@ -1,2 +1,0 @@
-C:\Users\roman\Documents\Playground\How I Fall\unity-prototype\How I Fall Unity Prototype\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\CMakeLists.txt
-C:\Users\roman\Documents\Playground\How I Fall\unity-prototype\How I Fall Unity Prototype\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\GameActivity\CMakeLists.txt

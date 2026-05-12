@@ -11,7 +11,7 @@
 
 Проект находится на этапе pre-production / Unity prototype.
 
-Основной игровой прототип находится в `unity-prototype/How I Fall Unity Prototype/`.
+Unity-проект находится в корне репозитория.
 
 Сюжетная документация находится в `docs/story/`.
 
@@ -21,9 +21,12 @@ Ren'Py-прототип удалён из рабочей структуры по
 
 ```text
 How I Fall/
-  docs/story/                         # сюжетная документация
-  unity-prototype/
-    How I Fall Unity Prototype/       # основной Unity-проект
+  Assets/              # Unity assets, scenes, scripts, art
+  Packages/            # Unity package manifest
+  ProjectSettings/     # Unity project settings
+  docs/story/           # сюжетная документация
+  README.md
+  .gitignore
 ```
 
 ## Текущий технический вектор
@@ -38,11 +41,9 @@ How I Fall/
     - кастомный UI
     - мини-игры и интерактивные сцены
 
-## Unity prototype
+## Unity project
 
-Путь:
-
-`unity-prototype/How I Fall Unity Prototype/`
+Unity-проект открыт из корня репозитория.
 
 Текущая сцена:
 
