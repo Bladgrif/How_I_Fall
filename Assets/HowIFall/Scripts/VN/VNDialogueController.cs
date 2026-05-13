@@ -27,6 +27,7 @@ public class VNDialogueController : MonoBehaviour
     public Vector2 characterSoloPosition = new Vector2(-140f, -220f);
     public Vector2 characterDefaultSize = new Vector2(850f, 1200f);
 
+    // Kept for compatibility with existing debug objects in scene.
     public VNStats stats;
 
     private int currentLineIndex;
@@ -47,10 +48,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        if (stats == null)
-        {
-            stats = GetComponent<VNStats>();
-        }
+        GameState.EnsureInstance();
 
         choiceButtons = new[] { choiceMashaButton, choiceArtemButton, choiceLeraButton };
 
@@ -68,7 +66,7 @@ public class VNDialogueController : MonoBehaviour
             choiceButtons[i].onClick.AddListener(() => Choose(choiceIndex));
         }
 
-        LoadSceneData(sceneData);
+        LoadDialogueScene(sceneData);
     }
 
     private void ShowNextLine()
@@ -86,13 +84,7 @@ public class VNDialogueController : MonoBehaviour
             {
                 DialogueSceneData nextSceneData = pendingNextScene;
                 pendingNextScene = null;
-                LoadSceneData(nextSceneData);
-                return;
-            }
-
-            if (sceneData != null && sceneData.defaultNextScene != null)
-            {
-                LoadSceneData(sceneData.defaultNextScene);
+                LoadDialogueScene(nextSceneData);
                 return;
             }
 
@@ -107,6 +99,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         currentLineIndex++;
+        GameState.EnsureInstance().currentLineIndex = currentLineIndex;
 
         if (currentLineIndex >= activeLines.Count)
         {
@@ -118,7 +111,7 @@ public class VNDialogueController : MonoBehaviour
 
             if (sceneData != null && sceneData.defaultNextScene != null)
             {
-                LoadSceneData(sceneData.defaultNextScene);
+                LoadDialogueScene(sceneData.defaultNextScene);
                 return;
             }
 
@@ -136,7 +129,7 @@ public class VNDialogueController : MonoBehaviour
         {
             if (sceneData != null && sceneData.defaultNextScene != null)
             {
-                LoadSceneData(sceneData.defaultNextScene);
+                LoadDialogueScene(sceneData.defaultNextScene);
                 return;
             }
 
@@ -175,27 +168,9 @@ public class VNDialogueController : MonoBehaviour
         }
 
         DialogueChoice choice = activeChoices[choiceIndex];
-        pendingNextScene = choice.nextScene;
-        ApplyChoice(choice);
+        GameState.EnsureInstance().ApplyChoice(choice);
+        pendingNextScene = choice.nextScene != null ? choice.nextScene : sceneData.defaultNextScene;
         ShowFinalLine(choice.resultText);
-    }
-
-    private void ApplyChoice(DialogueChoice choice)
-    {
-        if (stats == null)
-        {
-            return;
-        }
-
-        stats.lust += choice.lustDelta;
-        stats.romance += choice.romanceDelta;
-        stats.purity += choice.purityDelta;
-        stats.corruptionLevel += choice.corruptionDelta;
-        stats.selfControl += choice.selfControlDelta;
-        stats.suspicion += choice.suspicionDelta;
-        stats.trustMasha += choice.trustMashaDelta;
-        stats.trustArtem += choice.trustArtemDelta;
-        stats.leraInterest += choice.leraInterestDelta;
     }
 
     private void ShowFinalLine(string text)
@@ -310,9 +285,9 @@ public class VNDialogueController : MonoBehaviour
         return false;
     }
 
-    private void LoadSceneData(DialogueSceneData newSceneData)
+    private void LoadDialogueScene(DialogueSceneData data)
     {
-        if (newSceneData == null)
+        if (data == null)
         {
             Debug.LogError("Dialogue scene data is missing.", this);
             activeLines = null;
@@ -327,9 +302,9 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        if (newSceneData.lines == null || newSceneData.lines.Count == 0)
+        if (data.lines == null || data.lines.Count == 0)
         {
-            Debug.LogError($"Dialogue scene '{newSceneData.name}' has no lines.", newSceneData);
+            Debug.LogError($"Dialogue scene '{data.name}' has no lines.", data);
             activeLines = null;
             activeChoices = new List<DialogueChoice>();
             showingChoice = false;
@@ -342,7 +317,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        sceneData = newSceneData;
+        sceneData = data;
         activeLines = sceneData.lines;
         activeChoices = sceneData.choices ?? new List<DialogueChoice>();
         currentLineIndex = 0;
@@ -352,6 +327,9 @@ public class VNDialogueController : MonoBehaviour
         pendingNextScene = null;
         choicePanel.SetActive(false);
         nextButton.interactable = true;
+        GameState gameState = GameState.EnsureInstance();
+        gameState.currentSceneId = sceneData.sceneId;
+        gameState.currentLineIndex = 0;
         ShowLine(activeLines[currentLineIndex]);
     }
 }
