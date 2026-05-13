@@ -27,9 +27,6 @@ public class VNDialogueController : MonoBehaviour
     public Vector2 characterSoloPosition = new Vector2(-140f, -220f);
     public Vector2 characterDefaultSize = new Vector2(850f, 1200f);
 
-    // Kept for compatibility with existing debug objects in scene.
-    public VNStats stats;
-
     private int currentLineIndex;
     private bool showingChoice;
     private bool showingFinalLine;

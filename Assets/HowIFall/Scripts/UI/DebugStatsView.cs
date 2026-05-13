@@ -4,7 +4,6 @@ using UnityEngine.InputSystem;
 
 public class DebugStatsView : MonoBehaviour
 {
-    public VNStats stats;
     public GameObject root;
     public TextMeshProUGUI statsText;
     private bool warnedMissingGameState;

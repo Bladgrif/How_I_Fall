@@ -2542,7 +2542,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1987517809}
-  - component: {fileID: 1987517808}
   - component: {fileID: 1987517807}
   - component: {fileID: 1987517806}
   m_Layer: 0
@@ -2564,7 +2563,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c392afe2b7a0224aa8b17fdeb25a543, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DebugStatsView
-  stats: {fileID: 1987517808}
   root: {fileID: 244600841}
   statsText: {fileID: 1950700605}
 --- !u!114 &1987517807
@@ -2595,28 +2593,6 @@ MonoBehaviour:
   characterRightPosition: {x: 420, y: -220}
   characterSoloPosition: {x: -140, y: -220}
   characterDefaultSize: {x: 850, y: 1200}
-  stats: {fileID: 1987517808}
---- !u!114 &1987517808
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1987517805}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2ed014b657a8fea48a1d3967925a021e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VNStats
-  lust: 0
-  romance: 0
-  purity: 0
-  corruptionLevel: 0
-  selfControl: 5
-  suspicion: 0
-  trustMasha: 0
-  trustArtem: 0
-  leraInterest: 0
 --- !u!4 &1987517809
 Transform:
   m_ObjectHideFlags: 0
