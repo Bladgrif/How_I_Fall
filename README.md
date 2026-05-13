@@ -51,13 +51,11 @@ Unity-проект открыт из корня репозитория.
 
 Что уже есть:
 
-- VN textbox
-- namebox
-- кнопка Next
-- выборы
-- debug stats
-- базовые переменные маршрутов
-- тестовая Android APK сборка
+- главное меню (`MainMenu`)
+- переход `MainMenu -> VNPrototype`
+- ScriptableObject-данные диалогов (`DialogueSceneData`)
+- управление фоном и персонажем через `DialogueLine`
+- управление выборами и stat-deltas через `DialogueChoice`
 
 ## Где читать сюжет
 

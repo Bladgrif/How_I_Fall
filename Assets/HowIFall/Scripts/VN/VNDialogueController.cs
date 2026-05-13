@@ -40,6 +40,12 @@ public class VNDialogueController : MonoBehaviour
 
     private void Start()
     {
+        if (!ValidateRequiredUiReferences())
+        {
+            enabled = false;
+            return;
+        }
+
         if (stats == null)
         {
             stats = GetComponent<VNStats>();
@@ -51,6 +57,12 @@ public class VNDialogueController : MonoBehaviour
 
         for (int i = 0; i < choiceButtons.Length; i++)
         {
+            if (choiceButtons[i] == null)
+            {
+                Debug.LogWarning($"Choice button at index {i} is not assigned. This choice slot will be skipped.", this);
+                continue;
+            }
+
             int choiceIndex = i;
             choiceButtons[i].onClick.AddListener(() => Choose(choiceIndex));
         }
@@ -121,6 +133,12 @@ public class VNDialogueController : MonoBehaviour
 
         for (int i = 0; i < choiceButtons.Length; i++)
         {
+            if (choiceButtons[i] == null)
+            {
+                Debug.LogWarning($"Choice button at index {i} is null and will be skipped.", this);
+                continue;
+            }
+
             bool hasChoice = i < activeChoices.Count;
             choiceButtons[i].gameObject.SetActive(hasChoice);
 
@@ -194,7 +212,10 @@ public class VNDialogueController : MonoBehaviour
         if (buttonText != null)
         {
             buttonText.text = text;
+            return;
         }
+
+        Debug.LogWarning($"TextMeshProUGUI is missing on button '{button.name}'.", button);
     }
 
     private void ApplyVisuals(DialogueLine line)
@@ -241,5 +262,32 @@ public class VNDialogueController : MonoBehaviour
             default:
                 return characterCenterPosition;
         }
+    }
+
+    private bool ValidateRequiredUiReferences()
+    {
+        bool isValid = true;
+
+        isValid &= ValidateReference(speakerText, nameof(speakerText));
+        isValid &= ValidateReference(dialogueText, nameof(dialogueText));
+        isValid &= ValidateReference(nameBox, nameof(nameBox));
+        isValid &= ValidateReference(nextButton, nameof(nextButton));
+        isValid &= ValidateReference(choicePanel, nameof(choicePanel));
+        isValid &= ValidateReference(choiceMashaButton, nameof(choiceMashaButton));
+        isValid &= ValidateReference(choiceArtemButton, nameof(choiceArtemButton));
+        isValid &= ValidateReference(choiceLeraButton, nameof(choiceLeraButton));
+
+        return isValid;
+    }
+
+    private bool ValidateReference(Object reference, string fieldName)
+    {
+        if (reference != null)
+        {
+            return true;
+        }
+
+        Debug.LogError($"VNDialogueController: required reference '{fieldName}' is not assigned.", this);
+        return false;
     }
 }
