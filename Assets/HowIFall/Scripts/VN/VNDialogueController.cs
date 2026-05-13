@@ -5,7 +5,10 @@ using UnityEngine.UI;
 
 public class VNDialogueController : MonoBehaviour
 {
-    public List<DialogueLine> lines = new List<DialogueLine>();
+    private const string MissingSceneDataText = "Dialogue scene data is missing.";
+    private const string EndPrototypeText = "Конец Unity-прототипа.";
+
+    public DialogueSceneData sceneData;
 
     public TextMeshProUGUI speakerText;
     public TextMeshProUGUI dialogueText;
@@ -22,38 +25,9 @@ public class VNDialogueController : MonoBehaviour
     private bool showingFinalLine;
     private bool showingEndLine;
     private string finalLineText;
-
-    private void Awake()
-    {
-        if (lines.Count == 0)
-        {
-            lines.Add(new DialogueLine
-            {
-                speaker = string.Empty,
-                text = "Утро у школьных ворот пахнет мокрым асфальтом и чем-то сладким из киоска через дорогу."
-            });
-            lines.Add(new DialogueLine
-            {
-                speaker = "Маша",
-                text = "Ты всё-таки пришёл."
-            });
-            lines.Add(new DialogueLine
-            {
-                speaker = string.Empty,
-                text = "Маша улыбается осторожно, как будто проверяет, не исчезну ли я прямо перед ней."
-            });
-            lines.Add(new DialogueLine
-            {
-                speaker = "Маша",
-                text = "Я думала, после вчерашней вечеринки ты проспишь первый урок."
-            });
-            lines.Add(new DialogueLine
-            {
-                speaker = string.Empty,
-                text = "Я хотел ответить шуткой, но в памяти вспыхивает только круг свечей и чей-то тихий смех."
-            });
-        }
-    }
+    private List<DialogueLine> activeLines;
+    private List<DialogueChoice> activeChoices;
+    private Button[] choiceButtons;
 
     private void Start()
     {
@@ -62,10 +36,15 @@ public class VNDialogueController : MonoBehaviour
             stats = GetComponent<VNStats>();
         }
 
+        choiceButtons = new[] { choiceMashaButton, choiceArtemButton, choiceLeraButton };
+
         nextButton.onClick.AddListener(ShowNextLine);
-        choiceMashaButton.onClick.AddListener(ChooseMasha);
-        choiceArtemButton.onClick.AddListener(ChooseArtem);
-        choiceLeraButton.onClick.AddListener(ChooseLera);
+
+        for (int i = 0; i < choiceButtons.Length; i++)
+        {
+            int choiceIndex = i;
+            choiceButtons[i].onClick.AddListener(() => Choose(choiceIndex));
+        }
 
         currentLineIndex = 0;
         showingChoice = false;
@@ -73,7 +52,18 @@ public class VNDialogueController : MonoBehaviour
         showingEndLine = false;
 
         choicePanel.SetActive(false);
-        ShowLine(lines[currentLineIndex]);
+
+        if (sceneData == null || sceneData.lines == null || sceneData.lines.Count == 0)
+        {
+            Debug.LogError("Dialogue scene data is missing or empty.", this);
+            ShowNarration(MissingSceneDataText);
+            return;
+        }
+
+        activeLines = sceneData.lines;
+        activeChoices = sceneData.choices ?? new List<DialogueChoice>();
+
+        ShowLine(activeLines[currentLineIndex]);
     }
 
     private void ShowNextLine()
@@ -87,54 +77,79 @@ public class VNDialogueController : MonoBehaviour
         {
             showingFinalLine = false;
             showingEndLine = true;
-            ShowNarration("Конец Unity-прототипа.");
+            ShowNarration(EndPrototypeText);
             return;
         }
 
-        if (showingEndLine)
+        if (showingEndLine || activeLines == null)
         {
             return;
         }
 
         currentLineIndex++;
 
-        if (currentLineIndex >= lines.Count)
+        if (currentLineIndex >= activeLines.Count)
         {
             ShowChoices();
             return;
         }
 
-        ShowLine(lines[currentLineIndex]);
+        ShowLine(activeLines[currentLineIndex]);
     }
 
     private void ShowChoices()
     {
+        if (activeChoices.Count == 0)
+        {
+            showingEndLine = true;
+            ShowNarration(EndPrototypeText);
+            return;
+        }
+
         showingChoice = true;
         nextButton.interactable = false;
         choicePanel.SetActive(true);
+
+        for (int i = 0; i < choiceButtons.Length; i++)
+        {
+            bool hasChoice = i < activeChoices.Count;
+            choiceButtons[i].gameObject.SetActive(hasChoice);
+
+            if (hasChoice)
+            {
+                SetButtonText(choiceButtons[i], activeChoices[i].text);
+            }
+        }
     }
 
-    private void ChooseMasha()
+    private void Choose(int choiceIndex)
     {
-        stats.romance += 1;
-        stats.trustMasha += 1;
-        stats.selfControl += 1;
-        ShowFinalLine("Я поворачиваюсь к Маше и заставляю себя говорить ровно.");
+        if (choiceIndex < 0 || choiceIndex >= activeChoices.Count)
+        {
+            return;
+        }
+
+        DialogueChoice choice = activeChoices[choiceIndex];
+        ApplyChoice(choice);
+        ShowFinalLine(choice.resultText);
     }
 
-    private void ChooseArtem()
+    private void ApplyChoice(DialogueChoice choice)
     {
-        stats.lust += 1;
-        stats.trustArtem += 1;
-        stats.selfControl -= 1;
-        ShowFinalLine("Если у Артёма есть план побега, сейчас самое время показать карту.");
-    }
+        if (stats == null)
+        {
+            return;
+        }
 
-    private void ChooseLera()
-    {
-        stats.suspicion += 1;
-        stats.purity += 1;
-        ShowFinalLine("Я всё ещё думаю о вчерашнем ритуале. И это пугает сильнее, чем должно.");
+        stats.lust += choice.lustDelta;
+        stats.romance += choice.romanceDelta;
+        stats.purity += choice.purityDelta;
+        stats.corruptionLevel += choice.corruptionDelta;
+        stats.selfControl += choice.selfControlDelta;
+        stats.suspicion += choice.suspicionDelta;
+        stats.trustMasha += choice.trustMashaDelta;
+        stats.trustArtem += choice.trustArtemDelta;
+        stats.leraInterest += choice.leraInterestDelta;
     }
 
     private void ShowFinalLine(string text)
@@ -160,5 +175,15 @@ public class VNDialogueController : MonoBehaviour
         nameBox.SetActive(false);
         speakerText.text = string.Empty;
         dialogueText.text = text;
+    }
+
+    private void SetButtonText(Button button, string text)
+    {
+        TextMeshProUGUI buttonText = button.GetComponentInChildren<TextMeshProUGUI>();
+
+        if (buttonText != null)
+        {
+            buttonText.text = text;
+        }
     }
 }

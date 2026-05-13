@@ -2579,7 +2579,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 897578f32db23b442820360f8571973b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VNDialogueController
-  lines: []
+  sceneData: {fileID: 11400000, guid: c6079a892768944498b9aec57340b7cb, type: 2}
   speakerText: {fileID: 1848946390}
   dialogueText: {fileID: 1135247664}
   nameBox: {fileID: 1260053773}
