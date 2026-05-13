@@ -37,6 +37,7 @@ public class VNDialogueController : MonoBehaviour
     private List<DialogueLine> activeLines;
     private List<DialogueChoice> activeChoices;
     private Button[] choiceButtons;
+    private DialogueSceneData pendingNextScene;
 
     private void Start()
     {
@@ -67,24 +68,7 @@ public class VNDialogueController : MonoBehaviour
             choiceButtons[i].onClick.AddListener(() => Choose(choiceIndex));
         }
 
-        currentLineIndex = 0;
-        showingChoice = false;
-        showingFinalLine = false;
-        showingEndLine = false;
-
-        choicePanel.SetActive(false);
-
-        if (sceneData == null || sceneData.lines == null || sceneData.lines.Count == 0)
-        {
-            Debug.LogError("Dialogue scene data is missing or empty.", this);
-            ShowNarration(MissingSceneDataText);
-            return;
-        }
-
-        activeLines = sceneData.lines;
-        activeChoices = sceneData.choices ?? new List<DialogueChoice>();
-
-        ShowLine(activeLines[currentLineIndex]);
+        LoadSceneData(sceneData);
     }
 
     private void ShowNextLine()
@@ -97,6 +81,21 @@ public class VNDialogueController : MonoBehaviour
         if (showingFinalLine)
         {
             showingFinalLine = false;
+
+            if (pendingNextScene != null)
+            {
+                DialogueSceneData nextSceneData = pendingNextScene;
+                pendingNextScene = null;
+                LoadSceneData(nextSceneData);
+                return;
+            }
+
+            if (sceneData != null && sceneData.defaultNextScene != null)
+            {
+                LoadSceneData(sceneData.defaultNextScene);
+                return;
+            }
+
             showingEndLine = true;
             ShowNarration(EndPrototypeText);
             return;
@@ -111,7 +110,20 @@ public class VNDialogueController : MonoBehaviour
 
         if (currentLineIndex >= activeLines.Count)
         {
-            ShowChoices();
+            if (activeChoices.Count > 0)
+            {
+                ShowChoices();
+                return;
+            }
+
+            if (sceneData != null && sceneData.defaultNextScene != null)
+            {
+                LoadSceneData(sceneData.defaultNextScene);
+                return;
+            }
+
+            showingEndLine = true;
+            ShowNarration(EndPrototypeText);
             return;
         }
 
@@ -122,6 +134,12 @@ public class VNDialogueController : MonoBehaviour
     {
         if (activeChoices.Count == 0)
         {
+            if (sceneData != null && sceneData.defaultNextScene != null)
+            {
+                LoadSceneData(sceneData.defaultNextScene);
+                return;
+            }
+
             showingEndLine = true;
             ShowNarration(EndPrototypeText);
             return;
@@ -157,6 +175,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         DialogueChoice choice = activeChoices[choiceIndex];
+        pendingNextScene = choice.nextScene;
         ApplyChoice(choice);
         ShowFinalLine(choice.resultText);
     }
@@ -289,5 +308,50 @@ public class VNDialogueController : MonoBehaviour
 
         Debug.LogError($"VNDialogueController: required reference '{fieldName}' is not assigned.", this);
         return false;
+    }
+
+    private void LoadSceneData(DialogueSceneData newSceneData)
+    {
+        if (newSceneData == null)
+        {
+            Debug.LogError("Dialogue scene data is missing.", this);
+            activeLines = null;
+            activeChoices = new List<DialogueChoice>();
+            showingChoice = false;
+            showingFinalLine = false;
+            showingEndLine = true;
+            pendingNextScene = null;
+            choicePanel.SetActive(false);
+            nextButton.interactable = true;
+            ShowNarration(MissingSceneDataText);
+            return;
+        }
+
+        if (newSceneData.lines == null || newSceneData.lines.Count == 0)
+        {
+            Debug.LogError($"Dialogue scene '{newSceneData.name}' has no lines.", newSceneData);
+            activeLines = null;
+            activeChoices = new List<DialogueChoice>();
+            showingChoice = false;
+            showingFinalLine = false;
+            showingEndLine = true;
+            pendingNextScene = null;
+            choicePanel.SetActive(false);
+            nextButton.interactable = true;
+            ShowNarration(MissingSceneDataText);
+            return;
+        }
+
+        sceneData = newSceneData;
+        activeLines = sceneData.lines;
+        activeChoices = sceneData.choices ?? new List<DialogueChoice>();
+        currentLineIndex = 0;
+        showingChoice = false;
+        showingFinalLine = false;
+        showingEndLine = false;
+        pendingNextScene = null;
+        choicePanel.SetActive(false);
+        nextButton.interactable = true;
+        ShowLine(activeLines[currentLineIndex]);
     }
 }

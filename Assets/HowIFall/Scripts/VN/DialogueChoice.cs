@@ -18,4 +18,5 @@ public class DialogueChoice
     public int trustMashaDelta;
     public int trustArtemDelta;
     public int leraInterestDelta;
+    public DialogueSceneData nextScene;
 }

@@ -74,6 +74,7 @@ MonoBehaviour:
     trustMashaDelta: 1
     trustArtemDelta: 0
     leraInterestDelta: 0
+    nextScene: {fileID: 0}
   - text: "\u041F\u043E\u0434\u044B\u0433\u0440\u0430\u0442\u044C \u0410\u0440\u0442\u0451\u043C\u0443"
     resultText: "\u0415\u0441\u043B\u0438 \u0443 \u0410\u0440\u0442\u0451\u043C\u0430
       \u0435\u0441\u0442\u044C \u043F\u043B\u0430\u043D \u043F\u043E\u0431\u0435\u0433\u0430,
@@ -88,6 +89,7 @@ MonoBehaviour:
     trustMashaDelta: 0
     trustArtemDelta: 1
     leraInterestDelta: 0
+    nextScene: {fileID: 0}
   - text: "\u0421\u043F\u0440\u043E\u0441\u0438\u0442\u044C \u043F\u0440\u043E \u0432\u0447\u0435\u0440\u0430\u0448\u043D\u0438\u0439
       \u0440\u0438\u0442\u0443\u0430\u043B"
     resultText: "\u042F \u0432\u0441\u0451 \u0435\u0449\u0451 \u0434\u0443\u043C\u0430\u044E
@@ -103,3 +105,5 @@ MonoBehaviour:
     trustMashaDelta: 0
     trustArtemDelta: 0
     leraInterestDelta: 0
+    nextScene: {fileID: 0}
+  defaultNextScene: {fileID: 11400000, guid: 5e44c75e6ec2480aa8f9a42071cb6db6, type: 2}
