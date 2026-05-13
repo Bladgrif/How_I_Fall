@@ -8,6 +8,7 @@ using UnityEditor;
 public class MainMenuController : MonoBehaviour
 {
     private const string PrototypeSceneName = "VNPrototype";
+    public SettingsPanelController settingsPanel;
 
     public void StartGame()
     {
@@ -45,7 +46,13 @@ public class MainMenuController : MonoBehaviour
 
     public void OpenSettings()
     {
-        Debug.Log("Settings is not implemented yet");
+        if (settingsPanel != null)
+        {
+            settingsPanel.Show();
+            return;
+        }
+
+        Debug.LogWarning("SettingsPanelController is not assigned.");
     }
 
     public void ExitGame()
