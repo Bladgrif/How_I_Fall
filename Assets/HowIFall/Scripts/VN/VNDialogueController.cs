@@ -12,12 +12,21 @@ public class VNDialogueController : MonoBehaviour
 
     public TextMeshProUGUI speakerText;
     public TextMeshProUGUI dialogueText;
+    public Image backgroundImage;
+    public Image characterImage;
     public GameObject nameBox;
     public Button nextButton;
     public GameObject choicePanel;
     public Button choiceMashaButton;
     public Button choiceArtemButton;
     public Button choiceLeraButton;
+
+    public Vector2 characterLeftPosition = new Vector2(-420f, -220f);
+    public Vector2 characterCenterPosition = new Vector2(0f, -220f);
+    public Vector2 characterRightPosition = new Vector2(420f, -220f);
+    public Vector2 characterSoloPosition = new Vector2(-140f, -220f);
+    public Vector2 characterDefaultSize = new Vector2(850f, 1200f);
+
     public VNStats stats;
 
     private int currentLineIndex;
@@ -168,6 +177,7 @@ public class VNDialogueController : MonoBehaviour
         nameBox.SetActive(hasSpeaker);
         speakerText.text = hasSpeaker ? line.speaker : string.Empty;
         dialogueText.text = line.text;
+        ApplyVisuals(line);
     }
 
     private void ShowNarration(string text)
@@ -184,6 +194,52 @@ public class VNDialogueController : MonoBehaviour
         if (buttonText != null)
         {
             buttonText.text = text;
+        }
+    }
+
+    private void ApplyVisuals(DialogueLine line)
+    {
+        if (backgroundImage != null && line.background != null)
+        {
+            backgroundImage.sprite = line.background;
+            backgroundImage.enabled = true;
+        }
+
+        if (characterImage == null)
+        {
+            return;
+        }
+
+        if (line.hideCharacter)
+        {
+            characterImage.enabled = false;
+            return;
+        }
+
+        if (line.characterSprite != null)
+        {
+            characterImage.sprite = line.characterSprite;
+            characterImage.enabled = true;
+            characterImage.preserveAspect = true;
+            characterImage.rectTransform.sizeDelta = characterDefaultSize;
+            characterImage.rectTransform.anchoredPosition = GetCharacterPosition(line.characterPosition);
+        }
+    }
+
+    private Vector2 GetCharacterPosition(CharacterPosition position)
+    {
+        switch (position)
+        {
+            case CharacterPosition.Left:
+                return characterLeftPosition;
+            case CharacterPosition.Center:
+                return characterCenterPosition;
+            case CharacterPosition.Right:
+                return characterRightPosition;
+            case CharacterPosition.Solo:
+                return characterSoloPosition;
+            default:
+                return characterCenterPosition;
         }
     }
 }

@@ -1,4 +1,4 @@
-# Unity
+# Unity cache / generated folders
 [Ll]ibrary/
 [Tt]emp/
 [Oo]bj/
@@ -7,28 +7,45 @@
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
 [Mm]emoryCaptures/
+ExportedObj/
+
+# Unity temporary files
 .utmp/
-.gradle/
-
-# Unity / Android build outputs
-*.apk
-*.aab
-
-# Unity generated
-*.csproj
-*.sln
-*.user
-*.unityproj
-*.booproj
-*.pidb
-*.suo
 *.tmp
 *.svd
+*.pidb
 *.pdb
 *.mdb
 *.opendb
 *.VC.db
 
+# Unity generated project files
+*.csproj
+*.sln
+*.user
+*.unityproj
+*.booproj
+*.suo
+*.DotSettings.user
+
+# Android / mobile build outputs
+*.apk
+*.aab
+*.apk.meta
+*.aab.meta
+*.symbols.zip
+.gradle/
+local.properties
+
+# Android signing keys - do not commit secrets
+*.keystore
+*.jks
+
+# IDE
+.vs/
+.idea/
+
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini

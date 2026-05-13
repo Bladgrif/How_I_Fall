@@ -2582,12 +2582,19 @@ MonoBehaviour:
   sceneData: {fileID: 11400000, guid: c6079a892768944498b9aec57340b7cb, type: 2}
   speakerText: {fileID: 1848946390}
   dialogueText: {fileID: 1135247664}
+  backgroundImage: {fileID: 1442098649}
+  characterImage: {fileID: 1007428045}
   nameBox: {fileID: 1260053773}
   nextButton: {fileID: 144952546}
   choicePanel: {fileID: 1983840659}
   choiceMashaButton: {fileID: 1658188679}
   choiceArtemButton: {fileID: 226669093}
   choiceLeraButton: {fileID: 501875307}
+  characterLeftPosition: {x: -420, y: -220}
+  characterCenterPosition: {x: 0, y: -220}
+  characterRightPosition: {x: 420, y: -220}
+  characterSoloPosition: {x: -140, y: -220}
+  characterDefaultSize: {x: 850, y: 1200}
   stats: {fileID: 1987517808}
 --- !u!114 &1987517808
 MonoBehaviour:
