@@ -14,6 +14,34 @@ public class MainMenuController : MonoBehaviour
         SceneManager.LoadScene(PrototypeSceneName);
     }
 
+    public void ContinueGame()
+    {
+        if (SaveManager.Instance == null)
+        {
+            Debug.LogWarning("SaveManager.Instance is missing.");
+            return;
+        }
+
+        if (SaveManager.Instance.Load())
+        {
+            SceneManager.LoadScene(PrototypeSceneName);
+            return;
+        }
+
+        Debug.LogWarning("No save file found.");
+    }
+
+    public void DeleteSave()
+    {
+        if (SaveManager.Instance == null)
+        {
+            Debug.LogWarning("SaveManager.Instance is missing.");
+            return;
+        }
+
+        SaveManager.Instance.DeleteSave();
+    }
+
     public void OpenSettings()
     {
         Debug.Log("Settings is not implemented yet");

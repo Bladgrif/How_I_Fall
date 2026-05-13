@@ -66,6 +66,25 @@ public class VNDialogueController : MonoBehaviour
         LoadDialogueScene(sceneData);
     }
 
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.F5))
+        {
+            if (SaveManager.Instance != null)
+            {
+                SaveManager.Instance.Save();
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.F9))
+        {
+            if (SaveManager.Instance != null)
+            {
+                SaveManager.Instance.Load();
+            }
+        }
+    }
+
     private void ShowNextLine()
     {
         if (showingChoice)
