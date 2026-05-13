@@ -2578,6 +2578,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VNDialogueController
   sceneData: {fileID: 11400000, guid: c6079a892768944498b9aec57340b7cb, type: 2}
+  sceneRegistry: {fileID: 11400000, guid: 918753b08d364587b04f664d6f4eec54, type: 2}
   speakerText: {fileID: 1848946390}
   dialogueText: {fileID: 1135247664}
   backgroundImage: {fileID: 1442098649}

@@ -9,6 +9,7 @@ public class VNDialogueController : MonoBehaviour
     private const string EndPrototypeText = "Конец Unity-прототипа.";
 
     public DialogueSceneData sceneData;
+    public DialogueSceneRegistry sceneRegistry;
 
     public TextMeshProUGUI speakerText;
     public TextMeshProUGUI dialogueText;
@@ -45,7 +46,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        GameState.EnsureInstance();
+        GameState gameState = GameState.EnsureInstance();
 
         choiceButtons = new[] { choiceMashaButton, choiceArtemButton, choiceLeraButton };
 
@@ -61,6 +62,12 @@ public class VNDialogueController : MonoBehaviour
 
             int choiceIndex = i;
             choiceButtons[i].onClick.AddListener(() => Choose(choiceIndex));
+        }
+
+        if (gameState.hasLoadedSave && !string.IsNullOrEmpty(gameState.currentSceneId) && sceneRegistry != null)
+        {
+            RestoreFromGameState();
+            return;
         }
 
         LoadDialogueScene(sceneData);
@@ -80,7 +87,14 @@ public class VNDialogueController : MonoBehaviour
         {
             if (SaveManager.Instance != null)
             {
-                SaveManager.Instance.Load();
+                if (SaveManager.Instance.Load())
+                {
+                    RestoreFromGameState();
+                }
+                else
+                {
+                    Debug.LogWarning("No save file found.");
+                }
             }
         }
     }
@@ -301,7 +315,39 @@ public class VNDialogueController : MonoBehaviour
         return false;
     }
 
+    public void RestoreFromGameState()
+    {
+        GameState gameState = GameState.Instance;
+
+        if (gameState == null)
+        {
+            Debug.LogWarning("VNDialogueController: GameState.Instance is missing.");
+            return;
+        }
+
+        if (sceneRegistry == null)
+        {
+            Debug.LogWarning("VNDialogueController: sceneRegistry is not assigned.", this);
+            return;
+        }
+
+        DialogueSceneData restoredScene = sceneRegistry.FindById(gameState.currentSceneId);
+
+        if (restoredScene == null)
+        {
+            Debug.LogWarning($"VNDialogueController: scene '{gameState.currentSceneId}' was not found in registry.", this);
+            return;
+        }
+
+        LoadDialogueScene(restoredScene, gameState.currentLineIndex);
+    }
+
     private void LoadDialogueScene(DialogueSceneData data)
+    {
+        LoadDialogueScene(data, 0);
+    }
+
+    private void LoadDialogueScene(DialogueSceneData data, int startLineIndex)
     {
         if (data == null)
         {
@@ -336,7 +382,7 @@ public class VNDialogueController : MonoBehaviour
         sceneData = data;
         activeLines = sceneData.lines;
         activeChoices = sceneData.choices ?? new List<DialogueChoice>();
-        currentLineIndex = 0;
+        currentLineIndex = Mathf.Clamp(startLineIndex, 0, activeLines.Count - 1);
         showingChoice = false;
         showingFinalLine = false;
         showingEndLine = false;
@@ -345,7 +391,7 @@ public class VNDialogueController : MonoBehaviour
         nextButton.interactable = true;
         GameState gameState = GameState.EnsureInstance();
         gameState.currentSceneId = sceneData.sceneId;
-        gameState.currentLineIndex = 0;
+        gameState.currentLineIndex = currentLineIndex;
         ShowLine(activeLines[currentLineIndex]);
     }
 }

@@ -86,6 +86,7 @@ public class SaveManager : MonoBehaviour
         gameState.trustMasha = saveData.trustMasha;
         gameState.trustArtem = saveData.trustArtem;
         gameState.leraInterest = saveData.leraInterest;
+        gameState.hasLoadedSave = true;
         return true;
     }
 

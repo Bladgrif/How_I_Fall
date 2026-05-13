@@ -11,6 +11,7 @@ public class MainMenuController : MonoBehaviour
 
     public void StartGame()
     {
+        GameState.EnsureInstance().ResetState();
         SceneManager.LoadScene(PrototypeSceneName);
     }
 

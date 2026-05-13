@@ -16,6 +16,7 @@ public class GameState : MonoBehaviour
 
     public string currentSceneId;
     public int currentLineIndex;
+    public bool hasLoadedSave;
 
     public static GameState EnsureInstance()
     {
@@ -72,5 +73,21 @@ public class GameState : MonoBehaviour
         trustMasha += choice.trustMashaDelta;
         trustArtem += choice.trustArtemDelta;
         leraInterest += choice.leraInterestDelta;
+    }
+
+    public void ResetState()
+    {
+        lust = 0;
+        romance = 0;
+        purity = 0;
+        corruptionLevel = 0;
+        selfControl = 5;
+        suspicion = 0;
+        trustMasha = 0;
+        trustArtem = 0;
+        leraInterest = 0;
+        currentSceneId = string.Empty;
+        currentLineIndex = 0;
+        hasLoadedSave = false;
     }
 }
