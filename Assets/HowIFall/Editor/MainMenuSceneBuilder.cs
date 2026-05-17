@@ -14,8 +14,12 @@ public static class MainMenuSceneBuilder
     private const string KeyVisualPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_key_visual.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
-    private const string UiHoverSfxPath = "Assets/HowIFall/Audio/SFX/ui_hover.wav";
-    private const string UiClickSfxPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
+    private const string UiHoverSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_hover.wav";
+    private const string UiHoverSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_hover.mp3";
+    private const string UiHoverSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_hover.ogg";
+    private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
+    private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
+    private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
 
     [MenuItem("How I Fall/Build Main Menu Scene")]
     public static void BuildMainMenuScene()
@@ -144,18 +148,21 @@ public static class MainMenuSceneBuilder
 
     private static AudioClip TryLoadMainMenuMusicClip()
     {
-        var clip = TryLoadAudioClip(MainMenuMusicMp3Path);
-        if (clip != null)
-        {
-            return clip;
-        }
-
-        return TryLoadAudioClip(MainMenuMusicOggPath);
+        return TryLoadAudioClip(MainMenuMusicMp3Path, MainMenuMusicOggPath);
     }
 
-    private static AudioClip TryLoadAudioClip(string path)
+    private static AudioClip TryLoadAudioClip(params string[] paths)
     {
-        return AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+        foreach (string path in paths)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+            if (clip != null)
+            {
+                return clip;
+            }
+        }
+
+        return null;
     }
 
     private static void ValidateKeyVisualAspect(Texture2D texture)
@@ -302,8 +309,8 @@ public static class MainMenuSceneBuilder
         hoverEffect.pressedHighlightColor = new Color(0.58f, 0.22f, 0.72f, 0.48f);
         hoverEffect.normalTextColor = new Color(0.9f, 0.87f, 0.96f, 0.98f);
         hoverEffect.hoverTextColor = new Color(1f, 0.95f, 1f, 1f);
-        hoverEffect.hoverSfx = TryLoadAudioClip(UiHoverSfxPath);
-        hoverEffect.clickSfx = TryLoadAudioClip(UiClickSfxPath);
+        hoverEffect.hoverSfx = TryLoadAudioClip(UiHoverSfxWavPath, UiHoverSfxMp3Path, UiHoverSfxOggPath);
+        hoverEffect.clickSfx = TryLoadAudioClip(UiClickSfxWavPath, UiClickSfxMp3Path, UiClickSfxOggPath);
 
         return button;
     }
