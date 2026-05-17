@@ -57,12 +57,17 @@ public class MainMenuController : MonoBehaviour
 
     public void OpenAbout()
     {
-        Debug.Log("About screen is not implemented yet.");
+        Debug.Log("About is not implemented yet");
     }
 
     public void OpenHelp()
     {
-        Debug.Log("Help screen is not implemented yet.");
+        Debug.Log("Help is not implemented yet");
+    }
+
+    public void OpenGallery()
+    {
+        Debug.Log("Gallery is not implemented yet");
     }
 
     public void ExitGame()
