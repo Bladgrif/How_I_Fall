@@ -21,7 +21,7 @@ public static class MainMenuSceneBuilder
         CreateMainCamera();
         var canvas = CreateCanvas();
         CreateEventSystem();
-        CreateBackgroundLayer(canvas.transform);
+        var backgroundTransform = CreateBackgroundLayer(canvas.transform);
         var overlayGraphic = CreateOverlay(canvas.transform);
 
         var managers = new GameObject("Managers");
@@ -34,9 +34,9 @@ public static class MainMenuSceneBuilder
         var settingsPanelController = CreateSettingsPanel(canvas.transform);
         mainMenuController.settingsPanel = settingsPanelController;
 
-        var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleTransform);
+        var titleCanvasGroup = CreateGameLogo(canvas.transform);
         CreateFooter(canvas.transform);
-        CreateMainMenuAnimator(canvas.transform, menuCanvasGroup, titleCanvasGroup, titleTransform, overlayGraphic);
+        CreateMainMenuAnimator(canvas.transform, backgroundTransform, menuCanvasGroup, titleCanvasGroup, overlayGraphic);
 
         EditorSceneManager.SaveScene(scene, MainMenuScenePath);
         EnsureBuildSettingsScenes();
@@ -86,10 +86,13 @@ public static class MainMenuSceneBuilder
         eventSystem.sendNavigationEvents = true;
     }
 
-    private static void CreateBackgroundLayer(Transform canvas)
+    private static RectTransform CreateBackgroundLayer(Transform canvas)
     {
         var bg = CreateUiObject("Background", canvas);
         StretchFull(bg.GetComponent<RectTransform>());
+        var bgRect = bg.GetComponent<RectTransform>();
+        bgRect.offsetMin = new Vector2(-40f, -40f);
+        bgRect.offsetMax = new Vector2(40f, 40f);
 
         var image = bg.AddComponent<Image>();
         var keySprite = TryLoadKeyVisualSprite();
@@ -108,6 +111,7 @@ public static class MainMenuSceneBuilder
 
         image.raycastTarget = false;
         bg.transform.SetAsFirstSibling();
+        return bgRect;
     }
 
     private static Sprite TryLoadKeyVisualSprite()
@@ -265,11 +269,10 @@ public static class MainMenuSceneBuilder
         return button;
     }
 
-    private static CanvasGroup CreateGameLogo(Transform canvas, out RectTransform titleTransform)
+    private static CanvasGroup CreateGameLogo(Transform canvas)
     {
         var logoGo = CreateUiObject("Game Title", canvas);
         var rect = logoGo.GetComponent<RectTransform>();
-        titleTransform = rect;
         var canvasGroup = logoGo.AddComponent<CanvasGroup>();
         rect.anchorMin = new Vector2(0.5f, 0f);
         rect.anchorMax = new Vector2(0.5f, 0f);
@@ -293,18 +296,18 @@ public static class MainMenuSceneBuilder
 
     private static void CreateMainMenuAnimator(
         Transform canvas,
+        RectTransform backgroundTransform,
         CanvasGroup menuCanvasGroup,
         CanvasGroup titleCanvasGroup,
-        RectTransform titleTransform,
         Graphic overlayGraphic)
     {
         var animatorGo = new GameObject("MainMenuAnimator");
         animatorGo.transform.SetParent(canvas, false);
 
         var animator = animatorGo.AddComponent<MainMenuAnimator>();
+        animator.backgroundTransform = backgroundTransform;
         animator.menuCanvasGroup = menuCanvasGroup;
         animator.titleCanvasGroup = titleCanvasGroup;
-        animator.titleTransform = titleTransform;
         animator.backgroundOverlay = overlayGraphic;
     }
 

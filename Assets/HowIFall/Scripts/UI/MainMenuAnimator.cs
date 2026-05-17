@@ -5,20 +5,20 @@ public class MainMenuAnimator : MonoBehaviour
 {
     public CanvasGroup menuCanvasGroup;
     public CanvasGroup titleCanvasGroup;
-    public RectTransform titleTransform;
+    public RectTransform backgroundTransform;
     public Graphic backgroundOverlay;
 
     public float fadeDuration = 1.2f;
-    public float titlePulseSpeed = 1.2f;
-    public float titlePulseAmount = 0.035f;
-    public float titleFloatAmount = 6f;
+    public float backgroundZoomAmount = 0.025f;
+    public float backgroundMoveAmount = 10f;
+    public float backgroundMotionSpeed = 0.12f;
     public float overlayPulseSpeed = 0.45f;
     public float overlayAlphaBase = 0.25f;
     public float overlayAlphaAmount = 0.04f;
 
     private float _startTime;
-    private float _startTitleY;
-    private Vector3 _startTitleScale = Vector3.one;
+    private Vector3 _startBackgroundScale = Vector3.one;
+    private Vector2 _startBackgroundAnchoredPosition = Vector2.zero;
     private Color _overlayColor = Color.black;
 
     private void Start()
@@ -35,10 +35,10 @@ public class MainMenuAnimator : MonoBehaviour
             titleCanvasGroup.alpha = 0f;
         }
 
-        if (titleTransform != null)
+        if (backgroundTransform != null)
         {
-            _startTitleY = titleTransform.anchoredPosition.y;
-            _startTitleScale = titleTransform.localScale;
+            _startBackgroundScale = backgroundTransform.localScale;
+            _startBackgroundAnchoredPosition = backgroundTransform.anchoredPosition;
         }
 
         if (backgroundOverlay != null)
@@ -62,15 +62,16 @@ public class MainMenuAnimator : MonoBehaviour
             titleCanvasGroup.alpha = fadeT;
         }
 
-        if (titleTransform != null)
+        if (backgroundTransform != null)
         {
-            float pulse = Mathf.Sin(Time.time * titlePulseSpeed);
-            float scale = 1f + pulse * titlePulseAmount;
-            titleTransform.localScale = _startTitleScale * scale;
+            float t = Time.time * backgroundMotionSpeed;
+            float zoom = 1f + Mathf.Sin(t) * backgroundZoomAmount;
+            backgroundTransform.localScale = _startBackgroundScale * zoom;
 
-            Vector2 anchored = titleTransform.anchoredPosition;
-            anchored.y = _startTitleY + pulse * titleFloatAmount;
-            titleTransform.anchoredPosition = anchored;
+            Vector2 anchored = _startBackgroundAnchoredPosition;
+            anchored.x += Mathf.Sin(t * 0.7f) * backgroundMoveAmount;
+            anchored.y += Mathf.Cos(t * 0.6f) * backgroundMoveAmount * 0.5f;
+            backgroundTransform.anchoredPosition = anchored;
         }
 
         if (backgroundOverlay != null)
