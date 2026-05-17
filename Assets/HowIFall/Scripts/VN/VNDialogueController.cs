@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class VNDialogueController : MonoBehaviour
@@ -75,7 +76,7 @@ public class VNDialogueController : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F5))
+        if (Keyboard.current != null && Keyboard.current.f5Key.wasPressedThisFrame)
         {
             if (SaveManager.Instance != null)
             {
@@ -83,7 +84,7 @@ public class VNDialogueController : MonoBehaviour
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.F9))
+        if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
         {
             if (SaveManager.Instance != null)
             {
