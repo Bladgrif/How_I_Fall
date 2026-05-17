@@ -351,7 +351,7 @@ public static class MainMenuSceneBuilder
         StretchFull(panelRoot.GetComponent<RectTransform>());
 
         var dimImage = panelRoot.AddComponent<Image>();
-        dimImage.color = new Color(0f, 0f, 0f, 0.72f);
+        dimImage.color = new Color(0f, 0f, 0f, 0.78f);
         dimImage.raycastTarget = true;
 
         var window = CreateUiObject("Settings Window", panelRoot.transform);
@@ -359,10 +359,10 @@ public static class MainMenuSceneBuilder
         windowRect.anchorMin = new Vector2(0.5f, 0.5f);
         windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.pivot = new Vector2(0.5f, 0.5f);
-        windowRect.sizeDelta = new Vector2(980f, 620f);
-        windowRect.anchoredPosition = Vector2.zero;
+        windowRect.sizeDelta = new Vector2(900f, 560f);
+        windowRect.anchoredPosition = new Vector2(150f, 25f);
         var windowImage = window.AddComponent<Image>();
-        windowImage.color = new Color(0.025f, 0.018f, 0.045f, 0.92f);
+        windowImage.color = new Color(0.025f, 0.018f, 0.045f, 0.93f);
         windowImage.raycastTarget = false;
 
         var windowShadow = window.AddComponent<Shadow>();
@@ -375,18 +375,18 @@ public static class MainMenuSceneBuilder
         accentRect.anchorMax = new Vector2(0f, 1f);
         accentRect.pivot = new Vector2(0f, 0.5f);
         accentRect.anchoredPosition = new Vector2(18f, 0f);
-        accentRect.sizeDelta = new Vector2(3f, -52f);
+        accentRect.sizeDelta = new Vector2(3f, -48f);
         var accentImage = accent.AddComponent<Image>();
         accentImage.color = new Color(0.55f, 0.22f, 0.8f, 0.65f);
         accentImage.raycastTarget = false;
 
-        var title = CreateLabel(window.transform, "Настройки", 42, TextAnchor.MiddleCenter);
+        var title = CreateLabel(window.transform, "Настройки", 39, TextAnchor.MiddleCenter);
         var titleRect = title.GetComponent<RectTransform>();
         titleRect.anchorMin = new Vector2(0f, 1f);
         titleRect.anchorMax = new Vector2(1f, 1f);
         titleRect.pivot = new Vector2(0.5f, 1f);
-        titleRect.anchoredPosition = new Vector2(0f, -24f);
-        titleRect.sizeDelta = new Vector2(0f, 64f);
+        titleRect.anchoredPosition = new Vector2(0f, -30f);
+        titleRect.sizeDelta = new Vector2(0f, 58f);
         title.color = new Color(0.94f, 0.9f, 0.98f, 1f);
         title.raycastTarget = false;
 
@@ -395,11 +395,11 @@ public static class MainMenuSceneBuilder
         sectionsRect.anchorMin = new Vector2(0f, 0f);
         sectionsRect.anchorMax = new Vector2(0f, 1f);
         sectionsRect.pivot = new Vector2(0f, 0.5f);
-        sectionsRect.anchoredPosition = new Vector2(54f, -34f);
-        sectionsRect.sizeDelta = new Vector2(190f, -170f);
+        sectionsRect.anchoredPosition = new Vector2(52f, -34f);
+        sectionsRect.sizeDelta = new Vector2(176f, -158f);
 
         var sectionsLayout = sections.AddComponent<VerticalLayoutGroup>();
-        sectionsLayout.spacing = 18f;
+        sectionsLayout.spacing = 14f;
         sectionsLayout.childAlignment = TextAnchor.UpperLeft;
         sectionsLayout.childControlHeight = false;
         sectionsLayout.childControlWidth = true;
@@ -414,11 +414,11 @@ public static class MainMenuSceneBuilder
         var settingsRect = settingsArea.GetComponent<RectTransform>();
         settingsRect.anchorMin = new Vector2(0f, 0f);
         settingsRect.anchorMax = new Vector2(1f, 1f);
-        settingsRect.offsetMin = new Vector2(270f, 112f);
-        settingsRect.offsetMax = new Vector2(-60f, -112f);
+        settingsRect.offsetMin = new Vector2(250f, 96f);
+        settingsRect.offsetMax = new Vector2(-54f, -96f);
 
         var settingsLayout = settingsArea.AddComponent<VerticalLayoutGroup>();
-        settingsLayout.spacing = 14f;
+        settingsLayout.spacing = 10f;
         settingsLayout.childAlignment = TextAnchor.UpperLeft;
         settingsLayout.childControlHeight = false;
         settingsLayout.childControlWidth = true;
@@ -430,9 +430,9 @@ public static class MainMenuSceneBuilder
         Slider sfx = CreateLabeledSlider(settingsArea.transform, "SFX Volume", 0f, 1f, 1f);
         Slider textSpeed = CreateLabeledSlider(settingsArea.transform, "Text Speed", 0.25f, 3f, 1f);
 
-        var fullscreenRow = CreateRow(settingsArea.transform, 62f);
-        var fullscreenLabel = CreateLabel(fullscreenRow.transform, "Fullscreen", 24, TextAnchor.MiddleLeft);
-        fullscreenLabel.GetComponent<RectTransform>().sizeDelta = new Vector2(220f, 58f);
+        var fullscreenRow = CreateRow(settingsArea.transform, 54f);
+        var fullscreenLabel = CreateLabel(fullscreenRow.transform, "Fullscreen", 22, TextAnchor.MiddleLeft);
+        fullscreenLabel.GetComponent<RectTransform>().sizeDelta = new Vector2(210f, 52f);
         fullscreenLabel.color = new Color(0.82f, 0.78f, 0.9f, 1f);
         fullscreenLabel.raycastTarget = false;
         var fullscreenToggle = CreateToggle(fullscreenRow.transform);
@@ -442,8 +442,8 @@ public static class MainMenuSceneBuilder
         buttonsRect.anchorMin = new Vector2(0f, 0f);
         buttonsRect.anchorMax = new Vector2(1f, 0f);
         buttonsRect.pivot = new Vector2(0.5f, 0f);
-        buttonsRect.offsetMin = new Vector2(270f, 38f);
-        buttonsRect.offsetMax = new Vector2(-60f, 92f);
+        buttonsRect.offsetMin = new Vector2(250f, 34f);
+        buttonsRect.offsetMax = new Vector2(-54f, 84f);
 
         var buttonsLayout = buttonsRow.AddComponent<HorizontalLayoutGroup>();
         buttonsLayout.spacing = 18f;
@@ -453,8 +453,8 @@ public static class MainMenuSceneBuilder
         buttonsLayout.childForceExpandHeight = false;
         buttonsLayout.childForceExpandWidth = false;
 
-        var resetButton = CreateStyledButton(buttonsRow.transform, "Reset", new Vector2(190f, 54f));
-        var backButton = CreateStyledButton(buttonsRow.transform, "Back", new Vector2(190f, 54f));
+        var resetButton = CreateStyledButton(buttonsRow.transform, "Reset", new Vector2(180f, 50f));
+        var backButton = CreateStyledButton(buttonsRow.transform, "Back", new Vector2(180f, 50f));
 
         var settingsController = panelRoot.AddComponent<SettingsPanelController>();
         settingsController.root = panelRoot;
@@ -492,8 +492,8 @@ public static class MainMenuSceneBuilder
 
     private static Text CreateSectionLabel(Transform parent, string label, bool active)
     {
-        var text = CreateLabel(parent, label, 24, TextAnchor.MiddleLeft);
-        text.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 38f);
+        var text = CreateLabel(parent, label, 22, TextAnchor.MiddleLeft);
+        text.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 34f);
         text.color = active
             ? new Color(0.86f, 0.58f, 1f, 1f)
             : new Color(0.54f, 0.5f, 0.64f, 0.95f);
@@ -503,20 +503,20 @@ public static class MainMenuSceneBuilder
 
     private static Slider CreateLabeledSlider(Transform parent, string labelText, float min, float max, float value)
     {
-        var row = CreateRow(parent, 62f);
+        var row = CreateRow(parent, 54f);
 
         var labelGo = CreateUiObject("Label", row.transform);
-        labelGo.GetComponent<RectTransform>().sizeDelta = new Vector2(220f, 58f);
+        labelGo.GetComponent<RectTransform>().sizeDelta = new Vector2(210f, 52f);
         var label = labelGo.AddComponent<Text>();
         label.text = labelText;
         label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        label.fontSize = 23;
+        label.fontSize = 22;
         label.alignment = TextAnchor.MiddleLeft;
         label.color = new Color(0.82f, 0.78f, 0.9f, 1f);
         label.raycastTarget = false;
 
         var slider = CreateSlider(row.transform, min, max, value);
-        slider.GetComponent<RectTransform>().sizeDelta = new Vector2(360f, 32f);
+        slider.GetComponent<RectTransform>().sizeDelta = new Vector2(350f, 30f);
         return slider;
     }
 
@@ -541,7 +541,7 @@ public static class MainMenuSceneBuilder
         bgRect.anchorMax = new Vector2(1f, 0.5f);
         bgRect.pivot = new Vector2(0.5f, 0.5f);
         bgRect.anchoredPosition = Vector2.zero;
-        bgRect.sizeDelta = new Vector2(0f, 8f);
+        bgRect.sizeDelta = new Vector2(0f, 6f);
         var bgImage = background.AddComponent<Image>();
         bgImage.color = new Color(0.12f, 0.1f, 0.18f, 1f);
         bgImage.raycastTarget = false;
@@ -551,8 +551,8 @@ public static class MainMenuSceneBuilder
         fillAreaRect.anchorMin = new Vector2(0f, 0.5f);
         fillAreaRect.anchorMax = new Vector2(1f, 0.5f);
         fillAreaRect.pivot = new Vector2(0.5f, 0.5f);
-        fillAreaRect.offsetMin = new Vector2(9f, -4f);
-        fillAreaRect.offsetMax = new Vector2(-9f, 4f);
+        fillAreaRect.offsetMin = new Vector2(9f, -3f);
+        fillAreaRect.offsetMax = new Vector2(-9f, 3f);
 
         var fill = CreateUiObject("Fill", fillArea.transform);
         StretchFull(fill.GetComponent<RectTransform>());
@@ -567,7 +567,7 @@ public static class MainMenuSceneBuilder
         var handleRect = handle.GetComponent<RectTransform>();
         handleRect.anchorMin = new Vector2(0.5f, 0f);
         handleRect.anchorMax = new Vector2(0.5f, 1f);
-        handleRect.sizeDelta = new Vector2(18f, -8f);
+        handleRect.sizeDelta = new Vector2(18f, -6f);
         handleRect.anchoredPosition = Vector2.zero;
         var handleImage = handle.AddComponent<Image>();
         handleImage.color = new Color(0.92f, 0.88f, 0.98f, 1f);
