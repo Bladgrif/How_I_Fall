@@ -111,13 +111,15 @@ public static class MainMenuSceneBuilder
 
     private static Sprite TryLoadKeyVisualSprite()
     {
+        var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(KeyVisualPath);
+        ValidateKeyVisualAspect(texture);
+
         var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(KeyVisualPath);
         if (sprite != null)
         {
             return sprite;
         }
 
-        var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(KeyVisualPath);
         if (texture == null)
         {
             return null;
@@ -125,6 +127,21 @@ public static class MainMenuSceneBuilder
 
         var rect = new Rect(0f, 0f, texture.width, texture.height);
         return Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
+    }
+
+    private static void ValidateKeyVisualAspect(Texture2D texture)
+    {
+        if (texture == null || texture.height == 0)
+        {
+            return;
+        }
+
+        float aspect = (float)texture.width / texture.height;
+        float target = 16f / 9f;
+        if (Mathf.Abs(aspect - target) > 0.01f)
+        {
+            Debug.LogWarning("Main menu key visual should be 16:9, recommended 1920x1080.");
+        }
     }
 
     private static void CreateOverlay(Transform canvas)
