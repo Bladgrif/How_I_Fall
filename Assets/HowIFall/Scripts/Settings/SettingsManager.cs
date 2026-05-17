@@ -41,6 +41,7 @@ public class SettingsManager : MonoBehaviour
         settings.textSpeed = PlayerPrefs.GetFloat(TextSpeedKey, 1f);
         settings.fullscreen = PlayerPrefs.GetInt(FullscreenKey, 1) == 1;
         ApplySettings();
+        AudioManager.Instance?.ApplySettingsVolume();
     }
 
     public void SaveSettings()
@@ -58,6 +59,7 @@ public class SettingsManager : MonoBehaviour
         settings = new GameSettings();
         ApplySettings();
         SaveSettings();
+        AudioManager.Instance?.ApplySettingsVolume();
     }
 
     public void SetMasterVolume(float value)
@@ -71,12 +73,14 @@ public class SettingsManager : MonoBehaviour
     {
         settings.musicVolume = Mathf.Clamp01(value);
         SaveSettings();
+        AudioManager.Instance?.ApplySettingsVolume();
     }
 
     public void SetSfxVolume(float value)
     {
         settings.sfxVolume = Mathf.Clamp01(value);
         SaveSettings();
+        AudioManager.Instance?.ApplySettingsVolume();
     }
 
     public void SetTextSpeed(float value)

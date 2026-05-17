@@ -29,6 +29,7 @@ public static class MainMenuSceneBuilder
         managers.AddComponent<GameState>();
         managers.AddComponent<SaveManager>();
         managers.AddComponent<SettingsManager>();
+        managers.AddComponent<AudioManager>();
 
         var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController);
         var titleCanvasGroup = CreateGameLogo(canvas.transform);
