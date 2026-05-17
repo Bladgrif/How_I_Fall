@@ -31,11 +31,12 @@ public static class MainMenuSceneBuilder
         managers.AddComponent<SettingsManager>();
 
         var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController);
+        var titleCanvasGroup = CreateGameLogo(canvas.transform);
+        CreateFooter(canvas.transform);
+
         var settingsPanelController = CreateSettingsPanel(canvas.transform);
         mainMenuController.settingsPanel = settingsPanelController;
 
-        var titleCanvasGroup = CreateGameLogo(canvas.transform);
-        CreateFooter(canvas.transform);
         CreateMainMenuAnimator(canvas.transform, backgroundTransform, menuCanvasGroup, titleCanvasGroup, overlayGraphic);
 
         EditorSceneManager.SaveScene(scene, MainMenuScenePath);
@@ -253,15 +254,15 @@ public static class MainMenuSceneBuilder
 
         var colors = button.colors;
         colors.normalColor = new Color(0f, 0f, 0f, 0.001f);
-        colors.highlightedColor = new Color(0.36f, 0.18f, 0.42f, 0.18f);
-        colors.pressedColor = new Color(0.48f, 0.22f, 0.56f, 0.28f);
+        colors.highlightedColor = new Color(0.45f, 0.18f, 0.58f, 0.32f);
+        colors.pressedColor = new Color(0.58f, 0.22f, 0.72f, 0.46f);
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0f, 0f, 0f, 0.1f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
         var text = CreateLabel(buttonGo.transform, label, 28, TextAnchor.MiddleLeft);
-        text.color = new Color(0.88f, 0.85f, 0.94f, 0.96f);
+        text.color = new Color(0.9f, 0.87f, 0.96f, 0.98f);
         text.raycastTarget = false;
         var textRect = text.GetComponent<RectTransform>();
         textRect.offsetMin = new Vector2(30f, 0f);
@@ -337,7 +338,7 @@ public static class MainMenuSceneBuilder
         StretchFull(panelRoot.GetComponent<RectTransform>());
 
         var dimImage = panelRoot.AddComponent<Image>();
-        dimImage.color = new Color(0.01f, 0f, 0.02f, 0.82f);
+        dimImage.color = new Color(0f, 0f, 0f, 0.55f);
         dimImage.raycastTarget = false;
 
         var panel = CreateUiObject("Panel", panelRoot.transform);
@@ -345,11 +346,15 @@ public static class MainMenuSceneBuilder
         panelRect.anchorMin = new Vector2(0.5f, 0.5f);
         panelRect.anchorMax = new Vector2(0.5f, 0.5f);
         panelRect.pivot = new Vector2(0.5f, 0.5f);
-        panelRect.sizeDelta = new Vector2(860f, 720f);
-        panelRect.anchoredPosition = Vector2.zero;
+        panelRect.sizeDelta = new Vector2(760f, 620f);
+        panelRect.anchoredPosition = new Vector2(190f, 0f);
         var panelImage = panel.AddComponent<Image>();
-        panelImage.color = new Color(0.94f, 0.91f, 0.86f, 0.88f);
+        panelImage.color = new Color(0.035f, 0.025f, 0.06f, 0.88f);
         panelImage.raycastTarget = false;
+
+        var panelShadow = panel.AddComponent<Shadow>();
+        panelShadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
+        panelShadow.effectDistance = new Vector2(4f, -4f);
 
         var content = CreateUiObject("Content", panel.transform);
         StretchFull(content.GetComponent<RectTransform>(), 46f, 46f, 44f, 44f);
@@ -363,7 +368,8 @@ public static class MainMenuSceneBuilder
 
         var title = CreateLabel(content.transform, "Settings", 44, TextAnchor.MiddleCenter);
         title.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 66f);
-        title.color = new Color(0.1f, 0.08f, 0.18f, 1f);
+        title.fontSize = 42;
+        title.color = new Color(0.94f, 0.9f, 0.98f, 1f);
         title.raycastTarget = false;
 
         Slider master = CreateLabeledSlider(content.transform, "Master Volume", 0f, 1f, 1f);
@@ -373,14 +379,14 @@ public static class MainMenuSceneBuilder
 
         var fullscreenRow = CreateRow(content.transform, 56f);
         var fullscreenLabel = CreateLabel(fullscreenRow.transform, "Fullscreen", 24, TextAnchor.MiddleLeft);
-        fullscreenLabel.color = new Color(0.1f, 0.08f, 0.18f, 1f);
+        fullscreenLabel.color = new Color(0.84f, 0.8f, 0.9f, 1f);
         fullscreenLabel.raycastTarget = false;
         var fullscreenToggle = CreateToggle(fullscreenRow.transform);
 
         var buttonsRow = CreateRow(content.transform, 76f);
         buttonsRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleCenter;
-        var resetButton = CreateStyledButton(buttonsRow.transform, "Reset", new Vector2(220f, 64f));
-        var backButton = CreateStyledButton(buttonsRow.transform, "Back", new Vector2(220f, 64f));
+        var resetButton = CreateStyledButton(buttonsRow.transform, "Reset", new Vector2(220f, 58f));
+        var backButton = CreateStyledButton(buttonsRow.transform, "Back", new Vector2(220f, 58f));
 
         var settingsController = panelRoot.AddComponent<SettingsPanelController>();
         settingsController.root = panelRoot;
@@ -427,11 +433,11 @@ public static class MainMenuSceneBuilder
         label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         label.fontSize = 24;
         label.alignment = TextAnchor.MiddleLeft;
-        label.color = new Color(0.1f, 0.08f, 0.18f, 1f);
+        label.color = new Color(0.84f, 0.8f, 0.9f, 1f);
         label.raycastTarget = false;
 
         var slider = CreateSlider(row.transform, min, max, value);
-        slider.GetComponent<RectTransform>().sizeDelta = new Vector2(460f, 36f);
+        slider.GetComponent<RectTransform>().sizeDelta = new Vector2(400f, 32f);
         return slider;
     }
 
@@ -439,7 +445,7 @@ public static class MainMenuSceneBuilder
     {
         var sliderGo = CreateUiObject("Slider", parent);
         var sliderFrame = sliderGo.AddComponent<Image>();
-        sliderFrame.color = new Color(0.1f, 0.09f, 0.14f, 1f);
+        sliderFrame.color = new Color(0.12f, 0.1f, 0.16f, 1f);
         sliderFrame.raycastTarget = false;
 
         var slider = sliderGo.AddComponent<Slider>();
@@ -457,7 +463,7 @@ public static class MainMenuSceneBuilder
         bgRect.offsetMin = Vector2.zero;
         bgRect.offsetMax = Vector2.zero;
         var bgImage = background.AddComponent<Image>();
-        bgImage.color = new Color(0.16f, 0.15f, 0.2f, 1f);
+        bgImage.color = new Color(0.12f, 0.1f, 0.16f, 1f);
         bgImage.raycastTarget = false;
 
         var fillArea = CreateUiObject("Fill Area", sliderGo.transform);
@@ -466,7 +472,7 @@ public static class MainMenuSceneBuilder
         var fill = CreateUiObject("Fill", fillArea.transform);
         StretchFull(fill.GetComponent<RectTransform>());
         var fillImage = fill.AddComponent<Image>();
-        fillImage.color = new Color(0.57f, 0.45f, 0.72f, 1f);
+        fillImage.color = new Color(0.56f, 0.32f, 0.74f, 1f);
         fillImage.raycastTarget = false;
 
         var handleArea = CreateUiObject("Handle Slide Area", sliderGo.transform);
@@ -476,10 +482,10 @@ public static class MainMenuSceneBuilder
         var handleRect = handle.GetComponent<RectTransform>();
         handleRect.anchorMin = new Vector2(0.5f, 0f);
         handleRect.anchorMax = new Vector2(0.5f, 1f);
-        handleRect.sizeDelta = new Vector2(24f, 0f);
+        handleRect.sizeDelta = new Vector2(22f, 0f);
         handleRect.anchoredPosition = Vector2.zero;
         var handleImage = handle.AddComponent<Image>();
-        handleImage.color = new Color(0.93f, 0.9f, 0.97f, 1f);
+        handleImage.color = new Color(0.92f, 0.88f, 0.98f, 1f);
 
         slider.fillRect = fill.GetComponent<RectTransform>();
         slider.handleRect = handleRect;
@@ -493,7 +499,7 @@ public static class MainMenuSceneBuilder
         toggleGo.GetComponent<RectTransform>().sizeDelta = new Vector2(32f, 32f);
 
         var background = toggleGo.AddComponent<Image>();
-        background.color = new Color(0.14f, 0.13f, 0.18f, 1f);
+        background.color = new Color(0.12f, 0.1f, 0.16f, 1f);
 
         var toggle = toggleGo.AddComponent<Toggle>();
         toggle.targetGraphic = background;
@@ -502,7 +508,7 @@ public static class MainMenuSceneBuilder
         var checkmarkGo = CreateUiObject("Checkmark", toggleGo.transform);
         StretchFull(checkmarkGo.GetComponent<RectTransform>(), 6f, 6f, 6f, 6f);
         var checkmark = checkmarkGo.AddComponent<Image>();
-        checkmark.color = new Color(0.57f, 0.45f, 0.72f, 1f);
+        checkmark.color = new Color(0.56f, 0.32f, 0.74f, 1f);
         toggle.graphic = checkmark;
         toggle.isOn = true;
         return toggle;
@@ -514,22 +520,22 @@ public static class MainMenuSceneBuilder
         buttonGo.GetComponent<RectTransform>().sizeDelta = size;
 
         var image = buttonGo.AddComponent<Image>();
-        image.color = new Color(0.14f, 0.13f, 0.18f, 0.96f);
+        image.color = new Color(0.08f, 0.06f, 0.12f, 0.92f);
 
         var button = buttonGo.AddComponent<Button>();
         button.targetGraphic = image;
 
         var colors = button.colors;
-        colors.normalColor = new Color(0.14f, 0.13f, 0.18f, 0.96f);
-        colors.highlightedColor = new Color(0.2f, 0.18f, 0.28f, 1f);
-        colors.pressedColor = new Color(0.26f, 0.23f, 0.35f, 1f);
+        colors.normalColor = new Color(0.08f, 0.06f, 0.12f, 0.92f);
+        colors.highlightedColor = new Color(0.45f, 0.18f, 0.58f, 0.38f);
+        colors.pressedColor = new Color(0.58f, 0.22f, 0.72f, 0.52f);
         colors.selectedColor = colors.highlightedColor;
-        colors.disabledColor = new Color(0.12f, 0.12f, 0.12f, 0.5f);
+        colors.disabledColor = new Color(0.06f, 0.05f, 0.08f, 0.5f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        var text = CreateLabel(buttonGo.transform, label, 30, TextAnchor.MiddleCenter);
-        text.color = new Color(0.93f, 0.9f, 0.97f, 1f);
+        var text = CreateLabel(buttonGo.transform, label, 28, TextAnchor.MiddleCenter);
+        text.color = new Color(0.9f, 0.87f, 0.96f, 0.98f);
         text.raycastTarget = false;
         return button;
     }
