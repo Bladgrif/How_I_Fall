@@ -246,12 +246,13 @@ public static class MainMenuSceneBuilder
         StretchFull(buttonGo.GetComponent<RectTransform>());
 
         var image = buttonGo.AddComponent<Image>();
-        image.color = Color.white;
+        image.color = new Color(0f, 0f, 0f, 0f);
         image.raycastTarget = true;
 
         var button = buttonGo.AddComponent<Button>();
         button.interactable = true;
         button.targetGraphic = image;
+        button.transition = Selectable.Transition.None;
 
         var colors = button.colors;
         colors.normalColor = new Color(0f, 0f, 0f, 0f);
@@ -268,6 +269,16 @@ public static class MainMenuSceneBuilder
         var textRect = text.GetComponent<RectTransform>();
         textRect.offsetMin = new Vector2(30f, 0f);
         textRect.offsetMax = new Vector2(-12f, 0f);
+
+        var hoverEffect = buttonGo.AddComponent<MainMenuButtonHoverEffect>();
+        hoverEffect.highlightImage = image;
+        hoverEffect.labelText = text;
+        hoverEffect.normalHighlightColor = new Color(0f, 0f, 0f, 0f);
+        hoverEffect.hoverHighlightColor = new Color(0.45f, 0.18f, 0.58f, 0.35f);
+        hoverEffect.pressedHighlightColor = new Color(0.58f, 0.22f, 0.72f, 0.48f);
+        hoverEffect.normalTextColor = new Color(0.9f, 0.87f, 0.96f, 0.98f);
+        hoverEffect.hoverTextColor = new Color(1f, 0.95f, 1f, 1f);
+
         return button;
     }
 
