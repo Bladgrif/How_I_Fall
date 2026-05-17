@@ -161,10 +161,10 @@ public static class MainMenuSceneBuilder
         rootRect.anchorMax = new Vector2(0f, 0.5f);
         rootRect.pivot = new Vector2(0.5f, 0.5f);
         rootRect.anchoredPosition = new Vector2(180f, 0f);
-        rootRect.sizeDelta = new Vector2(360f, 430f);
+        rootRect.sizeDelta = new Vector2(330f, 360f);
 
         var panel = root.AddComponent<Image>();
-        panel.color = new Color(0.04f, 0.03f, 0.08f, 0.55f);
+        panel.color = new Color(0.04f, 0.03f, 0.08f, 0.45f);
         panel.raycastTarget = false;
 
         var content = CreateUiObject("Menu Content", root.transform);
@@ -182,10 +182,10 @@ public static class MainMenuSceneBuilder
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.ExitGame)
         };
 
-        var rowHeight = 58f;
+        var rowHeight = 46f;
         for (int i = 0; i < labels.Length; i++)
         {
-            var y = 172f - i * (rowHeight + 8f);
+            var y = 126f - i * (rowHeight + 5f);
             var row = CreateUiObject(labels[i] + " Row", content.transform);
             var rowRect = row.GetComponent<RectTransform>();
             rowRect.anchorMin = new Vector2(0f, 0.5f);
@@ -205,9 +205,9 @@ public static class MainMenuSceneBuilder
                 sepRect.anchorMax = new Vector2(1f, 0.5f);
                 sepRect.pivot = new Vector2(0.5f, 0.5f);
                 sepRect.anchoredPosition = new Vector2(0f, y - (rowHeight * 0.5f + 4f));
-                sepRect.sizeDelta = new Vector2(0f, 1f);
+                sepRect.sizeDelta = new Vector2(-56f, 1f);
                 var sepImage = sep.AddComponent<Image>();
-                sepImage.color = new Color(0.75f, 0.72f, 0.85f, 0.22f);
+                sepImage.color = new Color(0.75f, 0.72f, 0.85f, 0.14f);
                 sepImage.raycastTarget = false;
             }
         }
@@ -226,15 +226,15 @@ public static class MainMenuSceneBuilder
         button.targetGraphic = image;
         var colors = button.colors;
         colors.normalColor = new Color(0f, 0f, 0f, 0.001f);
-        colors.highlightedColor = new Color(0.2f, 0.18f, 0.28f, 0.35f);
-        colors.pressedColor = new Color(0.26f, 0.23f, 0.35f, 0.42f);
+        colors.highlightedColor = new Color(0.2f, 0.18f, 0.28f, 0.22f);
+        colors.pressedColor = new Color(0.26f, 0.23f, 0.35f, 0.32f);
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0f, 0f, 0f, 0.1f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        var text = CreateLabel(buttonGo.transform, label, 32, TextAnchor.MiddleLeft);
-        text.color = new Color(0.92f, 0.9f, 0.96f, 1f);
+        var text = CreateLabel(buttonGo.transform, label, 26, TextAnchor.MiddleLeft);
+        text.color = new Color(0.86f, 0.84f, 0.9f, 0.94f);
         text.raycastTarget = false;
         var textRect = text.GetComponent<RectTransform>();
         textRect.offsetMin = new Vector2(18f, 0f);
