@@ -77,6 +77,8 @@ public static class MainMenuSceneBuilder
         camera.backgroundColor = Color.black;
         camera.nearClipPlane = 0.3f;
         camera.farClipPlane = 1000f;
+
+        cameraGo.AddComponent<AudioListener>();
         return camera;
     }
 
