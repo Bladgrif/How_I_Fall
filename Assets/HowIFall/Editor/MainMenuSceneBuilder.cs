@@ -92,7 +92,7 @@ public static class MainMenuSceneBuilder
         StretchFull(bg.GetComponent<RectTransform>());
 
         var image = bg.AddComponent<Image>();
-        var keySprite = AssetDatabase.LoadAssetAtPath<Sprite>(KeyVisualPath);
+        var keySprite = TryLoadKeyVisualSprite();
         if (keySprite != null)
         {
             image.sprite = keySprite;
@@ -102,10 +102,29 @@ public static class MainMenuSceneBuilder
         }
         else
         {
+            Debug.LogWarning("Main menu key visual not found at path: " + KeyVisualPath);
             image.color = new Color(0.035f, 0.03f, 0.055f, 1f);
         }
         image.raycastTarget = false;
         bg.transform.SetAsFirstSibling();
+    }
+
+    private static Sprite TryLoadKeyVisualSprite()
+    {
+        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(KeyVisualPath);
+        if (sprite != null)
+        {
+            return sprite;
+        }
+
+        var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(KeyVisualPath);
+        if (texture == null)
+        {
+            return null;
+        }
+
+        var rect = new Rect(0f, 0f, texture.width, texture.height);
+        return Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
     }
 
     private static void CreateOverlay(Transform canvas)
