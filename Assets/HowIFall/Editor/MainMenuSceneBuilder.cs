@@ -14,6 +14,8 @@ public static class MainMenuSceneBuilder
     private const string KeyVisualPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_key_visual.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
+    private const string UiHoverSfxPath = "Assets/HowIFall/Audio/SFX/ui_hover.wav";
+    private const string UiClickSfxPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
 
     [MenuItem("How I Fall/Build Main Menu Scene")]
     public static void BuildMainMenuScene()
@@ -142,13 +144,18 @@ public static class MainMenuSceneBuilder
 
     private static AudioClip TryLoadMainMenuMusicClip()
     {
-        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(MainMenuMusicMp3Path);
+        var clip = TryLoadAudioClip(MainMenuMusicMp3Path);
         if (clip != null)
         {
             return clip;
         }
 
-        return AssetDatabase.LoadAssetAtPath<AudioClip>(MainMenuMusicOggPath);
+        return TryLoadAudioClip(MainMenuMusicOggPath);
+    }
+
+    private static AudioClip TryLoadAudioClip(string path)
+    {
+        return AssetDatabase.LoadAssetAtPath<AudioClip>(path);
     }
 
     private static void ValidateKeyVisualAspect(Texture2D texture)
@@ -295,6 +302,8 @@ public static class MainMenuSceneBuilder
         hoverEffect.pressedHighlightColor = new Color(0.58f, 0.22f, 0.72f, 0.48f);
         hoverEffect.normalTextColor = new Color(0.9f, 0.87f, 0.96f, 0.98f);
         hoverEffect.hoverTextColor = new Color(1f, 0.95f, 1f, 1f);
+        hoverEffect.hoverSfx = TryLoadAudioClip(UiHoverSfxPath);
+        hoverEffect.clickSfx = TryLoadAudioClip(UiClickSfxPath);
 
         return button;
     }

@@ -6,6 +6,8 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
 {
     public Image highlightImage;
     public Text labelText;
+    public AudioClip hoverSfx;
+    public AudioClip clickSfx;
 
     public Color normalHighlightColor = new Color(0f, 0f, 0f, 0f);
     public Color hoverHighlightColor = new Color(0.45f, 0.18f, 0.58f, 0.35f);
@@ -25,6 +27,7 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
     {
         _isPointerInside = true;
         ApplyHoverState();
+        PlaySfx(hoverSfx);
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -39,6 +42,8 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
         {
             highlightImage.color = pressedHighlightColor;
         }
+
+        PlaySfx(clickSfx);
     }
 
     public void OnPointerUp(PointerEventData eventData)
@@ -76,6 +81,14 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
         if (labelText != null)
         {
             labelText.color = hoverTextColor;
+        }
+    }
+
+    private void PlaySfx(AudioClip clip)
+    {
+        if (clip != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(clip);
         }
     }
 }
