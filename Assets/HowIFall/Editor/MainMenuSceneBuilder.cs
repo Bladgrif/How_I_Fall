@@ -246,18 +246,19 @@ public static class MainMenuSceneBuilder
         StretchFull(buttonGo.GetComponent<RectTransform>());
 
         var image = buttonGo.AddComponent<Image>();
-        image.color = new Color(0f, 0f, 0f, 0.001f);
+        image.color = Color.white;
+        image.raycastTarget = true;
 
         var button = buttonGo.AddComponent<Button>();
         button.interactable = true;
         button.targetGraphic = image;
 
         var colors = button.colors;
-        colors.normalColor = new Color(0f, 0f, 0f, 0.001f);
-        colors.highlightedColor = new Color(0.45f, 0.18f, 0.58f, 0.32f);
-        colors.pressedColor = new Color(0.58f, 0.22f, 0.72f, 0.46f);
-        colors.selectedColor = colors.highlightedColor;
-        colors.disabledColor = new Color(0f, 0f, 0f, 0.1f);
+        colors.normalColor = new Color(0f, 0f, 0f, 0f);
+        colors.highlightedColor = new Color(0.45f, 0.18f, 0.58f, 0.35f);
+        colors.pressedColor = new Color(0.58f, 0.22f, 0.72f, 0.48f);
+        colors.selectedColor = new Color(0.45f, 0.18f, 0.58f, 0.35f);
+        colors.disabledColor = new Color(0f, 0f, 0f, 0.08f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
