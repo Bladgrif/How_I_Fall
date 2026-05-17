@@ -75,7 +75,6 @@ public static class MainMenuSceneBuilder
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
         scaler.matchWidthOrHeight = 0.5f;
-
         return canvas;
     }
 
@@ -105,6 +104,7 @@ public static class MainMenuSceneBuilder
             Debug.LogWarning("Main menu key visual not found at path: " + KeyVisualPath);
             image.color = new Color(0.035f, 0.03f, 0.055f, 1f);
         }
+
         image.raycastTarget = false;
         bg.transform.SetAsFirstSibling();
     }
@@ -125,8 +125,7 @@ public static class MainMenuSceneBuilder
             return null;
         }
 
-        var rect = new Rect(0f, 0f, texture.width, texture.height);
-        return Sprite.Create(texture, rect, new Vector2(0.5f, 0.5f));
+        return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
     }
 
     private static void ValidateKeyVisualAspect(Texture2D texture)
@@ -149,7 +148,7 @@ public static class MainMenuSceneBuilder
         var overlay = CreateUiObject("Background Overlay", canvas);
         StretchFull(overlay.GetComponent<RectTransform>());
         var image = overlay.AddComponent<Image>();
-        image.color = new Color(0f, 0f, 0f, 0.25f);
+        image.color = new Color(0f, 0f, 0f, 0.32f);
         image.raycastTarget = false;
     }
 
@@ -157,55 +156,39 @@ public static class MainMenuSceneBuilder
     {
         var root = CreateUiObject("MainMenuRoot", canvas);
         var rootRect = root.GetComponent<RectTransform>();
-        rootRect.anchorMin = new Vector2(0.5f, 0.5f);
-        rootRect.anchorMax = new Vector2(0.5f, 0.5f);
-        rootRect.pivot = new Vector2(0.5f, 0.5f);
-        rootRect.anchoredPosition = new Vector2(-150f, -40f);
-        rootRect.sizeDelta = new Vector2(360f, 560f);
+        rootRect.anchorMin = new Vector2(0f, 0.5f);
+        rootRect.anchorMax = new Vector2(0f, 0.5f);
+        rootRect.pivot = new Vector2(0f, 0.5f);
+        rootRect.anchoredPosition = new Vector2(70f, -10f);
+        rootRect.sizeDelta = new Vector2(330f, 430f);
 
         var panel = root.AddComponent<Image>();
-        panel.color = new Color(0.94f, 0.91f, 0.86f, 0.82f);
+        panel.color = new Color(0.035f, 0.025f, 0.06f, 0.58f);
         panel.raycastTarget = false;
+
         var panelShadow = root.AddComponent<Shadow>();
-        panelShadow.effectColor = new Color(0f, 0f, 0f, 0.3f);
-        panelShadow.effectDistance = new Vector2(4f, -4f);
+        panelShadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
+        panelShadow.effectDistance = new Vector2(3f, -3f);
 
         var content = CreateUiObject("Menu Content", root.transform);
-        var contentRect = content.GetComponent<RectTransform>();
-        StretchFull(contentRect, 26f, 26f, 24f, 24f);
+        StretchFull(content.GetComponent<RectTransform>(), 24f, 24f, 20f, 20f);
 
-        var emblem = CreateUiObject("Card Emblem", content.transform);
-        var emblemRect = emblem.GetComponent<RectTransform>();
-        emblemRect.anchorMin = new Vector2(0.5f, 1f);
-        emblemRect.anchorMax = new Vector2(0.5f, 1f);
-        emblemRect.pivot = new Vector2(0.5f, 0.5f);
-        emblemRect.anchoredPosition = new Vector2(0f, -20f);
-        emblemRect.sizeDelta = new Vector2(40f, 40f);
-        var emblemText = emblem.AddComponent<Text>();
-        emblemText.text = "✦";
-        emblemText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        emblemText.fontSize = 28;
-        emblemText.alignment = TextAnchor.MiddleCenter;
-        emblemText.color = new Color(0.12f, 0.1f, 0.22f, 0.95f);
-        emblemText.raycastTarget = false;
-
-        string[] labels = { "Продолжить", "Новая игра", "Загрузить", "Настройки", "Галерея", "Об игре", "Помощь", "Выход" };
+        string[] labels = { "Начать", "Загрузить", "Настройки", "Об игре", "Помощь", "Выход" };
         var methods = new System.Action<Button>[]
         {
-            b => UnityEventTools.AddPersistentListener(b.onClick, controller.ContinueGame),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.StartGame),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.ContinueGame),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenSettings),
-            b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenGallery),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenAbout),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenHelp),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.ExitGame)
         };
 
-        var rowHeight = 44f;
+        const float rowHeight = 54f;
+        const float rowSpacing = 7f;
         for (int i = 0; i < labels.Length; i++)
         {
-            var y = 178f - i * (rowHeight + 5f);
+            float y = 140f - i * (rowHeight + rowSpacing);
             var row = CreateUiObject(labels[i] + " Row", content.transform);
             var rowRect = row.GetComponent<RectTransform>();
             rowRect.anchorMin = new Vector2(0f, 0.5f);
@@ -225,9 +208,10 @@ public static class MainMenuSceneBuilder
                 sepRect.anchorMax = new Vector2(1f, 0.5f);
                 sepRect.pivot = new Vector2(0.5f, 0.5f);
                 sepRect.anchoredPosition = new Vector2(0f, y - (rowHeight * 0.5f + 4f));
-                sepRect.sizeDelta = new Vector2(-60f, 1f);
+                sepRect.sizeDelta = new Vector2(-48f, 1f);
+
                 var sepImage = sep.AddComponent<Image>();
-                sepImage.color = new Color(0.1f, 0.09f, 0.2f, 0.15f);
+                sepImage.color = new Color(0.92f, 0.89f, 0.96f, 0.21f);
                 sepImage.raycastTarget = false;
             }
         }
@@ -244,19 +228,22 @@ public static class MainMenuSceneBuilder
         var button = buttonGo.AddComponent<Button>();
         button.interactable = true;
         button.targetGraphic = image;
+
         var colors = button.colors;
         colors.normalColor = new Color(0f, 0f, 0f, 0.001f);
-        colors.highlightedColor = new Color(0.15f, 0.13f, 0.28f, 0.12f);
-        colors.pressedColor = new Color(0.15f, 0.13f, 0.28f, 0.2f);
+        colors.highlightedColor = new Color(0.15f, 0.13f, 0.28f, 0.28f);
+        colors.pressedColor = new Color(0.15f, 0.13f, 0.28f, 0.42f);
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0f, 0f, 0f, 0.1f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        var text = CreateLabel(buttonGo.transform, label, 26, TextAnchor.MiddleCenter);
-        text.color = new Color(0.09f, 0.08f, 0.18f, 1f);
+        var text = CreateLabel(buttonGo.transform, label, 29, TextAnchor.MiddleLeft);
+        text.color = new Color(0.92f, 0.89f, 0.96f, 0.96f);
         text.raycastTarget = false;
-
+        var textRect = text.GetComponent<RectTransform>();
+        textRect.offsetMin = new Vector2(28f, 0f);
+        textRect.offsetMax = new Vector2(-12f, 0f);
         return button;
     }
 
@@ -264,23 +251,23 @@ public static class MainMenuSceneBuilder
     {
         var logoGo = CreateUiObject("Game Title", canvas);
         var rect = logoGo.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0.5f, 1f);
-        rect.anchorMax = new Vector2(0.5f, 1f);
-        rect.pivot = new Vector2(0.5f, 1f);
-        rect.anchoredPosition = new Vector2(0f, -80f);
-        rect.sizeDelta = new Vector2(1200f, 160f);
+        rect.anchorMin = new Vector2(0.5f, 0f);
+        rect.anchorMax = new Vector2(0.5f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(180f, 65f);
+        rect.sizeDelta = new Vector2(1000f, 160f);
 
         var text = logoGo.AddComponent<Text>();
         text.text = "How I Fall";
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.fontSize = 108;
+        text.fontSize = 132;
         text.alignment = TextAnchor.MiddleCenter;
-        text.color = new Color(0.95f, 0.93f, 0.99f, 0.98f);
+        text.color = new Color(0.95f, 0.92f, 0.98f, 0.98f);
         text.raycastTarget = false;
 
         var shadow = logoGo.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0.28f, 0.18f, 0.32f, 0.55f);
-        shadow.effectDistance = new Vector2(2f, -2f);
+        shadow.effectColor = new Color(0.13f, 0.06f, 0.2f, 0.75f);
+        shadow.effectDistance = new Vector2(3f, -3f);
     }
 
     private static void CreateFooter(Transform canvas)
@@ -334,8 +321,7 @@ public static class MainMenuSceneBuilder
         layout.childForceExpandWidth = true;
 
         var title = CreateLabel(content.transform, "Settings", 44, TextAnchor.MiddleCenter);
-        var titleRect = title.GetComponent<RectTransform>();
-        titleRect.sizeDelta = new Vector2(0f, 66f);
+        title.GetComponent<RectTransform>().sizeDelta = new Vector2(0f, 66f);
         title.color = new Color(0.1f, 0.08f, 0.18f, 1f);
         title.raycastTarget = false;
 
@@ -491,6 +477,7 @@ public static class MainMenuSceneBuilder
 
         var button = buttonGo.AddComponent<Button>();
         button.targetGraphic = image;
+
         var colors = button.colors;
         colors.normalColor = new Color(0.14f, 0.13f, 0.18f, 0.96f);
         colors.highlightedColor = new Color(0.2f, 0.18f, 0.28f, 1f);
