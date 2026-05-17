@@ -55,6 +55,16 @@ public class MainMenuController : MonoBehaviour
         Debug.LogWarning("SettingsPanelController is not assigned.");
     }
 
+    public void OpenAbout()
+    {
+        Debug.Log("About screen is not implemented yet.");
+    }
+
+    public void OpenHelp()
+    {
+        Debug.Log("Help screen is not implemented yet.");
+    }
+
     public void ExitGame()
     {
         Application.Quit();
