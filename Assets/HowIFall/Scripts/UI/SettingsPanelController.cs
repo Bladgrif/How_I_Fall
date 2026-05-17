@@ -9,6 +9,7 @@ public class SettingsPanelController : MonoBehaviour
     public Slider sfxVolumeSlider;
     public Slider textSpeedSlider;
     public Toggle fullscreenToggle;
+    public GameObject[] objectsToHideWhenOpen;
 
     private void Awake()
     {
@@ -25,6 +26,7 @@ public class SettingsPanelController : MonoBehaviour
             return;
         }
 
+        SetHiddenObjectsActive(false);
         root.SetActive(true);
         RefreshUi();
     }
@@ -37,6 +39,7 @@ public class SettingsPanelController : MonoBehaviour
         }
 
         root.SetActive(false);
+        SetHiddenObjectsActive(true);
     }
 
     public void RefreshUi()
@@ -120,6 +123,22 @@ public class SettingsPanelController : MonoBehaviour
         {
             SettingsManager.Instance.ResetSettings();
             RefreshUi();
+        }
+    }
+
+    private void SetHiddenObjectsActive(bool isActive)
+    {
+        if (objectsToHideWhenOpen == null)
+        {
+            return;
+        }
+
+        foreach (GameObject target in objectsToHideWhenOpen)
+        {
+            if (target != null)
+            {
+                target.SetActive(isActive);
+            }
         }
     }
 }

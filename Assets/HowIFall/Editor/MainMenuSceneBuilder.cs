@@ -32,10 +32,11 @@ public static class MainMenuSceneBuilder
         managers.AddComponent<AudioManager>();
 
         var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController);
-        var titleCanvasGroup = CreateGameLogo(canvas.transform);
-        CreateFooter(canvas.transform);
+        var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleObject);
+        var footerObject = CreateFooter(canvas.transform);
 
         var settingsPanelController = CreateSettingsPanel(canvas.transform);
+        settingsPanelController.objectsToHideWhenOpen = new[] { titleObject, footerObject };
         mainMenuController.settingsPanel = settingsPanelController;
 
         CreateMainMenuAnimator(canvas.transform, backgroundTransform, menuCanvasGroup, titleCanvasGroup, overlayGraphic);
@@ -283,9 +284,10 @@ public static class MainMenuSceneBuilder
         return button;
     }
 
-    private static CanvasGroup CreateGameLogo(Transform canvas)
+    private static CanvasGroup CreateGameLogo(Transform canvas, out GameObject titleObject)
     {
         var logoGo = CreateUiObject("Game Title", canvas);
+        titleObject = logoGo;
         var rect = logoGo.GetComponent<RectTransform>();
         var canvasGroup = logoGo.AddComponent<CanvasGroup>();
         rect.anchorMin = new Vector2(0.5f, 0f);
@@ -325,7 +327,7 @@ public static class MainMenuSceneBuilder
         animator.backgroundOverlay = overlayGraphic;
     }
 
-    private static void CreateFooter(Transform canvas)
+    private static GameObject CreateFooter(Transform canvas)
     {
         var footer = CreateUiObject("Prototype Build", canvas);
         var rect = footer.GetComponent<RectTransform>();
@@ -342,6 +344,7 @@ public static class MainMenuSceneBuilder
         text.alignment = TextAnchor.MiddleRight;
         text.color = new Color(0.66f, 0.63f, 0.74f, 0.50f);
         text.raycastTarget = false;
+        return footer;
     }
 
     private static SettingsPanelController CreateSettingsPanel(Transform canvas)
@@ -351,7 +354,7 @@ public static class MainMenuSceneBuilder
         StretchFull(panelRoot.GetComponent<RectTransform>());
 
         var dimImage = panelRoot.AddComponent<Image>();
-        dimImage.color = new Color(0f, 0f, 0f, 0.78f);
+        dimImage.color = new Color(0f, 0f, 0f, 0.82f);
         dimImage.raycastTarget = true;
 
         var window = CreateUiObject("Settings Window", panelRoot.transform);
@@ -362,7 +365,7 @@ public static class MainMenuSceneBuilder
         windowRect.sizeDelta = new Vector2(900f, 560f);
         windowRect.anchoredPosition = new Vector2(150f, 25f);
         var windowImage = window.AddComponent<Image>();
-        windowImage.color = new Color(0.025f, 0.018f, 0.045f, 0.93f);
+        windowImage.color = new Color(0.025f, 0.018f, 0.045f, 0.96f);
         windowImage.raycastTarget = false;
 
         var windowShadow = window.AddComponent<Shadow>();
@@ -516,7 +519,7 @@ public static class MainMenuSceneBuilder
         label.raycastTarget = false;
 
         var slider = CreateSlider(row.transform, min, max, value);
-        slider.GetComponent<RectTransform>().sizeDelta = new Vector2(350f, 30f);
+        slider.GetComponent<RectTransform>().sizeDelta = new Vector2(320f, 30f);
         return slider;
     }
 
