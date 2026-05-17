@@ -22,7 +22,7 @@ public static class MainMenuSceneBuilder
         var canvas = CreateCanvas();
         CreateEventSystem();
         CreateBackgroundLayer(canvas.transform);
-        CreateOverlay(canvas.transform);
+        var overlayGraphic = CreateOverlay(canvas.transform);
 
         var managers = new GameObject("Managers");
         var mainMenuController = managers.AddComponent<MainMenuController>();
@@ -30,12 +30,13 @@ public static class MainMenuSceneBuilder
         managers.AddComponent<SaveManager>();
         managers.AddComponent<SettingsManager>();
 
-        CreateMainMenuRoot(canvas.transform, mainMenuController);
+        var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController);
         var settingsPanelController = CreateSettingsPanel(canvas.transform);
         mainMenuController.settingsPanel = settingsPanelController;
 
-        CreateGameLogo(canvas.transform);
+        var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleTransform);
         CreateFooter(canvas.transform);
+        CreateMainMenuAnimator(canvas.transform, menuCanvasGroup, titleCanvasGroup, titleTransform, overlayGraphic);
 
         EditorSceneManager.SaveScene(scene, MainMenuScenePath);
         EnsureBuildSettingsScenes();
@@ -143,18 +144,20 @@ public static class MainMenuSceneBuilder
         }
     }
 
-    private static void CreateOverlay(Transform canvas)
+    private static Graphic CreateOverlay(Transform canvas)
     {
         var overlay = CreateUiObject("Background Overlay", canvas);
         StretchFull(overlay.GetComponent<RectTransform>());
         var image = overlay.AddComponent<Image>();
         image.color = new Color(0f, 0f, 0f, 0.32f);
         image.raycastTarget = false;
+        return image;
     }
 
-    private static void CreateMainMenuRoot(Transform canvas, MainMenuController controller)
+    private static CanvasGroup CreateMainMenuRoot(Transform canvas, MainMenuController controller)
     {
         var root = CreateUiObject("MainMenuRoot", canvas);
+        var canvasGroup = root.AddComponent<CanvasGroup>();
         var rootRect = root.GetComponent<RectTransform>();
         rootRect.anchorMin = new Vector2(0f, 0.5f);
         rootRect.anchorMax = new Vector2(0f, 0.5f);
@@ -228,6 +231,8 @@ public static class MainMenuSceneBuilder
                 sepImage.raycastTarget = false;
             }
         }
+
+        return canvasGroup;
     }
 
     private static Button CreateMenuButton(Transform parent, string label)
@@ -260,10 +265,12 @@ public static class MainMenuSceneBuilder
         return button;
     }
 
-    private static void CreateGameLogo(Transform canvas)
+    private static CanvasGroup CreateGameLogo(Transform canvas, out RectTransform titleTransform)
     {
         var logoGo = CreateUiObject("Game Title", canvas);
         var rect = logoGo.GetComponent<RectTransform>();
+        titleTransform = rect;
+        var canvasGroup = logoGo.AddComponent<CanvasGroup>();
         rect.anchorMin = new Vector2(0.5f, 0f);
         rect.anchorMax = new Vector2(0.5f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
@@ -281,6 +288,24 @@ public static class MainMenuSceneBuilder
         var shadow = logoGo.AddComponent<Shadow>();
         shadow.effectColor = new Color(0.12f, 0.03f, 0.18f, 0.75f);
         shadow.effectDistance = new Vector2(3f, -3f);
+        return canvasGroup;
+    }
+
+    private static void CreateMainMenuAnimator(
+        Transform canvas,
+        CanvasGroup menuCanvasGroup,
+        CanvasGroup titleCanvasGroup,
+        RectTransform titleTransform,
+        Graphic overlayGraphic)
+    {
+        var animatorGo = new GameObject("MainMenuAnimator");
+        animatorGo.transform.SetParent(canvas, false);
+
+        var animator = animatorGo.AddComponent<MainMenuAnimator>();
+        animator.menuCanvasGroup = menuCanvasGroup;
+        animator.titleCanvasGroup = titleCanvasGroup;
+        animator.titleTransform = titleTransform;
+        animator.backgroundOverlay = overlayGraphic;
     }
 
     private static void CreateFooter(Transform canvas)
