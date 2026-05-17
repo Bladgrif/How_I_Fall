@@ -14,9 +14,6 @@ public static class MainMenuSceneBuilder
     private const string KeyVisualPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_key_visual.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
-    private const string UiHoverSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_hover.wav";
-    private const string UiHoverSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_hover.mp3";
-    private const string UiHoverSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_hover.ogg";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
     private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
     private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
@@ -31,7 +28,6 @@ public static class MainMenuSceneBuilder
         CreateEventSystem();
         var backgroundTransform = CreateBackgroundLayer(canvas.transform);
         var overlayGraphic = CreateOverlay(canvas.transform);
-        var hoverSfx = TryLoadAudioClip(UiHoverSfxWavPath, UiHoverSfxMp3Path, UiHoverSfxOggPath);
         var clickSfx = TryLoadAudioClip(UiClickSfxWavPath, UiClickSfxMp3Path, UiClickSfxOggPath);
 
         var managers = new GameObject("Managers");
@@ -43,7 +39,7 @@ public static class MainMenuSceneBuilder
         var musicPlayer = managers.AddComponent<MainMenuMusicPlayer>();
         musicPlayer.musicClip = TryLoadMainMenuMusicClip();
 
-        var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController, hoverSfx, clickSfx);
+        var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController, clickSfx);
         var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleObject);
         var footerObject = CreateFooter(canvas.transform);
 
@@ -196,7 +192,7 @@ public static class MainMenuSceneBuilder
         return image;
     }
 
-    private static CanvasGroup CreateMainMenuRoot(Transform canvas, MainMenuController controller, AudioClip hoverSfx, AudioClip clickSfx)
+    private static CanvasGroup CreateMainMenuRoot(Transform canvas, MainMenuController controller, AudioClip clickSfx)
     {
         var root = CreateUiObject("MainMenuRoot", canvas);
         var canvasGroup = root.AddComponent<CanvasGroup>();
@@ -253,7 +249,7 @@ public static class MainMenuSceneBuilder
             rowRect.anchoredPosition = new Vector2(0f, y);
             rowRect.sizeDelta = new Vector2(0f, rowHeight);
 
-            var button = CreateMenuButton(row.transform, labels[i], hoverSfx, clickSfx);
+            var button = CreateMenuButton(row.transform, labels[i], clickSfx);
             methods[i](button);
 
             if (i < labels.Length - 1)
@@ -277,7 +273,7 @@ public static class MainMenuSceneBuilder
         return canvasGroup;
     }
 
-    private static Button CreateMenuButton(Transform parent, string label, AudioClip hoverSfx, AudioClip clickSfx)
+    private static Button CreateMenuButton(Transform parent, string label, AudioClip clickSfx)
     {
         var buttonGo = CreateUiObject(label + " Button", parent);
         StretchFull(buttonGo.GetComponent<RectTransform>());
@@ -315,7 +311,6 @@ public static class MainMenuSceneBuilder
         hoverEffect.pressedHighlightColor = new Color(0.58f, 0.22f, 0.72f, 0.48f);
         hoverEffect.normalTextColor = new Color(0.9f, 0.87f, 0.96f, 0.98f);
         hoverEffect.hoverTextColor = new Color(1f, 0.95f, 1f, 1f);
-        hoverEffect.hoverSfx = hoverSfx;
         hoverEffect.clickSfx = clickSfx;
 
         return button;

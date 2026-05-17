@@ -6,7 +6,6 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
 {
     public Image highlightImage;
     public Text labelText;
-    public AudioClip hoverSfx;
     public AudioClip clickSfx;
 
     public Color normalHighlightColor = new Color(0f, 0f, 0f, 0f);
@@ -27,7 +26,6 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
     {
         _isPointerInside = true;
         ApplyHoverState();
-        PlaySfx(hoverSfx);
     }
 
     public void OnPointerExit(PointerEventData eventData)
