@@ -12,6 +12,8 @@ public static class MainMenuSceneBuilder
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
     private const string VNPrototypeScenePath = "Assets/HowIFall/Scenes/VNPrototype.unity";
     private const string KeyVisualPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_key_visual.png";
+    private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
+    private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
 
     [MenuItem("How I Fall/Build Main Menu Scene")]
     public static void BuildMainMenuScene()
@@ -30,6 +32,8 @@ public static class MainMenuSceneBuilder
         managers.AddComponent<SaveManager>();
         managers.AddComponent<SettingsManager>();
         managers.AddComponent<AudioManager>();
+        var musicPlayer = managers.AddComponent<MainMenuMusicPlayer>();
+        musicPlayer.musicClip = TryLoadMainMenuMusicClip();
 
         var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController);
         var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleObject);
@@ -134,6 +138,17 @@ public static class MainMenuSceneBuilder
         }
 
         return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+    }
+
+    private static AudioClip TryLoadMainMenuMusicClip()
+    {
+        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(MainMenuMusicMp3Path);
+        if (clip != null)
+        {
+            return clip;
+        }
+
+        return AssetDatabase.LoadAssetAtPath<AudioClip>(MainMenuMusicOggPath);
     }
 
     private static void ValidateKeyVisualAspect(Texture2D texture)
