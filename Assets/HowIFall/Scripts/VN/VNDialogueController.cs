@@ -22,6 +22,7 @@ public class VNDialogueController : MonoBehaviour
     public Button choiceMashaButton;
     public Button choiceArtemButton;
     public Button choiceLeraButton;
+    public AudioClip uiClickSfx;
 
     public Vector2 characterLeftPosition = new Vector2(-420f, -220f);
     public Vector2 characterCenterPosition = new Vector2(0f, -220f);
@@ -51,7 +52,11 @@ public class VNDialogueController : MonoBehaviour
 
         choiceButtons = new[] { choiceMashaButton, choiceArtemButton, choiceLeraButton };
 
-        nextButton.onClick.AddListener(ShowNextLine);
+        nextButton.onClick.AddListener(() =>
+        {
+            PlayUiClick();
+            ShowNextLine();
+        });
 
         for (int i = 0; i < choiceButtons.Length; i++)
         {
@@ -62,7 +67,11 @@ public class VNDialogueController : MonoBehaviour
             }
 
             int choiceIndex = i;
-            choiceButtons[i].onClick.AddListener(() => Choose(choiceIndex));
+            choiceButtons[i].onClick.AddListener(() =>
+            {
+                PlayUiClick();
+                Choose(choiceIndex);
+            });
         }
 
         if (gameState.hasLoadedSave && !string.IsNullOrEmpty(gameState.currentSceneId) && sceneRegistry != null)
@@ -97,6 +106,14 @@ public class VNDialogueController : MonoBehaviour
                     Debug.LogWarning("No save file found.");
                 }
             }
+        }
+    }
+
+    private void PlayUiClick()
+    {
+        if (uiClickSfx != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(uiClickSfx);
         }
     }
 
