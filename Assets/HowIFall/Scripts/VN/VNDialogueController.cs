@@ -427,7 +427,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         SaveManager.Instance.Save();
-        ShowNotification("Сохранено");
+        ShowNotification("Быстрое сохранение выполнено");
     }
 
     public void LoadGame()
@@ -435,11 +435,11 @@ public class VNDialogueController : MonoBehaviour
         if (SaveManager.Instance != null && SaveManager.Instance.Load())
         {
             RestoreFromGameState();
-            ShowNotification("Загружено");
+            ShowNotification("Быстрое сохранение загружено");
         }
         else
         {
-            ShowNotification("Сохранение не найдено");
+            ShowNotification("Быстрое сохранение не найдено");
         }
     }
 

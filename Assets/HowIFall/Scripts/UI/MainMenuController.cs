@@ -24,6 +24,12 @@ public class MainMenuController : MonoBehaviour
             return;
         }
 
+        if (!SaveManager.Instance.HasSave())
+        {
+            Debug.LogWarning("No save file found.");
+            return;
+        }
+
         if (SaveManager.Instance.Load())
         {
             SceneManager.LoadScene(PrototypeSceneName);

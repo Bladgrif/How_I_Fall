@@ -95,6 +95,11 @@ public class SaveManager : MonoBehaviour
         return File.Exists(SavePath);
     }
 
+    public string GetSavePathForDebug()
+    {
+        return SavePath;
+    }
+
     public void DeleteSave()
     {
         if (!HasSave())

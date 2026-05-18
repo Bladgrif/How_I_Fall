@@ -252,6 +252,11 @@ public static class MainMenuSceneBuilder
             var button = CreateMenuButton(row.transform, labels[i], clickSfx);
             methods[i](button);
 
+            if (i == 1)
+            {
+                CreateQuickSaveStatus(row.transform);
+            }
+
             if (i < labels.Length - 1)
             {
                 var sep = CreateUiObject("Separator", content.transform);
@@ -271,6 +276,28 @@ public static class MainMenuSceneBuilder
         }
 
         return canvasGroup;
+    }
+
+    private static void CreateQuickSaveStatus(Transform parent)
+    {
+        var statusGo = CreateUiObject("Quick Save Status", parent);
+        var statusRect = statusGo.GetComponent<RectTransform>();
+        statusRect.anchorMin = new Vector2(0f, 0f);
+        statusRect.anchorMax = new Vector2(1f, 0f);
+        statusRect.pivot = new Vector2(0.5f, 0f);
+        statusRect.offsetMin = new Vector2(30f, 3f);
+        statusRect.offsetMax = new Vector2(-18f, 23f);
+
+        var statusText = statusGo.AddComponent<Text>();
+        statusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        statusText.fontSize = 14;
+        statusText.alignment = TextAnchor.LowerRight;
+        statusText.color = new Color(0.78f, 0.72f, 0.86f, 0.78f);
+        statusText.raycastTarget = false;
+        statusText.text = "quick save: ...";
+
+        var statusView = statusGo.AddComponent<QuickSaveStatusView>();
+        statusView.statusText = statusText;
     }
 
     private static Button CreateMenuButton(Transform parent, string label, AudioClip clickSfx)
