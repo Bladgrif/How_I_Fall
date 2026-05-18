@@ -56,9 +56,22 @@ public static class VNPrototypeBacklogUiBuilder
             Object.DestroyImmediate(existingNotificationPanel.gameObject);
         }
 
+        Transform existingConfirmExitPanel = canvas.transform.Find("Confirm Exit Panel");
+
+        if (existingConfirmExitPanel != null)
+        {
+            Object.DestroyImmediate(existingConfirmExitPanel.gameObject);
+        }
+
         CreateQuickMenu(canvas.transform, controller);
         GameObject notificationPanel = CreateNotificationPanel(canvas.transform, out TextMeshProUGUI notificationText);
         notificationPanel.SetActive(false);
+
+        GameObject confirmExitPanel = CreateConfirmExitPanel(
+            canvas.transform,
+            out Button confirmExitYesButton,
+            out Button confirmExitNoButton);
+        confirmExitPanel.SetActive(false);
 
         GameObject backlogPanel = CreateBacklogPanel(canvas.transform, out TextMeshProUGUI backlogText, out Button closeButton);
         backlogPanel.transform.SetAsLastSibling();
@@ -70,6 +83,9 @@ public static class VNPrototypeBacklogUiBuilder
         serializedController.FindProperty("backlogCloseButton").objectReferenceValue = closeButton;
         serializedController.FindProperty("notificationPanel").objectReferenceValue = notificationPanel;
         serializedController.FindProperty("notificationText").objectReferenceValue = notificationText;
+        serializedController.FindProperty("confirmExitPanel").objectReferenceValue = confirmExitPanel;
+        serializedController.FindProperty("confirmExitYesButton").objectReferenceValue = confirmExitYesButton;
+        serializedController.FindProperty("confirmExitNoButton").objectReferenceValue = confirmExitNoButton;
         serializedController.ApplyModifiedProperties();
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -153,7 +169,7 @@ public static class VNPrototypeBacklogUiBuilder
         UnityEventTools.AddPersistentListener(settingsButton.onClick, controller.OpenSettings);
 
         Button menuButton = CreateQuickMenuButton(menu.transform, "Меню", 90f);
-        UnityEventTools.AddPersistentListener(menuButton.onClick, controller.ReturnToMainMenu);
+        UnityEventTools.AddPersistentListener(menuButton.onClick, controller.ShowConfirmExit);
     }
 
     private static Button CreateQuickMenuButton(Transform parent, string labelText, float width)
@@ -208,6 +224,80 @@ public static class VNPrototypeBacklogUiBuilder
         StretchToParent(notificationText.rectTransform);
 
         return panel;
+    }
+
+    private static GameObject CreateConfirmExitPanel(
+        Transform parent,
+        out Button yesButton,
+        out Button noButton)
+    {
+        GameObject panel = CreateUiObject("Confirm Exit Panel", parent);
+        RectTransform panelRect = panel.GetComponent<RectTransform>();
+        StretchToParent(panelRect);
+
+        Image dimImage = panel.AddComponent<Image>();
+        dimImage.color = new Color(0f, 0f, 0f, 0.7f);
+        dimImage.raycastTarget = true;
+
+        GameObject window = CreateUiObject("Confirm Exit Window", panel.transform);
+        RectTransform windowRect = window.GetComponent<RectTransform>();
+        windowRect.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRect.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRect.pivot = new Vector2(0.5f, 0.5f);
+        windowRect.anchoredPosition = Vector2.zero;
+        windowRect.sizeDelta = new Vector2(640f, 300f);
+
+        Image windowImage = window.AddComponent<Image>();
+        windowImage.color = new Color(0.025f, 0.018f, 0.045f, 0.94f);
+        windowImage.raycastTarget = true;
+
+        Shadow shadow = window.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+        shadow.effectDistance = new Vector2(5f, -5f);
+
+        TextMeshProUGUI title = CreateText("Title", window.transform, "Вернуться в главное меню?", 30, new Color(0.94f, 0.9f, 0.98f, 1f));
+        title.alignment = TextAlignmentOptions.Center;
+        RectTransform titleRect = title.rectTransform;
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -48f);
+        titleRect.sizeDelta = new Vector2(-80f, 54f);
+
+        TextMeshProUGUI message = CreateText("Message", window.transform, "Несохранённый прогресс может быть потерян.", 22, new Color(0.82f, 0.78f, 0.9f, 1f));
+        message.alignment = TextAlignmentOptions.Center;
+        RectTransform messageRect = message.rectTransform;
+        messageRect.anchorMin = new Vector2(0f, 1f);
+        messageRect.anchorMax = new Vector2(1f, 1f);
+        messageRect.pivot = new Vector2(0.5f, 1f);
+        messageRect.anchoredPosition = new Vector2(0f, -112f);
+        messageRect.sizeDelta = new Vector2(-80f, 46f);
+
+        GameObject buttonRow = CreateUiObject("Button Row", window.transform);
+        RectTransform rowRect = buttonRow.GetComponent<RectTransform>();
+        rowRect.anchorMin = new Vector2(0.5f, 0f);
+        rowRect.anchorMax = new Vector2(0.5f, 0f);
+        rowRect.pivot = new Vector2(0.5f, 0f);
+        rowRect.anchoredPosition = new Vector2(0f, 42f);
+        rowRect.sizeDelta = new Vector2(300f, 54f);
+
+        HorizontalLayoutGroup layout = buttonRow.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 20f;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        yesButton = CreateDialogButton(buttonRow.transform, "Да", 130f);
+        noButton = CreateDialogButton(buttonRow.transform, "Нет", 130f);
+
+        return panel;
+    }
+
+    private static Button CreateDialogButton(Transform parent, string labelText, float width)
+    {
+        return CreateQuickMenuButton(parent, labelText, width);
     }
 
     private static void CreateAccentLine(Transform parent)

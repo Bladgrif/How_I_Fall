@@ -32,6 +32,9 @@ public class VNDialogueController : MonoBehaviour
     public GameObject notificationPanel;
     public TextMeshProUGUI notificationText;
     public float notificationDuration = 1.5f;
+    public GameObject confirmExitPanel;
+    public Button confirmExitYesButton;
+    public Button confirmExitNoButton;
     public AudioClip uiClickSfx;
     public float baseCharactersPerSecond = 45f;
 
@@ -78,9 +81,24 @@ public class VNDialogueController : MonoBehaviour
             notificationPanel.SetActive(false);
         }
 
+        if (confirmExitPanel != null)
+        {
+            confirmExitPanel.SetActive(false);
+        }
+
         if (backlogCloseButton != null)
         {
             backlogCloseButton.onClick.AddListener(HideBacklog);
+        }
+
+        if (confirmExitYesButton != null)
+        {
+            confirmExitYesButton.onClick.AddListener(ConfirmReturnToMainMenu);
+        }
+
+        if (confirmExitNoButton != null)
+        {
+            confirmExitNoButton.onClick.AddListener(HideConfirmExit);
         }
 
         nextButton.onClick.AddListener(() =>
@@ -131,9 +149,19 @@ public class VNDialogueController : MonoBehaviour
             ShowBacklog();
         }
 
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame && backlogPanel != null && backlogPanel.activeSelf)
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            HideBacklog();
+            if (backlogPanel != null && backlogPanel.activeSelf)
+            {
+                HideBacklog();
+                return;
+            }
+
+            if (confirmExitPanel != null && confirmExitPanel.activeSelf)
+            {
+                HideConfirmExit();
+                return;
+            }
         }
     }
 
@@ -373,6 +401,11 @@ public class VNDialogueController : MonoBehaviour
             backlogPanel.SetActive(false);
         }
 
+        if (confirmExitPanel != null)
+        {
+            confirmExitPanel.SetActive(false);
+        }
+
         if (choicePanel != null)
         {
             choicePanel.SetActive(false);
@@ -397,6 +430,31 @@ public class VNDialogueController : MonoBehaviour
         }
 
         SceneManager.LoadScene("MainMenu", LoadSceneMode.Single);
+    }
+
+    public void ShowConfirmExit()
+    {
+        if (confirmExitPanel == null)
+        {
+            ReturnToMainMenu();
+            return;
+        }
+
+        confirmExitPanel.SetActive(true);
+    }
+
+    public void HideConfirmExit()
+    {
+        if (confirmExitPanel != null)
+        {
+            confirmExitPanel.SetActive(false);
+        }
+    }
+
+    private void ConfirmReturnToMainMenu()
+    {
+        HideConfirmExit();
+        ReturnToMainMenu();
     }
 
     private void ShowNotification(string message)
