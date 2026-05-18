@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -350,7 +351,35 @@ public class VNDialogueController : MonoBehaviour
 
     public void ReturnToMainMenu()
     {
-        SceneManager.LoadScene("MainMenu");
+        if (backlogPanel != null)
+        {
+            backlogPanel.SetActive(false);
+        }
+
+        if (choicePanel != null)
+        {
+            choicePanel.SetActive(false);
+        }
+
+        if (nextButton != null)
+        {
+            nextButton.interactable = true;
+        }
+
+        if (typingCoroutine != null)
+        {
+            StopCoroutine(typingCoroutine);
+            typingCoroutine = null;
+        }
+
+        isTyping = false;
+
+        if (EventSystem.current != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+        }
+
+        SceneManager.LoadScene("MainMenu", LoadSceneMode.Single);
     }
 
     private void ShowText(string text)

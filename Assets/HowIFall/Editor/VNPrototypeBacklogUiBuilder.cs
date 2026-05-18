@@ -129,10 +129,10 @@ public static class VNPrototypeBacklogUiBuilder
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
-        Button saveButton = CreateQuickMenuButton(menu.transform, "Сохранить", 110f);
+        Button saveButton = CreateQuickMenuButton(menu.transform, "Быстр. сохр.", 110f);
         UnityEventTools.AddPersistentListener(saveButton.onClick, controller.SaveGame);
 
-        Button loadButton = CreateQuickMenuButton(menu.transform, "Загрузить", 110f);
+        Button loadButton = CreateQuickMenuButton(menu.transform, "Быстр. загр.", 110f);
         UnityEventTools.AddPersistentListener(loadButton.onClick, controller.LoadGame);
 
         Button backlogButton = CreateQuickMenuButton(menu.transform, "История", 100f);
