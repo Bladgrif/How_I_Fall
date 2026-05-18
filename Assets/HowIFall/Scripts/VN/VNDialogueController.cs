@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class VNDialogueController : MonoBehaviour
@@ -107,25 +108,12 @@ public class VNDialogueController : MonoBehaviour
     {
         if (Keyboard.current != null && Keyboard.current.f5Key.wasPressedThisFrame)
         {
-            if (SaveManager.Instance != null)
-            {
-                SaveManager.Instance.Save();
-            }
+            SaveGame();
         }
 
         if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
         {
-            if (SaveManager.Instance != null)
-            {
-                if (SaveManager.Instance.Load())
-                {
-                    RestoreFromGameState();
-                }
-                else
-                {
-                    Debug.LogWarning("No save file found.");
-                }
-            }
+            LoadGame();
         }
 
         if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame)
@@ -336,6 +324,33 @@ public class VNDialogueController : MonoBehaviour
         {
             backlogPanel.SetActive(false);
         }
+    }
+
+    public void SaveGame()
+    {
+        SaveManager.Instance?.Save();
+    }
+
+    public void LoadGame()
+    {
+        if (SaveManager.Instance != null && SaveManager.Instance.Load())
+        {
+            RestoreFromGameState();
+        }
+        else
+        {
+            Debug.LogWarning("No save file found.");
+        }
+    }
+
+    public void OpenSettings()
+    {
+        Debug.Log("VN settings are not implemented yet.");
+    }
+
+    public void ReturnToMainMenu()
+    {
+        SceneManager.LoadScene("MainMenu");
     }
 
     private void ShowText(string text)

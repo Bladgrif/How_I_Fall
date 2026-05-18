@@ -42,8 +42,14 @@ public static class VNPrototypeBacklogUiBuilder
             Object.DestroyImmediate(existingButton.gameObject);
         }
 
-        Button backlogButton = CreateBacklogButton(canvas.transform);
-        UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
+        Transform existingQuickMenu = canvas.transform.Find("VN Quick Menu");
+
+        if (existingQuickMenu != null)
+        {
+            Object.DestroyImmediate(existingQuickMenu.gameObject);
+        }
+
+        CreateQuickMenu(canvas.transform, controller);
 
         GameObject backlogPanel = CreateBacklogPanel(canvas.transform, out TextMeshProUGUI backlogText, out Button closeButton);
         backlogPanel.transform.SetAsLastSibling();
@@ -101,15 +107,45 @@ public static class VNPrototypeBacklogUiBuilder
         return panel;
     }
 
-    private static Button CreateBacklogButton(Transform parent)
+    private static void CreateQuickMenu(Transform parent, VNDialogueController controller)
     {
-        GameObject buttonGo = CreateUiObject("Backlog Button", parent);
-        RectTransform rect = buttonGo.GetComponent<RectTransform>();
+        GameObject menu = CreateUiObject("VN Quick Menu", parent);
+        RectTransform rect = menu.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(1f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-36f, -32f);
-        rect.sizeDelta = new Vector2(160f, 48f);
+        rect.anchoredPosition = new Vector2(-28f, -30f);
+        rect.sizeDelta = new Vector2(520f, 44f);
+
+        HorizontalLayoutGroup layout = menu.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 8f;
+        layout.childAlignment = TextAnchor.MiddleRight;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        Button saveButton = CreateQuickMenuButton(menu.transform, "Сохранить");
+        UnityEventTools.AddPersistentListener(saveButton.onClick, controller.SaveGame);
+
+        Button loadButton = CreateQuickMenuButton(menu.transform, "Загрузить");
+        UnityEventTools.AddPersistentListener(loadButton.onClick, controller.LoadGame);
+
+        Button backlogButton = CreateQuickMenuButton(menu.transform, "История");
+        UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
+
+        Button settingsButton = CreateQuickMenuButton(menu.transform, "Настройки");
+        UnityEventTools.AddPersistentListener(settingsButton.onClick, controller.OpenSettings);
+
+        Button menuButton = CreateQuickMenuButton(menu.transform, "Меню");
+        UnityEventTools.AddPersistentListener(menuButton.onClick, controller.ReturnToMainMenu);
+    }
+
+    private static Button CreateQuickMenuButton(Transform parent, string labelText)
+    {
+        GameObject buttonGo = CreateUiObject($"{labelText} Button", parent);
+        RectTransform rect = buttonGo.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(96f, 42f);
 
         Image image = buttonGo.AddComponent<Image>();
         image.color = Color.white;
@@ -127,7 +163,7 @@ public static class VNPrototypeBacklogUiBuilder
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        TextMeshProUGUI label = CreateText("Text", buttonGo.transform, "История", 22, new Color(0.94f, 0.9f, 0.98f, 1f));
+        TextMeshProUGUI label = CreateText("Text", buttonGo.transform, labelText, 18, new Color(0.94f, 0.9f, 0.98f, 1f));
         label.alignment = TextAlignmentOptions.Center;
         StretchToParent(label.rectTransform);
 
