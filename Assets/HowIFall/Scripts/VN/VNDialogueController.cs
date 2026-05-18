@@ -8,6 +8,7 @@ using UnityEngine.UI;
 public class VNDialogueController : MonoBehaviour
 {
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
+    private const int MaxBacklogEntries = 100;
     private const string EndPrototypeText = "Конец Unity-прототипа.";
 
     public DialogueSceneData sceneData;
@@ -23,6 +24,9 @@ public class VNDialogueController : MonoBehaviour
     public Button choiceMashaButton;
     public Button choiceArtemButton;
     public Button choiceLeraButton;
+    public GameObject backlogPanel;
+    public TextMeshProUGUI backlogText;
+    public Button backlogCloseButton;
     public AudioClip uiClickSfx;
     public float baseCharactersPerSecond = 45f;
 
@@ -44,6 +48,7 @@ public class VNDialogueController : MonoBehaviour
     private Coroutine typingCoroutine;
     private string currentFullText = string.Empty;
     private bool isTyping;
+    private readonly List<DialogueBacklogEntry> backlog = new List<DialogueBacklogEntry>();
 
     private void Start()
     {
@@ -56,6 +61,16 @@ public class VNDialogueController : MonoBehaviour
         GameState gameState = GameState.EnsureInstance();
 
         choiceButtons = new[] { choiceMashaButton, choiceArtemButton, choiceLeraButton };
+
+        if (backlogPanel != null)
+        {
+            backlogPanel.SetActive(false);
+        }
+
+        if (backlogCloseButton != null)
+        {
+            backlogCloseButton.onClick.AddListener(HideBacklog);
+        }
 
         nextButton.onClick.AddListener(() =>
         {
@@ -111,6 +126,16 @@ public class VNDialogueController : MonoBehaviour
                     Debug.LogWarning("No save file found.");
                 }
             }
+        }
+
+        if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame)
+        {
+            ShowBacklog();
+        }
+
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame && backlogPanel != null && backlogPanel.activeSelf)
+        {
+            HideBacklog();
         }
     }
 
@@ -247,6 +272,7 @@ public class VNDialogueController : MonoBehaviour
         bool hasSpeaker = !string.IsNullOrWhiteSpace(line.speaker);
         nameBox.SetActive(hasSpeaker);
         speakerText.text = hasSpeaker ? line.speaker : string.Empty;
+        AddToBacklog(line.speaker, line.text);
         ShowText(line.text);
         ApplyVisuals(line);
     }
@@ -255,7 +281,61 @@ public class VNDialogueController : MonoBehaviour
     {
         nameBox.SetActive(false);
         speakerText.text = string.Empty;
+        AddToBacklog(string.Empty, text);
         ShowText(text);
+    }
+
+    private void AddToBacklog(string speaker, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        backlog.Add(new DialogueBacklogEntry
+        {
+            speaker = speaker,
+            text = text
+        });
+
+        while (backlog.Count > MaxBacklogEntries)
+        {
+            backlog.RemoveAt(0);
+        }
+    }
+
+    public void ShowBacklog()
+    {
+        if (backlogPanel == null || backlogText == null)
+        {
+            Debug.LogWarning("VNDialogueController: backlogPanel or backlogText is not assigned.", this);
+            return;
+        }
+
+        List<string> lines = new List<string>();
+
+        foreach (DialogueBacklogEntry entry in backlog)
+        {
+            if (string.IsNullOrWhiteSpace(entry.speaker))
+            {
+                lines.Add(entry.text);
+            }
+            else
+            {
+                lines.Add($"{entry.speaker}: {entry.text}");
+            }
+        }
+
+        backlogText.text = string.Join("\n\n", lines);
+        backlogPanel.SetActive(true);
+    }
+
+    public void HideBacklog()
+    {
+        if (backlogPanel != null)
+        {
+            backlogPanel.SetActive(false);
+        }
     }
 
     private void ShowText(string text)
