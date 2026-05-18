@@ -381,6 +381,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         sceneData = data;
+        ApplySceneAudio();
         activeLines = sceneData.lines;
         activeChoices = sceneData.choices ?? new List<DialogueChoice>();
         currentLineIndex = Mathf.Clamp(startLineIndex, 0, activeLines.Count - 1);
@@ -394,5 +395,24 @@ public class VNDialogueController : MonoBehaviour
         gameState.currentSceneId = sceneData.sceneId;
         gameState.currentLineIndex = currentLineIndex;
         ShowLine(activeLines[currentLineIndex]);
+    }
+
+    private void ApplySceneAudio()
+    {
+        if (sceneData == null || AudioManager.Instance == null)
+        {
+            return;
+        }
+
+        if (sceneData.stopMusicOnStart)
+        {
+            AudioManager.Instance.StopMusic();
+            return;
+        }
+
+        if (sceneData.backgroundMusic != null)
+        {
+            AudioManager.Instance.PlayMusic(sceneData.backgroundMusic);
+        }
     }
 }
