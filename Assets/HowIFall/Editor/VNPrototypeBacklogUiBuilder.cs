@@ -63,9 +63,27 @@ public static class VNPrototypeBacklogUiBuilder
             Object.DestroyImmediate(existingConfirmExitPanel.gameObject);
         }
 
+        Transform existingSettingsPanel = canvas.transform.Find("VN Settings Panel");
+
+        if (existingSettingsPanel != null)
+        {
+            Object.DestroyImmediate(existingSettingsPanel.gameObject);
+        }
+
         CreateQuickMenu(canvas.transform, controller);
         GameObject notificationPanel = CreateNotificationPanel(canvas.transform, out TextMeshProUGUI notificationText);
         notificationPanel.SetActive(false);
+
+        GameObject settingsPanel = CreateSettingsPanel(
+            canvas.transform,
+            out Slider masterVolumeSlider,
+            out Slider musicVolumeSlider,
+            out Slider sfxVolumeSlider,
+            out Slider textSpeedSlider,
+            out Toggle fullscreenToggle,
+            out Button settingsCloseButton,
+            out Button settingsResetButton);
+        settingsPanel.SetActive(false);
 
         GameObject confirmExitPanel = CreateConfirmExitPanel(
             canvas.transform,
@@ -86,6 +104,14 @@ public static class VNPrototypeBacklogUiBuilder
         serializedController.FindProperty("confirmExitPanel").objectReferenceValue = confirmExitPanel;
         serializedController.FindProperty("confirmExitYesButton").objectReferenceValue = confirmExitYesButton;
         serializedController.FindProperty("confirmExitNoButton").objectReferenceValue = confirmExitNoButton;
+        serializedController.FindProperty("vnSettingsPanel").objectReferenceValue = settingsPanel;
+        serializedController.FindProperty("vnMasterVolumeSlider").objectReferenceValue = masterVolumeSlider;
+        serializedController.FindProperty("vnMusicVolumeSlider").objectReferenceValue = musicVolumeSlider;
+        serializedController.FindProperty("vnSfxVolumeSlider").objectReferenceValue = sfxVolumeSlider;
+        serializedController.FindProperty("vnTextSpeedSlider").objectReferenceValue = textSpeedSlider;
+        serializedController.FindProperty("vnFullscreenToggle").objectReferenceValue = fullscreenToggle;
+        serializedController.FindProperty("vnSettingsCloseButton").objectReferenceValue = settingsCloseButton;
+        serializedController.FindProperty("vnSettingsResetButton").objectReferenceValue = settingsResetButton;
         serializedController.ApplyModifiedProperties();
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -293,6 +319,224 @@ public static class VNPrototypeBacklogUiBuilder
         noButton = CreateDialogButton(buttonRow.transform, "Нет", 130f);
 
         return panel;
+    }
+
+    private static GameObject CreateSettingsPanel(
+        Transform parent,
+        out Slider masterVolumeSlider,
+        out Slider musicVolumeSlider,
+        out Slider sfxVolumeSlider,
+        out Slider textSpeedSlider,
+        out Toggle fullscreenToggle,
+        out Button closeButton,
+        out Button resetButton)
+    {
+        GameObject panel = CreateUiObject("VN Settings Panel", parent);
+        RectTransform panelRect = panel.GetComponent<RectTransform>();
+        StretchToParent(panelRect);
+
+        Image dimImage = panel.AddComponent<Image>();
+        dimImage.color = new Color(0f, 0f, 0f, 0.7f);
+        dimImage.raycastTarget = true;
+
+        GameObject window = CreateUiObject("VN Settings Window", panel.transform);
+        RectTransform windowRect = window.GetComponent<RectTransform>();
+        windowRect.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRect.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRect.pivot = new Vector2(0.5f, 0.5f);
+        windowRect.anchoredPosition = Vector2.zero;
+        windowRect.sizeDelta = new Vector2(760f, 560f);
+
+        Image windowImage = window.AddComponent<Image>();
+        windowImage.color = new Color(0.025f, 0.018f, 0.045f, 0.94f);
+        windowImage.raycastTarget = true;
+
+        Shadow shadow = window.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+        shadow.effectDistance = new Vector2(5f, -5f);
+
+        TextMeshProUGUI title = CreateText("Title", window.transform, "Настройки", 38, new Color(0.94f, 0.9f, 0.98f, 1f));
+        title.alignment = TextAlignmentOptions.Center;
+        RectTransform titleRect = title.rectTransform;
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -30f);
+        titleRect.sizeDelta = new Vector2(-80f, 58f);
+
+        GameObject content = CreateUiObject("Settings Content", window.transform);
+        RectTransform contentRect = content.GetComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.anchoredPosition = new Vector2(0f, -112f);
+        contentRect.sizeDelta = new Vector2(-120f, 320f);
+
+        VerticalLayoutGroup contentLayout = content.AddComponent<VerticalLayoutGroup>();
+        contentLayout.spacing = 16f;
+        contentLayout.childAlignment = TextAnchor.UpperCenter;
+        contentLayout.childControlWidth = false;
+        contentLayout.childControlHeight = false;
+        contentLayout.childForceExpandWidth = false;
+        contentLayout.childForceExpandHeight = false;
+
+        masterVolumeSlider = CreateSettingsSlider(content.transform, "Master Volume", 0f, 1f, 1f);
+        musicVolumeSlider = CreateSettingsSlider(content.transform, "Music Volume", 0f, 1f, 1f);
+        sfxVolumeSlider = CreateSettingsSlider(content.transform, "SFX Volume", 0f, 1f, 1f);
+        textSpeedSlider = CreateSettingsSlider(content.transform, "Text Speed", 0.25f, 3f, 1f);
+        fullscreenToggle = CreateSettingsToggle(content.transform, "Fullscreen");
+
+        GameObject buttonRow = CreateUiObject("Button Row", window.transform);
+        RectTransform rowRect = buttonRow.GetComponent<RectTransform>();
+        rowRect.anchorMin = new Vector2(1f, 0f);
+        rowRect.anchorMax = new Vector2(1f, 0f);
+        rowRect.pivot = new Vector2(1f, 0f);
+        rowRect.anchoredPosition = new Vector2(-48f, 38f);
+        rowRect.sizeDelta = new Vector2(300f, 54f);
+
+        HorizontalLayoutGroup buttonLayout = buttonRow.AddComponent<HorizontalLayoutGroup>();
+        buttonLayout.spacing = 18f;
+        buttonLayout.childAlignment = TextAnchor.MiddleRight;
+        buttonLayout.childControlWidth = false;
+        buttonLayout.childControlHeight = false;
+        buttonLayout.childForceExpandWidth = false;
+        buttonLayout.childForceExpandHeight = false;
+
+        resetButton = CreateDialogButton(buttonRow.transform, "Сбросить", 140f);
+        closeButton = CreateDialogButton(buttonRow.transform, "Закрыть", 140f);
+
+        return panel;
+    }
+
+    private static Slider CreateSettingsSlider(Transform parent, string labelText, float minValue, float maxValue, float value)
+    {
+        GameObject row = CreateSettingsRow(parent, labelText);
+
+        GameObject sliderGo = CreateUiObject($"{labelText} Slider", row.transform);
+        RectTransform sliderRect = sliderGo.GetComponent<RectTransform>();
+        sliderRect.sizeDelta = new Vector2(360f, 32f);
+
+        Slider slider = sliderGo.AddComponent<Slider>();
+        slider.minValue = minValue;
+        slider.maxValue = maxValue;
+        slider.value = value;
+        slider.wholeNumbers = false;
+        slider.direction = Slider.Direction.LeftToRight;
+        slider.interactable = true;
+
+        GameObject background = CreateUiObject("Background", sliderGo.transform);
+        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0f, 0.5f);
+        backgroundRect.anchorMax = new Vector2(1f, 0.5f);
+        backgroundRect.pivot = new Vector2(0.5f, 0.5f);
+        backgroundRect.anchoredPosition = Vector2.zero;
+        backgroundRect.sizeDelta = new Vector2(0f, 8f);
+
+        Image backgroundImage = background.AddComponent<Image>();
+        backgroundImage.color = new Color(0.12f, 0.1f, 0.18f, 1f);
+        backgroundImage.raycastTarget = true;
+
+        GameObject fillArea = CreateUiObject("Fill Area", sliderGo.transform);
+        RectTransform fillAreaRect = fillArea.GetComponent<RectTransform>();
+        fillAreaRect.anchorMin = new Vector2(0f, 0f);
+        fillAreaRect.anchorMax = new Vector2(1f, 1f);
+        fillAreaRect.offsetMin = new Vector2(0f, 0f);
+        fillAreaRect.offsetMax = new Vector2(0f, 0f);
+
+        GameObject fill = CreateUiObject("Fill", fillArea.transform);
+        RectTransform fillRect = fill.GetComponent<RectTransform>();
+        fillRect.anchorMin = new Vector2(0f, 0.5f);
+        fillRect.anchorMax = new Vector2(1f, 0.5f);
+        fillRect.pivot = new Vector2(0.5f, 0.5f);
+        fillRect.anchoredPosition = Vector2.zero;
+        fillRect.sizeDelta = new Vector2(0f, 8f);
+
+        Image fillImage = fill.AddComponent<Image>();
+        fillImage.color = new Color(0.58f, 0.32f, 0.78f, 1f);
+        fillImage.raycastTarget = false;
+
+        GameObject handleArea = CreateUiObject("Handle Slide Area", sliderGo.transform);
+        RectTransform handleAreaRect = handleArea.GetComponent<RectTransform>();
+        handleAreaRect.anchorMin = Vector2.zero;
+        handleAreaRect.anchorMax = Vector2.one;
+        handleAreaRect.offsetMin = new Vector2(9f, 0f);
+        handleAreaRect.offsetMax = new Vector2(-9f, 0f);
+
+        GameObject handle = CreateUiObject("Handle", handleArea.transform);
+        RectTransform handleRect = handle.GetComponent<RectTransform>();
+        handleRect.sizeDelta = new Vector2(18f, 24f);
+
+        Image handleImage = handle.AddComponent<Image>();
+        handleImage.color = new Color(0.92f, 0.88f, 0.98f, 1f);
+        handleImage.raycastTarget = true;
+
+        slider.fillRect = fillRect;
+        slider.handleRect = handleRect;
+        slider.targetGraphic = handleImage;
+
+        return slider;
+    }
+
+    private static Toggle CreateSettingsToggle(Transform parent, string labelText)
+    {
+        GameObject row = CreateSettingsRow(parent, labelText);
+
+        GameObject toggleGo = CreateUiObject($"{labelText} Toggle", row.transform);
+        RectTransform toggleRect = toggleGo.GetComponent<RectTransform>();
+        toggleRect.sizeDelta = new Vector2(360f, 32f);
+
+        Toggle toggle = toggleGo.AddComponent<Toggle>();
+        toggle.interactable = true;
+
+        GameObject background = CreateUiObject("Background", toggleGo.transform);
+        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0f, 0.5f);
+        backgroundRect.anchorMax = new Vector2(0f, 0.5f);
+        backgroundRect.pivot = new Vector2(0f, 0.5f);
+        backgroundRect.anchoredPosition = new Vector2(0f, 0f);
+        backgroundRect.sizeDelta = new Vector2(28f, 28f);
+
+        Image backgroundImage = background.AddComponent<Image>();
+        backgroundImage.color = new Color(0.12f, 0.1f, 0.18f, 1f);
+        backgroundImage.raycastTarget = true;
+
+        GameObject checkmark = CreateUiObject("Checkmark", background.transform);
+        RectTransform checkmarkRect = checkmark.GetComponent<RectTransform>();
+        checkmarkRect.anchorMin = new Vector2(0.5f, 0.5f);
+        checkmarkRect.anchorMax = new Vector2(0.5f, 0.5f);
+        checkmarkRect.pivot = new Vector2(0.5f, 0.5f);
+        checkmarkRect.anchoredPosition = Vector2.zero;
+        checkmarkRect.sizeDelta = new Vector2(18f, 18f);
+
+        Image checkmarkImage = checkmark.AddComponent<Image>();
+        checkmarkImage.color = new Color(0.58f, 0.32f, 0.78f, 1f);
+        checkmarkImage.raycastTarget = false;
+
+        toggle.targetGraphic = backgroundImage;
+        toggle.graphic = checkmarkImage;
+
+        return toggle;
+    }
+
+    private static GameObject CreateSettingsRow(Transform parent, string labelText)
+    {
+        GameObject row = CreateUiObject($"{labelText} Row", parent);
+        RectTransform rowRect = row.GetComponent<RectTransform>();
+        rowRect.sizeDelta = new Vector2(620f, 42f);
+
+        HorizontalLayoutGroup layout = row.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 24f;
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        TextMeshProUGUI label = CreateText("Label", row.transform, labelText, 22, new Color(0.82f, 0.78f, 0.9f, 1f));
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+        label.rectTransform.sizeDelta = new Vector2(220f, 36f);
+
+        return row;
     }
 
     private static Button CreateDialogButton(Transform parent, string labelText, float width)
