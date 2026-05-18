@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -23,6 +24,7 @@ public class VNDialogueController : MonoBehaviour
     public Button choiceArtemButton;
     public Button choiceLeraButton;
     public AudioClip uiClickSfx;
+    public float baseCharactersPerSecond = 45f;
 
     public Vector2 characterLeftPosition = new Vector2(-420f, -220f);
     public Vector2 characterCenterPosition = new Vector2(0f, -220f);
@@ -39,6 +41,9 @@ public class VNDialogueController : MonoBehaviour
     private List<DialogueChoice> activeChoices;
     private Button[] choiceButtons;
     private DialogueSceneData pendingNextScene;
+    private Coroutine typingCoroutine;
+    private string currentFullText = string.Empty;
+    private bool isTyping;
 
     private void Start()
     {
@@ -121,6 +126,12 @@ public class VNDialogueController : MonoBehaviour
     {
         if (showingChoice)
         {
+            return;
+        }
+
+        if (isTyping)
+        {
+            CompleteTyping();
             return;
         }
 
@@ -236,7 +247,7 @@ public class VNDialogueController : MonoBehaviour
         bool hasSpeaker = !string.IsNullOrWhiteSpace(line.speaker);
         nameBox.SetActive(hasSpeaker);
         speakerText.text = hasSpeaker ? line.speaker : string.Empty;
-        dialogueText.text = line.text;
+        ShowText(line.text);
         ApplyVisuals(line);
     }
 
@@ -244,7 +255,61 @@ public class VNDialogueController : MonoBehaviour
     {
         nameBox.SetActive(false);
         speakerText.text = string.Empty;
+        ShowText(text);
+    }
+
+    private void ShowText(string text)
+    {
+        if (typingCoroutine != null)
+        {
+            StopCoroutine(typingCoroutine);
+        }
+
+        if (text == null)
+        {
+            text = string.Empty;
+        }
+
+        currentFullText = text;
+        typingCoroutine = StartCoroutine(TypeText(text));
+    }
+
+    private IEnumerator TypeText(string text)
+    {
+        isTyping = true;
+        dialogueText.text = string.Empty;
+
+        float textSpeed = 1f;
+
+        if (SettingsManager.Instance != null)
+        {
+            textSpeed = SettingsManager.Instance.settings.textSpeed;
+        }
+
+        float charsPerSecond = baseCharactersPerSecond * Mathf.Max(0.1f, textSpeed);
+        float characterDelay = 1f / charsPerSecond;
+
+        foreach (char character in text)
+        {
+            dialogueText.text += character;
+            yield return new WaitForSeconds(characterDelay);
+        }
+
         dialogueText.text = text;
+        isTyping = false;
+        typingCoroutine = null;
+    }
+
+    private void CompleteTyping()
+    {
+        if (typingCoroutine != null)
+        {
+            StopCoroutine(typingCoroutine);
+        }
+
+        dialogueText.text = currentFullText;
+        isTyping = false;
+        typingCoroutine = null;
     }
 
     private void SetButtonText(Button button, string text)
@@ -367,6 +432,15 @@ public class VNDialogueController : MonoBehaviour
 
     private void LoadDialogueScene(DialogueSceneData data, int startLineIndex)
     {
+        if (typingCoroutine != null)
+        {
+            StopCoroutine(typingCoroutine);
+            typingCoroutine = null;
+        }
+
+        currentFullText = string.Empty;
+        isTyping = false;
+
         if (data == null)
         {
             Debug.LogError("Dialogue scene data is missing.", this);
