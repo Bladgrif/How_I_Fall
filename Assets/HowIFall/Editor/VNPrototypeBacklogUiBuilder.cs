@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEditor;
+using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
@@ -33,6 +34,16 @@ public static class VNPrototypeBacklogUiBuilder
         {
             Object.DestroyImmediate(existingPanel.gameObject);
         }
+
+        Transform existingButton = canvas.transform.Find("Backlog Button");
+
+        if (existingButton != null)
+        {
+            Object.DestroyImmediate(existingButton.gameObject);
+        }
+
+        Button backlogButton = CreateBacklogButton(canvas.transform);
+        UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
 
         GameObject backlogPanel = CreateBacklogPanel(canvas.transform, out TextMeshProUGUI backlogText, out Button closeButton);
         backlogPanel.transform.SetAsLastSibling();
@@ -88,6 +99,39 @@ public static class VNPrototypeBacklogUiBuilder
         closeButton = CreateCloseButton(window.transform);
 
         return panel;
+    }
+
+    private static Button CreateBacklogButton(Transform parent)
+    {
+        GameObject buttonGo = CreateUiObject("Backlog Button", parent);
+        RectTransform rect = buttonGo.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = new Vector2(-36f, -32f);
+        rect.sizeDelta = new Vector2(160f, 48f);
+
+        Image image = buttonGo.AddComponent<Image>();
+        image.color = Color.white;
+        image.raycastTarget = true;
+
+        Button button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = new Color(0.025f, 0.018f, 0.045f, 0.68f);
+        colors.highlightedColor = new Color(0.34f, 0.16f, 0.46f, 0.9f);
+        colors.pressedColor = new Color(0.45f, 0.2f, 0.58f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.04f, 0.03f, 0.06f, 0.45f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        TextMeshProUGUI label = CreateText("Text", buttonGo.transform, "История", 22, new Color(0.94f, 0.9f, 0.98f, 1f));
+        label.alignment = TextAlignmentOptions.Center;
+        StretchToParent(label.rectTransform);
+
+        return button;
     }
 
     private static void CreateAccentLine(Transform parent)
