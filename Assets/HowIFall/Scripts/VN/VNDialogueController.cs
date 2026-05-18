@@ -29,6 +29,9 @@ public class VNDialogueController : MonoBehaviour
     public GameObject backlogPanel;
     public TextMeshProUGUI backlogText;
     public Button backlogCloseButton;
+    public GameObject notificationPanel;
+    public TextMeshProUGUI notificationText;
+    public float notificationDuration = 1.5f;
     public AudioClip uiClickSfx;
     public float baseCharactersPerSecond = 45f;
 
@@ -48,6 +51,7 @@ public class VNDialogueController : MonoBehaviour
     private Button[] choiceButtons;
     private DialogueSceneData pendingNextScene;
     private Coroutine typingCoroutine;
+    private Coroutine notificationCoroutine;
     private string currentFullText = string.Empty;
     private bool isTyping;
     private readonly List<DialogueBacklogEntry> backlog = new List<DialogueBacklogEntry>();
@@ -67,6 +71,11 @@ public class VNDialogueController : MonoBehaviour
         if (backlogPanel != null)
         {
             backlogPanel.SetActive(false);
+        }
+
+        if (notificationPanel != null)
+        {
+            notificationPanel.SetActive(false);
         }
 
         if (backlogCloseButton != null)
@@ -329,7 +338,14 @@ public class VNDialogueController : MonoBehaviour
 
     public void SaveGame()
     {
-        SaveManager.Instance?.Save();
+        if (SaveManager.Instance == null)
+        {
+            ShowNotification("Сохранение недоступно");
+            return;
+        }
+
+        SaveManager.Instance.Save();
+        ShowNotification("Сохранено");
     }
 
     public void LoadGame()
@@ -337,10 +353,11 @@ public class VNDialogueController : MonoBehaviour
         if (SaveManager.Instance != null && SaveManager.Instance.Load())
         {
             RestoreFromGameState();
+            ShowNotification("Загружено");
         }
         else
         {
-            Debug.LogWarning("No save file found.");
+            ShowNotification("Сохранение не найдено");
         }
     }
 
@@ -380,6 +397,31 @@ public class VNDialogueController : MonoBehaviour
         }
 
         SceneManager.LoadScene("MainMenu", LoadSceneMode.Single);
+    }
+
+    private void ShowNotification(string message)
+    {
+        if (notificationPanel == null || notificationText == null)
+        {
+            Debug.Log(message);
+            return;
+        }
+
+        if (notificationCoroutine != null)
+        {
+            StopCoroutine(notificationCoroutine);
+        }
+
+        notificationText.text = message;
+        notificationPanel.SetActive(true);
+        notificationCoroutine = StartCoroutine(HideNotificationAfterDelay());
+    }
+
+    private IEnumerator HideNotificationAfterDelay()
+    {
+        yield return new WaitForSeconds(notificationDuration);
+        notificationPanel.SetActive(false);
+        notificationCoroutine = null;
     }
 
     private void ShowText(string text)

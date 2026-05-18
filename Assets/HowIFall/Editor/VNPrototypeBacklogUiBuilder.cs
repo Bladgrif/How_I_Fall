@@ -49,7 +49,16 @@ public static class VNPrototypeBacklogUiBuilder
             Object.DestroyImmediate(existingQuickMenu.gameObject);
         }
 
+        Transform existingNotificationPanel = canvas.transform.Find("Notification Panel");
+
+        if (existingNotificationPanel != null)
+        {
+            Object.DestroyImmediate(existingNotificationPanel.gameObject);
+        }
+
         CreateQuickMenu(canvas.transform, controller);
+        GameObject notificationPanel = CreateNotificationPanel(canvas.transform, out TextMeshProUGUI notificationText);
+        notificationPanel.SetActive(false);
 
         GameObject backlogPanel = CreateBacklogPanel(canvas.transform, out TextMeshProUGUI backlogText, out Button closeButton);
         backlogPanel.transform.SetAsLastSibling();
@@ -59,6 +68,8 @@ public static class VNPrototypeBacklogUiBuilder
         serializedController.FindProperty("backlogPanel").objectReferenceValue = backlogPanel;
         serializedController.FindProperty("backlogText").objectReferenceValue = backlogText;
         serializedController.FindProperty("backlogCloseButton").objectReferenceValue = closeButton;
+        serializedController.FindProperty("notificationPanel").objectReferenceValue = notificationPanel;
+        serializedController.FindProperty("notificationText").objectReferenceValue = notificationText;
         serializedController.ApplyModifiedProperties();
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -172,6 +183,31 @@ public static class VNPrototypeBacklogUiBuilder
         StretchToParent(label.rectTransform);
 
         return button;
+    }
+
+    private static GameObject CreateNotificationPanel(Transform parent, out TextMeshProUGUI notificationText)
+    {
+        GameObject panel = CreateUiObject("Notification Panel", parent);
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, -92f);
+        rect.sizeDelta = new Vector2(360f, 54f);
+
+        Image image = panel.AddComponent<Image>();
+        image.color = new Color(0.025f, 0.018f, 0.045f, 0.82f);
+        image.raycastTarget = false;
+
+        Shadow shadow = panel.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
+        shadow.effectDistance = new Vector2(3f, -3f);
+
+        notificationText = CreateText("Notification Text", panel.transform, string.Empty, 22, new Color(0.94f, 0.9f, 0.98f, 1f));
+        notificationText.alignment = TextAlignmentOptions.Center;
+        StretchToParent(notificationText.rectTransform);
+
+        return panel;
     }
 
     private static void CreateAccentLine(Transform parent)
