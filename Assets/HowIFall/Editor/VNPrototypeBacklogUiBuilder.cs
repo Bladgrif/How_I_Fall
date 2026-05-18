@@ -114,38 +114,42 @@ public static class VNPrototypeBacklogUiBuilder
         rect.anchorMin = new Vector2(1f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-28f, -30f);
-        rect.sizeDelta = new Vector2(520f, 44f);
+        rect.anchoredPosition = new Vector2(-36f, -28f);
+        rect.sizeDelta = new Vector2(590f, 48f);
+
+        Image background = menu.AddComponent<Image>();
+        background.color = new Color(0.02f, 0.014f, 0.04f, 0.22f);
+        background.raycastTarget = false;
 
         HorizontalLayoutGroup layout = menu.AddComponent<HorizontalLayoutGroup>();
-        layout.spacing = 8f;
+        layout.spacing = 9f;
         layout.childAlignment = TextAnchor.MiddleRight;
         layout.childControlWidth = false;
         layout.childControlHeight = false;
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
-        Button saveButton = CreateQuickMenuButton(menu.transform, "Сохранить");
+        Button saveButton = CreateQuickMenuButton(menu.transform, "Сохранить", 110f);
         UnityEventTools.AddPersistentListener(saveButton.onClick, controller.SaveGame);
 
-        Button loadButton = CreateQuickMenuButton(menu.transform, "Загрузить");
+        Button loadButton = CreateQuickMenuButton(menu.transform, "Загрузить", 110f);
         UnityEventTools.AddPersistentListener(loadButton.onClick, controller.LoadGame);
 
-        Button backlogButton = CreateQuickMenuButton(menu.transform, "История");
+        Button backlogButton = CreateQuickMenuButton(menu.transform, "История", 100f);
         UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
 
-        Button settingsButton = CreateQuickMenuButton(menu.transform, "Настройки");
+        Button settingsButton = CreateQuickMenuButton(menu.transform, "Настройки", 120f);
         UnityEventTools.AddPersistentListener(settingsButton.onClick, controller.OpenSettings);
 
-        Button menuButton = CreateQuickMenuButton(menu.transform, "Меню");
+        Button menuButton = CreateQuickMenuButton(menu.transform, "Меню", 90f);
         UnityEventTools.AddPersistentListener(menuButton.onClick, controller.ReturnToMainMenu);
     }
 
-    private static Button CreateQuickMenuButton(Transform parent, string labelText)
+    private static Button CreateQuickMenuButton(Transform parent, string labelText, float width)
     {
         GameObject buttonGo = CreateUiObject($"{labelText} Button", parent);
         RectTransform rect = buttonGo.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(96f, 42f);
+        rect.sizeDelta = new Vector2(width, 42f);
 
         Image image = buttonGo.AddComponent<Image>();
         image.color = Color.white;
@@ -155,15 +159,15 @@ public static class VNPrototypeBacklogUiBuilder
         button.targetGraphic = image;
 
         ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.025f, 0.018f, 0.045f, 0.68f);
-        colors.highlightedColor = new Color(0.34f, 0.16f, 0.46f, 0.9f);
-        colors.pressedColor = new Color(0.45f, 0.2f, 0.58f, 1f);
+        colors.normalColor = new Color(0.04f, 0.025f, 0.07f, 0.58f);
+        colors.highlightedColor = new Color(0.38f, 0.18f, 0.5f, 0.78f);
+        colors.pressedColor = new Color(0.5f, 0.22f, 0.65f, 0.9f);
         colors.selectedColor = colors.highlightedColor;
-        colors.disabledColor = new Color(0.04f, 0.03f, 0.06f, 0.45f);
+        colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        TextMeshProUGUI label = CreateText("Text", buttonGo.transform, labelText, 18, new Color(0.94f, 0.9f, 0.98f, 1f));
+        TextMeshProUGUI label = CreateText("Text", buttonGo.transform, labelText, 19, new Color(0.9f, 0.86f, 0.96f, 0.95f));
         label.alignment = TextAlignmentOptions.Center;
         StretchToParent(label.rectTransform);
 
