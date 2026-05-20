@@ -693,6 +693,7 @@ public class VNDialogueController : MonoBehaviour
         if (backgroundImage != null && line.background != null)
         {
             backgroundImage.sprite = line.background;
+            backgroundImage.color = Color.white;
             backgroundImage.enabled = true;
         }
 
@@ -715,6 +716,26 @@ public class VNDialogueController : MonoBehaviour
             characterImage.rectTransform.sizeDelta = characterDefaultSize;
             characterImage.rectTransform.anchoredPosition = GetCharacterPosition(line.characterPosition);
         }
+    }
+
+    private Sprite FindLastBackgroundBeforeOrAt(int lineIndex)
+    {
+        if (activeLines == null)
+        {
+            return null;
+        }
+
+        int safeIndex = Mathf.Clamp(lineIndex, 0, activeLines.Count - 1);
+
+        for (int i = safeIndex; i >= 0; i--)
+        {
+            if (activeLines[i] != null && activeLines[i].background != null)
+            {
+                return activeLines[i].background;
+            }
+        }
+
+        return null;
     }
 
     private Vector2 GetCharacterPosition(CharacterPosition position)
@@ -848,6 +869,15 @@ public class VNDialogueController : MonoBehaviour
         GameState gameState = GameState.EnsureInstance();
         gameState.currentSceneId = sceneData.sceneId;
         gameState.currentLineIndex = currentLineIndex;
+
+        Sprite restoredBackground = FindLastBackgroundBeforeOrAt(currentLineIndex);
+        if (backgroundImage != null && restoredBackground != null)
+        {
+            backgroundImage.sprite = restoredBackground;
+            backgroundImage.color = Color.white;
+            backgroundImage.enabled = true;
+        }
+
         ShowLine(activeLines[currentLineIndex]);
     }
 
