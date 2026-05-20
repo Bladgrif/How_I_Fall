@@ -175,7 +175,7 @@ public static class VNPrototypeSceneBuilder
         StretchFull(background.GetComponent<RectTransform>());
 
         Image image = background.AddComponent<Image>();
-        image.color = new Color(0.055f, 0.05f, 0.075f, 1f);
+        image.color = Color.white;
         image.type = Image.Type.Simple;
         image.preserveAspect = false;
         image.raycastTarget = false;
@@ -211,7 +211,7 @@ public static class VNPrototypeSceneBuilder
         rect.sizeDelta = new Vector2(1560f, 250f);
 
         Image image = box.AddComponent<Image>();
-        image.color = new Color(0.025f, 0.018f, 0.045f, 0.84f);
+        image.color = new Color(0.025f, 0.018f, 0.045f, 0.68f);
         image.raycastTarget = true;
 
         Shadow shadow = box.AddComponent<Shadow>();
@@ -232,7 +232,7 @@ public static class VNPrototypeSceneBuilder
         rect.sizeDelta = new Vector2(310f, 62f);
 
         Image image = nameBox.AddComponent<Image>();
-        image.color = new Color(0.08f, 0.045f, 0.13f, 0.92f);
+        image.color = new Color(0.08f, 0.045f, 0.13f, 0.86f);
         image.raycastTarget = false;
 
         speakerText = CreateTMPText("Speaker Text", nameBox.transform, string.Empty, 28, new Color(0.94f, 0.9f, 0.98f, 1f));
