@@ -116,9 +116,8 @@ public class SaveManager : MonoBehaviour
             string json = File.ReadAllText(SavePath);
             return JsonUtility.FromJson<SaveData>(json);
         }
-        catch (Exception exception)
+        catch
         {
-            Debug.LogWarning($"SaveManager: failed to read save info from '{SavePath}'. {exception.Message}");
             return null;
         }
     }
