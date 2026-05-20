@@ -30,15 +30,17 @@ public static class MainMenuSceneBuilder
         var overlayGraphic = CreateOverlay(canvas.transform);
         var clickSfx = TryLoadAudioClip(UiClickSfxWavPath, UiClickSfxMp3Path, UiClickSfxOggPath);
 
+        var sceneControllers = new GameObject("Scene Controllers");
+        var mainMenuController = sceneControllers.AddComponent<MainMenuController>();
+        var musicPlayer = sceneControllers.AddComponent<MainMenuMusicPlayer>();
+        musicPlayer.musicClip = TryLoadMainMenuMusicClip();
+
         var managers = new GameObject("Managers");
-        var mainMenuController = managers.AddComponent<MainMenuController>();
         managers.AddComponent<GameState>();
         managers.AddComponent<SaveManager>();
         managers.AddComponent<SettingsManager>();
         managers.AddComponent<AudioManager>();
         managers.AddComponent<SceneFlowManager>();
-        var musicPlayer = managers.AddComponent<MainMenuMusicPlayer>();
-        musicPlayer.musicClip = TryLoadMainMenuMusicClip();
 
         var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController, clickSfx);
         var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleObject);
