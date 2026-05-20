@@ -7,6 +7,7 @@ public class SaveManager : MonoBehaviour
     public static SaveManager Instance { get; private set; }
 
     private const string SaveFileName = "save_01.json";
+    private const int MaxLinePreviewLength = 100;
 
     private string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
 
@@ -32,6 +33,11 @@ public class SaveManager : MonoBehaviour
 
     public void Save()
     {
+        Save(string.Empty);
+    }
+
+    public void Save(string linePreview)
+    {
         GameState gameState = GameState.Instance;
 
         if (gameState == null)
@@ -46,7 +52,7 @@ public class SaveManager : MonoBehaviour
             currentLineIndex = gameState.currentLineIndex,
             savedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
             sceneTitle = string.IsNullOrEmpty(gameState.currentSceneId) ? "Unknown Scene" : gameState.currentSceneId,
-            linePreview = string.Empty,
+            linePreview = TrimLinePreview(linePreview),
             lust = gameState.lust,
             romance = gameState.romance,
             purity = gameState.purity,
@@ -61,6 +67,23 @@ public class SaveManager : MonoBehaviour
         string json = JsonUtility.ToJson(saveData, true);
         File.WriteAllText(SavePath, json);
         Debug.Log($"SaveManager: game saved to '{SavePath}'.");
+    }
+
+    private string TrimLinePreview(string linePreview)
+    {
+        if (string.IsNullOrEmpty(linePreview))
+        {
+            return string.Empty;
+        }
+
+        string trimmed = linePreview.Trim();
+
+        if (trimmed.Length <= MaxLinePreviewLength)
+        {
+            return trimmed;
+        }
+
+        return trimmed.Substring(0, MaxLinePreviewLength) + "...";
     }
 
     public bool Load()

@@ -424,7 +424,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        SaveManager.Instance.Save();
+        SaveManager.Instance.Save(currentFullText);
         ShowNotification("Быстрое сохранение выполнено");
     }
 
