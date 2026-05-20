@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using UnityEngine;
 
@@ -43,6 +44,9 @@ public class SaveManager : MonoBehaviour
         {
             currentSceneId = gameState.currentSceneId,
             currentLineIndex = gameState.currentLineIndex,
+            savedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            sceneTitle = string.IsNullOrEmpty(gameState.currentSceneId) ? "Unknown Scene" : gameState.currentSceneId,
+            linePreview = string.Empty,
             lust = gameState.lust,
             romance = gameState.romance,
             purity = gameState.purity,
@@ -98,6 +102,25 @@ public class SaveManager : MonoBehaviour
     public string GetSavePathForDebug()
     {
         return SavePath;
+    }
+
+    public SaveData GetSaveInfo()
+    {
+        if (!HasSave())
+        {
+            return null;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(SavePath);
+            return JsonUtility.FromJson<SaveData>(json);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"SaveManager: failed to read save info from '{SavePath}'. {exception.Message}");
+            return null;
+        }
     }
 
     public void DeleteSave()

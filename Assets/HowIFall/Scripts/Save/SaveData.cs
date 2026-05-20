@@ -5,6 +5,9 @@ public class SaveData
 {
     public string currentSceneId;
     public int currentLineIndex;
+    public string savedAt;
+    public string sceneTitle;
+    public string linePreview;
 
     public int lust;
     public int romance;
