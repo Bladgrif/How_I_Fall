@@ -2,9 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class VNDialogueController : MonoBehaviour
@@ -570,12 +568,7 @@ public class VNDialogueController : MonoBehaviour
 
         isTyping = false;
 
-        if (EventSystem.current != null)
-        {
-            EventSystem.current.SetSelectedGameObject(null);
-        }
-
-        SceneManager.LoadScene("MainMenu", LoadSceneMode.Single);
+        SceneFlowManager.EnsureInstance().ReturnToMainMenu();
     }
 
     public void ShowConfirmExit()

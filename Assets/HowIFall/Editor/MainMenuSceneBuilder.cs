@@ -36,6 +36,7 @@ public static class MainMenuSceneBuilder
         managers.AddComponent<SaveManager>();
         managers.AddComponent<SettingsManager>();
         managers.AddComponent<AudioManager>();
+        managers.AddComponent<SceneFlowManager>();
         var musicPlayer = managers.AddComponent<MainMenuMusicPlayer>();
         musicPlayer.musicClip = TryLoadMainMenuMusicClip();
 

@@ -1,42 +1,17 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
-
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 public class MainMenuController : MonoBehaviour
 {
-    private const string PrototypeSceneName = "VNPrototype";
     public SettingsPanelController settingsPanel;
 
     public void StartGame()
     {
-        GameState.EnsureInstance().ResetState();
-        SceneManager.LoadScene(PrototypeSceneName);
+        SceneFlowManager.EnsureInstance().StartNewGame();
     }
 
     public void ContinueGame()
     {
-        if (SaveManager.Instance == null)
-        {
-            Debug.LogWarning("SaveManager.Instance is missing.");
-            return;
-        }
-
-        if (!SaveManager.Instance.HasSave())
-        {
-            Debug.LogWarning("No save file found.");
-            return;
-        }
-
-        if (SaveManager.Instance.Load())
-        {
-            SceneManager.LoadScene(PrototypeSceneName);
-            return;
-        }
-
-        Debug.LogWarning("No save file found.");
+        SceneFlowManager.EnsureInstance().ContinueGame();
     }
 
     public void DeleteSave()
@@ -78,10 +53,6 @@ public class MainMenuController : MonoBehaviour
 
     public void ExitGame()
     {
-        Application.Quit();
-
-#if UNITY_EDITOR
-        EditorApplication.isPlaying = false;
-#endif
+        SceneFlowManager.EnsureInstance().QuitGame();
     }
 }

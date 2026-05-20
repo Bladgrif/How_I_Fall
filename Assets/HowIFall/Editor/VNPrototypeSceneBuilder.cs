@@ -33,6 +33,7 @@ public static class VNPrototypeSceneBuilder
         managers.AddComponent<SaveManager>();
         managers.AddComponent<SettingsManager>();
         managers.AddComponent<AudioManager>();
+        managers.AddComponent<SceneFlowManager>();
 
         GameObject vnRoot = CreateUiObject("VN Root", canvas.transform);
         StretchFull(vnRoot.GetComponent<RectTransform>());
