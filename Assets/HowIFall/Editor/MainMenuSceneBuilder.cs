@@ -374,8 +374,8 @@ public static class MainMenuSceneBuilder
                 sepRect.anchorMax = new Vector2(1f, 0.5f);
                 sepRect.pivot = new Vector2(0.5f, 0.5f);
                 sepRect.anchoredPosition = new Vector2(0f, y - (rowHeight * 0.5f + 4f));
-                sepRect.offsetMin = new Vector2(24f, sepRect.offsetMin.y);
-                sepRect.offsetMax = new Vector2(-96f, sepRect.offsetMax.y);
+                sepRect.offsetMin = new Vector2(0f, sepRect.offsetMin.y);
+                sepRect.offsetMax = new Vector2(-80f, sepRect.offsetMax.y);
                 sepRect.sizeDelta = new Vector2(0f, 1f);
 
                 var sepImage = sep.AddComponent<Image>();
@@ -477,7 +477,7 @@ public static class MainMenuSceneBuilder
         rect.anchorMin = new Vector2(1f, 0.5f);
         rect.anchorMax = new Vector2(1f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-26f, 0f);
+        rect.anchoredPosition = new Vector2(-48f, 0f);
         rect.sizeDelta = new Vector2(46f, 46f);
 
         var image = indicatorGo.AddComponent<Image>();
@@ -580,7 +580,7 @@ public static class MainMenuSceneBuilder
         rect.anchorMin = new Vector2(0f, 0f);
         rect.anchorMax = new Vector2(0f, 0f);
         rect.pivot = new Vector2(0f, 0f);
-        rect.anchoredPosition = new Vector2(90f, 65f);
+        rect.anchoredPosition = new Vector2(140f, 65f);
         rect.sizeDelta = new Vector2(280f, 32f);
 
         var text = prompt.AddComponent<Text>();
