@@ -24,6 +24,9 @@ public static class MainMenuSceneBuilder
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
     private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
     private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
+    private const float MenuRowWidth = 360f;
+    private const float MenuHoverBrushWidth = 290f;
+    private const float MenuHoverBrushOffsetX = -20f;
 
     [MenuItem("How I Fall/Build Main Menu Scene")]
     public static void BuildMainMenuScene()
@@ -356,7 +359,7 @@ public static class MainMenuSceneBuilder
             rowRect.anchorMax = new Vector2(0f, 0.5f);
             rowRect.pivot = new Vector2(0f, 0.5f);
             rowRect.anchoredPosition = new Vector2(0f, y);
-            rowRect.sizeDelta = new Vector2(360f, rowHeight);
+            rowRect.sizeDelta = new Vector2(MenuRowWidth, rowHeight);
 
             var button = CreateMenuButton(row.transform, labels[i], clickSfx);
             methods[i](button);
@@ -371,12 +374,10 @@ public static class MainMenuSceneBuilder
                 var sep = CreateUiObject("Separator", content.transform);
                 var sepRect = sep.GetComponent<RectTransform>();
                 sepRect.anchorMin = new Vector2(0f, 0.5f);
-                sepRect.anchorMax = new Vector2(1f, 0.5f);
-                sepRect.pivot = new Vector2(0.5f, 0.5f);
-                sepRect.anchoredPosition = new Vector2(0f, y - (rowHeight * 0.5f + 4f));
-                sepRect.offsetMin = new Vector2(0f, sepRect.offsetMin.y);
-                sepRect.offsetMax = new Vector2(-80f, sepRect.offsetMax.y);
-                sepRect.sizeDelta = new Vector2(0f, 1f);
+                sepRect.anchorMax = new Vector2(0f, 0.5f);
+                sepRect.pivot = new Vector2(0f, 0.5f);
+                sepRect.anchoredPosition = new Vector2(MenuHoverBrushOffsetX, y - (rowHeight * 0.5f + 4f));
+                sepRect.sizeDelta = new Vector2(MenuHoverBrushWidth, 1f);
 
                 var sepImage = sep.AddComponent<Image>();
                 sepImage.color = new Color(0.85f, 0.8f, 0.95f, 0.20f);
@@ -414,8 +415,8 @@ public static class MainMenuSceneBuilder
         var buttonGo = CreateUiObject(label + " Button", parent);
         var buttonRect = buttonGo.GetComponent<RectTransform>();
         StretchFull(buttonRect);
-        buttonRect.offsetMin = new Vector2(-20f, -4f);
-        buttonRect.offsetMax = new Vector2(-90f, 4f);
+        buttonRect.offsetMin = new Vector2(MenuHoverBrushOffsetX, -4f);
+        buttonRect.offsetMax = new Vector2(MenuHoverBrushOffsetX + MenuHoverBrushWidth - MenuRowWidth, 4f);
 
         var image = buttonGo.AddComponent<Image>();
         image.sprite = TryLoadSprite(MenuHoverBrushPath);
