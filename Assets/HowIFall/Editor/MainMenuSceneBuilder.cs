@@ -16,6 +16,8 @@ public static class MainMenuSceneBuilder
     private const string BackgroundPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_background.png";
     private const string KeyVisualPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_key_visual.png";
     private const string LeftGradientOverlayPath = "Assets/HowIFall/Art/UI/MainMenu/left_gradient_overlay.png";
+    private const string LogoPath = "Assets/HowIFall/Art/UI/MainMenu/logo_how_i_fall.png";
+    private const string MenuHoverBrushPath = "Assets/HowIFall/Art/UI/MainMenu/menu_hover_brush.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
@@ -412,6 +414,9 @@ public static class MainMenuSceneBuilder
         StretchFull(buttonGo.GetComponent<RectTransform>());
 
         var image = buttonGo.AddComponent<Image>();
+        image.sprite = TryLoadSprite(MenuHoverBrushPath);
+        image.type = Image.Type.Simple;
+        image.preserveAspect = false;
         image.color = new Color(0f, 0f, 0f, 0f);
         image.raycastTarget = true;
 
@@ -467,58 +472,30 @@ public static class MainMenuSceneBuilder
 
     private static CanvasGroup CreateGameLogo(Transform canvas, out GameObject titleObject)
     {
-        var logoGo = CreateUiObject("Game Title", canvas);
+        var logoSprite = TryLoadSprite(LogoPath);
+        if (logoSprite == null)
+        {
+            titleObject = null;
+            return null;
+        }
+
+        var logoGo = CreateUiObject("Game Logo", canvas);
         titleObject = logoGo;
+
         var rect = logoGo.GetComponent<RectTransform>();
-        var canvasGroup = logoGo.AddComponent<CanvasGroup>();
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(130f, -62f);
-        rect.sizeDelta = new Vector2(430f, 250f);
-        rect.localRotation = Quaternion.Euler(0f, 0f, -4f);
+        rect.anchoredPosition = new Vector2(80f, -55f);
+        rect.sizeDelta = new Vector2(520f, 230f);
 
-        var fallStroke = CreateUiObject("Fall Stroke", logoGo.transform);
-        var fallStrokeRect = fallStroke.GetComponent<RectTransform>();
-        fallStrokeRect.anchorMin = new Vector2(0f, 1f);
-        fallStrokeRect.anchorMax = new Vector2(0f, 1f);
-        fallStrokeRect.pivot = new Vector2(0f, 1f);
-        fallStrokeRect.anchoredPosition = new Vector2(28f, -108f);
-        fallStrokeRect.sizeDelta = new Vector2(260f, 82f);
-        fallStrokeRect.localRotation = Quaternion.Euler(0f, 0f, -3f);
-        var fallStrokeImage = fallStroke.AddComponent<Image>();
-        fallStrokeImage.color = new Color(0.82f, 0.05f, 0.06f, 0f);
-        fallStrokeImage.raycastTarget = false;
-
-        var text = logoGo.AddComponent<TextMeshProUGUI>();
-        text.text = string.Empty;
-        text.richText = true;
-        text.fontSize = 104;
-        text.fontStyle = FontStyles.Bold | FontStyles.Italic;
-        text.alignment = TextAlignmentOptions.TopLeft;
-        text.raycastTarget = false;
-
-        var howText = CreateTmpLogoText("Logo How I", logoGo.transform, "How I", 108, new Color(1f, 1f, 1f, 1f), -4f);
-        var howRect = howText.GetComponent<RectTransform>();
-        howRect.anchorMin = new Vector2(0f, 1f);
-        howRect.anchorMax = new Vector2(0f, 1f);
-        howRect.pivot = new Vector2(0f, 1f);
-        howRect.anchoredPosition = new Vector2(0f, 0f);
-        howRect.sizeDelta = new Vector2(360f, 112f);
-
-        var fallText = CreateTmpLogoText("Logo Fall", logoGo.transform, "Fall", 128, new Color(0.9f, 0.06f, 0.04f, 1f), -7f);
-        var fallRect = fallText.GetComponent<RectTransform>();
-        fallRect.anchorMin = new Vector2(0f, 1f);
-        fallRect.anchorMax = new Vector2(0f, 1f);
-        fallRect.pivot = new Vector2(0f, 1f);
-        fallRect.anchoredPosition = new Vector2(18f, -96f);
-        fallRect.sizeDelta = new Vector2(320f, 130f);
-
-        CreateLogoUnderline(logoGo.transform);
-
-        var shadow = logoGo.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0.04f, 0.05f, 0.11f, 0.58f);
-        shadow.effectDistance = new Vector2(4f, -4f);
+        var canvasGroup = logoGo.AddComponent<CanvasGroup>();
+        var image = logoGo.AddComponent<Image>();
+        image.sprite = logoSprite;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = true;
+        image.color = Color.white;
+        image.raycastTarget = false;
         return canvasGroup;
     }
 
