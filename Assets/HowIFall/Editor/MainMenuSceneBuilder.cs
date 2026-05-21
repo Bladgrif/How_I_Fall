@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEditor;
 using UnityEditor.Events;
 using UnityEditor.SceneManagement;
@@ -11,6 +12,7 @@ public static class MainMenuSceneBuilder
 {
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
     private const string VNPrototypeScenePath = "Assets/HowIFall/Scenes/VNPrototype.unity";
+    private const string BackgroundPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_background.png";
     private const string KeyVisualPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_key_visual.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
@@ -27,7 +29,6 @@ public static class MainMenuSceneBuilder
         var canvas = CreateCanvas();
         CreateEventSystem();
         var backgroundTransform = CreateBackgroundLayer(canvas.transform);
-        var overlayGraphic = CreateOverlay(canvas.transform);
         var clickSfx = TryLoadAudioClip(UiClickSfxWavPath, UiClickSfxMp3Path, UiClickSfxOggPath);
 
         var sceneControllers = new GameObject("Scene Controllers");
@@ -44,13 +45,14 @@ public static class MainMenuSceneBuilder
 
         var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController, clickSfx);
         var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleObject);
+        var pressAnyObject = CreatePressAnyButton(canvas.transform);
         var footerObject = CreateFooter(canvas.transform);
 
         var settingsPanelController = CreateSettingsPanel(canvas.transform);
-        settingsPanelController.objectsToHideWhenOpen = new[] { titleObject, footerObject };
+        settingsPanelController.objectsToHideWhenOpen = new[] { titleObject, pressAnyObject, footerObject };
         mainMenuController.settingsPanel = settingsPanelController;
 
-        CreateMainMenuAnimator(canvas.transform, backgroundTransform, menuCanvasGroup, titleCanvasGroup, overlayGraphic);
+        CreateMainMenuAnimator(canvas.transform, backgroundTransform, menuCanvasGroup, titleCanvasGroup, null);
 
         EditorSceneManager.SaveScene(scene, MainMenuScenePath);
         EnsureBuildSettingsScenes();
@@ -111,7 +113,7 @@ public static class MainMenuSceneBuilder
         bgRect.offsetMax = new Vector2(40f, 40f);
 
         var image = bg.AddComponent<Image>();
-        var keySprite = TryLoadKeyVisualSprite();
+        var keySprite = TryLoadMainMenuBackgroundSprite();
         if (keySprite != null)
         {
             image.sprite = keySprite;
@@ -121,8 +123,8 @@ public static class MainMenuSceneBuilder
         }
         else
         {
-            Debug.LogWarning("Main menu key visual not found at path: " + KeyVisualPath);
-            image.color = new Color(0.035f, 0.03f, 0.055f, 1f);
+            Debug.LogWarning("Main menu background not found. Checked paths: " + BackgroundPath + ", " + KeyVisualPath);
+            image.color = new Color(0.78f, 0.88f, 0.96f, 1f);
         }
 
         image.raycastTarget = false;
@@ -136,6 +138,36 @@ public static class MainMenuSceneBuilder
         ValidateKeyVisualAspect(texture);
 
         var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(KeyVisualPath);
+        if (sprite != null)
+        {
+            return sprite;
+        }
+
+        if (texture == null)
+        {
+            return null;
+        }
+
+        return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+    }
+
+    private static Sprite TryLoadMainMenuBackgroundSprite()
+    {
+        var background = TryLoadSprite(BackgroundPath);
+        if (background != null)
+        {
+            return background;
+        }
+
+        return TryLoadSprite(KeyVisualPath);
+    }
+
+    private static Sprite TryLoadSprite(string path)
+    {
+        var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        ValidateKeyVisualAspect(texture);
+
+        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
         if (sprite != null)
         {
             return sprite;
@@ -203,15 +235,15 @@ public static class MainMenuSceneBuilder
         rootRect.anchorMin = new Vector2(0f, 0.5f);
         rootRect.anchorMax = new Vector2(0f, 0.5f);
         rootRect.pivot = new Vector2(0f, 0.5f);
-        rootRect.anchoredPosition = new Vector2(58f, 10f);
-        rootRect.sizeDelta = new Vector2(380f, 450f);
+        rootRect.anchoredPosition = new Vector2(95f, -96f);
+        rootRect.sizeDelta = new Vector2(330f, 380f);
 
         var panel = root.AddComponent<Image>();
-        panel.color = new Color(0.035f, 0.025f, 0.06f, 0.66f);
+        panel.color = new Color(1f, 1f, 1f, 0f);
         panel.raycastTarget = false;
 
         var panelShadow = root.AddComponent<Shadow>();
-        panelShadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
+        panelShadow.effectColor = new Color(0f, 0f, 0f, 0f);
         panelShadow.effectDistance = new Vector2(3f, -3f);
 
         var accent = CreateUiObject("Accent Line", root.transform);
@@ -222,13 +254,14 @@ public static class MainMenuSceneBuilder
         accentRect.anchoredPosition = new Vector2(12f, 0f);
         accentRect.sizeDelta = new Vector2(2f, -24f);
         var accentImage = accent.AddComponent<Image>();
-        accentImage.color = new Color(0.72f, 0.42f, 0.84f, 0.35f);
+        accentImage.color = new Color(1f, 1f, 1f, 0f);
         accentImage.raycastTarget = false;
 
         var content = CreateUiObject("Menu Content", root.transform);
-        StretchFull(content.GetComponent<RectTransform>(), 24f, 24f, 20f, 20f);
+        StretchFull(content.GetComponent<RectTransform>());
 
         string[] labels = { "Начать", "Загрузить", "Настройки", "Об игре", "Помощь", "Выход" };
+        labels = new[] { "Start", "Continue", "Settings", "About", "Help", "Exit" };
         var methods = new System.Action<Button>[]
         {
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.StartGame),
@@ -239,18 +272,18 @@ public static class MainMenuSceneBuilder
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.ExitGame)
         };
 
-        const float rowHeight = 56f;
-        const float rowSpacing = 7f;
+        const float rowHeight = 44f;
+        const float rowSpacing = 10f;
         for (int i = 0; i < labels.Length; i++)
         {
-            float y = 140f - i * (rowHeight + rowSpacing);
+            float y = 136f - i * (rowHeight + rowSpacing);
             var row = CreateUiObject(labels[i] + " Row", content.transform);
             var rowRect = row.GetComponent<RectTransform>();
             rowRect.anchorMin = new Vector2(0f, 0.5f);
-            rowRect.anchorMax = new Vector2(1f, 0.5f);
-            rowRect.pivot = new Vector2(0.5f, 0.5f);
+            rowRect.anchorMax = new Vector2(0f, 0.5f);
+            rowRect.pivot = new Vector2(0f, 0.5f);
             rowRect.anchoredPosition = new Vector2(0f, y);
-            rowRect.sizeDelta = new Vector2(0f, rowHeight);
+            rowRect.sizeDelta = new Vector2(270f, rowHeight);
 
             var button = CreateMenuButton(row.transform, labels[i], clickSfx);
             methods[i](button);
@@ -295,7 +328,7 @@ public static class MainMenuSceneBuilder
         statusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         statusText.fontSize = 14;
         statusText.alignment = TextAnchor.LowerRight;
-        statusText.color = new Color(0.78f, 0.72f, 0.86f, 0.78f);
+        statusText.color = new Color(0.08f, 0.12f, 0.22f, 0.72f);
         statusText.raycastTarget = false;
         statusText.text = "quick save: ...";
 
@@ -319,28 +352,40 @@ public static class MainMenuSceneBuilder
 
         var colors = button.colors;
         colors.normalColor = new Color(0f, 0f, 0f, 0f);
-        colors.highlightedColor = new Color(0.45f, 0.18f, 0.58f, 0.35f);
-        colors.pressedColor = new Color(0.58f, 0.22f, 0.72f, 0.48f);
-        colors.selectedColor = new Color(0.45f, 0.18f, 0.58f, 0.35f);
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.92f);
+        colors.pressedColor = new Color(0.96f, 0.9f, 0.88f, 0.95f);
+        colors.selectedColor = new Color(1f, 1f, 1f, 0.92f);
         colors.disabledColor = new Color(0f, 0f, 0f, 0.08f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        var text = CreateLabel(buttonGo.transform, label, 28, TextAnchor.MiddleLeft);
-        text.color = new Color(0.9f, 0.87f, 0.96f, 0.98f);
+        var text = CreateLabel(buttonGo.transform, label, 29, TextAnchor.MiddleLeft);
+        text.color = new Color(0.05f, 0.09f, 0.18f, 0.96f);
         text.raycastTarget = false;
         var textRect = text.GetComponent<RectTransform>();
-        textRect.offsetMin = new Vector2(30f, 0f);
-        textRect.offsetMax = new Vector2(-12f, 0f);
+        textRect.offsetMin = new Vector2(20f, 0f);
+        textRect.offsetMax = new Vector2(-50f, 0f);
+
+        var indicator = CreateLabel(buttonGo.transform, "▶", 28, TextAnchor.MiddleCenter);
+        indicator.color = new Color(0.92f, 0.12f, 0.1f, 1f);
+        indicator.raycastTarget = false;
+        var indicatorRect = indicator.GetComponent<RectTransform>();
+        indicatorRect.anchorMin = new Vector2(1f, 0f);
+        indicatorRect.anchorMax = new Vector2(1f, 1f);
+        indicatorRect.pivot = new Vector2(1f, 0.5f);
+        indicatorRect.anchoredPosition = new Vector2(-8f, 0f);
+        indicatorRect.sizeDelta = new Vector2(34f, 0f);
+        indicator.gameObject.SetActive(false);
 
         var hoverEffect = buttonGo.AddComponent<MainMenuButtonHoverEffect>();
         hoverEffect.highlightImage = image;
         hoverEffect.labelText = text;
+        hoverEffect.playIndicator = indicator.gameObject;
         hoverEffect.normalHighlightColor = new Color(0f, 0f, 0f, 0f);
-        hoverEffect.hoverHighlightColor = new Color(0.45f, 0.18f, 0.58f, 0.35f);
-        hoverEffect.pressedHighlightColor = new Color(0.58f, 0.22f, 0.72f, 0.48f);
-        hoverEffect.normalTextColor = new Color(0.9f, 0.87f, 0.96f, 0.98f);
-        hoverEffect.hoverTextColor = new Color(1f, 0.95f, 1f, 1f);
+        hoverEffect.hoverHighlightColor = new Color(1f, 1f, 1f, 0.92f);
+        hoverEffect.pressedHighlightColor = new Color(0.96f, 0.9f, 0.88f, 0.95f);
+        hoverEffect.normalTextColor = new Color(0.05f, 0.09f, 0.18f, 0.96f);
+        hoverEffect.hoverTextColor = new Color(0.02f, 0.04f, 0.09f, 1f);
         hoverEffect.clickSfx = clickSfx;
 
         return button;
@@ -352,23 +397,36 @@ public static class MainMenuSceneBuilder
         titleObject = logoGo;
         var rect = logoGo.GetComponent<RectTransform>();
         var canvasGroup = logoGo.AddComponent<CanvasGroup>();
-        rect.anchorMin = new Vector2(0.5f, 0f);
-        rect.anchorMax = new Vector2(0.5f, 0f);
-        rect.pivot = new Vector2(0.5f, 0f);
-        rect.anchoredPosition = new Vector2(180f, 108f);
-        rect.sizeDelta = new Vector2(1000f, 160f);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(130f, -62f);
+        rect.sizeDelta = new Vector2(430f, 250f);
+        rect.localRotation = Quaternion.Euler(0f, 0f, -4f);
 
-        var text = logoGo.AddComponent<Text>();
-        text.text = "How I Fall";
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.fontSize = 122;
-        text.alignment = TextAnchor.MiddleCenter;
-        text.color = new Color(0.95f, 0.92f, 0.98f, 0.98f);
+        var fallStroke = CreateUiObject("Fall Stroke", logoGo.transform);
+        var fallStrokeRect = fallStroke.GetComponent<RectTransform>();
+        fallStrokeRect.anchorMin = new Vector2(0f, 1f);
+        fallStrokeRect.anchorMax = new Vector2(0f, 1f);
+        fallStrokeRect.pivot = new Vector2(0f, 1f);
+        fallStrokeRect.anchoredPosition = new Vector2(28f, -108f);
+        fallStrokeRect.sizeDelta = new Vector2(260f, 82f);
+        fallStrokeRect.localRotation = Quaternion.Euler(0f, 0f, -3f);
+        var fallStrokeImage = fallStroke.AddComponent<Image>();
+        fallStrokeImage.color = new Color(0.82f, 0.05f, 0.06f, 0.82f);
+        fallStrokeImage.raycastTarget = false;
+
+        var text = logoGo.AddComponent<TextMeshProUGUI>();
+        text.text = "<color=#FFFFFF>How I</color>\n<color=#E51F25>Fall</color>";
+        text.richText = true;
+        text.fontSize = 104;
+        text.fontStyle = FontStyles.Bold | FontStyles.Italic;
+        text.alignment = TextAlignmentOptions.TopLeft;
         text.raycastTarget = false;
 
         var shadow = logoGo.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0.12f, 0.03f, 0.18f, 0.75f);
-        shadow.effectDistance = new Vector2(3f, -3f);
+        shadow.effectColor = new Color(0.04f, 0.05f, 0.11f, 0.58f);
+        shadow.effectDistance = new Vector2(4f, -4f);
         return canvasGroup;
     }
 
@@ -389,6 +447,26 @@ public static class MainMenuSceneBuilder
         animator.backgroundOverlay = overlayGraphic;
     }
 
+    private static GameObject CreatePressAnyButton(Transform canvas)
+    {
+        var prompt = CreateUiObject("Press Any Button", canvas);
+        var rect = prompt.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0f, 0f);
+        rect.anchoredPosition = new Vector2(90f, 65f);
+        rect.sizeDelta = new Vector2(280f, 32f);
+
+        var text = prompt.AddComponent<Text>();
+        text.text = "Press any button";
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        text.fontSize = 19;
+        text.alignment = TextAnchor.MiddleLeft;
+        text.color = new Color(0.85f, 0.88f, 0.95f, 0.9f);
+        text.raycastTarget = false;
+        return prompt;
+    }
+
     private static GameObject CreateFooter(Transform canvas)
     {
         var footer = CreateUiObject("Prototype Build", canvas);
@@ -404,7 +482,7 @@ public static class MainMenuSceneBuilder
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         text.fontSize = 17;
         text.alignment = TextAnchor.MiddleRight;
-        text.color = new Color(0.66f, 0.63f, 0.74f, 0.50f);
+        text.color = new Color(0.1f, 0.12f, 0.18f, 0.45f);
         text.raycastTarget = false;
         return footer;
     }
