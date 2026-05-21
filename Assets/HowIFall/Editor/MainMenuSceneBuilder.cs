@@ -414,8 +414,8 @@ public static class MainMenuSceneBuilder
         var buttonGo = CreateUiObject(label + " Button", parent);
         var buttonRect = buttonGo.GetComponent<RectTransform>();
         StretchFull(buttonRect);
-        buttonRect.offsetMin = new Vector2(-8f, -4f);
-        buttonRect.offsetMax = new Vector2(8f, 4f);
+        buttonRect.offsetMin = new Vector2(-33f, -4f);
+        buttonRect.offsetMax = new Vector2(-17f, 4f);
 
         var image = buttonGo.AddComponent<Image>();
         image.sprite = TryLoadSprite(MenuHoverBrushPath);
@@ -477,14 +477,14 @@ public static class MainMenuSceneBuilder
         rect.anchorMin = new Vector2(1f, 0.5f);
         rect.anchorMax = new Vector2(1f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-34f, 0f);
-        rect.sizeDelta = new Vector2(38f, 38f);
+        rect.anchoredPosition = new Vector2(-30f, 0f);
+        rect.sizeDelta = new Vector2(46f, 46f);
 
         var image = indicatorGo.AddComponent<Image>();
         image.sprite = indicatorSprite;
         image.type = Image.Type.Simple;
         image.preserveAspect = true;
-        image.color = Color.white;
+        image.color = new Color(0.85f, 0.08f, 0.06f, 0.82f);
         image.raycastTarget = false;
 
         indicatorGo.SetActive(false);
@@ -507,8 +507,8 @@ public static class MainMenuSceneBuilder
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(96f, -66f);
-        rect.sizeDelta = new Vector2(520f, 280f);
+        rect.anchoredPosition = new Vector2(135f, -96f);
+        rect.sizeDelta = new Vector2(620f, 320f);
         rect.localRotation = Quaternion.Euler(0f, 0f, -5f);
 
         var canvasGroup = logoGo.AddComponent<CanvasGroup>();
