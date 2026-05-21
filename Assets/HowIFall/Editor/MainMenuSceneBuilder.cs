@@ -18,6 +18,7 @@ public static class MainMenuSceneBuilder
     private const string LeftGradientOverlayPath = "Assets/HowIFall/Art/UI/MainMenu/left_gradient_overlay.png";
     private const string LogoPath = "Assets/HowIFall/Art/UI/MainMenu/logo_how_i_fall.png";
     private const string MenuHoverBrushPath = "Assets/HowIFall/Art/UI/MainMenu/menu_hover_brush.png";
+    private const string MenuPlayIndicatorPath = "Assets/HowIFall/Art/UI/MainMenu/menu_play_indicator.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
@@ -447,12 +448,12 @@ public static class MainMenuSceneBuilder
         textRect.offsetMin = new Vector2(32f, 0f);
         textRect.offsetMax = new Vector2(-24f, 0f);
 
-        var indicator = CreateLabel(buttonGo.transform, "▶", 28, TextAnchor.MiddleCenter);
-        Object.DestroyImmediate(indicator.gameObject);
+        var playIndicator = CreateMenuPlayIndicator(buttonGo.transform);
 
         var hoverEffect = buttonGo.AddComponent<MainMenuButtonHoverEffect>();
         hoverEffect.highlightImage = image;
         hoverEffect.labelText = text;
+        hoverEffect.playIndicator = playIndicator;
         hoverEffect.normalHighlightColor = new Color(0f, 0f, 0f, 0f);
         hoverEffect.hoverHighlightColor = new Color(1f, 1f, 1f, 0.92f);
         hoverEffect.pressedHighlightColor = new Color(0.96f, 0.9f, 0.88f, 0.95f);
@@ -461,6 +462,33 @@ public static class MainMenuSceneBuilder
         hoverEffect.clickSfx = clickSfx;
 
         return button;
+    }
+
+    private static GameObject CreateMenuPlayIndicator(Transform parent)
+    {
+        var indicatorSprite = TryLoadSprite(MenuPlayIndicatorPath);
+        if (indicatorSprite == null)
+        {
+            return null;
+        }
+
+        var indicatorGo = CreateUiObject("Play Indicator", parent);
+        var rect = indicatorGo.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0.5f);
+        rect.anchorMax = new Vector2(1f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(-34f, 0f);
+        rect.sizeDelta = new Vector2(38f, 38f);
+
+        var image = indicatorGo.AddComponent<Image>();
+        image.sprite = indicatorSprite;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = true;
+        image.color = Color.white;
+        image.raycastTarget = false;
+
+        indicatorGo.SetActive(false);
+        return indicatorGo;
     }
 
     private static CanvasGroup CreateGameLogo(Transform canvas, out GameObject titleObject)
