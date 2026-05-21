@@ -8,6 +8,7 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
     public Text labelText;
     public GameObject playIndicator;
     public AudioClip clickSfx;
+    public bool selectedByDefault;
 
     public Color normalHighlightColor = new Color(0f, 0f, 0f, 0f);
     public Color hoverHighlightColor = new Color(0.45f, 0.18f, 0.58f, 0.35f);
@@ -20,7 +21,14 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
 
     private void Awake()
     {
-        ApplyNormalState();
+        if (selectedByDefault)
+        {
+            ApplyHoverState();
+        }
+        else
+        {
+            ApplyNormalState();
+        }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -32,7 +40,14 @@ public class MainMenuButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IP
     public void OnPointerExit(PointerEventData eventData)
     {
         _isPointerInside = false;
-        ApplyNormalState();
+        if (selectedByDefault)
+        {
+            ApplyHoverState();
+        }
+        else
+        {
+            ApplyNormalState();
+        }
     }
 
     public void OnPointerDown(PointerEventData eventData)

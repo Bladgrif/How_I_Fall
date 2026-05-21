@@ -29,6 +29,7 @@ public static class MainMenuSceneBuilder
         var canvas = CreateCanvas();
         CreateEventSystem();
         var backgroundTransform = CreateBackgroundLayer(canvas.transform);
+        CreateLeftGradientOverlay(canvas.transform);
         var clickSfx = TryLoadAudioClip(UiClickSfxWavPath, UiClickSfxMp3Path, UiClickSfxOggPath);
 
         var sceneControllers = new GameObject("Scene Controllers");
@@ -227,6 +228,30 @@ public static class MainMenuSceneBuilder
         return image;
     }
 
+    private static void CreateLeftGradientOverlay(Transform canvas)
+    {
+        float[] widths = { 260f, 170f, 130f, 100f };
+        float[] alphas = { 0.56f, 0.38f, 0.20f, 0.08f };
+        float x = 0f;
+
+        for (int i = 0; i < widths.Length; i++)
+        {
+            var stripe = CreateUiObject("Left Gradient Overlay " + (i + 1), canvas);
+            var rect = stripe.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = new Vector2(x, 0f);
+            rect.sizeDelta = new Vector2(widths[i], 0f);
+
+            var image = stripe.AddComponent<Image>();
+            image.color = new Color(0.015f, 0.025f, 0.055f, alphas[i]);
+            image.raycastTarget = false;
+
+            x += widths[i];
+        }
+    }
+
     private static CanvasGroup CreateMainMenuRoot(Transform canvas, MainMenuController controller, AudioClip clickSfx)
     {
         var root = CreateUiObject("MainMenuRoot", canvas);
@@ -288,7 +313,7 @@ public static class MainMenuSceneBuilder
             var button = CreateMenuButton(row.transform, labels[i], clickSfx);
             methods[i](button);
 
-            if (i == 1)
+            if (false && i == 1)
             {
                 CreateQuickSaveStatus(row.transform);
             }
@@ -359,15 +384,19 @@ public static class MainMenuSceneBuilder
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        var text = CreateLabel(buttonGo.transform, label, 29, TextAnchor.MiddleLeft);
-        text.color = new Color(0.05f, 0.09f, 0.18f, 0.96f);
+        var text = CreateLabel(buttonGo.transform, label, 27, TextAnchor.MiddleLeft);
+        text.color = new Color(0.92f, 0.94f, 0.98f, 0.95f);
         text.raycastTarget = false;
+        var textShadow = text.gameObject.AddComponent<Shadow>();
+        textShadow.effectColor = new Color(0f, 0f, 0f, 0.42f);
+        textShadow.effectDistance = new Vector2(2f, -2f);
         var textRect = text.GetComponent<RectTransform>();
         textRect.offsetMin = new Vector2(20f, 0f);
         textRect.offsetMax = new Vector2(-50f, 0f);
 
         var indicator = CreateLabel(buttonGo.transform, "▶", 28, TextAnchor.MiddleCenter);
-        indicator.color = new Color(0.92f, 0.12f, 0.1f, 1f);
+        indicator.text = "\u25B6";
+        indicator.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         indicator.raycastTarget = false;
         var indicatorRect = indicator.GetComponent<RectTransform>();
         indicatorRect.anchorMin = new Vector2(1f, 0f);
@@ -384,8 +413,9 @@ public static class MainMenuSceneBuilder
         hoverEffect.normalHighlightColor = new Color(0f, 0f, 0f, 0f);
         hoverEffect.hoverHighlightColor = new Color(1f, 1f, 1f, 0.92f);
         hoverEffect.pressedHighlightColor = new Color(0.96f, 0.9f, 0.88f, 0.95f);
-        hoverEffect.normalTextColor = new Color(0.05f, 0.09f, 0.18f, 0.96f);
-        hoverEffect.hoverTextColor = new Color(0.02f, 0.04f, 0.09f, 1f);
+        hoverEffect.normalTextColor = new Color(0.92f, 0.94f, 0.98f, 0.95f);
+        hoverEffect.hoverTextColor = new Color(0.07f, 0.08f, 0.11f, 1f);
+        hoverEffect.selectedByDefault = label == "Start";
         hoverEffect.clickSfx = clickSfx;
 
         return button;
@@ -413,21 +443,74 @@ public static class MainMenuSceneBuilder
         fallStrokeRect.sizeDelta = new Vector2(260f, 82f);
         fallStrokeRect.localRotation = Quaternion.Euler(0f, 0f, -3f);
         var fallStrokeImage = fallStroke.AddComponent<Image>();
-        fallStrokeImage.color = new Color(0.82f, 0.05f, 0.06f, 0.82f);
+        fallStrokeImage.color = new Color(0.82f, 0.05f, 0.06f, 0f);
         fallStrokeImage.raycastTarget = false;
 
         var text = logoGo.AddComponent<TextMeshProUGUI>();
-        text.text = "<color=#FFFFFF>How I</color>\n<color=#E51F25>Fall</color>";
+        text.text = string.Empty;
         text.richText = true;
         text.fontSize = 104;
         text.fontStyle = FontStyles.Bold | FontStyles.Italic;
         text.alignment = TextAlignmentOptions.TopLeft;
         text.raycastTarget = false;
 
+        var howText = CreateTmpLogoText("Logo How I", logoGo.transform, "How I", 108, new Color(1f, 1f, 1f, 1f), -4f);
+        var howRect = howText.GetComponent<RectTransform>();
+        howRect.anchorMin = new Vector2(0f, 1f);
+        howRect.anchorMax = new Vector2(0f, 1f);
+        howRect.pivot = new Vector2(0f, 1f);
+        howRect.anchoredPosition = new Vector2(0f, 0f);
+        howRect.sizeDelta = new Vector2(360f, 112f);
+
+        var fallText = CreateTmpLogoText("Logo Fall", logoGo.transform, "Fall", 128, new Color(0.9f, 0.06f, 0.04f, 1f), -7f);
+        var fallRect = fallText.GetComponent<RectTransform>();
+        fallRect.anchorMin = new Vector2(0f, 1f);
+        fallRect.anchorMax = new Vector2(0f, 1f);
+        fallRect.pivot = new Vector2(0f, 1f);
+        fallRect.anchoredPosition = new Vector2(18f, -96f);
+        fallRect.sizeDelta = new Vector2(320f, 130f);
+
+        CreateLogoUnderline(logoGo.transform);
+
         var shadow = logoGo.AddComponent<Shadow>();
         shadow.effectColor = new Color(0.04f, 0.05f, 0.11f, 0.58f);
         shadow.effectDistance = new Vector2(4f, -4f);
         return canvasGroup;
+    }
+
+    private static TextMeshProUGUI CreateTmpLogoText(string name, Transform parent, string value, int fontSize, Color color, float rotation)
+    {
+        var go = CreateUiObject(name, parent);
+        go.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
+
+        var text = go.AddComponent<TextMeshProUGUI>();
+        text.text = value;
+        text.fontSize = fontSize;
+        text.fontStyle = FontStyles.Bold | FontStyles.Italic;
+        text.alignment = TextAlignmentOptions.TopLeft;
+        text.color = color;
+        text.raycastTarget = false;
+
+        var shadow = go.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.5f);
+        shadow.effectDistance = new Vector2(4f, -4f);
+        return text;
+    }
+
+    private static void CreateLogoUnderline(Transform parent)
+    {
+        var underline = CreateUiObject("Fall Underline", parent);
+        var rect = underline.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(24f, -214f);
+        rect.sizeDelta = new Vector2(250f, 8f);
+        rect.localRotation = Quaternion.Euler(0f, 0f, -9f);
+
+        var image = underline.AddComponent<Image>();
+        image.color = new Color(0.9f, 0.06f, 0.04f, 0.78f);
+        image.raycastTarget = false;
     }
 
     private static void CreateMainMenuAnimator(
@@ -462,7 +545,7 @@ public static class MainMenuSceneBuilder
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         text.fontSize = 19;
         text.alignment = TextAnchor.MiddleLeft;
-        text.color = new Color(0.85f, 0.88f, 0.95f, 0.9f);
+        text.color = new Color(1f, 1f, 1f, 0.75f);
         text.raycastTarget = false;
         return prompt;
     }
@@ -480,9 +563,9 @@ public static class MainMenuSceneBuilder
         var text = footer.AddComponent<Text>();
         text.text = "Prototype Build";
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.fontSize = 17;
+        text.fontSize = 15;
         text.alignment = TextAnchor.MiddleRight;
-        text.color = new Color(0.1f, 0.12f, 0.18f, 0.45f);
+        text.color = new Color(0.1f, 0.12f, 0.18f, 0.35f);
         text.raycastTarget = false;
         return footer;
     }
