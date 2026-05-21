@@ -308,7 +308,7 @@ public static class MainMenuSceneBuilder
         rootRect.anchorMin = new Vector2(0f, 0.5f);
         rootRect.anchorMax = new Vector2(0f, 0.5f);
         rootRect.pivot = new Vector2(0f, 0.5f);
-        rootRect.anchoredPosition = new Vector2(95f, -96f);
+        rootRect.anchoredPosition = new Vector2(140f, -96f);
         rootRect.sizeDelta = new Vector2(380f, 410f);
 
         var panel = root.AddComponent<Image>();
@@ -374,12 +374,12 @@ public static class MainMenuSceneBuilder
                 sepRect.anchorMax = new Vector2(1f, 0.5f);
                 sepRect.pivot = new Vector2(0.5f, 0.5f);
                 sepRect.anchoredPosition = new Vector2(0f, y - (rowHeight * 0.5f + 4f));
-                sepRect.offsetMin = new Vector2(30f, sepRect.offsetMin.y);
-                sepRect.offsetMax = new Vector2(-40f, sepRect.offsetMax.y);
+                sepRect.offsetMin = new Vector2(24f, sepRect.offsetMin.y);
+                sepRect.offsetMax = new Vector2(-96f, sepRect.offsetMax.y);
                 sepRect.sizeDelta = new Vector2(0f, 1f);
 
                 var sepImage = sep.AddComponent<Image>();
-                sepImage.color = new Color(0.85f, 0.8f, 0.95f, 0.14f);
+                sepImage.color = new Color(0.85f, 0.8f, 0.95f, 0.20f);
                 sepImage.raycastTarget = false;
             }
         }
@@ -414,8 +414,8 @@ public static class MainMenuSceneBuilder
         var buttonGo = CreateUiObject(label + " Button", parent);
         var buttonRect = buttonGo.GetComponent<RectTransform>();
         StretchFull(buttonRect);
-        buttonRect.offsetMin = new Vector2(-33f, -4f);
-        buttonRect.offsetMax = new Vector2(-17f, 4f);
+        buttonRect.offsetMin = new Vector2(-20f, -4f);
+        buttonRect.offsetMax = new Vector2(-90f, 4f);
 
         var image = buttonGo.AddComponent<Image>();
         image.sprite = TryLoadSprite(MenuHoverBrushPath);
@@ -445,7 +445,7 @@ public static class MainMenuSceneBuilder
         textShadow.effectColor = new Color(0f, 0f, 0f, 0.42f);
         textShadow.effectDistance = new Vector2(2f, -2f);
         var textRect = text.GetComponent<RectTransform>();
-        textRect.offsetMin = new Vector2(32f, 0f);
+        textRect.offsetMin = new Vector2(26f, 0f);
         textRect.offsetMax = new Vector2(-24f, 0f);
 
         var playIndicator = CreateMenuPlayIndicator(buttonGo.transform);
@@ -477,7 +477,7 @@ public static class MainMenuSceneBuilder
         rect.anchorMin = new Vector2(1f, 0.5f);
         rect.anchorMax = new Vector2(1f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-30f, 0f);
+        rect.anchoredPosition = new Vector2(-26f, 0f);
         rect.sizeDelta = new Vector2(46f, 46f);
 
         var image = indicatorGo.AddComponent<Image>();
