@@ -308,7 +308,7 @@ public static class MainMenuSceneBuilder
         rootRect.anchorMax = new Vector2(0f, 0.5f);
         rootRect.pivot = new Vector2(0f, 0.5f);
         rootRect.anchoredPosition = new Vector2(95f, -96f);
-        rootRect.sizeDelta = new Vector2(360f, 390f);
+        rootRect.sizeDelta = new Vector2(380f, 410f);
 
         var panel = root.AddComponent<Image>();
         panel.color = new Color(1f, 1f, 1f, 0f);
@@ -344,7 +344,7 @@ public static class MainMenuSceneBuilder
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.ExitGame)
         };
 
-        const float rowHeight = 56f;
+        const float rowHeight = 62f;
         const float rowSpacing = 0f;
         for (int i = 0; i < labels.Length; i++)
         {
@@ -355,7 +355,7 @@ public static class MainMenuSceneBuilder
             rowRect.anchorMax = new Vector2(0f, 0.5f);
             rowRect.pivot = new Vector2(0f, 0.5f);
             rowRect.anchoredPosition = new Vector2(0f, y);
-            rowRect.sizeDelta = new Vector2(340f, rowHeight);
+            rowRect.sizeDelta = new Vector2(360f, rowHeight);
 
             var button = CreateMenuButton(row.transform, labels[i], clickSfx);
             methods[i](button);
@@ -413,8 +413,8 @@ public static class MainMenuSceneBuilder
         var buttonGo = CreateUiObject(label + " Button", parent);
         var buttonRect = buttonGo.GetComponent<RectTransform>();
         StretchFull(buttonRect);
-        buttonRect.offsetMin = new Vector2(-6f, -2f);
-        buttonRect.offsetMax = new Vector2(8f, 2f);
+        buttonRect.offsetMin = new Vector2(-8f, -4f);
+        buttonRect.offsetMax = new Vector2(8f, 4f);
 
         var image = buttonGo.AddComponent<Image>();
         image.sprite = TryLoadSprite(MenuHoverBrushPath);
@@ -444,25 +444,15 @@ public static class MainMenuSceneBuilder
         textShadow.effectColor = new Color(0f, 0f, 0f, 0.42f);
         textShadow.effectDistance = new Vector2(2f, -2f);
         var textRect = text.GetComponent<RectTransform>();
-        textRect.offsetMin = new Vector2(28f, 0f);
-        textRect.offsetMax = new Vector2(-58f, 0f);
+        textRect.offsetMin = new Vector2(32f, 0f);
+        textRect.offsetMax = new Vector2(-24f, 0f);
 
         var indicator = CreateLabel(buttonGo.transform, "▶", 28, TextAnchor.MiddleCenter);
-        indicator.text = "\u25B6";
-        indicator.color = new Color(0.9f, 0.08f, 0.06f, 1f);
-        indicator.raycastTarget = false;
-        var indicatorRect = indicator.GetComponent<RectTransform>();
-        indicatorRect.anchorMin = new Vector2(1f, 0f);
-        indicatorRect.anchorMax = new Vector2(1f, 1f);
-        indicatorRect.pivot = new Vector2(1f, 0.5f);
-        indicatorRect.anchoredPosition = new Vector2(-20f, 0f);
-        indicatorRect.sizeDelta = new Vector2(38f, 0f);
-        indicator.gameObject.SetActive(false);
+        Object.DestroyImmediate(indicator.gameObject);
 
         var hoverEffect = buttonGo.AddComponent<MainMenuButtonHoverEffect>();
         hoverEffect.highlightImage = image;
         hoverEffect.labelText = text;
-        hoverEffect.playIndicator = indicator.gameObject;
         hoverEffect.normalHighlightColor = new Color(0f, 0f, 0f, 0f);
         hoverEffect.hoverHighlightColor = new Color(1f, 1f, 1f, 0.92f);
         hoverEffect.pressedHighlightColor = new Color(0.96f, 0.9f, 0.88f, 0.95f);
@@ -490,8 +480,8 @@ public static class MainMenuSceneBuilder
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
         rect.anchoredPosition = new Vector2(96f, -66f);
-        rect.sizeDelta = new Vector2(470f, 250f);
-        rect.localRotation = Quaternion.Euler(0f, 0f, -4f);
+        rect.sizeDelta = new Vector2(520f, 280f);
+        rect.localRotation = Quaternion.Euler(0f, 0f, -5f);
 
         var canvasGroup = logoGo.AddComponent<CanvasGroup>();
         var image = logoGo.AddComponent<Image>();
