@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using TMPro;
 using UnityEditor;
 using UnityEditor.Events;
@@ -14,6 +15,7 @@ public static class MainMenuSceneBuilder
     private const string VNPrototypeScenePath = "Assets/HowIFall/Scenes/VNPrototype.unity";
     private const string BackgroundPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_background.png";
     private const string KeyVisualPath = "Assets/HowIFall/Art/UI/MainMenu/main_menu_key_visual.png";
+    private const string LeftGradientOverlayPath = "Assets/HowIFall/Art/UI/MainMenu/left_gradient_overlay.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
@@ -230,26 +232,69 @@ public static class MainMenuSceneBuilder
 
     private static void CreateLeftGradientOverlay(Transform canvas)
     {
-        float[] widths = { 260f, 170f, 130f, 100f };
-        float[] alphas = { 0.56f, 0.38f, 0.20f, 0.08f };
-        float x = 0f;
+        var overlay = CreateUiObject("Left Gradient Overlay", canvas);
+        var rect = overlay.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 0.5f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = new Vector2(780f, 0f);
 
-        for (int i = 0; i < widths.Length; i++)
+        var image = overlay.AddComponent<Image>();
+        image.sprite = EnsureLeftGradientSprite();
+        image.type = Image.Type.Simple;
+        image.preserveAspect = false;
+        image.color = Color.white;
+        image.raycastTarget = false;
+    }
+
+    private static Sprite EnsureLeftGradientSprite()
+    {
+        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(LeftGradientOverlayPath);
+        if (sprite != null)
         {
-            var stripe = CreateUiObject("Left Gradient Overlay " + (i + 1), canvas);
-            var rect = stripe.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 0f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 0.5f);
-            rect.anchoredPosition = new Vector2(x, 0f);
-            rect.sizeDelta = new Vector2(widths[i], 0f);
-
-            var image = stripe.AddComponent<Image>();
-            image.color = new Color(0.015f, 0.025f, 0.055f, alphas[i]);
-            image.raycastTarget = false;
-
-            x += widths[i];
+            return sprite;
         }
+
+        const int width = 1024;
+        const int height = 16;
+        var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        var color = new Color(0.02f, 0.03f, 0.07f, 1f);
+
+        for (int x = 0; x < width; x++)
+        {
+            float t = x / (float)(width - 1);
+            float alpha = Mathf.SmoothStep(0.62f, 0f, t);
+            var pixel = new Color(color.r, color.g, color.b, alpha);
+
+            for (int y = 0; y < height; y++)
+            {
+                texture.SetPixel(x, y, pixel);
+            }
+        }
+
+        texture.Apply();
+
+        string absolutePath = Path.Combine(Directory.GetCurrentDirectory(), LeftGradientOverlayPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(absolutePath));
+        File.WriteAllBytes(absolutePath, texture.EncodeToPNG());
+        Object.DestroyImmediate(texture);
+
+        AssetDatabase.ImportAsset(LeftGradientOverlayPath);
+
+        var importer = AssetImporter.GetAtPath(LeftGradientOverlayPath) as TextureImporter;
+        if (importer != null)
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.mipmapEnabled = false;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.maxTextureSize = 1024;
+            importer.SaveAndReimport();
+        }
+
+        return AssetDatabase.LoadAssetAtPath<Sprite>(LeftGradientOverlayPath);
     }
 
     private static CanvasGroup CreateMainMenuRoot(Transform canvas, MainMenuController controller, AudioClip clickSfx)
@@ -415,7 +460,6 @@ public static class MainMenuSceneBuilder
         hoverEffect.pressedHighlightColor = new Color(0.96f, 0.9f, 0.88f, 0.95f);
         hoverEffect.normalTextColor = new Color(0.92f, 0.94f, 0.98f, 0.95f);
         hoverEffect.hoverTextColor = new Color(0.07f, 0.08f, 0.11f, 1f);
-        hoverEffect.selectedByDefault = label == "Start";
         hoverEffect.clickSfx = clickSfx;
 
         return button;
