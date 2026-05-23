@@ -244,7 +244,7 @@ public static class MainMenuSceneBuilder
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 0.5f);
         rect.anchoredPosition = Vector2.zero;
-        rect.sizeDelta = new Vector2(780f, 0f);
+        rect.sizeDelta = new Vector2(760f, 0f);
 
         var image = overlay.AddComponent<Image>();
         image.sprite = EnsureLeftGradientSprite();
@@ -256,21 +256,16 @@ public static class MainMenuSceneBuilder
 
     private static Sprite EnsureLeftGradientSprite()
     {
-        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(LeftGradientOverlayPath);
-        if (sprite != null)
-        {
-            return sprite;
-        }
-
         const int width = 1024;
         const int height = 16;
+        const float leftAlpha = 0.56f;
         var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
-        var color = new Color(0.02f, 0.03f, 0.07f, 1f);
+        var color = new Color(0.015f, 0.025f, 0.055f, 1f);
 
         for (int x = 0; x < width; x++)
         {
             float t = x / (float)(width - 1);
-            float alpha = Mathf.SmoothStep(0.62f, 0f, t);
+            float alpha = Mathf.Lerp(leftAlpha, 0f, Mathf.SmoothStep(0f, 1f, t));
             var pixel = new Color(color.r, color.g, color.b, alpha);
 
             for (int y = 0; y < height; y++)
@@ -508,7 +503,7 @@ public static class MainMenuSceneBuilder
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(135f, -96f);
+        rect.anchoredPosition = new Vector2(125f, -116f);
         rect.sizeDelta = new Vector2(620f, 320f);
         rect.localRotation = Quaternion.Euler(0f, 0f, -5f);
 
