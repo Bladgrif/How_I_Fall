@@ -24,7 +24,10 @@ public static class MainMenuSceneBuilder
     private const string SettingsTabActivePath = "Assets/HowIFall/Art/UI/Settings/settings_tab_active.png";
     private const string SettingsTabInactivePath = "Assets/HowIFall/Art/UI/Settings/settings_tab_inactive.png";
     private const string SettingsBackButtonPath = "Assets/HowIFall/Art/UI/Settings/settings_back_button.png";
-    private const string SettingsDoodlesPath = "Assets/HowIFall/Art/UI/Settings/settings_doodles.png";
+    private const string DoodleHornsPath = "Assets/HowIFall/Art/UI/Settings/Doodles/doodle_horns.png";
+    private const string DoodleStarsPath = "Assets/HowIFall/Art/UI/Settings/Doodles/doodle_stars.png";
+    private const string DoodleHeartsPath = "Assets/HowIFall/Art/UI/Settings/Doodles/doodle_hearts.png";
+    private const string DoodleArrowsPath = "Assets/HowIFall/Art/UI/Settings/Doodles/doodle_arrows.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
@@ -648,7 +651,7 @@ public static class MainMenuSceneBuilder
         var dim = CreateUiObject("Settings Dim Blocker", panelRoot.transform);
         StretchFull(dim.GetComponent<RectTransform>());
         var dimImage = dim.AddComponent<Image>();
-        dimImage.color = new Color(0.02f, 0.04f, 0.08f, 0.35f);
+        dimImage.color = new Color(0.02f, 0.04f, 0.08f, 0.32f);
         dimImage.raycastTarget = true;
 
         CreateSettingsLogo(panelRoot.transform);
@@ -658,8 +661,8 @@ public static class MainMenuSceneBuilder
         windowRect.anchorMin = new Vector2(0.5f, 0.5f);
         windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.pivot = new Vector2(0.5f, 0.5f);
-        windowRect.sizeDelta = new Vector2(1100f, 760f);
-        windowRect.anchoredPosition = new Vector2(160f, 0f);
+        windowRect.sizeDelta = new Vector2(1040f, 700f);
+        windowRect.anchoredPosition = new Vector2(170f, 10f);
         var windowImage = window.AddComponent<Image>();
         windowImage.sprite = TryLoadSprite(SettingsPanelBgPath);
         windowImage.type = Image.Type.Simple;
@@ -680,23 +683,23 @@ public static class MainMenuSceneBuilder
 
         CreateSettingsDoodles(window.transform);
 
-        var title = CreateTmpLabel(window.transform, "Settings", 62, TextAlignmentOptions.Center);
+        var title = CreateTmpLabel(window.transform, "Settings", 60, TextAlignmentOptions.Center);
         var titleRect = title.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0f, 1f);
-        titleRect.anchorMax = new Vector2(1f, 1f);
-        titleRect.pivot = new Vector2(0.5f, 1f);
-        titleRect.anchoredPosition = new Vector2(0f, -34f);
-        titleRect.sizeDelta = new Vector2(0f, 78f);
+        titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        titleRect.pivot = new Vector2(0.5f, 0.5f);
+        titleRect.anchoredPosition = new Vector2(0f, 290f);
+        titleRect.sizeDelta = new Vector2(460f, 76f);
         title.color = Color.white;
         title.raycastTarget = false;
 
         var underline = CreateUiObject("Settings Red Underline", window.transform);
         var underlineRect = underline.GetComponent<RectTransform>();
-        underlineRect.anchorMin = new Vector2(0.5f, 1f);
-        underlineRect.anchorMax = new Vector2(0.5f, 1f);
+        underlineRect.anchorMin = new Vector2(0.5f, 0.5f);
+        underlineRect.anchorMax = new Vector2(0.5f, 0.5f);
         underlineRect.pivot = new Vector2(0.5f, 0.5f);
-        underlineRect.anchoredPosition = new Vector2(0f, -104f);
-        underlineRect.sizeDelta = new Vector2(220f, 5f);
+        underlineRect.anchoredPosition = new Vector2(0f, 250f);
+        underlineRect.sizeDelta = new Vector2(185f, 5f);
         underlineRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
         var underlineImage = underline.AddComponent<Image>();
         underlineImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
@@ -705,7 +708,7 @@ public static class MainMenuSceneBuilder
         string[] tabs = { "Graphics", "Audio", "Gameplay", "Controls", "Language" };
         for (int i = 0; i < tabs.Length; i++)
         {
-            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-390f, 190f - i * 88f));
+            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-390f, 180f - i * 88f));
         }
 
         var divider = CreateUiObject("Settings Divider", window.transform);
@@ -713,26 +716,26 @@ public static class MainMenuSceneBuilder
         dividerRect.anchorMin = new Vector2(0.5f, 0.5f);
         dividerRect.anchorMax = new Vector2(0.5f, 0.5f);
         dividerRect.pivot = new Vector2(0.5f, 0.5f);
-        dividerRect.anchoredPosition = new Vector2(-250f, -12f);
-        dividerRect.sizeDelta = new Vector2(2f, 560f);
+        dividerRect.anchoredPosition = new Vector2(-240f, -10f);
+        dividerRect.sizeDelta = new Vector2(2f, 540f);
         var dividerImage = divider.AddComponent<Image>();
-        dividerImage.color = new Color(1f, 1f, 1f, 0.22f);
+        dividerImage.color = new Color(1f, 1f, 1f, 0.25f);
         dividerImage.raycastTarget = false;
 
-        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 210f);
-        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 140f);
-        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 60f);
-        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, -10f);
-        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -80f);
-        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -150f);
-        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -220f);
+        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 185f);
+        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 123f);
+        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 61f);
+        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, -1f);
+        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -63f);
+        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -125f);
+        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -187f);
 
-        var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(170f, 52f));
+        var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(180f, 54f));
         var resetRect = resetButton.GetComponent<RectTransform>();
         resetRect.anchorMin = new Vector2(0.5f, 0.5f);
         resetRect.anchorMax = new Vector2(0.5f, 0.5f);
         resetRect.pivot = new Vector2(0.5f, 0.5f);
-        resetRect.anchoredPosition = new Vector2(330f, -306f);
+        resetRect.anchoredPosition = new Vector2(330f, -285f);
 
         var backButton = CreateBackButton(panelRoot.transform);
 
@@ -783,8 +786,8 @@ public static class MainMenuSceneBuilder
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-690f, 265f);
-        rect.sizeDelta = new Vector2(460f, 260f);
+        rect.anchoredPosition = new Vector2(-690f, 245f);
+        rect.sizeDelta = new Vector2(430f, 240f);
         rect.localRotation = Quaternion.Euler(0f, 0f, -5f);
 
         var image = logo.AddComponent<Image>();
@@ -797,19 +800,20 @@ public static class MainMenuSceneBuilder
 
     private static void CreateSettingsDoodles(Transform parent)
     {
-        var doodleSprite = TryLoadSprite(SettingsDoodlesPath);
-        if (doodleSprite == null)
+        CreateDoodle(parent, "Doodle Horns", DoodleHornsPath, new Vector2(92f, 329f), new Vector2(80f, 45f), 5f, 0.68f);
+        CreateDoodle(parent, "Doodle Stars", DoodleStarsPath, new Vector2(210f, 292f), new Vector2(90f, 90f), -7f, 0.55f);
+        CreateDoodle(parent, "Doodle Hearts", DoodleHeartsPath, new Vector2(-455f, -255f), new Vector2(90f, 90f), 9f, 0.45f);
+        CreateDoodle(parent, "Doodle Arrows", DoodleArrowsPath, new Vector2(-132f, 246f), new Vector2(95f, 42f), -3f, 0.42f);
+    }
+
+    private static void CreateDoodle(Transform parent, string name, string spritePath, Vector2 position, Vector2 size, float rotation, float alpha)
+    {
+        var sprite = TryLoadSprite(spritePath);
+        if (sprite == null)
         {
             return;
         }
 
-        CreateDoodle(parent, "Header Doodle", new Vector2(-88f, 262f), new Vector2(150f, 150f), -8f, 0.62f);
-        CreateDoodle(parent, "Lower Left Doodle", new Vector2(-450f, -285f), new Vector2(180f, 180f), 11f, 0.55f);
-        CreateDoodle(parent, "Upper Right Doodle", new Vector2(435f, 245f), new Vector2(130f, 130f), 14f, 0.72f);
-    }
-
-    private static void CreateDoodle(Transform parent, string name, Vector2 position, Vector2 size, float rotation, float alpha)
-    {
         var doodle = CreateUiObject(name, parent);
         var rect = doodle.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -820,7 +824,7 @@ public static class MainMenuSceneBuilder
         rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
 
         var image = doodle.AddComponent<Image>();
-        image.sprite = TryLoadSprite(SettingsDoodlesPath);
+        image.sprite = sprite;
         image.type = Image.Type.Simple;
         image.preserveAspect = true;
         image.color = new Color(1f, 1f, 1f, alpha);
@@ -872,8 +876,8 @@ public static class MainMenuSceneBuilder
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-180f, y);
-        labelRect.sizeDelta = new Vector2(250f, 44f);
+        labelRect.anchoredPosition = new Vector2(-150f, y);
+        labelRect.sizeDelta = new Vector2(235f, 42f);
         labelText.color = new Color(1f, 1f, 1f, 0.75f);
 
         var box = CreateUiObject(label + " Placeholder", parent);
@@ -881,8 +885,8 @@ public static class MainMenuSceneBuilder
         boxRect.anchorMin = new Vector2(0.5f, 0.5f);
         boxRect.anchorMax = new Vector2(0.5f, 0.5f);
         boxRect.pivot = new Vector2(0.5f, 0.5f);
-        boxRect.anchoredPosition = new Vector2(230f, y);
-        boxRect.sizeDelta = new Vector2(420f, 46f);
+        boxRect.anchoredPosition = new Vector2(190f, y);
+        boxRect.sizeDelta = new Vector2(390f, 44f);
         var boxImage = box.AddComponent<Image>();
         boxImage.color = new Color(0f, 0f, 0f, 0.55f);
         boxImage.raycastTarget = false;
@@ -898,8 +902,8 @@ public static class MainMenuSceneBuilder
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-180f, y);
-        labelRect.sizeDelta = new Vector2(250f, 44f);
+        labelRect.anchoredPosition = new Vector2(-150f, y);
+        labelRect.sizeDelta = new Vector2(235f, 42f);
         labelText.color = new Color(0.95f, 0.97f, 1f, 0.96f);
 
         var slider = CreateSlider(parent, min, max, value);
@@ -907,8 +911,8 @@ public static class MainMenuSceneBuilder
         sliderRect.anchorMin = new Vector2(0.5f, 0.5f);
         sliderRect.anchorMax = new Vector2(0.5f, 0.5f);
         sliderRect.pivot = new Vector2(0.5f, 0.5f);
-        sliderRect.anchoredPosition = new Vector2(230f, y);
-        sliderRect.sizeDelta = new Vector2(420f, 34f);
+        sliderRect.anchoredPosition = new Vector2(190f, y);
+        sliderRect.sizeDelta = new Vector2(390f, 34f);
         return slider;
     }
 
@@ -919,8 +923,8 @@ public static class MainMenuSceneBuilder
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-180f, y);
-        labelRect.sizeDelta = new Vector2(250f, 44f);
+        labelRect.anchoredPosition = new Vector2(-150f, y);
+        labelRect.sizeDelta = new Vector2(235f, 42f);
         labelText.color = new Color(0.95f, 0.97f, 1f, 0.96f);
 
         var toggle = CreateToggle(parent);
@@ -928,19 +932,19 @@ public static class MainMenuSceneBuilder
         toggleRect.anchorMin = new Vector2(0.5f, 0.5f);
         toggleRect.anchorMax = new Vector2(0.5f, 0.5f);
         toggleRect.pivot = new Vector2(0.5f, 0.5f);
-        toggleRect.anchoredPosition = new Vector2(32f, y);
-        toggleRect.sizeDelta = new Vector2(34f, 34f);
+        toggleRect.anchoredPosition = new Vector2(2f, y);
+        toggleRect.sizeDelta = new Vector2(32f, 32f);
         return toggle;
     }
 
     private static Button CreateBackButton(Transform parent)
     {
-        var button = CreateStyledButton(parent, "Back", new Vector2(210f, 72f));
+        var button = CreateStyledButton(parent, "Back", new Vector2(220f, 72f));
         var rect = button.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-760f, -445f);
+        rect.anchoredPosition = new Vector2(-780f, -455f);
 
         var image = button.GetComponent<Image>();
         var sprite = TryLoadSprite(SettingsBackButtonPath);
@@ -1046,17 +1050,21 @@ public static class MainMenuSceneBuilder
     private static Toggle CreateToggle(Transform parent)
     {
         var toggleGo = CreateUiObject("Fullscreen Toggle", parent);
-        toggleGo.GetComponent<RectTransform>().sizeDelta = new Vector2(28f, 28f);
+        toggleGo.GetComponent<RectTransform>().sizeDelta = new Vector2(32f, 32f);
 
         var background = toggleGo.AddComponent<Image>();
         background.color = new Color(0.01f, 0.03f, 0.06f, 0.95f);
+
+        var outline = toggleGo.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.18f);
+        outline.effectDistance = new Vector2(1f, -1f);
 
         var toggle = toggleGo.AddComponent<Toggle>();
         toggle.targetGraphic = background;
         toggle.interactable = true;
 
         var checkmarkGo = CreateUiObject("Checkmark", toggleGo.transform);
-        StretchFull(checkmarkGo.GetComponent<RectTransform>(), 5f, 5f, 5f, 5f);
+        StretchFull(checkmarkGo.GetComponent<RectTransform>(), 9f, 9f, 9f, 9f);
         var checkmark = checkmarkGo.AddComponent<Image>();
         checkmark.color = new Color(0.9f, 0.1f, 0.08f, 1f);
         toggle.graphic = checkmark;
