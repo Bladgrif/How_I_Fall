@@ -685,7 +685,7 @@ public static class MainMenuSceneBuilder
         titleRect.anchorMin = new Vector2(0.5f, 0.5f);
         titleRect.anchorMax = new Vector2(0.5f, 0.5f);
         titleRect.pivot = new Vector2(0.5f, 0.5f);
-        titleRect.anchoredPosition = new Vector2(0f, 335f);
+        titleRect.anchoredPosition = new Vector2(0f, 315f);
         titleRect.sizeDelta = new Vector2(420f, 68f);
         title.color = Color.white;
         title.raycastTarget = false;
@@ -695,7 +695,7 @@ public static class MainMenuSceneBuilder
         underlineRect.anchorMin = new Vector2(0.5f, 0.5f);
         underlineRect.anchorMax = new Vector2(0.5f, 0.5f);
         underlineRect.pivot = new Vector2(0.5f, 0.5f);
-        underlineRect.anchoredPosition = new Vector2(0f, 298f);
+        underlineRect.anchoredPosition = new Vector2(0f, 280f);
         underlineRect.sizeDelta = new Vector2(190f, 5f);
         underlineRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
         var underlineImage = underline.AddComponent<Image>();
@@ -705,7 +705,7 @@ public static class MainMenuSceneBuilder
         string[] tabs = { "Graphics", "Audio", "Gameplay", "Controls", "Language" };
         for (int i = 0; i < tabs.Length; i++)
         {
-            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-520f, 205f - i * 66f));
+            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-520f, 145f - i * 68f));
         }
 
         var divider = CreateUiObject("Settings Divider", window.transform);
@@ -713,26 +713,26 @@ public static class MainMenuSceneBuilder
         dividerRect.anchorMin = new Vector2(0.5f, 0.5f);
         dividerRect.anchorMax = new Vector2(0.5f, 0.5f);
         dividerRect.pivot = new Vector2(0.5f, 0.5f);
-        dividerRect.anchoredPosition = new Vector2(-335f, 25f);
-        dividerRect.sizeDelta = new Vector2(2f, 590f);
+        dividerRect.anchoredPosition = new Vector2(-335f, -20f);
+        dividerRect.sizeDelta = new Vector2(2f, 500f);
         var dividerImage = divider.AddComponent<Image>();
         dividerImage.color = new Color(1f, 1f, 1f, 0.22f);
         dividerImage.raycastTarget = false;
 
-        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 205f);
-        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 145f);
-        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 85f);
-        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, 25f);
-        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -35f);
-        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -95f);
-        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -155f);
+        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 145f);
+        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 85f);
+        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 25f);
+        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, -35f);
+        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -95f);
+        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -155f);
+        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -215f);
 
         var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(160f, 46f));
         var resetRect = resetButton.GetComponent<RectTransform>();
         resetRect.anchorMin = new Vector2(0.5f, 0.5f);
         resetRect.anchorMax = new Vector2(0.5f, 0.5f);
         resetRect.pivot = new Vector2(0.5f, 0.5f);
-        resetRect.anchoredPosition = new Vector2(430f, -315f);
+        resetRect.anchoredPosition = new Vector2(430f, -275f);
         var resetLabel = resetButton.GetComponentInChildren<Text>();
         if (resetLabel != null)
         {
