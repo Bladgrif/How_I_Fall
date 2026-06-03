@@ -705,7 +705,7 @@ public static class MainMenuSceneBuilder
         string[] tabs = { "Graphics", "Audio", "Gameplay", "Controls", "Language" };
         for (int i = 0; i < tabs.Length; i++)
         {
-            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-405f, 190f - i * 66f));
+            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-395f, 175f - i * 58f));
         }
 
         var divider = CreateUiObject("Settings Divider", window.transform);
@@ -713,26 +713,26 @@ public static class MainMenuSceneBuilder
         dividerRect.anchorMin = new Vector2(0.5f, 0.5f);
         dividerRect.anchorMax = new Vector2(0.5f, 0.5f);
         dividerRect.pivot = new Vector2(0.5f, 0.5f);
-        dividerRect.anchoredPosition = new Vector2(-250f, 25f);
-        dividerRect.sizeDelta = new Vector2(2f, 520f);
+        dividerRect.anchoredPosition = new Vector2(-245f, 20f);
+        dividerRect.sizeDelta = new Vector2(2f, 500f);
         var dividerImage = divider.AddComponent<Image>();
         dividerImage.color = new Color(1f, 1f, 1f, 0.22f);
         dividerImage.raycastTarget = false;
 
-        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 190f);
-        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 132f);
-        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 74f);
-        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, 16f);
-        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -42f);
-        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -100f);
-        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -158f);
+        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 175f);
+        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 119f);
+        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 63f);
+        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, 7f);
+        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -49f);
+        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -105f);
+        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -161f);
 
-        var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(170f, 50f));
+        var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(160f, 46f));
         var resetRect = resetButton.GetComponent<RectTransform>();
         resetRect.anchorMin = new Vector2(0.5f, 0.5f);
         resetRect.anchorMax = new Vector2(0.5f, 0.5f);
         resetRect.pivot = new Vector2(0.5f, 0.5f);
-        resetRect.anchoredPosition = new Vector2(330f, -275f);
+        resetRect.anchoredPosition = new Vector2(310f, -255f);
 
         var backButton = CreateBackButton(panelRoot.transform);
 
@@ -817,19 +817,19 @@ public static class MainMenuSceneBuilder
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = position;
-        rect.sizeDelta = new Vector2(230f, 52f);
+        rect.sizeDelta = active ? new Vector2(220f, 48f) : new Vector2(210f, 46f);
 
         var image = tab.AddComponent<Image>();
         image.sprite = TryLoadSprite(active ? SettingsTabActivePath : SettingsTabInactivePath);
         image.type = Image.Type.Simple;
         image.preserveAspect = false;
         image.color = image.sprite != null
-            ? Color.white
-            : active ? new Color(0.82f, 0.18f, 0.16f, 0.95f) : new Color(0.02f, 0.06f, 0.12f, 0.72f);
+            ? new Color(1f, 1f, 1f, active ? 0.95f : 0.72f)
+            : active ? new Color(0.86f, 0.16f, 0.14f, 0.92f) : new Color(0.02f, 0.06f, 0.12f, 0.58f);
         image.raycastTarget = false;
 
-        var text = CreateTmpLabel(tab.transform, label, 23, TextAlignmentOptions.Center);
-        text.color = Color.white;
+        var text = CreateTmpLabel(tab.transform, label, 21, TextAlignmentOptions.Center);
+        text.color = active ? Color.white : new Color(1f, 1f, 1f, 0.82f);
         text.raycastTarget = false;
     }
 
@@ -840,7 +840,7 @@ public static class MainMenuSceneBuilder
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-165f, y);
+        labelRect.anchoredPosition = new Vector2(-155f, y);
         labelRect.sizeDelta = new Vector2(220f, 40f);
         labelText.color = new Color(1f, 1f, 1f, 0.75f);
 
@@ -849,7 +849,7 @@ public static class MainMenuSceneBuilder
         boxRect.anchorMin = new Vector2(0.5f, 0.5f);
         boxRect.anchorMax = new Vector2(0.5f, 0.5f);
         boxRect.pivot = new Vector2(0.5f, 0.5f);
-        boxRect.anchoredPosition = new Vector2(195f, y);
+        boxRect.anchoredPosition = new Vector2(205f, y);
         boxRect.sizeDelta = new Vector2(360f, 42f);
         var boxImage = box.AddComponent<Image>();
         boxImage.color = new Color(0f, 0f, 0f, 0.55f);
@@ -866,7 +866,7 @@ public static class MainMenuSceneBuilder
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-165f, y);
+        labelRect.anchoredPosition = new Vector2(-155f, y);
         labelRect.sizeDelta = new Vector2(220f, 40f);
         labelText.color = new Color(0.95f, 0.97f, 1f, 0.96f);
 
@@ -875,7 +875,7 @@ public static class MainMenuSceneBuilder
         sliderRect.anchorMin = new Vector2(0.5f, 0.5f);
         sliderRect.anchorMax = new Vector2(0.5f, 0.5f);
         sliderRect.pivot = new Vector2(0.5f, 0.5f);
-        sliderRect.anchoredPosition = new Vector2(195f, y);
+        sliderRect.anchoredPosition = new Vector2(205f, y);
         sliderRect.sizeDelta = new Vector2(360f, 24f);
         return slider;
     }
@@ -887,7 +887,7 @@ public static class MainMenuSceneBuilder
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-165f, y);
+        labelRect.anchoredPosition = new Vector2(-155f, y);
         labelRect.sizeDelta = new Vector2(220f, 40f);
         labelText.color = new Color(0.95f, 0.97f, 1f, 0.96f);
 
