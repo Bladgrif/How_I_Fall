@@ -660,7 +660,7 @@ public static class MainMenuSceneBuilder
         windowRect.anchorMin = new Vector2(0.5f, 0.5f);
         windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.pivot = new Vector2(0.5f, 0.5f);
-        windowRect.sizeDelta = new Vector2(1320f, 800f);
+        windowRect.sizeDelta = new Vector2(1450f, 860f);
         windowRect.anchoredPosition = new Vector2(130f, 10f);
         var windowImage = window.AddComponent<Image>();
         windowImage.sprite = TryLoadSprite(SettingsPanelBgPath);
@@ -705,7 +705,7 @@ public static class MainMenuSceneBuilder
         string[] tabs = { "Graphics", "Audio", "Gameplay", "Controls", "Language" };
         for (int i = 0; i < tabs.Length; i++)
         {
-            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-520f, 145f - i * 68f));
+            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-480f, 145f - i * 68f));
         }
 
         var divider = CreateUiObject("Settings Divider", window.transform);
@@ -713,26 +713,26 @@ public static class MainMenuSceneBuilder
         dividerRect.anchorMin = new Vector2(0.5f, 0.5f);
         dividerRect.anchorMax = new Vector2(0.5f, 0.5f);
         dividerRect.pivot = new Vector2(0.5f, 0.5f);
-        dividerRect.anchoredPosition = new Vector2(-335f, -20f);
+        dividerRect.anchoredPosition = new Vector2(-300f, -20f);
         dividerRect.sizeDelta = new Vector2(2f, 500f);
         var dividerImage = divider.AddComponent<Image>();
         dividerImage.color = new Color(1f, 1f, 1f, 0.22f);
         dividerImage.raycastTarget = false;
 
-        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 145f);
-        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 85f);
-        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 25f);
-        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, -35f);
-        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -95f);
-        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -155f);
-        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -215f);
+        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 115f);
+        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 55f);
+        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, -5f);
+        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, -65f);
+        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -125f);
+        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -185f);
+        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -245f);
 
         var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(160f, 46f));
         var resetRect = resetButton.GetComponent<RectTransform>();
         resetRect.anchorMin = new Vector2(0.5f, 0.5f);
         resetRect.anchorMax = new Vector2(0.5f, 0.5f);
         resetRect.pivot = new Vector2(0.5f, 0.5f);
-        resetRect.anchoredPosition = new Vector2(430f, -275f);
+        resetRect.anchoredPosition = new Vector2(430f, -265f);
         var resetLabel = resetButton.GetComponentInChildren<Text>();
         if (resetLabel != null)
         {
@@ -1042,7 +1042,7 @@ public static class MainMenuSceneBuilder
         var checkmarkGo = CreateUiObject("Checkmark", toggleGo.transform);
         StretchFull(checkmarkGo.GetComponent<RectTransform>(), 7f, 7f, 7f, 7f);
         var checkmark = checkmarkGo.AddComponent<Image>();
-        checkmark.color = new Color(0.9f, 0.1f, 0.08f, 1f);
+        checkmark.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         toggle.graphic = checkmark;
         toggle.isOn = true;
         return toggle;
