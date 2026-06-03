@@ -661,7 +661,7 @@ public static class MainMenuSceneBuilder
         windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.pivot = new Vector2(0.5f, 0.5f);
         windowRect.sizeDelta = new Vector2(1080f, 700f);
-        windowRect.anchoredPosition = new Vector2(160f, 30f);
+        windowRect.anchoredPosition = new Vector2(170f, 35f);
         var windowImage = window.AddComponent<Image>();
         windowImage.sprite = TryLoadSprite(SettingsPanelBgPath);
         windowImage.type = Image.Type.Simple;
@@ -685,7 +685,7 @@ public static class MainMenuSceneBuilder
         titleRect.anchorMin = new Vector2(0.5f, 0.5f);
         titleRect.anchorMax = new Vector2(0.5f, 0.5f);
         titleRect.pivot = new Vector2(0.5f, 0.5f);
-        titleRect.anchoredPosition = new Vector2(0f, 300f);
+        titleRect.anchoredPosition = new Vector2(0f, 275f);
         titleRect.sizeDelta = new Vector2(420f, 68f);
         title.color = Color.white;
         title.raycastTarget = false;
@@ -695,7 +695,7 @@ public static class MainMenuSceneBuilder
         underlineRect.anchorMin = new Vector2(0.5f, 0.5f);
         underlineRect.anchorMax = new Vector2(0.5f, 0.5f);
         underlineRect.pivot = new Vector2(0.5f, 0.5f);
-        underlineRect.anchoredPosition = new Vector2(0f, 264f);
+        underlineRect.anchoredPosition = new Vector2(0f, 240f);
         underlineRect.sizeDelta = new Vector2(180f, 5f);
         underlineRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
         var underlineImage = underline.AddComponent<Image>();
@@ -705,7 +705,7 @@ public static class MainMenuSceneBuilder
         string[] tabs = { "Graphics", "Audio", "Gameplay", "Controls", "Language" };
         for (int i = 0; i < tabs.Length; i++)
         {
-            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-395f, 175f - i * 58f));
+            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-390f, 165f - i * 64f));
         }
 
         var divider = CreateUiObject("Settings Divider", window.transform);
@@ -713,26 +713,31 @@ public static class MainMenuSceneBuilder
         dividerRect.anchorMin = new Vector2(0.5f, 0.5f);
         dividerRect.anchorMax = new Vector2(0.5f, 0.5f);
         dividerRect.pivot = new Vector2(0.5f, 0.5f);
-        dividerRect.anchoredPosition = new Vector2(-245f, 20f);
-        dividerRect.sizeDelta = new Vector2(2f, 500f);
+        dividerRect.anchoredPosition = new Vector2(-230f, 10f);
+        dividerRect.sizeDelta = new Vector2(2f, 470f);
         var dividerImage = divider.AddComponent<Image>();
-        dividerImage.color = new Color(1f, 1f, 1f, 0.22f);
+        dividerImage.color = new Color(1f, 1f, 1f, 0.20f);
         dividerImage.raycastTarget = false;
 
-        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 175f);
-        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 119f);
-        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 63f);
-        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, 7f);
-        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -49f);
-        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -105f);
-        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -161f);
+        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 145f);
+        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 87f);
+        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, 29f);
+        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, -29f);
+        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -87f);
+        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -145f);
+        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -203f);
 
-        var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(160f, 46f));
+        var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(150f, 44f));
         var resetRect = resetButton.GetComponent<RectTransform>();
         resetRect.anchorMin = new Vector2(0.5f, 0.5f);
         resetRect.anchorMax = new Vector2(0.5f, 0.5f);
         resetRect.pivot = new Vector2(0.5f, 0.5f);
-        resetRect.anchoredPosition = new Vector2(310f, -255f);
+        resetRect.anchoredPosition = new Vector2(320f, -270f);
+        var resetLabel = resetButton.GetComponentInChildren<Text>();
+        if (resetLabel != null)
+        {
+            resetLabel.fontSize = 22;
+        }
 
         var backButton = CreateBackButton(panelRoot.transform);
 
@@ -783,8 +788,8 @@ public static class MainMenuSceneBuilder
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(-735f, 285f);
-        rect.sizeDelta = new Vector2(330f, 190f);
+        rect.anchoredPosition = new Vector2(-735f, 260f);
+        rect.sizeDelta = new Vector2(320f, 180f);
         rect.localRotation = Quaternion.Euler(0f, 0f, -5f);
 
         var image = logo.AddComponent<Image>();
@@ -817,42 +822,49 @@ public static class MainMenuSceneBuilder
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = position;
-        rect.sizeDelta = active ? new Vector2(220f, 48f) : new Vector2(210f, 46f);
+        rect.sizeDelta = new Vector2(240f, 54f);
 
         var image = tab.AddComponent<Image>();
         image.sprite = TryLoadSprite(active ? SettingsTabActivePath : SettingsTabInactivePath);
         image.type = Image.Type.Simple;
         image.preserveAspect = false;
         image.color = image.sprite != null
-            ? new Color(1f, 1f, 1f, active ? 0.95f : 0.72f)
+            ? new Color(1f, 1f, 1f, active ? 0.95f : 0.80f)
             : active ? new Color(0.86f, 0.16f, 0.14f, 0.92f) : new Color(0.02f, 0.06f, 0.12f, 0.58f);
         image.raycastTarget = false;
 
-        var text = CreateTmpLabel(tab.transform, label, 21, TextAlignmentOptions.Center);
-        text.color = active ? Color.white : new Color(1f, 1f, 1f, 0.82f);
+        if (!active && image.sprite == null)
+        {
+            var outline = tab.AddComponent<Outline>();
+            outline.effectColor = new Color(1f, 1f, 1f, 0.18f);
+            outline.effectDistance = new Vector2(1f, -1f);
+        }
+
+        var text = CreateTmpLabel(tab.transform, label, 23, TextAlignmentOptions.Center);
+        text.color = active ? Color.white : new Color(1f, 1f, 1f, 0.92f);
         text.raycastTarget = false;
     }
 
     private static void CreatePlaceholderRow(Transform parent, string label, string value, float y)
     {
-        var labelText = CreateTmpLabel(parent, label, 22, TextAlignmentOptions.Left);
+        var labelText = CreateTmpLabel(parent, label, 24, TextAlignmentOptions.Left);
         var labelRect = labelText.GetComponent<RectTransform>();
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-155f, y);
+        labelRect.anchoredPosition = new Vector2(-130f, y);
         labelRect.sizeDelta = new Vector2(220f, 40f);
-        labelText.color = new Color(1f, 1f, 1f, 0.75f);
+        labelText.color = new Color(1f, 1f, 1f, 0.9f);
 
         var box = CreateUiObject(label + " Placeholder", parent);
         var boxRect = box.GetComponent<RectTransform>();
         boxRect.anchorMin = new Vector2(0.5f, 0.5f);
         boxRect.anchorMax = new Vector2(0.5f, 0.5f);
         boxRect.pivot = new Vector2(0.5f, 0.5f);
-        boxRect.anchoredPosition = new Vector2(205f, y);
+        boxRect.anchoredPosition = new Vector2(215f, y);
         boxRect.sizeDelta = new Vector2(360f, 42f);
         var boxImage = box.AddComponent<Image>();
-        boxImage.color = new Color(0f, 0f, 0f, 0.55f);
+        boxImage.color = new Color(0.015f, 0.035f, 0.075f, 0.75f);
         boxImage.raycastTarget = false;
 
         var valueText = CreateTmpLabel(box.transform, value, 20, TextAlignmentOptions.Center);
@@ -861,43 +873,43 @@ public static class MainMenuSceneBuilder
 
     private static Slider CreateSettingsSliderRow(Transform parent, string label, float min, float max, float value, float y)
     {
-        var labelText = CreateTmpLabel(parent, label, 22, TextAlignmentOptions.Left);
+        var labelText = CreateTmpLabel(parent, label, 24, TextAlignmentOptions.Left);
         var labelRect = labelText.GetComponent<RectTransform>();
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-155f, y);
+        labelRect.anchoredPosition = new Vector2(-130f, y);
         labelRect.sizeDelta = new Vector2(220f, 40f);
-        labelText.color = new Color(0.95f, 0.97f, 1f, 0.96f);
+        labelText.color = new Color(1f, 1f, 1f, 0.9f);
 
         var slider = CreateSlider(parent, min, max, value);
         var sliderRect = slider.GetComponent<RectTransform>();
         sliderRect.anchorMin = new Vector2(0.5f, 0.5f);
         sliderRect.anchorMax = new Vector2(0.5f, 0.5f);
         sliderRect.pivot = new Vector2(0.5f, 0.5f);
-        sliderRect.anchoredPosition = new Vector2(205f, y);
+        sliderRect.anchoredPosition = new Vector2(215f, y);
         sliderRect.sizeDelta = new Vector2(360f, 24f);
         return slider;
     }
 
     private static Toggle CreateFullscreenRow(Transform parent, float y)
     {
-        var labelText = CreateTmpLabel(parent, "Fullscreen", 22, TextAlignmentOptions.Left);
+        var labelText = CreateTmpLabel(parent, "Fullscreen", 24, TextAlignmentOptions.Left);
         var labelRect = labelText.GetComponent<RectTransform>();
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
         labelRect.pivot = new Vector2(0f, 0.5f);
-        labelRect.anchoredPosition = new Vector2(-155f, y);
+        labelRect.anchoredPosition = new Vector2(-130f, y);
         labelRect.sizeDelta = new Vector2(220f, 40f);
-        labelText.color = new Color(0.95f, 0.97f, 1f, 0.96f);
+        labelText.color = new Color(1f, 1f, 1f, 0.9f);
 
         var toggle = CreateToggle(parent);
         var toggleRect = toggle.GetComponent<RectTransform>();
         toggleRect.anchorMin = new Vector2(0.5f, 0.5f);
         toggleRect.anchorMax = new Vector2(0.5f, 0.5f);
         toggleRect.pivot = new Vector2(0.5f, 0.5f);
-        toggleRect.anchoredPosition = new Vector2(35f, y);
-        toggleRect.sizeDelta = new Vector2(30f, 30f);
+        toggleRect.anchoredPosition = new Vector2(20f, y);
+        toggleRect.sizeDelta = new Vector2(28f, 28f);
         return toggle;
     }
 
@@ -1014,13 +1026,13 @@ public static class MainMenuSceneBuilder
     private static Toggle CreateToggle(Transform parent)
     {
         var toggleGo = CreateUiObject("Fullscreen Toggle", parent);
-        toggleGo.GetComponent<RectTransform>().sizeDelta = new Vector2(32f, 32f);
+        toggleGo.GetComponent<RectTransform>().sizeDelta = new Vector2(28f, 28f);
 
         var background = toggleGo.AddComponent<Image>();
-        background.color = new Color(0.01f, 0.03f, 0.06f, 0.95f);
+        background.color = new Color(0.015f, 0.035f, 0.075f, 0.85f);
 
         var outline = toggleGo.AddComponent<Outline>();
-        outline.effectColor = new Color(1f, 1f, 1f, 0.18f);
+        outline.effectColor = new Color(1f, 1f, 1f, 0.35f);
         outline.effectDistance = new Vector2(1f, -1f);
 
         var toggle = toggleGo.AddComponent<Toggle>();
@@ -1028,7 +1040,7 @@ public static class MainMenuSceneBuilder
         toggle.interactable = true;
 
         var checkmarkGo = CreateUiObject("Checkmark", toggleGo.transform);
-        StretchFull(checkmarkGo.GetComponent<RectTransform>(), 9f, 9f, 9f, 9f);
+        StretchFull(checkmarkGo.GetComponent<RectTransform>(), 7f, 7f, 7f, 7f);
         var checkmark = checkmarkGo.AddComponent<Image>();
         checkmark.color = new Color(0.9f, 0.1f, 0.08f, 1f);
         toggle.graphic = checkmark;
