@@ -69,7 +69,7 @@ public static class MainMenuSceneBuilder
             canvas.transform,
             mainMenuController,
             "About Panel",
-            "About",
+            "Об игре",
             "How I Fall — подростковая визуальная новелла о неловких чувствах, школьных тайнах и выборе, после которого уже нельзя притворяться прежним.\n\nЖанр: школьная драма, романтика, лёгкая мистика, детектив.\nВерсия: In Development",
             new Vector2(820f, 520f),
             true,
@@ -78,8 +78,8 @@ public static class MainMenuSceneBuilder
             canvas.transform,
             mainMenuController,
             "Help Panel",
-            "Help",
-            "Управление:\n\nЛКМ / Space — следующая реплика\nEsc — меню\nH — история\nCtrl — пропуск текста\nF — полноэкранный режим\n\nВ главном меню:\nStart — начать новую игру\nContinue — продолжить сохранение\nSettings — настройки",
+            "Помощь",
+            "Управление:\n\nЛКМ / Space — следующая реплика\nEsc — закрыть окно или вернуться назад\nH — история реплик\nCtrl — пропуск текста\nF — полноэкранный режим\n\nВ главном меню:\n\nНачать — новая игра\nЗагрузить — экран сохранений\nНастройки — параметры игры",
             new Vector2(820f, 560f),
             false,
             clickSfx);
@@ -380,7 +380,6 @@ public static class MainMenuSceneBuilder
         StretchFull(content.GetComponent<RectTransform>());
 
         string[] labels = { "Начать", "Загрузить", "Настройки", "Об игре", "Помощь", "Выход" };
-        labels = new[] { "Start", "Continue", "Settings", "About", "Help", "Exit" };
         var methods = new System.Action<Button>[]
         {
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.StartGame),
@@ -673,7 +672,7 @@ public static class MainMenuSceneBuilder
             outline.effectDistance = new Vector2(2f, -2f);
         }
 
-        var title = CreateTmpLabel(window.transform, "Settings", 60, TextAlignmentOptions.Center);
+        var title = CreateTmpLabel(window.transform, "Настройки", 60, TextAlignmentOptions.Center);
         var titleRect = title.GetComponent<RectTransform>();
         titleRect.anchorMin = new Vector2(0.5f, 0.5f);
         titleRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -695,10 +694,10 @@ public static class MainMenuSceneBuilder
         underlineImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         underlineImage.raycastTarget = false;
 
-        string[] tabs = { "Graphics", "Audio", "Gameplay", "Controls", "Language" };
+        string[] tabs = { "Графика", "Звук", "Игра", "Управление", "Язык" };
         for (int i = 0; i < tabs.Length; i++)
         {
-            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Audio", new Vector2(-480f, 145f - i * 68f));
+            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Звук", new Vector2(-480f, 145f - i * 68f));
         }
 
         var divider = CreateUiObject("Settings Divider", window.transform);
@@ -712,15 +711,15 @@ public static class MainMenuSceneBuilder
         dividerImage.color = new Color(1f, 1f, 1f, 0.22f);
         dividerImage.raycastTarget = false;
 
-        CreatePlaceholderRow(window.transform, "Resolution", "1920 x 1080 (16:9)", 115f);
-        CreatePlaceholderRow(window.transform, "Window Mode", "Windowed Fullscreen", 55f);
-        Slider master = CreateSettingsSliderRow(window.transform, "Master Volume", 0f, 1f, 1f, -5f);
-        Slider music = CreateSettingsSliderRow(window.transform, "Music Volume", 0f, 1f, 1f, -65f);
-        Slider sfx = CreateSettingsSliderRow(window.transform, "SFX Volume", 0f, 1f, 1f, -125f);
-        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Text Speed", 0.25f, 3f, 1f, -185f);
+        CreatePlaceholderRow(window.transform, "Разрешение", "1920 x 1080 (16:9)", 115f);
+        CreatePlaceholderRow(window.transform, "Режим окна", "Безрамочный экран", 55f);
+        Slider master = CreateSettingsSliderRow(window.transform, "Общая громкость", 0f, 1f, 1f, -5f);
+        Slider music = CreateSettingsSliderRow(window.transform, "Музыка", 0f, 1f, 1f, -65f);
+        Slider sfx = CreateSettingsSliderRow(window.transform, "Звуки", 0f, 1f, 1f, -125f);
+        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Скорость текста", 0.25f, 3f, 1f, -185f);
         Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -245f);
 
-        var resetButton = CreateStyledButton(window.transform, "Reset", new Vector2(160f, 46f));
+        var resetButton = CreateStyledButton(window.transform, "Сбросить", new Vector2(180f, 46f));
         var resetRect = resetButton.GetComponent<RectTransform>();
         resetRect.anchorMin = new Vector2(0.5f, 0.5f);
         resetRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1286,7 +1285,7 @@ public static class MainMenuSceneBuilder
 
     private static Toggle CreateFullscreenRow(Transform parent, float y)
     {
-        var labelText = CreateTmpLabel(parent, "Fullscreen", 23, TextAlignmentOptions.Left);
+        var labelText = CreateTmpLabel(parent, "Полный экран", 23, TextAlignmentOptions.Left);
         var labelRect = labelText.GetComponent<RectTransform>();
         labelRect.anchorMin = new Vector2(0.5f, 0.5f);
         labelRect.anchorMax = new Vector2(0.5f, 0.5f);
