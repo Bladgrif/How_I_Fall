@@ -15,6 +15,7 @@ public static class VNPrototypeSceneBuilder
     private const string PrimarySceneDataPath = "Assets/HowIFall/Data/Dialogues/intro_school_morning.asset";
     private const string FallbackSceneDataPath = "Assets/HowIFall/Data/Dialogues/intro_school_meet.asset";
     private const string SceneRegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
+    private const string LogoPath = "Assets/HowIFall/Art/UI/MainMenu/logo_how_i_fall.png";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
     private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
     private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
@@ -40,6 +41,7 @@ public static class VNPrototypeSceneBuilder
 
         Image backgroundImage = CreateBackgroundImage(vnRoot.transform);
         Image characterImage = CreateCharacterImage(vnRoot.transform);
+        CreateTopLeftBrandBlock(vnRoot.transform);
 
         GameObject dialogueBox = CreateDialogueBox(vnRoot.transform);
         GameObject nameBox = CreateNameBox(dialogueBox.transform, out TextMeshProUGUI speakerText);
@@ -56,6 +58,7 @@ public static class VNPrototypeSceneBuilder
         GameObject controllerGo = new GameObject("VN Controller");
         VNDialogueController controller = controllerGo.AddComponent<VNDialogueController>();
 
+        CreateTopMenuButton(canvas.transform, controller);
         CreateQuickMenu(canvas.transform, controller);
 
         GameObject notificationPanel = CreateNotificationPanel(
@@ -201,23 +204,113 @@ public static class VNPrototypeSceneBuilder
         return image;
     }
 
+    private static void CreateTopLeftBrandBlock(Transform parent)
+    {
+        Sprite logoSprite = TryLoadSprite(LogoPath);
+        if (logoSprite != null)
+        {
+            GameObject logo = CreateUiObject("How I Fall Logo", parent);
+            RectTransform logoRect = logo.GetComponent<RectTransform>();
+            logoRect.anchorMin = new Vector2(0f, 1f);
+            logoRect.anchorMax = new Vector2(0f, 1f);
+            logoRect.pivot = new Vector2(0f, 1f);
+            logoRect.anchoredPosition = new Vector2(34f, -26f);
+            logoRect.sizeDelta = new Vector2(230f, 130f);
+
+            Image logoImage = logo.AddComponent<Image>();
+            logoImage.sprite = logoSprite;
+            logoImage.type = Image.Type.Simple;
+            logoImage.preserveAspect = true;
+            logoImage.color = Color.white;
+            logoImage.raycastTarget = false;
+        }
+
+        GameObject chapter = CreateUiObject("Chapter Info", parent);
+        RectTransform chapterRect = chapter.GetComponent<RectTransform>();
+        chapterRect.anchorMin = new Vector2(0f, 1f);
+        chapterRect.anchorMax = new Vector2(0f, 1f);
+        chapterRect.pivot = new Vector2(0f, 1f);
+        chapterRect.anchoredPosition = new Vector2(42f, -135f);
+        chapterRect.sizeDelta = new Vector2(330f, 74f);
+
+        GameObject accent = CreateUiObject("Chapter Red Accent", chapter.transform);
+        RectTransform accentRect = accent.GetComponent<RectTransform>();
+        accentRect.anchorMin = new Vector2(0f, 0f);
+        accentRect.anchorMax = new Vector2(0f, 1f);
+        accentRect.pivot = new Vector2(0f, 0.5f);
+        accentRect.anchoredPosition = Vector2.zero;
+        accentRect.sizeDelta = new Vector2(4f, -10f);
+        Image accentImage = accent.AddComponent<Image>();
+        accentImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
+        accentImage.raycastTarget = false;
+
+        TextMeshProUGUI chapterLabel = CreateTMPText("Chapter Label", chapter.transform, "CHAPTER 1", 16, new Color(1f, 1f, 1f, 0.75f));
+        chapterLabel.fontStyle = FontStyles.Bold;
+        chapterLabel.characterSpacing = 7f;
+        chapterLabel.alignment = TextAlignmentOptions.Left;
+        RectTransform chapterLabelRect = chapterLabel.rectTransform;
+        chapterLabelRect.anchorMin = new Vector2(0f, 1f);
+        chapterLabelRect.anchorMax = new Vector2(1f, 1f);
+        chapterLabelRect.pivot = new Vector2(0f, 1f);
+        chapterLabelRect.offsetMin = new Vector2(18f, -30f);
+        chapterLabelRect.offsetMax = new Vector2(0f, 0f);
+
+        TextMeshProUGUI chapterTitle = CreateTMPText("Chapter Title", chapter.transform, "Новые основания", 24, new Color(1f, 1f, 1f, 0.9f));
+        chapterTitle.alignment = TextAlignmentOptions.Left;
+        RectTransform chapterTitleRect = chapterTitle.rectTransform;
+        chapterTitleRect.anchorMin = new Vector2(0f, 0f);
+        chapterTitleRect.anchorMax = new Vector2(1f, 0f);
+        chapterTitleRect.pivot = new Vector2(0f, 0f);
+        chapterTitleRect.offsetMin = new Vector2(18f, 0f);
+        chapterTitleRect.offsetMax = new Vector2(0f, 38f);
+    }
+
+    private static void CreateTopMenuButton(Transform parent, VNDialogueController controller)
+    {
+        Button menuButton = CreateStyledButton(parent, "☰  МЕНЮ", new Vector2(150f, 42f), 18);
+        menuButton.gameObject.name = "Top Menu Button";
+
+        RectTransform rect = menuButton.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = new Vector2(-60f, -42f);
+
+        Image image = menuButton.GetComponent<Image>();
+        image.color = Color.white;
+
+        ColorBlock colors = menuButton.colors;
+        colors.normalColor = new Color(0.015f, 0.035f, 0.075f, 0.65f);
+        colors.highlightedColor = new Color(0.55f, 0.08f, 0.07f, 0.86f);
+        colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.95f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
+        menuButton.colors = colors;
+
+        UnityEventTools.AddPersistentListener(menuButton.onClick, controller.ShowConfirmExit);
+    }
+
     private static GameObject CreateDialogueBox(Transform parent)
     {
         GameObject box = CreateUiObject("Dialogue Box", parent);
         RectTransform rect = box.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0.5f, 0f);
-        rect.anchorMax = new Vector2(0.5f, 0f);
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
-        rect.anchoredPosition = new Vector2(0f, 38f);
-        rect.sizeDelta = new Vector2(1560f, 250f);
+        rect.offsetMin = new Vector2(210f, 92f);
+        rect.offsetMax = new Vector2(-210f, 282f);
 
         Image image = box.AddComponent<Image>();
-        image.color = new Color(0.025f, 0.018f, 0.045f, 0.68f);
+        image.color = new Color(0.015f, 0.035f, 0.075f, 0.82f);
         image.raycastTarget = true;
+
+        Outline outline = box.AddComponent<Outline>();
+        outline.effectColor = new Color(0.62f, 0.78f, 1f, 0.35f);
+        outline.effectDistance = new Vector2(1f, -1f);
 
         Shadow shadow = box.AddComponent<Shadow>();
         shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
-        shadow.effectDistance = new Vector2(4f, -4f);
+        shadow.effectDistance = new Vector2(5f, -5f);
 
         return box;
     }
@@ -229,45 +322,76 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(54f, 26f);
-        rect.sizeDelta = new Vector2(310f, 62f);
+        rect.anchoredPosition = new Vector2(48f, 20f);
+        rect.sizeDelta = new Vector2(220f, 58f);
 
         Image image = nameBox.AddComponent<Image>();
-        image.color = new Color(0.08f, 0.045f, 0.13f, 0.86f);
+        image.color = new Color(0.08f, 0.22f, 0.42f, 0.95f);
         image.raycastTarget = false;
 
-        speakerText = CreateTMPText("Speaker Text", nameBox.transform, string.Empty, 28, new Color(0.94f, 0.9f, 0.98f, 1f));
+        GameObject accent = CreateUiObject("Name Box Red Underline", nameBox.transform);
+        RectTransform accentRect = accent.GetComponent<RectTransform>();
+        accentRect.anchorMin = new Vector2(0f, 0f);
+        accentRect.anchorMax = new Vector2(1f, 0f);
+        accentRect.pivot = new Vector2(0.5f, 0f);
+        accentRect.offsetMin = new Vector2(18f, 0f);
+        accentRect.offsetMax = new Vector2(-18f, 4f);
+        Image accentImage = accent.AddComponent<Image>();
+        accentImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
+        accentImage.raycastTarget = false;
+
+        speakerText = CreateTMPText("Speaker Text", nameBox.transform, string.Empty, 30, new Color(1f, 1f, 1f, 0.98f));
+        speakerText.fontStyle = FontStyles.Bold | FontStyles.Italic;
         speakerText.alignment = TextAlignmentOptions.Center;
-        StretchFull(speakerText.rectTransform, 18f, 18f, 0f, 0f);
+        StretchFull(speakerText.rectTransform, 18f, 18f, 4f, 0f);
 
         return nameBox;
     }
 
     private static TextMeshProUGUI CreateDialogueText(Transform parent)
     {
-        TextMeshProUGUI text = CreateTMPText("Dialogue Text", parent, string.Empty, 31, new Color(0.92f, 0.88f, 0.96f, 1f));
+        TextMeshProUGUI text = CreateTMPText("Dialogue Text", parent, string.Empty, 32, new Color(1f, 1f, 1f, 0.95f));
         text.alignment = TextAlignmentOptions.TopLeft;
         text.enableWordWrapping = true;
         text.overflowMode = TextOverflowModes.Overflow;
+        text.lineSpacing = 6f;
 
         RectTransform rect = text.rectTransform;
         rect.anchorMin = Vector2.zero;
         rect.anchorMax = Vector2.one;
-        rect.offsetMin = new Vector2(58f, 42f);
-        rect.offsetMax = new Vector2(-170f, -42f);
+        rect.offsetMin = new Vector2(80f, 42f);
+        rect.offsetMax = new Vector2(-80f, -58f);
         return text;
     }
 
     private static Button CreateNextButton(Transform parent)
     {
-        Button button = CreateStyledButton(parent, "Next", new Vector2(128f, 58f), 24);
-        button.gameObject.name = "Next Button";
+        GameObject buttonGo = CreateUiObject("Next Button", parent);
+        RectTransform rect = buttonGo.GetComponent<RectTransform>();
+        StretchFull(rect);
 
-        RectTransform rect = button.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 0f);
-        rect.anchorMax = new Vector2(1f, 0f);
-        rect.pivot = new Vector2(1f, 0f);
-        rect.anchoredPosition = new Vector2(-46f, 38f);
+        Image hitArea = buttonGo.AddComponent<Image>();
+        hitArea.color = new Color(0f, 0f, 0f, 0f);
+        hitArea.raycastTarget = true;
+
+        Button button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = hitArea;
+        ColorBlock colors = button.colors;
+        colors.normalColor = new Color(0f, 0f, 0f, 0f);
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.03f);
+        colors.pressedColor = new Color(1f, 1f, 1f, 0.06f);
+        colors.selectedColor = colors.normalColor;
+        colors.disabledColor = colors.normalColor;
+        button.colors = colors;
+
+        TextMeshProUGUI indicator = CreateTMPText("Next Indicator", buttonGo.transform, "⌄", 34, new Color(1f, 1f, 1f, 0.85f));
+        indicator.alignment = TextAlignmentOptions.Center;
+        RectTransform indicatorRect = indicator.rectTransform;
+        indicatorRect.anchorMin = new Vector2(1f, 0f);
+        indicatorRect.anchorMax = new Vector2(1f, 0f);
+        indicatorRect.pivot = new Vector2(1f, 0f);
+        indicatorRect.anchoredPosition = new Vector2(-45f, 30f);
+        indicatorRect.sizeDelta = new Vector2(38f, 34f);
         return button;
     }
 
@@ -310,43 +434,85 @@ public static class VNPrototypeSceneBuilder
     {
         GameObject menu = CreateUiObject("VN Quick Menu", parent);
         RectTransform rect = menu.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 1f);
-        rect.anchorMax = new Vector2(1f, 1f);
-        rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-36f, -28f);
-        rect.sizeDelta = new Vector2(590f, 48f);
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.offsetMin = new Vector2(210f, 26f);
+        rect.offsetMax = new Vector2(-210f, 68f);
 
-        Image background = menu.AddComponent<Image>();
-        background.color = new Color(0.02f, 0.014f, 0.04f, 0.22f);
-        background.raycastTarget = false;
+        GameObject leftGroup = CreateQuickMenuGroup(menu.transform, "Quick Menu Left", TextAnchor.MiddleLeft);
+        RectTransform leftRect = leftGroup.GetComponent<RectTransform>();
+        leftRect.anchorMin = new Vector2(0f, 0f);
+        leftRect.anchorMax = new Vector2(0.5f, 1f);
+        leftRect.offsetMin = Vector2.zero;
+        leftRect.offsetMax = Vector2.zero;
 
-        HorizontalLayoutGroup layout = menu.AddComponent<HorizontalLayoutGroup>();
-        layout.spacing = 9f;
-        layout.childAlignment = TextAnchor.MiddleRight;
+        GameObject rightGroup = CreateQuickMenuGroup(menu.transform, "Quick Menu Right", TextAnchor.MiddleRight);
+        RectTransform rightRect = rightGroup.GetComponent<RectTransform>();
+        rightRect.anchorMin = new Vector2(0.5f, 0f);
+        rightRect.anchorMax = new Vector2(1f, 1f);
+        rightRect.offsetMin = Vector2.zero;
+        rightRect.offsetMax = Vector2.zero;
+
+        Button backlogButton = CreateQuickMenuButton(leftGroup.transform, "История", 94f, true);
+        UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
+
+        CreateQuickMenuButton(leftGroup.transform, "Авто", 72f, false);
+        CreateQuickMenuButton(leftGroup.transform, "Пропуск", 96f, false);
+
+        Button saveButton = CreateQuickMenuButton(rightGroup.transform, "Сохранить", 110f, true);
+        UnityEventTools.AddPersistentListener(saveButton.onClick, controller.SaveGame);
+
+        Button loadButton = CreateQuickMenuButton(rightGroup.transform, "Загрузить", 104f, true);
+        UnityEventTools.AddPersistentListener(loadButton.onClick, controller.LoadGame);
+
+        Button settingsButton = CreateQuickMenuButton(rightGroup.transform, "Настройки", 110f, true);
+        UnityEventTools.AddPersistentListener(settingsButton.onClick, controller.OpenSettings);
+    }
+
+    private static GameObject CreateQuickMenuGroup(Transform parent, string name, TextAnchor alignment)
+    {
+        GameObject group = CreateUiObject(name, parent);
+        HorizontalLayoutGroup layout = group.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 18f;
+        layout.childAlignment = alignment;
         layout.childControlWidth = false;
         layout.childControlHeight = false;
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
-
-        Button saveButton = CreateQuickMenuButton(menu.transform, "Быстр. сохр.", 110f);
-        UnityEventTools.AddPersistentListener(saveButton.onClick, controller.SaveGame);
-
-        Button loadButton = CreateQuickMenuButton(menu.transform, "Быстр. загр.", 110f);
-        UnityEventTools.AddPersistentListener(loadButton.onClick, controller.LoadGame);
-
-        Button backlogButton = CreateQuickMenuButton(menu.transform, "История", 100f);
-        UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
-
-        Button settingsButton = CreateQuickMenuButton(menu.transform, "Настройки", 120f);
-        UnityEventTools.AddPersistentListener(settingsButton.onClick, controller.OpenSettings);
-
-        Button menuButton = CreateQuickMenuButton(menu.transform, "Меню", 90f);
-        UnityEventTools.AddPersistentListener(menuButton.onClick, controller.ShowConfirmExit);
+        return group;
     }
 
-    private static Button CreateQuickMenuButton(Transform parent, string labelText, float width)
+    private static Button CreateQuickMenuButton(Transform parent, string labelText, float width, bool interactable)
     {
-        Button button = CreateStyledButton(parent, labelText, new Vector2(width, 42f), 19);
+        GameObject buttonGo = CreateUiObject(labelText + " Button", parent);
+        RectTransform rect = buttonGo.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(width, 42f);
+
+        Image hitArea = buttonGo.AddComponent<Image>();
+        hitArea.color = new Color(0f, 0f, 0f, 0f);
+        hitArea.raycastTarget = true;
+
+        Button button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = hitArea;
+        button.interactable = interactable;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = new Color(0f, 0f, 0f, 0f);
+        colors.highlightedColor = new Color(0.9f, 0.08f, 0.06f, 0.16f);
+        colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.28f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0f, 0f, 0f, 0f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        Color textColor = interactable
+            ? new Color(1f, 1f, 1f, 0.75f)
+            : new Color(1f, 1f, 1f, 0.35f);
+        TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, 19, textColor);
+        label.alignment = TextAlignmentOptions.Center;
+        StretchFull(label.rectTransform);
+
         button.gameObject.name = labelText + " Button";
         return button;
     }
@@ -453,7 +619,7 @@ public static class VNPrototypeSceneBuilder
         scrollbarRect.offsetMax = new Vector2(-8f, -20f);
 
         Image scrollbarImage = scrollbarGo.AddComponent<Image>();
-        scrollbarImage.color = new Color(0.1f, 0.08f, 0.14f, 0.8f);
+        scrollbarImage.color = new Color(0.015f, 0.035f, 0.075f, 0.8f);
         scrollbarImage.raycastTarget = true;
 
         Scrollbar scrollbar = scrollbarGo.AddComponent<Scrollbar>();
@@ -467,7 +633,7 @@ public static class VNPrototypeSceneBuilder
         StretchFull(handleRect);
 
         Image handleImage = handle.AddComponent<Image>();
-        handleImage.color = new Color(0.55f, 0.32f, 0.72f, 0.85f);
+        handleImage.color = new Color(0.9f, 0.08f, 0.06f, 0.85f);
         handleImage.raycastTarget = true;
 
         scrollbar.handleRect = handleRect;
@@ -486,7 +652,7 @@ public static class VNPrototypeSceneBuilder
         rect.sizeDelta = new Vector2(420f, 54f);
 
         Image image = panel.AddComponent<Image>();
-        image.color = new Color(0.025f, 0.018f, 0.045f, 0.82f);
+        image.color = new Color(0.015f, 0.035f, 0.075f, 0.82f);
         image.raycastTarget = false;
 
         Shadow shadow = panel.AddComponent<Shadow>();
@@ -610,7 +776,7 @@ public static class VNPrototypeSceneBuilder
         backgroundRect.anchoredPosition = Vector2.zero;
         backgroundRect.sizeDelta = new Vector2(0f, 8f);
         Image backgroundImage = background.AddComponent<Image>();
-        backgroundImage.color = new Color(0.12f, 0.1f, 0.18f, 1f);
+        backgroundImage.color = new Color(0.015f, 0.035f, 0.075f, 1f);
         backgroundImage.raycastTarget = false;
 
         GameObject fillArea = CreateUiObject("Fill Area", sliderGo.transform);
@@ -628,7 +794,7 @@ public static class VNPrototypeSceneBuilder
         fillRect.anchoredPosition = Vector2.zero;
         fillRect.sizeDelta = new Vector2(0f, 8f);
         Image fillImage = fill.AddComponent<Image>();
-        fillImage.color = new Color(0.58f, 0.32f, 0.78f, 1f);
+        fillImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         fillImage.raycastTarget = false;
 
         GameObject handleArea = CreateUiObject("Handle Slide Area", sliderGo.transform);
@@ -670,7 +836,7 @@ public static class VNPrototypeSceneBuilder
         backgroundRect.sizeDelta = new Vector2(28f, 28f);
 
         Image backgroundImage = background.AddComponent<Image>();
-        backgroundImage.color = new Color(0.12f, 0.1f, 0.18f, 1f);
+        backgroundImage.color = new Color(0.015f, 0.035f, 0.075f, 1f);
         backgroundImage.raycastTarget = true;
 
         GameObject checkmark = CreateUiObject("Checkmark", background.transform);
@@ -680,7 +846,7 @@ public static class VNPrototypeSceneBuilder
         checkmarkRect.pivot = new Vector2(0.5f, 0.5f);
         checkmarkRect.sizeDelta = new Vector2(18f, 18f);
         Image checkmarkImage = checkmark.AddComponent<Image>();
-        checkmarkImage.color = new Color(0.58f, 0.32f, 0.78f, 1f);
+        checkmarkImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         checkmarkImage.raycastTarget = false;
 
         toggle.targetGraphic = backgroundImage;
@@ -762,8 +928,12 @@ public static class VNPrototypeSceneBuilder
         rect.sizeDelta = size;
 
         Image image = window.AddComponent<Image>();
-        image.color = new Color(0.025f, 0.018f, 0.045f, 0.94f);
+        image.color = new Color(0.025f, 0.07f, 0.13f, 0.94f);
         image.raycastTarget = true;
+
+        Outline outline = window.AddComponent<Outline>();
+        outline.effectColor = new Color(0.62f, 0.78f, 1f, 0.25f);
+        outline.effectDistance = new Vector2(1f, -1f);
 
         Shadow shadow = window.AddComponent<Shadow>();
         shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
@@ -782,7 +952,7 @@ public static class VNPrototypeSceneBuilder
         rect.sizeDelta = new Vector2(3f, -48f);
 
         Image image = line.AddComponent<Image>();
-        image.color = new Color(0.55f, 0.22f, 0.8f, 0.65f);
+        image.color = new Color(0.9f, 0.08f, 0.06f, 0.75f);
         image.raycastTarget = false;
     }
 
@@ -832,15 +1002,15 @@ public static class VNPrototypeSceneBuilder
         button.targetGraphic = image;
 
         ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.04f, 0.025f, 0.07f, 0.58f);
-        colors.highlightedColor = new Color(0.38f, 0.18f, 0.5f, 0.78f);
-        colors.pressedColor = new Color(0.5f, 0.22f, 0.65f, 0.9f);
+        colors.normalColor = new Color(0.015f, 0.035f, 0.075f, 0.78f);
+        colors.highlightedColor = new Color(0.55f, 0.08f, 0.07f, 0.86f);
+        colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.95f);
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, fontSize, new Color(0.9f, 0.86f, 0.96f, 0.95f));
+        TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, fontSize, new Color(1f, 1f, 1f, 0.95f));
         label.alignment = TextAlignmentOptions.Center;
         StretchFull(label.rectTransform);
         return button;
@@ -883,6 +1053,24 @@ public static class VNPrototypeSceneBuilder
 
         Debug.LogWarning($"Audio clip was not found. Checked paths: {string.Join(", ", paths)}");
         return null;
+    }
+
+    private static Sprite TryLoadSprite(string path)
+    {
+        Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (sprite != null)
+        {
+            return sprite;
+        }
+
+        Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        if (texture == null)
+        {
+            Debug.LogWarning($"Sprite was not found at {path}.");
+            return null;
+        }
+
+        return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
     }
 
     private static GameObject CreateUiObject(string name, Transform parent)
