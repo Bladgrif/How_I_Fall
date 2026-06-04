@@ -16,6 +16,7 @@ public static class VNPrototypeSceneBuilder
     private const string FallbackSceneDataPath = "Assets/HowIFall/Data/Dialogues/intro_school_meet.asset";
     private const string SceneRegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
     private const string LogoPath = "Assets/HowIFall/Art/UI/MainMenu/logo_how_i_fall.png";
+    private const string PlaceholderCharacterPath = "Assets/HowIFall/Art/Characters/Placeholders/placeholder_female_student_default.png";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
     private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
     private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
@@ -23,6 +24,8 @@ public static class VNPrototypeSceneBuilder
     [MenuItem("How I Fall/Build VN Prototype Scene")]
     public static void BuildVNPrototypeScene()
     {
+        ConfigureSpriteImportSettings(PlaceholderCharacterPath);
+
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
         CreateMainCamera();
@@ -188,7 +191,25 @@ public static class VNPrototypeSceneBuilder
 
     private static Image CreateCharacterImage(Transform parent)
     {
-        GameObject character = CreateUiObject("Character Image", parent);
+        Sprite placeholderSprite = TryLoadSprite(PlaceholderCharacterPath);
+        if (placeholderSprite != null)
+        {
+            GameObject placeholder = CreateUiObject("Placeholder Character", parent);
+            RectTransform placeholderRect = placeholder.GetComponent<RectTransform>();
+            placeholderRect.anchorMin = new Vector2(0.5f, 0f);
+            placeholderRect.anchorMax = new Vector2(0.5f, 0f);
+            placeholderRect.pivot = new Vector2(0.5f, 0f);
+            placeholderRect.anchoredPosition = new Vector2(-260f, -95f);
+            placeholderRect.sizeDelta = new Vector2(650f, 920f);
+
+            Image placeholderImage = placeholder.AddComponent<Image>();
+            placeholderImage.sprite = placeholderSprite;
+            placeholderImage.color = Color.white;
+            placeholderImage.preserveAspect = true;
+            placeholderImage.raycastTarget = false;
+        }
+
+        GameObject character = CreateUiObject("Dialogue Character Driver", parent);
         RectTransform rect = character.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0f);
         rect.anchorMax = new Vector2(0.5f, 0f);
@@ -197,7 +218,7 @@ public static class VNPrototypeSceneBuilder
         rect.sizeDelta = new Vector2(850f, 1200f);
 
         Image image = character.AddComponent<Image>();
-        image.color = Color.white;
+        image.color = new Color(1f, 1f, 1f, 0f);
         image.preserveAspect = true;
         image.raycastTarget = false;
         image.enabled = false;
@@ -1071,6 +1092,55 @@ public static class VNPrototypeSceneBuilder
         }
 
         return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+    }
+
+    private static void ConfigureSpriteImportSettings(string path)
+    {
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer == null)
+        {
+            Debug.LogWarning($"Texture importer was not found for {path}.");
+            return;
+        }
+
+        bool changed = false;
+
+        if (importer.textureType != TextureImporterType.Sprite)
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            changed = true;
+        }
+
+        if (importer.spriteImportMode != SpriteImportMode.Single)
+        {
+            importer.spriteImportMode = SpriteImportMode.Single;
+            changed = true;
+        }
+
+        if (!importer.alphaIsTransparency)
+        {
+            importer.alphaIsTransparency = true;
+            changed = true;
+        }
+
+        if (importer.textureCompression != TextureImporterCompression.Uncompressed)
+        {
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            changed = true;
+        }
+
+        if (importer.mipmapEnabled)
+        {
+            importer.mipmapEnabled = false;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            importer.SaveAndReimport();
+        }
     }
 
     private static GameObject CreateUiObject(string name, Transform parent)
