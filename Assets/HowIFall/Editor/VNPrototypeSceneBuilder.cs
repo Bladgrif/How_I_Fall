@@ -19,13 +19,6 @@ public static class VNPrototypeSceneBuilder
     private const string PlaceholderCharacterPath = "Assets/HowIFall/Art/Characters/Placeholders/placeholder_female_student_default.png";
     private const string VNDialogueBoxPath = "Assets/HowIFall/Art/UI/VN/dialogue_box_bg.png";
     private const string VNNameBoxPath = "Assets/HowIFall/Art/UI/VN/name_box_brush.png";
-    private const string IconHistoryPath = "Assets/HowIFall/Art/UI/VN/Icons/icon_history.png";
-    private const string IconAutoPath = "Assets/HowIFall/Art/UI/VN/Icons/icon_auto.png";
-    private const string IconSkipPath = "Assets/HowIFall/Art/UI/VN/Icons/icon_skip.png";
-    private const string IconSavePath = "Assets/HowIFall/Art/UI/VN/Icons/icon_save.png";
-    private const string IconLoadPath = "Assets/HowIFall/Art/UI/VN/Icons/icon_load.png";
-    private const string IconSettingsPath = "Assets/HowIFall/Art/UI/VN/Icons/icon_settings.png";
-    private const string IconMenuPath = "Assets/HowIFall/Art/UI/VN/Icons/icon_menu.png";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
     private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
     private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
@@ -275,7 +268,7 @@ public static class VNPrototypeSceneBuilder
         accentImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         accentImage.raycastTarget = false;
 
-        TextMeshProUGUI chapterLabel = CreateTMPText("Chapter Label", chapter.transform, "ПРОЛОГ", 18, new Color(1f, 1f, 1f, 0.85f));
+        TextMeshProUGUI chapterLabel = CreateTMPText("Chapter Label", chapter.transform, "ГЛАВА 1", 18, new Color(1f, 1f, 1f, 0.88f));
         chapterLabel.fontStyle = FontStyles.Bold;
         chapterLabel.characterSpacing = 4f;
         chapterLabel.alignment = TextAlignmentOptions.Left;
@@ -300,8 +293,7 @@ public static class VNPrototypeSceneBuilder
 
     private static void CreateTopMenuButton(Transform parent, VNDialogueController controller)
     {
-        Sprite menuIcon = TryLoadOptionalSprite(IconMenuPath);
-        Button menuButton = CreateStyledButton(parent, "МЕНЮ", new Vector2(150f, 40f), 17);
+        Button menuButton = CreateStyledButton(parent, "МЕНЮ", new Vector2(132f, 38f), 17);
         menuButton.gameObject.name = "Top Menu Button";
 
         RectTransform rect = menuButton.GetComponent<RectTransform>();
@@ -324,14 +316,8 @@ public static class VNPrototypeSceneBuilder
         TextMeshProUGUI label = menuButton.GetComponentInChildren<TextMeshProUGUI>();
         if (label != null)
         {
-            label.fontSize = 18;
+            label.fontSize = 17;
             label.color = new Color(1f, 1f, 1f, 0.9f);
-            StretchFull(label.rectTransform, menuIcon == null ? 0f : 28f, 0f, 0f, 0f);
-        }
-
-        if (menuIcon != null)
-        {
-            CreateButtonIcon(menuButton.transform, "Menu Icon", menuIcon, new Vector2(18f, 18f), new Vector2(18f, 0f), false, 0.9f);
         }
 
         UnityEventTools.AddPersistentListener(menuButton.onClick, controller.ShowConfirmExit);
@@ -572,19 +558,19 @@ public static class VNPrototypeSceneBuilder
         rightRect.offsetMin = Vector2.zero;
         rightRect.offsetMax = Vector2.zero;
 
-        Button backlogButton = CreateQuickMenuButton(leftGroup.transform, "История", true, IconHistoryPath);
+        Button backlogButton = CreateQuickMenuButton(leftGroup.transform, "История", true);
         UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
 
-        CreateQuickMenuButton(leftGroup.transform, "Авто", false, IconAutoPath);
-        CreateQuickMenuButton(leftGroup.transform, "Пропуск", false, IconSkipPath);
+        CreateQuickMenuButton(leftGroup.transform, "Авто", false);
+        CreateQuickMenuButton(leftGroup.transform, "Пропуск", false);
 
-        Button saveButton = CreateQuickMenuButton(rightGroup.transform, "Сохр.", true, IconSavePath);
+        Button saveButton = CreateQuickMenuButton(rightGroup.transform, "Сохр.", true);
         UnityEventTools.AddPersistentListener(saveButton.onClick, controller.SaveGame);
 
-        Button loadButton = CreateQuickMenuButton(rightGroup.transform, "Загр.", true, IconLoadPath);
+        Button loadButton = CreateQuickMenuButton(rightGroup.transform, "Загр.", true);
         UnityEventTools.AddPersistentListener(loadButton.onClick, controller.LoadGame);
 
-        Button settingsButton = CreateQuickMenuButton(rightGroup.transform, "Настр.", true, IconSettingsPath);
+        Button settingsButton = CreateQuickMenuButton(rightGroup.transform, "Настр.", true);
         UnityEventTools.AddPersistentListener(settingsButton.onClick, controller.OpenSettings);
     }
 
@@ -592,7 +578,7 @@ public static class VNPrototypeSceneBuilder
     {
         GameObject group = CreateUiObject(name, parent);
         HorizontalLayoutGroup layout = group.AddComponent<HorizontalLayoutGroup>();
-        layout.spacing = 20f;
+        layout.spacing = 16f;
         layout.childAlignment = alignment;
         layout.childControlWidth = false;
         layout.childControlHeight = false;
@@ -601,11 +587,11 @@ public static class VNPrototypeSceneBuilder
         return group;
     }
 
-    private static Button CreateQuickMenuButton(Transform parent, string labelText, bool interactable, string iconPath = null)
+    private static Button CreateQuickMenuButton(Transform parent, string labelText, bool interactable)
     {
         GameObject buttonGo = CreateUiObject(labelText + " Button", parent);
         RectTransform rect = buttonGo.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(126f, 34f);
+        rect.sizeDelta = new Vector2(116f, 34f);
 
         Image hitArea = buttonGo.AddComponent<Image>();
         hitArea.color = new Color(0f, 0f, 0f, 0f);
@@ -618,15 +604,9 @@ public static class VNPrototypeSceneBuilder
             ? new Color(1f, 1f, 1f, 0.72f)
             : new Color(1f, 1f, 1f, 0.35f);
         TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, 18, textColor);
-        label.alignment = TextAlignmentOptions.MidlineLeft;
-        StretchFull(label.rectTransform, 8f, 34f, 0f, 0f);
+        label.alignment = TextAlignmentOptions.Center;
+        StretchFull(label.rectTransform);
         button.targetGraphic = label;
-
-        Sprite icon = string.IsNullOrEmpty(iconPath) ? null : TryLoadOptionalSprite(iconPath);
-        if (icon != null)
-        {
-            CreateButtonIcon(buttonGo.transform, "Icon", icon, new Vector2(18f, 18f), new Vector2(-12f, 0f), true, interactable ? 0.72f : 0.35f);
-        }
 
         ColorBlock colors = button.colors;
         colors.normalColor = interactable ? new Color(1f, 1f, 1f, 0.72f) : new Color(1f, 1f, 1f, 0.35f);
@@ -639,25 +619,6 @@ public static class VNPrototypeSceneBuilder
 
         button.gameObject.name = labelText + " Button";
         return button;
-    }
-
-    private static Image CreateButtonIcon(Transform parent, string name, Sprite sprite, Vector2 size, Vector2 anchoredPosition, bool alignRight, float alpha)
-    {
-        GameObject iconGo = CreateUiObject(name, parent);
-        RectTransform rect = iconGo.GetComponent<RectTransform>();
-        rect.anchorMin = alignRight ? new Vector2(1f, 0.5f) : new Vector2(0f, 0.5f);
-        rect.anchorMax = alignRight ? new Vector2(1f, 0.5f) : new Vector2(0f, 0.5f);
-        rect.pivot = alignRight ? new Vector2(1f, 0.5f) : new Vector2(0f, 0.5f);
-        rect.anchoredPosition = anchoredPosition;
-        rect.sizeDelta = size;
-
-        Image image = iconGo.AddComponent<Image>();
-        image.sprite = sprite;
-        image.type = Image.Type.Simple;
-        image.preserveAspect = true;
-        image.color = new Color(1f, 1f, 1f, alpha);
-        image.raycastTarget = false;
-        return image;
     }
 
     private static GameObject CreateBacklogPanel(
@@ -1245,13 +1206,6 @@ public static class VNPrototypeSceneBuilder
     {
         ConfigureOptionalSpriteImportSettings(VNDialogueBoxPath);
         ConfigureOptionalSpriteImportSettings(VNNameBoxPath);
-        ConfigureOptionalSpriteImportSettings(IconHistoryPath);
-        ConfigureOptionalSpriteImportSettings(IconAutoPath);
-        ConfigureOptionalSpriteImportSettings(IconSkipPath);
-        ConfigureOptionalSpriteImportSettings(IconSavePath);
-        ConfigureOptionalSpriteImportSettings(IconLoadPath);
-        ConfigureOptionalSpriteImportSettings(IconSettingsPath);
-        ConfigureOptionalSpriteImportSettings(IconMenuPath);
     }
 
     private static void ConfigureOptionalSpriteImportSettings(string path)
