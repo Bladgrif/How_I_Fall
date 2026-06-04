@@ -66,6 +66,27 @@ public static class MainMenuSceneBuilder
         settingsPanelController.objectsToHideWhenOpen = new[] { titleObject, pressAnyObject, footerObject };
         mainMenuController.settingsPanel = settingsPanelController;
 
+        var aboutPanel = CreateInfoOverlayPanel(
+            canvas.transform,
+            mainMenuController,
+            "About Panel",
+            "About",
+            "How I Fall — подростковая визуальная новелла о неловких чувствах, школьных тайнах и выборе, после которого уже нельзя притворяться прежним.\n\nЖанр: школьная драма, романтика, лёгкая мистика, детектив.\nВерсия: Prototype Build",
+            new Vector2(820f, 520f),
+            true,
+            clickSfx);
+        var helpPanel = CreateInfoOverlayPanel(
+            canvas.transform,
+            mainMenuController,
+            "Help Panel",
+            "Help",
+            "Управление:\n\nЛКМ / Space — следующая реплика\nEsc — меню\nH — история\nCtrl — пропуск текста\nF — полноэкранный режим\n\nВ главном меню:\nStart — начать новую игру\nContinue — продолжить сохранение\nSettings — настройки",
+            new Vector2(820f, 560f),
+            false,
+            clickSfx);
+        var notificationPanel = CreateNotificationPanel(canvas.transform, out var notificationText);
+        AssignMainMenuControllerReferences(mainMenuController, aboutPanel, helpPanel, notificationPanel, notificationText);
+
         CreateMainMenuAnimator(canvas.transform, backgroundTransform, menuCanvasGroup, titleCanvasGroup, null);
 
         EditorSceneManager.SaveScene(scene, MainMenuScenePath);
@@ -758,6 +779,161 @@ public static class MainMenuSceneBuilder
         UnityEventTools.AddPersistentListener(backButton.onClick, settingsController.Hide);
 
         return settingsController;
+    }
+
+    private static GameObject CreateInfoOverlayPanel(
+        Transform canvas,
+        MainMenuController controller,
+        string panelName,
+        string titleText,
+        string bodyText,
+        Vector2 windowSize,
+        bool isAboutPanel,
+        AudioClip clickSfx)
+    {
+        var panelRoot = CreateUiObject(panelName, canvas);
+        panelRoot.SetActive(false);
+        StretchFull(panelRoot.GetComponent<RectTransform>());
+
+        var dim = CreateUiObject(panelName + " Dim Blocker", panelRoot.transform);
+        StretchFull(dim.GetComponent<RectTransform>());
+        var dimImage = dim.AddComponent<Image>();
+        dimImage.color = new Color(0.02f, 0.04f, 0.08f, 0.45f);
+        dimImage.raycastTarget = true;
+
+        var window = CreateUiObject(panelName + " Window", panelRoot.transform);
+        var windowRect = window.GetComponent<RectTransform>();
+        windowRect.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRect.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRect.pivot = new Vector2(0.5f, 0.5f);
+        windowRect.anchoredPosition = Vector2.zero;
+        windowRect.sizeDelta = windowSize;
+
+        var windowImage = window.AddComponent<Image>();
+        windowImage.sprite = TryLoadSprite(SettingsPanelBgPath);
+        windowImage.type = Image.Type.Simple;
+        windowImage.preserveAspect = false;
+        windowImage.color = windowImage.sprite != null ? Color.white : new Color(0.025f, 0.07f, 0.13f, 0.94f);
+        windowImage.raycastTarget = true;
+
+        var windowShadow = window.AddComponent<Shadow>();
+        windowShadow.effectColor = new Color(0f, 0f, 0f, 0.58f);
+        windowShadow.effectDistance = new Vector2(5f, -5f);
+
+        var outline = window.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.35f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        var title = CreateTmpLabel(window.transform, titleText, 52, TextAlignmentOptions.Center);
+        var titleRect = title.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.5f, 1f);
+        titleRect.anchorMax = new Vector2(0.5f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -44f);
+        titleRect.sizeDelta = new Vector2(520f, 64f);
+        title.color = Color.white;
+        title.raycastTarget = false;
+
+        var underline = CreateUiObject(titleText + " Red Underline", window.transform);
+        var underlineRect = underline.GetComponent<RectTransform>();
+        underlineRect.anchorMin = new Vector2(0.5f, 1f);
+        underlineRect.anchorMax = new Vector2(0.5f, 1f);
+        underlineRect.pivot = new Vector2(0.5f, 0.5f);
+        underlineRect.anchoredPosition = new Vector2(0f, -116f);
+        underlineRect.sizeDelta = new Vector2(170f, 5f);
+        underlineRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
+        var underlineImage = underline.AddComponent<Image>();
+        underlineImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
+        underlineImage.raycastTarget = false;
+
+        var body = CreateTmpLabel(window.transform, bodyText, isAboutPanel ? 28 : 26, TextAlignmentOptions.Left);
+        var bodyRect = body.GetComponent<RectTransform>();
+        bodyRect.anchorMin = new Vector2(0.5f, 0.5f);
+        bodyRect.anchorMax = new Vector2(0.5f, 0.5f);
+        bodyRect.pivot = new Vector2(0.5f, 0.5f);
+        bodyRect.anchoredPosition = isAboutPanel ? new Vector2(0f, -20f) : new Vector2(0f, -18f);
+        bodyRect.sizeDelta = isAboutPanel ? new Vector2(660f, 250f) : new Vector2(660f, 320f);
+        body.fontStyle = FontStyles.Normal;
+        body.lineSpacing = 10f;
+        body.color = new Color(1f, 1f, 1f, 0.9f);
+        body.raycastTarget = false;
+
+        var closeButton = CreateStyledButton(window.transform, "Back", new Vector2(190f, 58f));
+        var closeRect = closeButton.GetComponent<RectTransform>();
+        closeRect.anchorMin = new Vector2(1f, 0f);
+        closeRect.anchorMax = new Vector2(1f, 0f);
+        closeRect.pivot = new Vector2(1f, 0f);
+        closeRect.anchoredPosition = new Vector2(-54f, 42f);
+        AddStyledButtonClickSfx(closeButton, clickSfx);
+
+        if (isAboutPanel)
+        {
+            UnityEventTools.AddPersistentListener(closeButton.onClick, controller.CloseAbout);
+        }
+        else
+        {
+            UnityEventTools.AddPersistentListener(closeButton.onClick, controller.CloseHelp);
+        }
+
+        return panelRoot;
+    }
+
+    private static GameObject CreateNotificationPanel(Transform canvas, out TextMeshProUGUI notificationText)
+    {
+        var panelRoot = CreateUiObject("Notification Panel", canvas);
+        panelRoot.SetActive(false);
+        var rect = panelRoot.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0f, 0f);
+        rect.anchoredPosition = new Vector2(140f, 120f);
+        rect.sizeDelta = new Vector2(320f, 48f);
+
+        var image = panelRoot.AddComponent<Image>();
+        image.color = new Color(0.025f, 0.07f, 0.13f, 0.85f);
+        image.raycastTarget = false;
+
+        var outline = panelRoot.AddComponent<Outline>();
+        outline.effectColor = new Color(0.9f, 0.08f, 0.06f, 0.75f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        notificationText = CreateTmpLabel(panelRoot.transform, "Нет сохранения", 20, TextAlignmentOptions.Center);
+        notificationText.fontStyle = FontStyles.Normal;
+        notificationText.color = Color.white;
+        notificationText.raycastTarget = false;
+        StretchFull(notificationText.GetComponent<RectTransform>(), 18f, 18f, 4f, 4f);
+
+        return panelRoot;
+    }
+
+    private static void AssignMainMenuControllerReferences(
+        MainMenuController controller,
+        GameObject aboutPanel,
+        GameObject helpPanel,
+        GameObject notificationPanel,
+        TextMeshProUGUI notificationText)
+    {
+        var serializedController = new SerializedObject(controller);
+        serializedController.FindProperty("aboutPanel").objectReferenceValue = aboutPanel;
+        serializedController.FindProperty("helpPanel").objectReferenceValue = helpPanel;
+        serializedController.FindProperty("notificationPanel").objectReferenceValue = notificationPanel;
+        serializedController.FindProperty("notificationText").objectReferenceValue = notificationText;
+        serializedController.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void AddStyledButtonClickSfx(Button button, AudioClip clickSfx)
+    {
+        var image = button.GetComponent<Image>();
+        var label = button.GetComponentInChildren<Text>();
+        var hoverEffect = button.gameObject.AddComponent<MainMenuButtonHoverEffect>();
+        hoverEffect.highlightImage = image;
+        hoverEffect.labelText = label;
+        hoverEffect.clickSfx = clickSfx;
+        hoverEffect.normalHighlightColor = new Color(0.02f, 0.06f, 0.12f, 0.95f);
+        hoverEffect.hoverHighlightColor = new Color(0.72f, 0.12f, 0.1f, 0.96f);
+        hoverEffect.pressedHighlightColor = new Color(0.9f, 0.08f, 0.06f, 1f);
+        hoverEffect.normalTextColor = new Color(0.96f, 0.97f, 1f, 0.98f);
+        hoverEffect.hoverTextColor = Color.white;
     }
 
     private static GameObject CreateRow(Transform parent, float height)
