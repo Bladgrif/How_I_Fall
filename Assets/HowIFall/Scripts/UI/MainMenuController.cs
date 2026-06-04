@@ -1,6 +1,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class MainMenuController : MonoBehaviour
 {
@@ -11,6 +12,11 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private GameObject aboutPanel;
     [SerializeField] private GameObject helpPanel;
     [SerializeField] private GameObject exitConfirmPanel;
+    [SerializeField] private GameObject loadPanel;
+    [SerializeField] private TextMeshProUGUI loadSaveTitleText;
+    [SerializeField] private TextMeshProUGUI loadSaveMetaText;
+    [SerializeField] private TextMeshProUGUI loadSavePreviewText;
+    [SerializeField] private Button loadSaveButton;
     [SerializeField] private TextMeshProUGUI notificationText;
     [SerializeField] private GameObject notificationPanel;
 
@@ -31,6 +37,80 @@ public class MainMenuController : MonoBehaviour
 
         ShowNotification("Нет сохранения");
         Debug.LogWarning("No save file found.");
+    }
+
+    public void OpenLoadPanel()
+    {
+        if (loadPanel == null)
+        {
+            ContinueGame();
+            return;
+        }
+
+        RefreshLoadPanel();
+        loadPanel.SetActive(true);
+    }
+
+    public void CloseLoadPanel()
+    {
+        if (loadPanel != null)
+        {
+            loadPanel.SetActive(false);
+        }
+    }
+
+    private void RefreshLoadPanel()
+    {
+        bool hasSave = SaveManager.Instance != null && SaveManager.Instance.HasSave();
+        SaveData saveInfo = hasSave ? SaveManager.Instance.GetSaveInfo() : null;
+
+        if (loadSaveButton != null)
+        {
+            loadSaveButton.interactable = hasSave && saveInfo != null;
+        }
+
+        if (!hasSave || saveInfo == null)
+        {
+            SetLoadSaveText(
+                "Сохранение не найдено",
+                string.Empty,
+                "Начните новую игру, чтобы создать quick save.");
+            return;
+        }
+
+        SetLoadSaveText(
+            string.IsNullOrEmpty(saveInfo.sceneTitle) ? "Quick Save" : saveInfo.sceneTitle,
+            string.IsNullOrEmpty(saveInfo.savedAt) ? string.Empty : saveInfo.savedAt,
+            string.IsNullOrEmpty(saveInfo.linePreview) ? "Без превью" : saveInfo.linePreview);
+    }
+
+    private void SetLoadSaveText(string title, string meta, string preview)
+    {
+        if (loadSaveTitleText != null)
+        {
+            loadSaveTitleText.text = title;
+        }
+
+        if (loadSaveMetaText != null)
+        {
+            loadSaveMetaText.text = meta;
+        }
+
+        if (loadSavePreviewText != null)
+        {
+            loadSavePreviewText.text = preview;
+        }
+    }
+
+    public void LoadSelectedSave()
+    {
+        if (SaveManager.Instance != null && SaveManager.Instance.HasSave())
+        {
+            SceneFlowManager.EnsureInstance().ContinueGame();
+            return;
+        }
+
+        ShowNotification("Нет сохранения");
     }
 
     public void DeleteSave()

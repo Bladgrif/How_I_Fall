@@ -84,9 +84,28 @@ public static class MainMenuSceneBuilder
             new Vector2(820f, 560f),
             false,
             clickSfx);
+        var loadPanel = CreateLoadPanel(
+            canvas.transform,
+            mainMenuController,
+            clickSfx,
+            out var loadSaveTitleText,
+            out var loadSaveMetaText,
+            out var loadSavePreviewText,
+            out var loadSaveButton);
         var exitConfirmPanel = CreateExitConfirmPanel(canvas.transform, mainMenuController, clickSfx);
         var notificationPanel = CreateNotificationPanel(canvas.transform, out var notificationText);
-        AssignMainMenuControllerReferences(mainMenuController, aboutPanel, helpPanel, exitConfirmPanel, notificationPanel, notificationText);
+        AssignMainMenuControllerReferences(
+            mainMenuController,
+            aboutPanel,
+            helpPanel,
+            exitConfirmPanel,
+            loadPanel,
+            loadSaveTitleText,
+            loadSaveMetaText,
+            loadSavePreviewText,
+            loadSaveButton,
+            notificationPanel,
+            notificationText);
 
         CreateMainMenuAnimator(canvas.transform, backgroundTransform, menuCanvasGroup, titleCanvasGroup, null);
 
@@ -366,7 +385,7 @@ public static class MainMenuSceneBuilder
         var methods = new System.Action<Button>[]
         {
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.StartGame),
-            b => UnityEventTools.AddPersistentListener(b.onClick, controller.ContinueGame),
+            b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenLoadPanel),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenSettings),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenAbout),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenHelp),
@@ -879,6 +898,161 @@ public static class MainMenuSceneBuilder
         return panelRoot;
     }
 
+    private static GameObject CreateLoadPanel(
+        Transform canvas,
+        MainMenuController controller,
+        AudioClip clickSfx,
+        out TextMeshProUGUI saveTitleText,
+        out TextMeshProUGUI saveMetaText,
+        out TextMeshProUGUI savePreviewText,
+        out Button saveButton)
+    {
+        var panelRoot = CreateUiObject("Load Panel", canvas);
+        panelRoot.SetActive(false);
+        StretchFull(panelRoot.GetComponent<RectTransform>());
+
+        var dim = CreateUiObject("Load Dim Blocker", panelRoot.transform);
+        StretchFull(dim.GetComponent<RectTransform>());
+        var dimImage = dim.AddComponent<Image>();
+        dimImage.color = new Color(0.02f, 0.04f, 0.08f, 0.45f);
+        dimImage.raycastTarget = true;
+
+        var window = CreateUiObject("Load Window", panelRoot.transform);
+        var windowRect = window.GetComponent<RectTransform>();
+        windowRect.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRect.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRect.pivot = new Vector2(0.5f, 0.5f);
+        windowRect.anchoredPosition = Vector2.zero;
+        windowRect.sizeDelta = new Vector2(820f, 520f);
+
+        var windowImage = window.AddComponent<Image>();
+        windowImage.sprite = TryLoadSprite(SettingsPanelBgPath);
+        windowImage.type = Image.Type.Simple;
+        windowImage.preserveAspect = false;
+        windowImage.color = windowImage.sprite != null ? Color.white : new Color(0.025f, 0.07f, 0.13f, 0.94f);
+        windowImage.raycastTarget = true;
+
+        var windowShadow = window.AddComponent<Shadow>();
+        windowShadow.effectColor = new Color(0f, 0f, 0f, 0.58f);
+        windowShadow.effectDistance = new Vector2(5f, -5f);
+
+        var outline = window.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.35f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        var title = CreateTmpLabel(window.transform, "Load Game", 52, TextAlignmentOptions.Center);
+        var titleRect = title.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.5f, 1f);
+        titleRect.anchorMax = new Vector2(0.5f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -44f);
+        titleRect.sizeDelta = new Vector2(520f, 64f);
+        title.color = Color.white;
+        title.raycastTarget = false;
+
+        var underline = CreateUiObject("Load Red Underline", window.transform);
+        var underlineRect = underline.GetComponent<RectTransform>();
+        underlineRect.anchorMin = new Vector2(0.5f, 1f);
+        underlineRect.anchorMax = new Vector2(0.5f, 1f);
+        underlineRect.pivot = new Vector2(0.5f, 0.5f);
+        underlineRect.anchoredPosition = new Vector2(0f, -116f);
+        underlineRect.sizeDelta = new Vector2(170f, 5f);
+        underlineRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
+        var underlineImage = underline.AddComponent<Image>();
+        underlineImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
+        underlineImage.raycastTarget = false;
+
+        saveButton = CreateSaveCardButton(window.transform);
+        var cardRect = saveButton.GetComponent<RectTransform>();
+        cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+        cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+        cardRect.pivot = new Vector2(0.5f, 0.5f);
+        cardRect.anchoredPosition = new Vector2(0f, -34f);
+        cardRect.sizeDelta = new Vector2(640f, 180f);
+
+        var accent = CreateUiObject("Save Card Red Accent", saveButton.transform);
+        var accentRect = accent.GetComponent<RectTransform>();
+        accentRect.anchorMin = new Vector2(0f, 0f);
+        accentRect.anchorMax = new Vector2(0f, 1f);
+        accentRect.pivot = new Vector2(0f, 0.5f);
+        accentRect.anchoredPosition = Vector2.zero;
+        accentRect.sizeDelta = new Vector2(6f, 0f);
+        var accentImage = accent.AddComponent<Image>();
+        accentImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
+        accentImage.raycastTarget = false;
+
+        saveTitleText = CreateTmpLabel(saveButton.transform, "Сохранение не найдено", 28, TextAlignmentOptions.Left);
+        var saveTitleRect = saveTitleText.GetComponent<RectTransform>();
+        saveTitleRect.anchorMin = new Vector2(0f, 1f);
+        saveTitleRect.anchorMax = new Vector2(1f, 1f);
+        saveTitleRect.pivot = new Vector2(0f, 1f);
+        saveTitleRect.offsetMin = new Vector2(32f, -58f);
+        saveTitleRect.offsetMax = new Vector2(-28f, -18f);
+        saveTitleText.color = Color.white;
+        saveTitleText.raycastTarget = false;
+
+        saveMetaText = CreateTmpLabel(saveButton.transform, string.Empty, 18, TextAlignmentOptions.Left);
+        var saveMetaRect = saveMetaText.GetComponent<RectTransform>();
+        saveMetaRect.anchorMin = new Vector2(0f, 1f);
+        saveMetaRect.anchorMax = new Vector2(1f, 1f);
+        saveMetaRect.pivot = new Vector2(0f, 1f);
+        saveMetaRect.offsetMin = new Vector2(32f, -88f);
+        saveMetaRect.offsetMax = new Vector2(-28f, -62f);
+        saveMetaText.fontStyle = FontStyles.Normal;
+        saveMetaText.color = new Color(1f, 1f, 1f, 0.62f);
+        saveMetaText.raycastTarget = false;
+
+        savePreviewText = CreateTmpLabel(saveButton.transform, "Начните новую игру, чтобы создать quick save.", 21, TextAlignmentOptions.Left);
+        var savePreviewRect = savePreviewText.GetComponent<RectTransform>();
+        savePreviewRect.anchorMin = new Vector2(0f, 0f);
+        savePreviewRect.anchorMax = new Vector2(1f, 0f);
+        savePreviewRect.pivot = new Vector2(0f, 0f);
+        savePreviewRect.offsetMin = new Vector2(32f, 28f);
+        savePreviewRect.offsetMax = new Vector2(-28f, 86f);
+        savePreviewText.fontStyle = FontStyles.Normal;
+        savePreviewText.color = new Color(1f, 1f, 1f, 0.86f);
+        savePreviewText.raycastTarget = false;
+
+        UnityEventTools.AddPersistentListener(saveButton.onClick, controller.LoadSelectedSave);
+
+        var backButton = CreateStyledButton(window.transform, "Back", new Vector2(190f, 58f));
+        var backRect = backButton.GetComponent<RectTransform>();
+        backRect.anchorMin = new Vector2(1f, 0f);
+        backRect.anchorMax = new Vector2(1f, 0f);
+        backRect.pivot = new Vector2(1f, 0f);
+        backRect.anchoredPosition = new Vector2(-54f, 42f);
+        AddStyledButtonClickSfx(backButton, clickSfx);
+        UnityEventTools.AddPersistentListener(backButton.onClick, controller.CloseLoadPanel);
+
+        return panelRoot;
+    }
+
+    private static Button CreateSaveCardButton(Transform parent)
+    {
+        var buttonGo = CreateUiObject("Quick Save Card Button", parent);
+        var image = buttonGo.AddComponent<Image>();
+        image.color = new Color(0.015f, 0.045f, 0.095f, 0.88f);
+        image.raycastTarget = true;
+
+        var outline = buttonGo.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.22f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        var button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        var colors = button.colors;
+        colors.normalColor = new Color(0.015f, 0.045f, 0.095f, 0.88f);
+        colors.highlightedColor = new Color(0.08f, 0.08f, 0.12f, 0.96f);
+        colors.pressedColor = new Color(0.12f, 0.04f, 0.06f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.015f, 0.03f, 0.055f, 0.58f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        return button;
+    }
+
     private static GameObject CreateExitConfirmPanel(Transform canvas, MainMenuController controller, AudioClip clickSfx)
     {
         var panelRoot = CreateUiObject("Exit Confirm Panel", canvas);
@@ -989,6 +1163,11 @@ public static class MainMenuSceneBuilder
         GameObject aboutPanel,
         GameObject helpPanel,
         GameObject exitConfirmPanel,
+        GameObject loadPanel,
+        TextMeshProUGUI loadSaveTitleText,
+        TextMeshProUGUI loadSaveMetaText,
+        TextMeshProUGUI loadSavePreviewText,
+        Button loadSaveButton,
         GameObject notificationPanel,
         TextMeshProUGUI notificationText)
     {
@@ -996,6 +1175,11 @@ public static class MainMenuSceneBuilder
         serializedController.FindProperty("aboutPanel").objectReferenceValue = aboutPanel;
         serializedController.FindProperty("helpPanel").objectReferenceValue = helpPanel;
         serializedController.FindProperty("exitConfirmPanel").objectReferenceValue = exitConfirmPanel;
+        serializedController.FindProperty("loadPanel").objectReferenceValue = loadPanel;
+        serializedController.FindProperty("loadSaveTitleText").objectReferenceValue = loadSaveTitleText;
+        serializedController.FindProperty("loadSaveMetaText").objectReferenceValue = loadSaveMetaText;
+        serializedController.FindProperty("loadSavePreviewText").objectReferenceValue = loadSavePreviewText;
+        serializedController.FindProperty("loadSaveButton").objectReferenceValue = loadSaveButton;
         serializedController.FindProperty("notificationPanel").objectReferenceValue = notificationPanel;
         serializedController.FindProperty("notificationText").objectReferenceValue = notificationText;
         serializedController.ApplyModifiedPropertiesWithoutUndo();
