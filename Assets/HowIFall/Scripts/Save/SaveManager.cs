@@ -7,8 +7,6 @@ public class SaveManager : MonoBehaviour
     public static SaveManager Instance { get; private set; }
 
     private const string SaveFileName = "save_01.json";
-    private const int MaxLinePreviewLength = 100;
-
     private string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
 
     private void Awake()
@@ -52,7 +50,7 @@ public class SaveManager : MonoBehaviour
             currentLineIndex = gameState.currentLineIndex,
             savedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
             sceneTitle = string.IsNullOrEmpty(gameState.currentSceneId) ? "Unknown Scene" : gameState.currentSceneId,
-            linePreview = TrimLinePreview(linePreview),
+            linePreview = NormalizeLinePreview(linePreview),
             lust = gameState.lust,
             romance = gameState.romance,
             purity = gameState.purity,
@@ -69,21 +67,22 @@ public class SaveManager : MonoBehaviour
         Debug.Log($"SaveManager: game saved to '{SavePath}'.");
     }
 
-    private string TrimLinePreview(string linePreview)
+    private static string NormalizeLinePreview(string value)
     {
-        if (string.IsNullOrEmpty(linePreview))
+        if (string.IsNullOrWhiteSpace(value))
         {
             return string.Empty;
         }
 
-        string trimmed = linePreview.Trim();
+        string normalized = value.Replace("\n", " ").Replace("\r", " ").Trim();
 
-        if (trimmed.Length <= MaxLinePreviewLength)
+        const int maxLength = 100;
+        if (normalized.Length <= maxLength)
         {
-            return trimmed;
+            return normalized;
         }
 
-        return trimmed.Substring(0, MaxLinePreviewLength) + "...";
+        return normalized.Substring(0, maxLength) + "...";
     }
 
     public bool Load()
