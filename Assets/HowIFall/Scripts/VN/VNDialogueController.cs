@@ -147,11 +147,7 @@ public class VNDialogueController : MonoBehaviour
             vnFullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
         }
 
-        nextButton.onClick.AddListener(() =>
-        {
-            PlayUiClick();
-            ShowNextLine();
-        });
+        nextButton.onClick.AddListener(AdvanceDialogue);
 
         for (int i = 0; i < choiceButtons.Length; i++)
         {
@@ -223,6 +219,25 @@ public class VNDialogueController : MonoBehaviour
         {
             AudioManager.Instance.PlaySfx(uiClickSfx);
         }
+    }
+
+    public void AdvanceDialogue()
+    {
+        if (IsAdvanceBlockedByOpenPanel())
+        {
+            return;
+        }
+
+        PlayUiClick();
+        ShowNextLine();
+    }
+
+    private bool IsAdvanceBlockedByOpenPanel()
+    {
+        return (choicePanel != null && choicePanel.activeSelf)
+            || (backlogPanel != null && backlogPanel.activeSelf)
+            || (confirmExitPanel != null && confirmExitPanel.activeSelf)
+            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf);
     }
 
     private void ShowNextLine()

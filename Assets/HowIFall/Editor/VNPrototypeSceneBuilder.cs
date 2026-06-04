@@ -48,6 +48,7 @@ public static class VNPrototypeSceneBuilder
 
         Image backgroundImage = CreateBackgroundImage(vnRoot.transform);
         Image characterImage = CreateCharacterImage(vnRoot.transform);
+        Button screenNextButton = CreateScreenNextClickArea(vnRoot.transform);
         CreateTopLeftBrandBlock(vnRoot.transform);
 
         GameObject dialogueBox = CreateDialogueBox(vnRoot.transform);
@@ -64,6 +65,8 @@ public static class VNPrototypeSceneBuilder
 
         GameObject controllerGo = new GameObject("VN Controller");
         VNDialogueController controller = controllerGo.AddComponent<VNDialogueController>();
+
+        UnityEventTools.AddPersistentListener(screenNextButton.onClick, controller.AdvanceDialogue);
 
         CreateTopMenuButton(canvas.transform, controller);
         CreateQuickMenu(canvas.transform, controller);
@@ -214,6 +217,29 @@ public static class VNPrototypeSceneBuilder
         image.raycastTarget = false;
         image.enabled = false;
         return image;
+    }
+
+    private static Button CreateScreenNextClickArea(Transform parent)
+    {
+        GameObject clickArea = CreateUiObject("Screen Next Click Area", parent);
+        RectTransform rect = clickArea.GetComponent<RectTransform>();
+        StretchFull(rect);
+
+        Image image = clickArea.AddComponent<Image>();
+        image.color = new Color(0f, 0f, 0f, 0f);
+        image.raycastTarget = true;
+
+        Button button = clickArea.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = new Color(0f, 0f, 0f, 0f);
+        colors.highlightedColor = new Color(0f, 0f, 0f, 0f);
+        colors.pressedColor = new Color(0f, 0f, 0f, 0f);
+        colors.selectedColor = new Color(0f, 0f, 0f, 0f);
+        colors.disabledColor = new Color(0f, 0f, 0f, 0f);
+        button.colors = colors;
+        return button;
     }
 
     private static void CreateTopLeftBrandBlock(Transform parent)
