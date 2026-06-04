@@ -60,10 +60,9 @@ public static class MainMenuSceneBuilder
         var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController, clickSfx);
         var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleObject);
         var pressAnyObject = CreatePressAnyButton(canvas.transform);
-        var footerObject = CreateFooter(canvas.transform);
 
         var settingsPanelController = CreateSettingsPanel(canvas.transform);
-        settingsPanelController.objectsToHideWhenOpen = new[] { titleObject, pressAnyObject, footerObject };
+        settingsPanelController.objectsToHideWhenOpen = new[] { titleObject, pressAnyObject };
         mainMenuController.settingsPanel = settingsPanelController;
 
         var aboutPanel = CreateInfoOverlayPanel(
@@ -71,7 +70,7 @@ public static class MainMenuSceneBuilder
             mainMenuController,
             "About Panel",
             "About",
-            "How I Fall — подростковая визуальная новелла о неловких чувствах, школьных тайнах и выборе, после которого уже нельзя притворяться прежним.\n\nЖанр: школьная драма, романтика, лёгкая мистика, детектив.\nВерсия: Prototype Build",
+            "How I Fall — подростковая визуальная новелла о неловких чувствах, школьных тайнах и выборе, после которого уже нельзя притворяться прежним.\n\nЖанр: школьная драма, романтика, лёгкая мистика, детектив.\nВерсия: In Development",
             new Vector2(820f, 520f),
             true,
             clickSfx);
@@ -408,11 +407,6 @@ public static class MainMenuSceneBuilder
             var button = CreateMenuButton(row.transform, labels[i], clickSfx);
             methods[i](button);
 
-            if (false && i == 1)
-            {
-                CreateQuickSaveStatus(row.transform);
-            }
-
             if (i < labels.Length - 1)
             {
                 var sep = CreateUiObject("Separator", content.transform);
@@ -430,28 +424,6 @@ public static class MainMenuSceneBuilder
         }
 
         return canvasGroup;
-    }
-
-    private static void CreateQuickSaveStatus(Transform parent)
-    {
-        var statusGo = CreateUiObject("Quick Save Status", parent);
-        var statusRect = statusGo.GetComponent<RectTransform>();
-        statusRect.anchorMin = new Vector2(0f, 0f);
-        statusRect.anchorMax = new Vector2(1f, 0f);
-        statusRect.pivot = new Vector2(0.5f, 0f);
-        statusRect.offsetMin = new Vector2(30f, 3f);
-        statusRect.offsetMax = new Vector2(-18f, 23f);
-
-        var statusText = statusGo.AddComponent<Text>();
-        statusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        statusText.fontSize = 14;
-        statusText.alignment = TextAnchor.LowerRight;
-        statusText.color = new Color(0.08f, 0.12f, 0.22f, 0.72f);
-        statusText.raycastTarget = false;
-        statusText.text = "quick save: ...";
-
-        var statusView = statusGo.AddComponent<QuickSaveStatusView>();
-        statusView.statusText = statusText;
     }
 
     private static Button CreateMenuButton(Transform parent, string label, AudioClip clickSfx)
@@ -636,26 +608,6 @@ public static class MainMenuSceneBuilder
         text.color = new Color(1f, 1f, 1f, 0.75f);
         text.raycastTarget = false;
         return prompt;
-    }
-
-    private static GameObject CreateFooter(Transform canvas)
-    {
-        var footer = CreateUiObject("Prototype Build", canvas);
-        var rect = footer.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 0f);
-        rect.anchorMax = new Vector2(1f, 0f);
-        rect.pivot = new Vector2(1f, 0f);
-        rect.anchoredPosition = new Vector2(-24f, 16f);
-        rect.sizeDelta = new Vector2(320f, 28f);
-
-        var text = footer.AddComponent<Text>();
-        text.text = "Prototype Build";
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.fontSize = 15;
-        text.alignment = TextAnchor.MiddleRight;
-        text.color = new Color(0.1f, 0.12f, 0.18f, 0.35f);
-        text.raycastTarget = false;
-        return footer;
     }
 
     private static SettingsPanelController CreateSettingsPanel(Transform canvas)
@@ -878,7 +830,7 @@ public static class MainMenuSceneBuilder
         body.color = new Color(1f, 1f, 1f, 0.9f);
         body.raycastTarget = false;
 
-        var closeButton = CreateStyledButton(window.transform, "Back", new Vector2(190f, 58f));
+        var closeButton = CreateStyledButton(window.transform, "Назад", new Vector2(190f, 58f));
         var closeRect = closeButton.GetComponent<RectTransform>();
         closeRect.anchorMin = new Vector2(1f, 0f);
         closeRect.anchorMax = new Vector2(1f, 0f);
@@ -940,7 +892,7 @@ public static class MainMenuSceneBuilder
         outline.effectColor = new Color(1f, 1f, 1f, 0.35f);
         outline.effectDistance = new Vector2(2f, -2f);
 
-        var title = CreateTmpLabel(window.transform, "Load Game", 52, TextAlignmentOptions.Center);
+        var title = CreateTmpLabel(window.transform, "Загрузить", 52, TextAlignmentOptions.Center);
         var titleRect = title.GetComponent<RectTransform>();
         titleRect.anchorMin = new Vector2(0.5f, 1f);
         titleRect.anchorMax = new Vector2(0.5f, 1f);
@@ -1002,7 +954,7 @@ public static class MainMenuSceneBuilder
         saveMetaText.color = new Color(1f, 1f, 1f, 0.62f);
         saveMetaText.raycastTarget = false;
 
-        savePreviewText = CreateTmpLabel(saveButton.transform, "Начните новую игру, чтобы создать quick save.", 21, TextAlignmentOptions.Left);
+        savePreviewText = CreateTmpLabel(saveButton.transform, "Начните игру и выполните сохранение.", 21, TextAlignmentOptions.Left);
         var savePreviewRect = savePreviewText.GetComponent<RectTransform>();
         savePreviewRect.anchorMin = new Vector2(0f, 0f);
         savePreviewRect.anchorMax = new Vector2(1f, 0f);
@@ -1015,7 +967,7 @@ public static class MainMenuSceneBuilder
 
         UnityEventTools.AddPersistentListener(saveButton.onClick, controller.LoadSelectedSave);
 
-        var backButton = CreateStyledButton(window.transform, "Back", new Vector2(190f, 58f));
+        var backButton = CreateStyledButton(window.transform, "Назад", new Vector2(190f, 58f));
         var backRect = backButton.GetComponent<RectTransform>();
         backRect.anchorMin = new Vector2(1f, 0f);
         backRect.anchorMax = new Vector2(1f, 0f);
@@ -1029,7 +981,7 @@ public static class MainMenuSceneBuilder
 
     private static Button CreateSaveCardButton(Transform parent)
     {
-        var buttonGo = CreateUiObject("Quick Save Card Button", parent);
+        var buttonGo = CreateUiObject("Save Card Button", parent);
         var image = buttonGo.AddComponent<Image>();
         image.color = new Color(0.015f, 0.045f, 0.095f, 0.88f);
         image.raycastTarget = true;
@@ -1355,7 +1307,7 @@ public static class MainMenuSceneBuilder
 
     private static Button CreateBackButton(Transform parent)
     {
-        var button = CreateStyledButton(parent, "Back", new Vector2(200f, 60f));
+        var button = CreateStyledButton(parent, "Назад", new Vector2(200f, 60f));
         var rect = button.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);

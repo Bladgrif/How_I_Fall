@@ -74,14 +74,14 @@ public class MainMenuController : MonoBehaviour
             SetLoadSaveText(
                 "Сохранение не найдено",
                 string.Empty,
-                "Начните новую игру, чтобы создать quick save.");
+                "Начните игру и выполните сохранение.");
             return;
         }
 
         SetLoadSaveText(
-            string.IsNullOrEmpty(saveInfo.sceneTitle) ? "Quick Save" : saveInfo.sceneTitle,
+            string.IsNullOrEmpty(saveInfo.sceneTitle) ? "Сохранение" : saveInfo.sceneTitle,
             string.IsNullOrEmpty(saveInfo.savedAt) ? string.Empty : saveInfo.savedAt,
-            string.IsNullOrEmpty(saveInfo.linePreview) ? "Без превью" : saveInfo.linePreview);
+            string.IsNullOrEmpty(saveInfo.linePreview) ? "Нет превью" : saveInfo.linePreview);
     }
 
     private void SetLoadSaveText(string title, string meta, string preview)
