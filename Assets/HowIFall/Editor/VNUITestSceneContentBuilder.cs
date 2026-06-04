@@ -36,7 +36,7 @@ public static class VNUITestSceneContentBuilder
         scene.backgroundMusic = null;
         scene.stopMusicOnStart = false;
         scene.lines = CreateUITestLines();
-        scene.choices = new List<DialogueChoice>();
+        scene.choices = CreateUITestChoices();
         scene.defaultNextScene = null;
 
         EditorUtility.SetDirty(scene);
@@ -82,6 +82,33 @@ public static class VNUITestSceneContentBuilder
                 hideCharacter = false,
                 speaker = string.Empty,
                 text = "Пока эта сцена нужна только для настройки визуального интерфейса."
+            }
+        };
+    }
+
+    private static List<DialogueChoice> CreateUITestChoices()
+    {
+        const string resultText = "Выбор сохранён. Это тестовая ветка интерфейса.";
+
+        return new List<DialogueChoice>
+        {
+            new DialogueChoice
+            {
+                text = "Ответить спокойно",
+                resultText = resultText,
+                selfControlDelta = 1
+            },
+            new DialogueChoice
+            {
+                text = "Пошутить",
+                resultText = resultText,
+                romanceDelta = 1
+            },
+            new DialogueChoice
+            {
+                text = "Промолчать",
+                resultText = resultText,
+                suspicionDelta = 1
             }
         };
     }

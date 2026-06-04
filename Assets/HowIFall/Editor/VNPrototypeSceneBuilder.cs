@@ -415,10 +415,40 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(0f, -90f);
-        rect.sizeDelta = new Vector2(680f, 230f);
+        rect.anchoredPosition = new Vector2(0f, 40f);
+        rect.sizeDelta = new Vector2(720f, 360f);
 
-        VerticalLayoutGroup layout = panel.AddComponent<VerticalLayoutGroup>();
+        Image panelImage = panel.AddComponent<Image>();
+        panelImage.color = new Color(0.015f, 0.035f, 0.075f, 0.88f);
+        panelImage.raycastTarget = true;
+
+        Outline outline = panel.AddComponent<Outline>();
+        outline.effectColor = new Color(0.62f, 0.78f, 1f, 0.3f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        Shadow shadow = panel.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
+        shadow.effectDistance = new Vector2(6f, -6f);
+
+        TextMeshProUGUI title = CreateTMPText("Choice Title", panel.transform, "Что сделать?", 32, new Color(1f, 1f, 1f, 0.95f));
+        title.alignment = TextAlignmentOptions.Center;
+        title.fontStyle = FontStyles.Bold;
+        RectTransform titleRect = title.rectTransform;
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -34f);
+        titleRect.sizeDelta = new Vector2(-96f, 52f);
+
+        GameObject buttonStack = CreateUiObject("Choice Button Stack", panel.transform);
+        RectTransform stackRect = buttonStack.GetComponent<RectTransform>();
+        stackRect.anchorMin = new Vector2(0.5f, 0.5f);
+        stackRect.anchorMax = new Vector2(0.5f, 0.5f);
+        stackRect.pivot = new Vector2(0.5f, 0.5f);
+        stackRect.anchoredPosition = new Vector2(0f, -46f);
+        stackRect.sizeDelta = new Vector2(560f, 198f);
+
+        VerticalLayoutGroup layout = buttonStack.AddComponent<VerticalLayoutGroup>();
         layout.spacing = 18f;
         layout.childAlignment = TextAnchor.MiddleCenter;
         layout.childControlWidth = false;
@@ -426,16 +456,43 @@ public static class VNPrototypeSceneBuilder
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
-        choiceMashaButton = CreateChoiceButton(panel.transform, "Choice Option 1 Button");
-        choiceArtemButton = CreateChoiceButton(panel.transform, "Choice Option 2 Button");
-        choiceLeraButton = CreateChoiceButton(panel.transform, "Choice Option 3 Button");
+        choiceMashaButton = CreateChoiceButton(buttonStack.transform, "Choice Option 1 Button");
+        choiceArtemButton = CreateChoiceButton(buttonStack.transform, "Choice Option 2 Button");
+        choiceLeraButton = CreateChoiceButton(buttonStack.transform, "Choice Option 3 Button");
         return panel;
     }
 
     private static Button CreateChoiceButton(Transform parent, string name)
     {
-        Button button = CreateStyledButton(parent, "Choice", new Vector2(680f, 62f), 24);
+        Button button = CreateStyledButton(parent, "Choice", new Vector2(560f, 54f), 24);
         button.gameObject.name = name;
+
+        Image image = button.GetComponent<Image>();
+        image.color = Color.white;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = new Color(0.015f, 0.035f, 0.075f, 0.75f);
+        colors.highlightedColor = new Color(0.85f, 0.08f, 0.07f, 0.9f);
+        colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        Outline outline = button.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.2f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        GameObject marker = CreateUiObject("Red Accent", button.transform);
+        RectTransform markerRect = marker.GetComponent<RectTransform>();
+        markerRect.anchorMin = new Vector2(0f, 0.5f);
+        markerRect.anchorMax = new Vector2(0f, 0.5f);
+        markerRect.pivot = new Vector2(0f, 0.5f);
+        markerRect.anchoredPosition = new Vector2(14f, 0f);
+        markerRect.sizeDelta = new Vector2(4f, 28f);
+        Image markerImage = marker.AddComponent<Image>();
+        markerImage.color = new Color(0.9f, 0.08f, 0.06f, 0.75f);
+        markerImage.raycastTarget = false;
         return button;
     }
 
