@@ -103,11 +103,11 @@ public static class VNPrototypeSceneBuilder
         controller.dialogueText = dialogueText;
         controller.backgroundImage = backgroundImage;
         controller.characterImage = characterImage;
-        controller.characterLeftPosition = new Vector2(-260f, -95f);
-        controller.characterCenterPosition = new Vector2(-80f, -95f);
-        controller.characterRightPosition = new Vector2(260f, -95f);
-        controller.characterSoloPosition = new Vector2(-120f, -95f);
-        controller.characterDefaultSize = new Vector2(650f, 920f);
+        controller.characterLeftPosition = new Vector2(-220f, -110f);
+        controller.characterCenterPosition = new Vector2(-60f, -110f);
+        controller.characterRightPosition = new Vector2(260f, -110f);
+        controller.characterSoloPosition = new Vector2(-100f, -110f);
+        controller.characterDefaultSize = new Vector2(700f, 980f);
         controller.nameBox = nameBox;
         controller.nextButton = nextButton;
         controller.choicePanel = choicePanel;
@@ -202,8 +202,8 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0.5f, 0f);
         rect.anchorMax = new Vector2(0.5f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
-        rect.anchoredPosition = new Vector2(-260f, -95f);
-        rect.sizeDelta = new Vector2(650f, 920f);
+        rect.anchoredPosition = new Vector2(-220f, -110f);
+        rect.sizeDelta = new Vector2(700f, 980f);
 
         Image image = character.AddComponent<Image>();
         image.color = Color.white;
@@ -215,6 +215,18 @@ public static class VNPrototypeSceneBuilder
 
     private static void CreateTopLeftBrandBlock(Transform parent)
     {
+        GameObject shade = CreateUiObject("Top Left Soft Shade", parent);
+        RectTransform shadeRect = shade.GetComponent<RectTransform>();
+        shadeRect.anchorMin = new Vector2(0f, 1f);
+        shadeRect.anchorMax = new Vector2(0f, 1f);
+        shadeRect.pivot = new Vector2(0f, 1f);
+        shadeRect.anchoredPosition = Vector2.zero;
+        shadeRect.sizeDelta = new Vector2(360f, 240f);
+        Image shadeImage = shade.AddComponent<Image>();
+        shadeImage.color = new Color(0f, 0f, 0f, 0.22f);
+        shadeImage.raycastTarget = false;
+        shade.transform.SetSiblingIndex(1);
+
         Sprite logoSprite = TryLoadSprite(LogoPath);
         if (logoSprite != null)
         {
@@ -248,15 +260,16 @@ public static class VNPrototypeSceneBuilder
         accentRect.anchorMax = new Vector2(0f, 1f);
         accentRect.pivot = new Vector2(0f, 0.5f);
         accentRect.anchoredPosition = Vector2.zero;
-        accentRect.sizeDelta = new Vector2(4f, -10f);
+        accentRect.sizeDelta = new Vector2(4f, -4f);
         Image accentImage = accent.AddComponent<Image>();
         accentImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         accentImage.raycastTarget = false;
 
-        TextMeshProUGUI chapterLabel = CreateTMPText("Chapter Label", chapter.transform, "CHAPTER 1", 16, new Color(1f, 1f, 1f, 0.7f));
+        TextMeshProUGUI chapterLabel = CreateTMPText("Chapter Label", chapter.transform, "CHAPTER 1", 18, new Color(1f, 1f, 1f, 0.85f));
         chapterLabel.fontStyle = FontStyles.Bold;
         chapterLabel.characterSpacing = 7f;
         chapterLabel.alignment = TextAlignmentOptions.Left;
+        AddSoftTextShadow(chapterLabel.gameObject);
         RectTransform chapterLabelRect = chapterLabel.rectTransform;
         chapterLabelRect.anchorMin = new Vector2(0f, 1f);
         chapterLabelRect.anchorMax = new Vector2(1f, 1f);
@@ -264,8 +277,9 @@ public static class VNPrototypeSceneBuilder
         chapterLabelRect.offsetMin = new Vector2(18f, -30f);
         chapterLabelRect.offsetMax = new Vector2(0f, 0f);
 
-        TextMeshProUGUI chapterTitle = CreateTMPText("Chapter Title", chapter.transform, "Порог", 22, new Color(1f, 1f, 1f, 0.9f));
+        TextMeshProUGUI chapterTitle = CreateTMPText("Chapter Title", chapter.transform, "Порог", 24, new Color(1f, 1f, 1f, 0.95f));
         chapterTitle.alignment = TextAlignmentOptions.Left;
+        AddSoftTextShadow(chapterTitle.gameObject);
         RectTransform chapterTitleRect = chapterTitle.rectTransform;
         chapterTitleRect.anchorMin = new Vector2(0f, 0f);
         chapterTitleRect.anchorMax = new Vector2(1f, 0f);
@@ -276,7 +290,7 @@ public static class VNPrototypeSceneBuilder
 
     private static void CreateTopMenuButton(Transform parent, VNDialogueController controller)
     {
-        Button menuButton = CreateStyledButton(parent, "МЕНЮ", new Vector2(150f, 42f), 18);
+        Button menuButton = CreateStyledButton(parent, "МЕНЮ", new Vector2(132f, 38f), 17);
         menuButton.gameObject.name = "Top Menu Button";
 
         RectTransform rect = menuButton.GetComponent<RectTransform>();
@@ -289,7 +303,7 @@ public static class VNPrototypeSceneBuilder
         image.color = Color.white;
 
         ColorBlock colors = menuButton.colors;
-        colors.normalColor = new Color(0.015f, 0.035f, 0.075f, 0.68f);
+        colors.normalColor = new Color(0.015f, 0.035f, 0.075f, 0.72f);
         colors.highlightedColor = new Color(0.55f, 0.08f, 0.07f, 0.86f);
         colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.95f);
         colors.selectedColor = colors.highlightedColor;
@@ -306,19 +320,19 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0f, 0f);
         rect.anchorMax = new Vector2(1f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
-        rect.offsetMin = new Vector2(210f, 92f);
-        rect.offsetMax = new Vector2(-210f, 282f);
+        rect.offsetMin = new Vector2(220f, 92f);
+        rect.offsetMax = new Vector2(-220f, 272f);
 
         Image image = box.AddComponent<Image>();
-        image.color = new Color(0.015f, 0.035f, 0.075f, 0.84f);
+        image.color = new Color(0.015f, 0.035f, 0.075f, 0.79f);
         image.raycastTarget = true;
 
         Outline outline = box.AddComponent<Outline>();
-        outline.effectColor = new Color(0.62f, 0.78f, 1f, 0.35f);
+        outline.effectColor = new Color(0.62f, 0.78f, 1f, 0.25f);
         outline.effectDistance = new Vector2(1f, -1f);
 
         Shadow shadow = box.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
         shadow.effectDistance = new Vector2(5f, -5f);
 
         return box;
@@ -331,11 +345,11 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(50f, 20f);
-        rect.sizeDelta = new Vector2(220f, 56f);
+        rect.anchoredPosition = new Vector2(50f, 24f);
+        rect.sizeDelta = new Vector2(240f, 58f);
 
         Image image = nameBox.AddComponent<Image>();
-        image.color = new Color(0.08f, 0.22f, 0.42f, 0.95f);
+        image.color = new Color(0.055f, 0.18f, 0.36f, 0.96f);
         image.raycastTarget = false;
 
         GameObject accent = CreateUiObject("Name Box Red Underline", nameBox.transform);
@@ -368,8 +382,8 @@ public static class VNPrototypeSceneBuilder
         RectTransform rect = text.rectTransform;
         rect.anchorMin = Vector2.zero;
         rect.anchorMax = Vector2.one;
-        rect.offsetMin = new Vector2(80f, 42f);
-        rect.offsetMax = new Vector2(-80f, -58f);
+        rect.offsetMin = new Vector2(80f, 38f);
+        rect.offsetMax = new Vector2(-80f, -52f);
         return text;
     }
 
@@ -393,13 +407,13 @@ public static class VNPrototypeSceneBuilder
         colors.disabledColor = colors.normalColor;
         button.colors = colors;
 
-        TextMeshProUGUI indicator = CreateTMPText("Next Indicator", buttonGo.transform, "▼", 24, new Color(1f, 1f, 1f, 0.75f));
+        TextMeshProUGUI indicator = CreateTMPText("Next Indicator", buttonGo.transform, "▼", 24, new Color(1f, 1f, 1f, 0.8f));
         indicator.alignment = TextAlignmentOptions.Center;
         RectTransform indicatorRect = indicator.rectTransform;
         indicatorRect.anchorMin = new Vector2(1f, 0f);
         indicatorRect.anchorMax = new Vector2(1f, 0f);
         indicatorRect.pivot = new Vector2(1f, 0f);
-        indicatorRect.anchoredPosition = new Vector2(-45f, 30f);
+        indicatorRect.anchoredPosition = new Vector2(-42f, 26f);
         indicatorRect.sizeDelta = new Vector2(38f, 34f);
         return button;
     }
@@ -503,8 +517,8 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0f, 0f);
         rect.anchorMax = new Vector2(1f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
-        rect.offsetMin = new Vector2(210f, 26f);
-        rect.offsetMax = new Vector2(-210f, 68f);
+        rect.offsetMin = new Vector2(210f, 34f);
+        rect.offsetMax = new Vector2(-210f, 76f);
 
         GameObject leftGroup = CreateQuickMenuGroup(menu.transform, "Quick Menu Left", TextAnchor.MiddleLeft);
         RectTransform leftRect = leftGroup.GetComponent<RectTransform>();
@@ -573,9 +587,9 @@ public static class VNPrototypeSceneBuilder
         button.colors = colors;
 
         Color textColor = interactable
-            ? new Color(1f, 1f, 1f, 0.75f)
+            ? new Color(1f, 1f, 1f, 0.78f)
             : new Color(1f, 1f, 1f, 0.35f);
-        TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, 19, textColor);
+        TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, 20, textColor);
         label.alignment = TextAlignmentOptions.Center;
         StretchFull(label.rectTransform);
 
@@ -1091,6 +1105,13 @@ public static class VNPrototypeSceneBuilder
         textComponent.color = color;
         textComponent.raycastTarget = false;
         return textComponent;
+    }
+
+    private static void AddSoftTextShadow(GameObject target)
+    {
+        Shadow shadow = target.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
+        shadow.effectDistance = new Vector2(2f, -2f);
     }
 
     private static DialogueSceneData TryLoadSceneData()
