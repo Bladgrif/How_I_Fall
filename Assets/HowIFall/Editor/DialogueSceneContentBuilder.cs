@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
+// Legacy test dialogue builder. Do not use for current UI testing.
 public static class DialogueSceneContentBuilder
 {
     private const string IntroScenePath = "Assets/HowIFall/Data/Dialogues/intro_school_morning.asset";

@@ -12,8 +12,8 @@ public static class VNPrototypeSceneBuilder
 {
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
     private const string VNPrototypeScenePath = "Assets/HowIFall/Scenes/VNPrototype.unity";
-    private const string PrimarySceneDataPath = "Assets/HowIFall/Data/Dialogues/intro_school_morning.asset";
-    private const string FallbackSceneDataPath = "Assets/HowIFall/Data/Dialogues/intro_school_meet.asset";
+    private const string PrimarySceneDataPath = VNUITestSceneContentBuilder.UITestScenePath;
+    private const string FallbackSceneDataPath = VNUITestSceneContentBuilder.UITestScenePath;
     private const string SceneRegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
     private const string LogoPath = "Assets/HowIFall/Art/UI/MainMenu/logo_how_i_fall.png";
     private const string PlaceholderCharacterPath = "Assets/HowIFall/Art/Characters/Placeholders/placeholder_female_student_default.png";
@@ -24,6 +24,7 @@ public static class VNPrototypeSceneBuilder
     [MenuItem("How I Fall/Build VN Prototype Scene")]
     public static void BuildVNPrototypeScene()
     {
+        VNUITestSceneContentBuilder.BuildUITestSceneAsset();
         ConfigureSpriteImportSettings(PlaceholderCharacterPath);
 
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -102,6 +103,11 @@ public static class VNPrototypeSceneBuilder
         controller.dialogueText = dialogueText;
         controller.backgroundImage = backgroundImage;
         controller.characterImage = characterImage;
+        controller.characterLeftPosition = new Vector2(-260f, -95f);
+        controller.characterCenterPosition = new Vector2(-80f, -95f);
+        controller.characterRightPosition = new Vector2(260f, -95f);
+        controller.characterSoloPosition = new Vector2(-120f, -95f);
+        controller.characterDefaultSize = new Vector2(650f, 920f);
         controller.nameBox = nameBox;
         controller.nextButton = nextButton;
         controller.choicePanel = choicePanel;
@@ -191,34 +197,16 @@ public static class VNPrototypeSceneBuilder
 
     private static Image CreateCharacterImage(Transform parent)
     {
-        Sprite placeholderSprite = TryLoadSprite(PlaceholderCharacterPath);
-        if (placeholderSprite != null)
-        {
-            GameObject placeholder = CreateUiObject("Placeholder Character", parent);
-            RectTransform placeholderRect = placeholder.GetComponent<RectTransform>();
-            placeholderRect.anchorMin = new Vector2(0.5f, 0f);
-            placeholderRect.anchorMax = new Vector2(0.5f, 0f);
-            placeholderRect.pivot = new Vector2(0.5f, 0f);
-            placeholderRect.anchoredPosition = new Vector2(-260f, -95f);
-            placeholderRect.sizeDelta = new Vector2(650f, 920f);
-
-            Image placeholderImage = placeholder.AddComponent<Image>();
-            placeholderImage.sprite = placeholderSprite;
-            placeholderImage.color = Color.white;
-            placeholderImage.preserveAspect = true;
-            placeholderImage.raycastTarget = false;
-        }
-
-        GameObject character = CreateUiObject("Dialogue Character Driver", parent);
+        GameObject character = CreateUiObject("Placeholder Character", parent);
         RectTransform rect = character.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0f);
         rect.anchorMax = new Vector2(0.5f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
-        rect.anchoredPosition = new Vector2(-140f, -220f);
-        rect.sizeDelta = new Vector2(850f, 1200f);
+        rect.anchoredPosition = new Vector2(-260f, -95f);
+        rect.sizeDelta = new Vector2(650f, 920f);
 
         Image image = character.AddComponent<Image>();
-        image.color = new Color(1f, 1f, 1f, 0f);
+        image.color = Color.white;
         image.preserveAspect = true;
         image.raycastTarget = false;
         image.enabled = false;
@@ -438,9 +426,9 @@ public static class VNPrototypeSceneBuilder
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
-        choiceMashaButton = CreateChoiceButton(panel.transform, "Choice Masha Button");
-        choiceArtemButton = CreateChoiceButton(panel.transform, "Choice Artem Button");
-        choiceLeraButton = CreateChoiceButton(panel.transform, "Choice Lera Button");
+        choiceMashaButton = CreateChoiceButton(panel.transform, "Choice Option 1 Button");
+        choiceArtemButton = CreateChoiceButton(panel.transform, "Choice Option 2 Button");
+        choiceLeraButton = CreateChoiceButton(panel.transform, "Choice Option 3 Button");
         return panel;
     }
 
