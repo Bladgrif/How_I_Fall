@@ -10,6 +10,7 @@ public class MainMenuController : MonoBehaviour
 
     [SerializeField] private GameObject aboutPanel;
     [SerializeField] private GameObject helpPanel;
+    [SerializeField] private GameObject exitConfirmPanel;
     [SerializeField] private TextMeshProUGUI notificationText;
     [SerializeField] private GameObject notificationPanel;
 
@@ -84,6 +85,31 @@ public class MainMenuController : MonoBehaviour
         {
             helpPanel.SetActive(false);
         }
+    }
+
+    public void OpenExitConfirm()
+    {
+        if (exitConfirmPanel != null)
+        {
+            exitConfirmPanel.SetActive(true);
+            return;
+        }
+
+        ExitGame();
+    }
+
+    public void CloseExitConfirm()
+    {
+        if (exitConfirmPanel != null)
+        {
+            exitConfirmPanel.SetActive(false);
+        }
+    }
+
+    public void ConfirmExit()
+    {
+        CloseExitConfirm();
+        ExitGame();
     }
 
     public void ShowNotification(string message)

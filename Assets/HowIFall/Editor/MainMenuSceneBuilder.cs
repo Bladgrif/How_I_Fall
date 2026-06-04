@@ -84,8 +84,9 @@ public static class MainMenuSceneBuilder
             new Vector2(820f, 560f),
             false,
             clickSfx);
+        var exitConfirmPanel = CreateExitConfirmPanel(canvas.transform, mainMenuController, clickSfx);
         var notificationPanel = CreateNotificationPanel(canvas.transform, out var notificationText);
-        AssignMainMenuControllerReferences(mainMenuController, aboutPanel, helpPanel, notificationPanel, notificationText);
+        AssignMainMenuControllerReferences(mainMenuController, aboutPanel, helpPanel, exitConfirmPanel, notificationPanel, notificationText);
 
         CreateMainMenuAnimator(canvas.transform, backgroundTransform, menuCanvasGroup, titleCanvasGroup, null);
 
@@ -369,7 +370,7 @@ public static class MainMenuSceneBuilder
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenSettings),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenAbout),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenHelp),
-            b => UnityEventTools.AddPersistentListener(b.onClick, controller.ExitGame)
+            b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenExitConfirm)
         };
 
         const float rowHeight = 62f;
@@ -878,6 +879,83 @@ public static class MainMenuSceneBuilder
         return panelRoot;
     }
 
+    private static GameObject CreateExitConfirmPanel(Transform canvas, MainMenuController controller, AudioClip clickSfx)
+    {
+        var panelRoot = CreateUiObject("Exit Confirm Panel", canvas);
+        panelRoot.SetActive(false);
+        StretchFull(panelRoot.GetComponent<RectTransform>());
+
+        var dim = CreateUiObject("Exit Confirm Dim Blocker", panelRoot.transform);
+        StretchFull(dim.GetComponent<RectTransform>());
+        var dimImage = dim.AddComponent<Image>();
+        dimImage.color = new Color(0.02f, 0.04f, 0.08f, 0.45f);
+        dimImage.raycastTarget = true;
+
+        var window = CreateUiObject("Exit Confirm Window", panelRoot.transform);
+        var windowRect = window.GetComponent<RectTransform>();
+        windowRect.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRect.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRect.pivot = new Vector2(0.5f, 0.5f);
+        windowRect.anchoredPosition = Vector2.zero;
+        windowRect.sizeDelta = new Vector2(620f, 320f);
+
+        var windowImage = window.AddComponent<Image>();
+        windowImage.sprite = TryLoadSprite(SettingsPanelBgPath);
+        windowImage.type = Image.Type.Simple;
+        windowImage.preserveAspect = false;
+        windowImage.color = windowImage.sprite != null ? Color.white : new Color(0.025f, 0.07f, 0.13f, 0.94f);
+        windowImage.raycastTarget = true;
+
+        var windowShadow = window.AddComponent<Shadow>();
+        windowShadow.effectColor = new Color(0f, 0f, 0f, 0.58f);
+        windowShadow.effectDistance = new Vector2(5f, -5f);
+
+        var outline = window.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.35f);
+        outline.effectDistance = new Vector2(2f, -2f);
+
+        var title = CreateTmpLabel(window.transform, "Выйти из игры?", 42, TextAlignmentOptions.Center);
+        var titleRect = title.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.5f, 1f);
+        titleRect.anchorMax = new Vector2(0.5f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -52f);
+        titleRect.sizeDelta = new Vector2(520f, 54f);
+        title.color = Color.white;
+        title.raycastTarget = false;
+
+        var body = CreateTmpLabel(window.transform, "Несохранённый прогресс может быть потерян.", 24, TextAlignmentOptions.Center);
+        var bodyRect = body.GetComponent<RectTransform>();
+        bodyRect.anchorMin = new Vector2(0.5f, 0.5f);
+        bodyRect.anchorMax = new Vector2(0.5f, 0.5f);
+        bodyRect.pivot = new Vector2(0.5f, 0.5f);
+        bodyRect.anchoredPosition = new Vector2(0f, 20f);
+        bodyRect.sizeDelta = new Vector2(520f, 64f);
+        body.fontStyle = FontStyles.Normal;
+        body.color = new Color(1f, 1f, 1f, 0.85f);
+        body.raycastTarget = false;
+
+        var yesButton = CreateStyledButton(window.transform, "Да", new Vector2(170f, 58f));
+        var yesRect = yesButton.GetComponent<RectTransform>();
+        yesRect.anchorMin = new Vector2(0.5f, 0f);
+        yesRect.anchorMax = new Vector2(0.5f, 0f);
+        yesRect.pivot = new Vector2(0.5f, 0f);
+        yesRect.anchoredPosition = new Vector2(-105f, 46f);
+        AddStyledButtonClickSfx(yesButton, clickSfx);
+        UnityEventTools.AddPersistentListener(yesButton.onClick, controller.ConfirmExit);
+
+        var noButton = CreateStyledButton(window.transform, "Нет", new Vector2(170f, 58f));
+        var noRect = noButton.GetComponent<RectTransform>();
+        noRect.anchorMin = new Vector2(0.5f, 0f);
+        noRect.anchorMax = new Vector2(0.5f, 0f);
+        noRect.pivot = new Vector2(0.5f, 0f);
+        noRect.anchoredPosition = new Vector2(105f, 46f);
+        AddStyledButtonClickSfx(noButton, clickSfx);
+        UnityEventTools.AddPersistentListener(noButton.onClick, controller.CloseExitConfirm);
+
+        return panelRoot;
+    }
+
     private static GameObject CreateNotificationPanel(Transform canvas, out TextMeshProUGUI notificationText)
     {
         var panelRoot = CreateUiObject("Notification Panel", canvas);
@@ -910,12 +988,14 @@ public static class MainMenuSceneBuilder
         MainMenuController controller,
         GameObject aboutPanel,
         GameObject helpPanel,
+        GameObject exitConfirmPanel,
         GameObject notificationPanel,
         TextMeshProUGUI notificationText)
     {
         var serializedController = new SerializedObject(controller);
         serializedController.FindProperty("aboutPanel").objectReferenceValue = aboutPanel;
         serializedController.FindProperty("helpPanel").objectReferenceValue = helpPanel;
+        serializedController.FindProperty("exitConfirmPanel").objectReferenceValue = exitConfirmPanel;
         serializedController.FindProperty("notificationPanel").objectReferenceValue = notificationPanel;
         serializedController.FindProperty("notificationText").objectReferenceValue = notificationText;
         serializedController.ApplyModifiedPropertiesWithoutUndo();
