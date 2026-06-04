@@ -17,6 +17,15 @@ public static class VNPrototypeSceneBuilder
     private const string SceneRegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
     private const string LogoPath = "Assets/HowIFall/Art/UI/MainMenu/logo_how_i_fall.png";
     private const string PlaceholderCharacterPath = "Assets/HowIFall/Art/Characters/Placeholders/placeholder_female_student_default.png";
+    private const string VNMenuButtonPath = "Assets/HowIFall/Art/UI/VN/vn_menu_button.png";
+    private const string VNQuickHistoryPath = "Assets/HowIFall/Art/UI/VN/vn_quick_history.png";
+    private const string VNQuickAutoPath = "Assets/HowIFall/Art/UI/VN/vn_quick_auto.png";
+    private const string VNQuickSkipPath = "Assets/HowIFall/Art/UI/VN/vn_quick_skip.png";
+    private const string VNQuickSavePath = "Assets/HowIFall/Art/UI/VN/vn_quick_save.png";
+    private const string VNQuickLoadPath = "Assets/HowIFall/Art/UI/VN/vn_quick_load.png";
+    private const string VNQuickSettingsPath = "Assets/HowIFall/Art/UI/VN/vn_quick_settings.png";
+    private const string VNDialogueBoxPath = "Assets/HowIFall/Art/UI/VN/dialogue_box_bg.png";
+    private const string VNNameBoxPath = "Assets/HowIFall/Art/UI/VN/name_box_brush.png";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
     private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
     private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
@@ -26,6 +35,7 @@ public static class VNPrototypeSceneBuilder
     {
         VNUITestSceneContentBuilder.BuildUITestSceneAsset();
         ConfigureSpriteImportSettings(PlaceholderCharacterPath);
+        ConfigureVNUIImportSettings();
 
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -290,22 +300,33 @@ public static class VNPrototypeSceneBuilder
 
     private static void CreateTopMenuButton(Transform parent, VNDialogueController controller)
     {
-        Button menuButton = CreateStyledButton(parent, "МЕНЮ", new Vector2(132f, 38f), 17);
+        Sprite menuSprite = TryLoadOptionalSprite(VNMenuButtonPath);
+        Button menuButton = CreateStyledButton(
+            parent,
+            menuSprite == null ? "МЕНЮ" : string.Empty,
+            menuSprite == null ? new Vector2(132f, 38f) : new Vector2(150f, 46f),
+            menuSprite == null ? 17 : 18);
         menuButton.gameObject.name = "Top Menu Button";
 
         RectTransform rect = menuButton.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(1f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-56f, -38f);
+        rect.anchoredPosition = menuSprite == null ? new Vector2(-56f, -38f) : new Vector2(-58f, -42f);
 
         Image image = menuButton.GetComponent<Image>();
         image.color = Color.white;
+        if (menuSprite != null)
+        {
+            image.sprite = menuSprite;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = true;
+        }
 
         ColorBlock colors = menuButton.colors;
-        colors.normalColor = new Color(0.015f, 0.035f, 0.075f, 0.72f);
-        colors.highlightedColor = new Color(0.55f, 0.08f, 0.07f, 0.86f);
-        colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.95f);
+        colors.normalColor = menuSprite == null ? new Color(0.015f, 0.035f, 0.075f, 0.72f) : Color.white;
+        colors.highlightedColor = menuSprite == null ? new Color(0.55f, 0.08f, 0.07f, 0.86f) : new Color(1f, 1f, 1f, 0.88f);
+        colors.pressedColor = menuSprite == null ? new Color(0.9f, 0.08f, 0.06f, 0.95f) : new Color(0.9f, 0.9f, 0.9f, 0.95f);
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
         menuButton.colors = colors;
@@ -323,8 +344,12 @@ public static class VNPrototypeSceneBuilder
         rect.offsetMin = new Vector2(220f, 92f);
         rect.offsetMax = new Vector2(-220f, 272f);
 
+        Sprite dialogueBoxSprite = TryLoadOptionalSprite(VNDialogueBoxPath);
         Image image = box.AddComponent<Image>();
-        image.color = new Color(0.015f, 0.035f, 0.075f, 0.79f);
+        image.sprite = dialogueBoxSprite;
+        image.type = GetImageTypeForSprite(dialogueBoxSprite);
+        image.preserveAspect = false;
+        image.color = dialogueBoxSprite == null ? new Color(0.015f, 0.035f, 0.075f, 0.68f) : new Color(1f, 1f, 1f, 0.72f);
         image.raycastTarget = true;
 
         Outline outline = box.AddComponent<Outline>();
@@ -345,25 +370,32 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0f, 1f);
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = new Vector2(50f, 24f);
-        rect.sizeDelta = new Vector2(240f, 58f);
+        Sprite nameBoxSprite = TryLoadOptionalSprite(VNNameBoxPath);
+        rect.anchoredPosition = nameBoxSprite == null ? new Vector2(50f, 24f) : new Vector2(42f, 34f);
+        rect.sizeDelta = nameBoxSprite == null ? new Vector2(240f, 58f) : new Vector2(300f, 82f);
 
         Image image = nameBox.AddComponent<Image>();
-        image.color = new Color(0.055f, 0.18f, 0.36f, 0.96f);
+        image.sprite = nameBoxSprite;
+        image.type = Image.Type.Simple;
+        image.preserveAspect = false;
+        image.color = nameBoxSprite == null ? new Color(0.055f, 0.18f, 0.36f, 0.96f) : new Color(1f, 1f, 1f, 0.96f);
         image.raycastTarget = false;
 
-        GameObject accent = CreateUiObject("Name Box Red Underline", nameBox.transform);
-        RectTransform accentRect = accent.GetComponent<RectTransform>();
-        accentRect.anchorMin = new Vector2(0f, 0f);
-        accentRect.anchorMax = new Vector2(1f, 0f);
-        accentRect.pivot = new Vector2(0.5f, 0f);
-        accentRect.offsetMin = new Vector2(18f, 0f);
-        accentRect.offsetMax = new Vector2(-18f, 4f);
-        Image accentImage = accent.AddComponent<Image>();
-        accentImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
-        accentImage.raycastTarget = false;
+        if (nameBoxSprite == null)
+        {
+            GameObject accent = CreateUiObject("Name Box Red Underline", nameBox.transform);
+            RectTransform accentRect = accent.GetComponent<RectTransform>();
+            accentRect.anchorMin = new Vector2(0f, 0f);
+            accentRect.anchorMax = new Vector2(1f, 0f);
+            accentRect.pivot = new Vector2(0.5f, 0f);
+            accentRect.offsetMin = new Vector2(18f, 0f);
+            accentRect.offsetMax = new Vector2(-18f, 4f);
+            Image accentImage = accent.AddComponent<Image>();
+            accentImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
+            accentImage.raycastTarget = false;
+        }
 
-        speakerText = CreateTMPText("Speaker Text", nameBox.transform, string.Empty, 30, new Color(1f, 1f, 1f, 0.98f));
+        speakerText = CreateTMPText("Speaker Text", nameBox.transform, string.Empty, nameBoxSprite == null ? 30 : 32, new Color(1f, 1f, 1f, 0.98f));
         speakerText.fontStyle = FontStyles.Bold | FontStyles.Italic;
         speakerText.alignment = TextAlignmentOptions.Center;
         StretchFull(speakerText.rectTransform, 18f, 18f, 4f, 0f);
@@ -373,11 +405,14 @@ public static class VNPrototypeSceneBuilder
 
     private static TextMeshProUGUI CreateDialogueText(Transform parent)
     {
-        TextMeshProUGUI text = CreateTMPText("Dialogue Text", parent, string.Empty, 32, new Color(1f, 1f, 1f, 0.95f));
+        TextMeshProUGUI text = CreateTMPText("Dialogue Text", parent, string.Empty, 32, new Color(1f, 1f, 1f, 0.98f));
         text.alignment = TextAlignmentOptions.TopLeft;
         text.enableWordWrapping = true;
         text.overflowMode = TextOverflowModes.Overflow;
         text.lineSpacing = 6f;
+        Shadow shadow = text.gameObject.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
+        shadow.effectDistance = new Vector2(1f, -1f);
 
         RectTransform rect = text.rectTransform;
         rect.anchorMin = Vector2.zero;
@@ -407,7 +442,7 @@ public static class VNPrototypeSceneBuilder
         colors.disabledColor = colors.normalColor;
         button.colors = colors;
 
-        TextMeshProUGUI indicator = CreateTMPText("Next Indicator", buttonGo.transform, "▼", 24, new Color(1f, 1f, 1f, 0.8f));
+        TextMeshProUGUI indicator = CreateTMPText("Next Indicator", buttonGo.transform, "▼", 26, new Color(1f, 1f, 1f, 0.85f));
         indicator.alignment = TextAlignmentOptions.Center;
         RectTransform indicatorRect = indicator.rectTransform;
         indicatorRect.anchorMin = new Vector2(1f, 0f);
@@ -534,19 +569,19 @@ public static class VNPrototypeSceneBuilder
         rightRect.offsetMin = Vector2.zero;
         rightRect.offsetMax = Vector2.zero;
 
-        Button backlogButton = CreateQuickMenuButton(leftGroup.transform, "История", 94f, true);
+        Button backlogButton = CreateQuickMenuButton(leftGroup.transform, "История", 150f, true, VNQuickHistoryPath);
         UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
 
-        CreateQuickMenuButton(leftGroup.transform, "Авто", 72f, false);
-        CreateQuickMenuButton(leftGroup.transform, "Пропуск", 96f, false);
+        CreateQuickMenuButton(leftGroup.transform, "Авто", 150f, false, VNQuickAutoPath);
+        CreateQuickMenuButton(leftGroup.transform, "Пропуск", 150f, false, VNQuickSkipPath);
 
-        Button saveButton = CreateQuickMenuButton(rightGroup.transform, "Сохранить", 110f, true);
+        Button saveButton = CreateQuickMenuButton(rightGroup.transform, "Сохранить", 150f, true, VNQuickSavePath);
         UnityEventTools.AddPersistentListener(saveButton.onClick, controller.SaveGame);
 
-        Button loadButton = CreateQuickMenuButton(rightGroup.transform, "Загрузить", 104f, true);
+        Button loadButton = CreateQuickMenuButton(rightGroup.transform, "Загрузить", 150f, true, VNQuickLoadPath);
         UnityEventTools.AddPersistentListener(loadButton.onClick, controller.LoadGame);
 
-        Button settingsButton = CreateQuickMenuButton(rightGroup.transform, "Настройки", 110f, true);
+        Button settingsButton = CreateQuickMenuButton(rightGroup.transform, "Настройки", 150f, true, VNQuickSettingsPath);
         UnityEventTools.AddPersistentListener(settingsButton.onClick, controller.OpenSettings);
     }
 
@@ -563,14 +598,18 @@ public static class VNPrototypeSceneBuilder
         return group;
     }
 
-    private static Button CreateQuickMenuButton(Transform parent, string labelText, float width, bool interactable)
+    private static Button CreateQuickMenuButton(Transform parent, string labelText, float width, bool interactable, string spritePath = null)
     {
         GameObject buttonGo = CreateUiObject(labelText + " Button", parent);
         RectTransform rect = buttonGo.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(width, 42f);
 
         Image hitArea = buttonGo.AddComponent<Image>();
-        hitArea.color = new Color(0f, 0f, 0f, 0f);
+        Sprite buttonSprite = string.IsNullOrEmpty(spritePath) ? null : TryLoadOptionalSprite(spritePath);
+        hitArea.sprite = buttonSprite;
+        hitArea.type = Image.Type.Simple;
+        hitArea.preserveAspect = buttonSprite != null;
+        hitArea.color = buttonSprite == null ? new Color(0f, 0f, 0f, 0f) : Color.white;
         hitArea.raycastTarget = true;
 
         Button button = buttonGo.AddComponent<Button>();
@@ -578,20 +617,23 @@ public static class VNPrototypeSceneBuilder
         button.interactable = interactable;
 
         ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0f, 0f, 0f, 0f);
-        colors.highlightedColor = new Color(0.9f, 0.08f, 0.06f, 0.16f);
-        colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.28f);
+        colors.normalColor = buttonSprite == null ? new Color(0f, 0f, 0f, 0f) : (interactable ? Color.white : new Color(1f, 1f, 1f, 0.35f));
+        colors.highlightedColor = buttonSprite == null ? new Color(0.9f, 0.08f, 0.06f, 0.16f) : new Color(1f, 1f, 1f, 0.86f);
+        colors.pressedColor = buttonSprite == null ? new Color(0.9f, 0.08f, 0.06f, 0.28f) : new Color(0.9f, 0.9f, 0.9f, 0.95f);
         colors.selectedColor = colors.highlightedColor;
-        colors.disabledColor = new Color(0f, 0f, 0f, 0f);
+        colors.disabledColor = buttonSprite == null ? new Color(0f, 0f, 0f, 0f) : new Color(1f, 1f, 1f, 0.35f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
 
-        Color textColor = interactable
-            ? new Color(1f, 1f, 1f, 0.78f)
-            : new Color(1f, 1f, 1f, 0.35f);
-        TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, 20, textColor);
-        label.alignment = TextAlignmentOptions.Center;
-        StretchFull(label.rectTransform);
+        if (buttonSprite == null)
+        {
+            Color textColor = interactable
+                ? new Color(1f, 1f, 1f, 0.78f)
+                : new Color(1f, 1f, 1f, 0.35f);
+            TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, 20, textColor);
+            label.alignment = TextAlignmentOptions.Center;
+            StretchFull(label.rectTransform);
+        }
 
         button.gameObject.name = labelText + " Button";
         return button;
@@ -1158,6 +1200,47 @@ public static class VNPrototypeSceneBuilder
         }
 
         return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+    }
+
+    private static Sprite TryLoadOptionalSprite(string path)
+    {
+        Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (sprite == null)
+        {
+            Debug.LogWarning($"Optional VN UI sprite not found: {path}");
+        }
+
+        return sprite;
+    }
+
+    private static Image.Type GetImageTypeForSprite(Sprite sprite)
+    {
+        return sprite != null && sprite.border.sqrMagnitude > 0f
+            ? Image.Type.Sliced
+            : Image.Type.Simple;
+    }
+
+    private static void ConfigureVNUIImportSettings()
+    {
+        ConfigureOptionalSpriteImportSettings(VNMenuButtonPath);
+        ConfigureOptionalSpriteImportSettings(VNQuickHistoryPath);
+        ConfigureOptionalSpriteImportSettings(VNQuickAutoPath);
+        ConfigureOptionalSpriteImportSettings(VNQuickSkipPath);
+        ConfigureOptionalSpriteImportSettings(VNQuickSavePath);
+        ConfigureOptionalSpriteImportSettings(VNQuickLoadPath);
+        ConfigureOptionalSpriteImportSettings(VNQuickSettingsPath);
+        ConfigureOptionalSpriteImportSettings(VNDialogueBoxPath);
+        ConfigureOptionalSpriteImportSettings(VNNameBoxPath);
+    }
+
+    private static void ConfigureOptionalSpriteImportSettings(string path)
+    {
+        if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path) == null)
+        {
+            return;
+        }
+
+        ConfigureSpriteImportSettings(path);
     }
 
     private static void ConfigureSpriteImportSettings(string path)
