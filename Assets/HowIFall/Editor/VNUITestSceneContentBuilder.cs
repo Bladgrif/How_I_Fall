@@ -7,8 +7,8 @@ public static class VNUITestSceneContentBuilder
     public const string UITestScenePath = "Assets/HowIFall/Data/Dialogues/ui_test_scene.asset";
 
     private const string RegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
-    private const string BackgroundPath = "Assets/HowIFall/Art/Backgrounds/school_entrance_morning.png";
-    private const string FallbackBackgroundPath = "Assets/HowIFall/Art/Backgrounds/school_gate_morning.png";
+    private const string BackgroundPath = "Assets/HowIFall/Art/Backgrounds/demo_vn_background.png";
+    private const string FallbackBackgroundPath = "Assets/HowIFall/Art/Backgrounds/demo_vn_background.png";
     private const string PlaceholderCharacterPath = "Assets/HowIFall/Art/Characters/Placeholders/placeholder_female_student_default.png";
 
     [MenuItem("How I Fall/Build VN UI Test Dialogue")]
@@ -22,6 +22,7 @@ public static class VNUITestSceneContentBuilder
 
     public static DialogueSceneData BuildUITestSceneAsset()
     {
+        ConfigureSpriteImportSettings(BackgroundPath);
         ConfigureSpriteImportSettings(PlaceholderCharacterPath);
 
         DialogueSceneData scene = AssetDatabase.LoadAssetAtPath<DialogueSceneData>(UITestScenePath);
@@ -49,7 +50,13 @@ public static class VNUITestSceneContentBuilder
         Sprite background = LoadSprite(BackgroundPath);
         if (background == null)
         {
+            Debug.LogWarning($"VN UI test background was not found at {BackgroundPath}. Trying fallback: {FallbackBackgroundPath}");
             background = LoadSprite(FallbackBackgroundPath);
+        }
+
+        if (background == null)
+        {
+            Debug.LogWarning($"VN UI test fallback background was not found at {FallbackBackgroundPath}. The UI test scene will use an empty background.");
         }
 
         Sprite placeholder = LoadSprite(PlaceholderCharacterPath);
