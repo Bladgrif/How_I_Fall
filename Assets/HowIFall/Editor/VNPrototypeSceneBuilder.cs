@@ -103,10 +103,10 @@ public static class VNPrototypeSceneBuilder
         controller.dialogueText = dialogueText;
         controller.backgroundImage = backgroundImage;
         controller.characterImage = characterImage;
-        controller.characterLeftPosition = new Vector2(-60f, -1120f);
-        controller.characterCenterPosition = new Vector2(-20f, -1120f);
-        controller.characterRightPosition = new Vector2(180f, -1120f);
-        controller.characterSoloPosition = new Vector2(-60f, -1120f);
+        controller.characterLeftPosition = new Vector2(30f, -1120f);
+        controller.characterCenterPosition = new Vector2(70f, -1120f);
+        controller.characterRightPosition = new Vector2(230f, -1120f);
+        controller.characterSoloPosition = new Vector2(30f, -1120f);
         controller.characterDefaultSize = new Vector2(1500f, 2100f);
         controller.nameBox = nameBox;
         controller.nextButton = nextButton;
@@ -202,7 +202,7 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0.5f, 0f);
         rect.anchorMax = new Vector2(0.5f, 0f);
         rect.pivot = new Vector2(0.5f, 0f);
-        rect.anchoredPosition = new Vector2(-60f, -1120f);
+        rect.anchoredPosition = new Vector2(30f, -1120f);
         rect.sizeDelta = new Vector2(1500f, 2100f);
 
         Image image = character.AddComponent<Image>();
