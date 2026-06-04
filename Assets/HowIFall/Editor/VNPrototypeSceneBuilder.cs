@@ -17,13 +17,6 @@ public static class VNPrototypeSceneBuilder
     private const string SceneRegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
     private const string LogoPath = "Assets/HowIFall/Art/UI/MainMenu/logo_how_i_fall.png";
     private const string PlaceholderCharacterPath = "Assets/HowIFall/Art/Characters/Placeholders/placeholder_female_student_default.png";
-    private const string VNMenuButtonPath = "Assets/HowIFall/Art/UI/VN/vn_menu_button.png";
-    private const string VNQuickHistoryPath = "Assets/HowIFall/Art/UI/VN/vn_quick_history.png";
-    private const string VNQuickAutoPath = "Assets/HowIFall/Art/UI/VN/vn_quick_auto.png";
-    private const string VNQuickSkipPath = "Assets/HowIFall/Art/UI/VN/vn_quick_skip.png";
-    private const string VNQuickSavePath = "Assets/HowIFall/Art/UI/VN/vn_quick_save.png";
-    private const string VNQuickLoadPath = "Assets/HowIFall/Art/UI/VN/vn_quick_load.png";
-    private const string VNQuickSettingsPath = "Assets/HowIFall/Art/UI/VN/vn_quick_settings.png";
     private const string VNDialogueBoxPath = "Assets/HowIFall/Art/UI/VN/dialogue_box_bg.png";
     private const string VNNameBoxPath = "Assets/HowIFall/Art/UI/VN/name_box_brush.png";
     private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
@@ -300,36 +293,32 @@ public static class VNPrototypeSceneBuilder
 
     private static void CreateTopMenuButton(Transform parent, VNDialogueController controller)
     {
-        Sprite menuSprite = TryLoadOptionalSprite(VNMenuButtonPath);
-        Button menuButton = CreateStyledButton(
-            parent,
-            menuSprite == null ? "МЕНЮ" : string.Empty,
-            menuSprite == null ? new Vector2(132f, 38f) : new Vector2(150f, 46f),
-            menuSprite == null ? 17 : 18);
+        Button menuButton = CreateStyledButton(parent, "МЕНЮ", new Vector2(132f, 38f), 18);
         menuButton.gameObject.name = "Top Menu Button";
 
         RectTransform rect = menuButton.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(1f, 1f);
         rect.anchorMax = new Vector2(1f, 1f);
         rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = menuSprite == null ? new Vector2(-56f, -38f) : new Vector2(-58f, -42f);
+        rect.anchoredPosition = new Vector2(-56f, -38f);
 
         Image image = menuButton.GetComponent<Image>();
         image.color = Color.white;
-        if (menuSprite != null)
-        {
-            image.sprite = menuSprite;
-            image.type = Image.Type.Simple;
-            image.preserveAspect = true;
-        }
 
         ColorBlock colors = menuButton.colors;
-        colors.normalColor = menuSprite == null ? new Color(0.015f, 0.035f, 0.075f, 0.72f) : Color.white;
-        colors.highlightedColor = menuSprite == null ? new Color(0.55f, 0.08f, 0.07f, 0.86f) : new Color(1f, 1f, 1f, 0.88f);
-        colors.pressedColor = menuSprite == null ? new Color(0.9f, 0.08f, 0.06f, 0.95f) : new Color(0.9f, 0.9f, 0.9f, 0.95f);
+        colors.normalColor = new Color(0.015f, 0.035f, 0.075f, 0.62f);
+        colors.highlightedColor = new Color(0.55f, 0.08f, 0.07f, 0.82f);
+        colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.9f);
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
         menuButton.colors = colors;
+
+        TextMeshProUGUI label = menuButton.GetComponentInChildren<TextMeshProUGUI>();
+        if (label != null)
+        {
+            label.fontSize = 18;
+            label.color = new Color(1f, 1f, 1f, 0.9f);
+        }
 
         UnityEventTools.AddPersistentListener(menuButton.onClick, controller.ShowConfirmExit);
     }
@@ -349,7 +338,7 @@ public static class VNPrototypeSceneBuilder
         image.sprite = dialogueBoxSprite;
         image.type = GetImageTypeForSprite(dialogueBoxSprite);
         image.preserveAspect = false;
-        image.color = dialogueBoxSprite == null ? new Color(0.015f, 0.035f, 0.075f, 0.68f) : new Color(1f, 1f, 1f, 0.72f);
+        image.color = dialogueBoxSprite == null ? new Color(0.015f, 0.035f, 0.075f, 0.62f) : new Color(1f, 1f, 1f, 0.62f);
         image.raycastTarget = true;
 
         Outline outline = box.AddComponent<Outline>();
@@ -371,8 +360,8 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
         Sprite nameBoxSprite = TryLoadOptionalSprite(VNNameBoxPath);
-        rect.anchoredPosition = nameBoxSprite == null ? new Vector2(50f, 24f) : new Vector2(42f, 34f);
-        rect.sizeDelta = nameBoxSprite == null ? new Vector2(240f, 58f) : new Vector2(300f, 82f);
+        rect.anchoredPosition = nameBoxSprite == null ? new Vector2(50f, 24f) : new Vector2(34f, 44f);
+        rect.sizeDelta = nameBoxSprite == null ? new Vector2(240f, 58f) : new Vector2(340f, 92f);
 
         Image image = nameBox.AddComponent<Image>();
         image.sprite = nameBoxSprite;
@@ -569,19 +558,19 @@ public static class VNPrototypeSceneBuilder
         rightRect.offsetMin = Vector2.zero;
         rightRect.offsetMax = Vector2.zero;
 
-        Button backlogButton = CreateQuickMenuButton(leftGroup.transform, "История", 150f, true, VNQuickHistoryPath);
+        Button backlogButton = CreateQuickMenuButton(leftGroup.transform, "История  ▤", true);
         UnityEventTools.AddPersistentListener(backlogButton.onClick, controller.ShowBacklog);
 
-        CreateQuickMenuButton(leftGroup.transform, "Авто", 150f, false, VNQuickAutoPath);
-        CreateQuickMenuButton(leftGroup.transform, "Пропуск", 150f, false, VNQuickSkipPath);
+        CreateQuickMenuButton(leftGroup.transform, "Авто  ▶", false);
+        CreateQuickMenuButton(leftGroup.transform, "Пропуск  »", false);
 
-        Button saveButton = CreateQuickMenuButton(rightGroup.transform, "Сохранить", 150f, true, VNQuickSavePath);
+        Button saveButton = CreateQuickMenuButton(rightGroup.transform, "Сохр.  ⇩", true);
         UnityEventTools.AddPersistentListener(saveButton.onClick, controller.SaveGame);
 
-        Button loadButton = CreateQuickMenuButton(rightGroup.transform, "Загрузить", 150f, true, VNQuickLoadPath);
+        Button loadButton = CreateQuickMenuButton(rightGroup.transform, "Загр.  ⇧", true);
         UnityEventTools.AddPersistentListener(loadButton.onClick, controller.LoadGame);
 
-        Button settingsButton = CreateQuickMenuButton(rightGroup.transform, "Настройки", 150f, true, VNQuickSettingsPath);
+        Button settingsButton = CreateQuickMenuButton(rightGroup.transform, "Настр.  ⚙", true);
         UnityEventTools.AddPersistentListener(settingsButton.onClick, controller.OpenSettings);
     }
 
@@ -589,7 +578,7 @@ public static class VNPrototypeSceneBuilder
     {
         GameObject group = CreateUiObject(name, parent);
         HorizontalLayoutGroup layout = group.AddComponent<HorizontalLayoutGroup>();
-        layout.spacing = 18f;
+        layout.spacing = 20f;
         layout.childAlignment = alignment;
         layout.childControlWidth = false;
         layout.childControlHeight = false;
@@ -598,42 +587,35 @@ public static class VNPrototypeSceneBuilder
         return group;
     }
 
-    private static Button CreateQuickMenuButton(Transform parent, string labelText, float width, bool interactable, string spritePath = null)
+    private static Button CreateQuickMenuButton(Transform parent, string labelText, bool interactable)
     {
         GameObject buttonGo = CreateUiObject(labelText + " Button", parent);
         RectTransform rect = buttonGo.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(width, 42f);
+        rect.sizeDelta = new Vector2(126f, 34f);
 
         Image hitArea = buttonGo.AddComponent<Image>();
-        Sprite buttonSprite = string.IsNullOrEmpty(spritePath) ? null : TryLoadOptionalSprite(spritePath);
-        hitArea.sprite = buttonSprite;
-        hitArea.type = Image.Type.Simple;
-        hitArea.preserveAspect = buttonSprite != null;
-        hitArea.color = buttonSprite == null ? new Color(0f, 0f, 0f, 0f) : Color.white;
+        hitArea.color = new Color(0f, 0f, 0f, 0f);
         hitArea.raycastTarget = true;
 
         Button button = buttonGo.AddComponent<Button>();
-        button.targetGraphic = hitArea;
         button.interactable = interactable;
 
+        Color textColor = interactable
+            ? new Color(1f, 1f, 1f, 0.72f)
+            : new Color(1f, 1f, 1f, 0.35f);
+        TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, 18, textColor);
+        label.alignment = TextAlignmentOptions.Center;
+        StretchFull(label.rectTransform);
+        button.targetGraphic = label;
+
         ColorBlock colors = button.colors;
-        colors.normalColor = buttonSprite == null ? new Color(0f, 0f, 0f, 0f) : (interactable ? Color.white : new Color(1f, 1f, 1f, 0.35f));
-        colors.highlightedColor = buttonSprite == null ? new Color(0.9f, 0.08f, 0.06f, 0.16f) : new Color(1f, 1f, 1f, 0.86f);
-        colors.pressedColor = buttonSprite == null ? new Color(0.9f, 0.08f, 0.06f, 0.28f) : new Color(0.9f, 0.9f, 0.9f, 0.95f);
+        colors.normalColor = interactable ? new Color(1f, 1f, 1f, 0.72f) : new Color(1f, 1f, 1f, 0.35f);
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.95f);
+        colors.pressedColor = new Color(0.95f, 0.1f, 0.08f, 0.95f);
         colors.selectedColor = colors.highlightedColor;
-        colors.disabledColor = buttonSprite == null ? new Color(0f, 0f, 0f, 0f) : new Color(1f, 1f, 1f, 0.35f);
+        colors.disabledColor = new Color(1f, 1f, 1f, 0.35f);
         colors.fadeDuration = 0.08f;
         button.colors = colors;
-
-        if (buttonSprite == null)
-        {
-            Color textColor = interactable
-                ? new Color(1f, 1f, 1f, 0.78f)
-                : new Color(1f, 1f, 1f, 0.35f);
-            TextMeshProUGUI label = CreateTMPText("Text", buttonGo.transform, labelText, 20, textColor);
-            label.alignment = TextAlignmentOptions.Center;
-            StretchFull(label.rectTransform);
-        }
 
         button.gameObject.name = labelText + " Button";
         return button;
@@ -1222,13 +1204,6 @@ public static class VNPrototypeSceneBuilder
 
     private static void ConfigureVNUIImportSettings()
     {
-        ConfigureOptionalSpriteImportSettings(VNMenuButtonPath);
-        ConfigureOptionalSpriteImportSettings(VNQuickHistoryPath);
-        ConfigureOptionalSpriteImportSettings(VNQuickAutoPath);
-        ConfigureOptionalSpriteImportSettings(VNQuickSkipPath);
-        ConfigureOptionalSpriteImportSettings(VNQuickSavePath);
-        ConfigureOptionalSpriteImportSettings(VNQuickLoadPath);
-        ConfigureOptionalSpriteImportSettings(VNQuickSettingsPath);
         ConfigureOptionalSpriteImportSettings(VNDialogueBoxPath);
         ConfigureOptionalSpriteImportSettings(VNNameBoxPath);
     }
