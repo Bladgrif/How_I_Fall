@@ -35,6 +35,7 @@ public class VNDialogueController : MonoBehaviour
     public GameObject confirmExitPanel;
     public Button confirmExitYesButton;
     public Button confirmExitNoButton;
+    public GameObject vnSettingsDimOverlay;
     public GameObject vnSettingsPanel;
     public Slider vnMasterVolumeSlider;
     public Slider vnMusicVolumeSlider;
@@ -100,6 +101,8 @@ public class VNDialogueController : MonoBehaviour
         {
             vnSettingsPanel.SetActive(false);
         }
+
+        SetSettingsOverlayActive(false);
 
         if (backlogCloseButton != null)
         {
@@ -503,6 +506,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         RefreshSettingsUi();
+        SetSettingsOverlayActive(true);
         vnSettingsPanel.SetActive(true);
     }
 
@@ -511,6 +515,16 @@ public class VNDialogueController : MonoBehaviour
         if (vnSettingsPanel != null)
         {
             vnSettingsPanel.SetActive(false);
+        }
+
+        SetSettingsOverlayActive(false);
+    }
+
+    private void SetSettingsOverlayActive(bool isActive)
+    {
+        if (vnSettingsDimOverlay != null)
+        {
+            vnSettingsDimOverlay.SetActive(isActive);
         }
     }
 
@@ -604,6 +618,8 @@ public class VNDialogueController : MonoBehaviour
         {
             vnSettingsPanel.SetActive(false);
         }
+
+        SetSettingsOverlayActive(false);
 
         if (choicePanel != null)
         {
