@@ -876,23 +876,27 @@ public static class VNPrototypeSceneBuilder
 
     private static GameObject CreateNotificationPanel(Transform parent, out TextMeshProUGUI notificationText)
     {
-        GameObject panel = CreateUiObject("Notification Panel", parent);
+        GameObject panel = CreateUiObject("VN Toast", parent);
         RectTransform rect = panel.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 1f);
         rect.anchorMax = new Vector2(0.5f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
-        rect.anchoredPosition = new Vector2(0f, -92f);
-        rect.sizeDelta = new Vector2(420f, 54f);
+        rect.anchoredPosition = new Vector2(0f, -90f);
+        rect.sizeDelta = new Vector2(420f, 58f);
 
         Image image = panel.AddComponent<Image>();
-        image.color = new Color(0.015f, 0.035f, 0.075f, 0.84f);
+        image.color = new Color(0.015f, 0.035f, 0.075f, 0.86f);
         image.raycastTarget = false;
 
-        Shadow shadow = panel.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
-        shadow.effectDistance = new Vector2(3f, -3f);
+        Outline outline = panel.AddComponent<Outline>();
+        outline.effectColor = new Color(0.62f, 0.78f, 1f, 0.25f);
+        outline.effectDistance = new Vector2(1f, -1f);
 
-        notificationText = CreateTMPText("Notification Text", panel.transform, string.Empty, 22, new Color(0.94f, 0.9f, 0.98f, 1f));
+        Shadow shadow = panel.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.35f);
+        shadow.effectDistance = new Vector2(4f, -4f);
+
+        notificationText = CreateTMPText("Toast Text", panel.transform, string.Empty, 23, new Color(1f, 1f, 1f, 0.95f));
         notificationText.alignment = TextAlignmentOptions.Center;
         StretchFull(notificationText.rectTransform);
         return panel;

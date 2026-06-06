@@ -476,24 +476,51 @@ public class VNDialogueController : MonoBehaviour
     {
         if (SaveManager.Instance == null)
         {
-            ShowNotification("Сохранение недоступно");
+            ShowToast("Не удалось сохранить");
             return;
         }
 
-        SaveManager.Instance.Save(currentFullText);
-        ShowNotification("Быстрое сохранение выполнено");
+        try
+        {
+            SaveManager.Instance.Save(currentFullText);
+            ShowToast("Сохранено");
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogWarning($"VNDialogueController: quick save failed. {exception.Message}", this);
+            ShowToast("Не удалось сохранить");
+        }
     }
 
     public void LoadGame()
     {
-        if (SaveManager.Instance != null && SaveManager.Instance.Load())
+        if (SaveManager.Instance == null)
         {
-            RestoreFromGameState();
-            ShowNotification("Быстрое сохранение загружено");
+            ShowToast("Не удалось загрузить");
+            return;
         }
-        else
+
+        if (!SaveManager.Instance.HasSave())
         {
-            ShowNotification("Быстрое сохранение не найдено");
+            ShowToast("Нет сохранения");
+            return;
+        }
+
+        try
+        {
+            if (SaveManager.Instance.Load())
+            {
+                RestoreFromGameState();
+                ShowToast("Загружено");
+                return;
+            }
+
+            ShowToast("Не удалось загрузить");
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogWarning($"VNDialogueController: quick load failed. {exception.Message}", this);
+            ShowToast("Не удалось загрузить");
         }
     }
 
@@ -572,7 +599,7 @@ public class VNDialogueController : MonoBehaviour
 
         SettingsManager.Instance.ResetSettings();
         RefreshSettingsUi();
-        ShowNotification("Настройки сброшены");
+        ShowToast("Настройки сброшены");
     }
 
     public void OnMasterVolumeChanged(float value)
@@ -669,7 +696,7 @@ public class VNDialogueController : MonoBehaviour
         ReturnToMainMenu();
     }
 
-    private void ShowNotification(string message)
+    private void ShowToast(string message)
     {
         if (notificationPanel == null || notificationText == null)
         {
@@ -684,13 +711,18 @@ public class VNDialogueController : MonoBehaviour
 
         notificationText.text = message;
         notificationPanel.SetActive(true);
-        notificationCoroutine = StartCoroutine(HideNotificationAfterDelay());
+        notificationCoroutine = StartCoroutine(HideToastAfterDelay());
     }
 
-    private IEnumerator HideNotificationAfterDelay()
+    private IEnumerator HideToastAfterDelay()
     {
         yield return new WaitForSeconds(notificationDuration);
-        notificationPanel.SetActive(false);
+
+        if (notificationPanel != null)
+        {
+            notificationPanel.SetActive(false);
+        }
+
         notificationCoroutine = null;
     }
 
