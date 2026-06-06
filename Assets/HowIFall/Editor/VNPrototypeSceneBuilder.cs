@@ -56,6 +56,9 @@ public static class VNPrototypeSceneBuilder
         TextMeshProUGUI dialogueText = CreateDialogueText(dialogueBox.transform);
         Button nextButton = CreateNextButton(dialogueBox.transform);
 
+        GameObject choiceDimOverlay = CreateChoiceDimOverlay(vnRoot.transform);
+        choiceDimOverlay.SetActive(false);
+
         GameObject choicePanel = CreateChoicePanel(
             vnRoot.transform,
             out Button choiceMashaButton,
@@ -116,6 +119,7 @@ public static class VNPrototypeSceneBuilder
         controller.characterDefaultSize = new Vector2(1650f, 2310f);
         controller.nameBox = nameBox;
         controller.nextButton = nextButton;
+        controller.choiceDimOverlay = choiceDimOverlay;
         controller.choicePanel = choicePanel;
         controller.choiceMashaButton = choiceMashaButton;
         controller.choiceArtemButton = choiceArtemButton;
@@ -468,6 +472,17 @@ public static class VNPrototypeSceneBuilder
         return button;
     }
 
+    private static GameObject CreateChoiceDimOverlay(Transform parent)
+    {
+        GameObject overlay = CreateUiObject("Choice Dim Overlay", parent);
+        StretchFull(overlay.GetComponent<RectTransform>());
+
+        Image image = overlay.AddComponent<Image>();
+        image.color = new Color(0f, 0f, 0f, 0.28f);
+        image.raycastTarget = true;
+        return overlay;
+    }
+
     private static GameObject CreateChoicePanel(
         Transform parent,
         out Button choiceMashaButton,
@@ -479,11 +494,11 @@ public static class VNPrototypeSceneBuilder
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(0f, 80f);
-        rect.sizeDelta = new Vector2(760f, 360f);
+        rect.anchoredPosition = new Vector2(0f, 105f);
+        rect.sizeDelta = new Vector2(760f, 340f);
 
         Image panelImage = panel.AddComponent<Image>();
-        panelImage.color = new Color(0.015f, 0.035f, 0.075f, 0.82f);
+        panelImage.color = new Color(0.015f, 0.035f, 0.075f, 0.90f);
         panelImage.raycastTarget = true;
 
         Outline outline = panel.AddComponent<Outline>();
@@ -494,14 +509,14 @@ public static class VNPrototypeSceneBuilder
         shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
         shadow.effectDistance = new Vector2(6f, -6f);
 
-        TextMeshProUGUI title = CreateTMPText("Choice Title", panel.transform, "Что сделать?", 32, new Color(1f, 1f, 1f, 0.95f));
+        TextMeshProUGUI title = CreateTMPText("Choice Title", panel.transform, "Что сделать?", 31, new Color(1f, 1f, 1f, 0.95f));
         title.alignment = TextAlignmentOptions.Center;
         title.fontStyle = FontStyles.Bold;
         RectTransform titleRect = title.rectTransform;
         titleRect.anchorMin = new Vector2(0.5f, 0.5f);
         titleRect.anchorMax = new Vector2(0.5f, 0.5f);
         titleRect.pivot = new Vector2(0.5f, 0.5f);
-        titleRect.anchoredPosition = new Vector2(0f, 120f);
+        titleRect.anchoredPosition = new Vector2(0f, 112f);
         titleRect.sizeDelta = new Vector2(700f, 48f);
 
         GameObject underline = CreateUiObject("Choice Title Red Underline", panel.transform);
@@ -509,21 +524,21 @@ public static class VNPrototypeSceneBuilder
         underlineRect.anchorMin = new Vector2(0.5f, 0.5f);
         underlineRect.anchorMax = new Vector2(0.5f, 0.5f);
         underlineRect.pivot = new Vector2(0.5f, 0.5f);
-        underlineRect.anchoredPosition = new Vector2(0f, 88f);
+        underlineRect.anchoredPosition = new Vector2(0f, 82f);
         underlineRect.sizeDelta = new Vector2(180f, 4f);
         Image underlineImage = underline.AddComponent<Image>();
         underlineImage.color = new Color(0.9f, 0.08f, 0.06f, 0.95f);
         underlineImage.raycastTarget = false;
 
-        choiceMashaButton = CreateChoiceButton(panel.transform, "Choice Option 1 Button", new Vector2(0f, 40f));
-        choiceArtemButton = CreateChoiceButton(panel.transform, "Choice Option 2 Button", new Vector2(0f, -36f));
-        choiceLeraButton = CreateChoiceButton(panel.transform, "Choice Option 3 Button", new Vector2(0f, -112f));
+        choiceMashaButton = CreateChoiceButton(panel.transform, "Choice Option 1 Button", new Vector2(0f, 34f));
+        choiceArtemButton = CreateChoiceButton(panel.transform, "Choice Option 2 Button", new Vector2(0f, -38f));
+        choiceLeraButton = CreateChoiceButton(panel.transform, "Choice Option 3 Button", new Vector2(0f, -110f));
         return panel;
     }
 
     private static Button CreateChoiceButton(Transform parent, string name, Vector2 position)
     {
-        Button button = CreateStyledButton(parent, "Choice", new Vector2(600f, 58f), 24);
+        Button button = CreateStyledButton(parent, "Choice", new Vector2(600f, 54f), 24);
         button.gameObject.name = name;
         RectTransform rect = button.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -535,8 +550,8 @@ public static class VNPrototypeSceneBuilder
         image.color = Color.white;
 
         ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.025f, 0.06f, 0.12f, 0.78f);
-        colors.highlightedColor = new Color(0.55f, 0.08f, 0.07f, 0.88f);
+        colors.normalColor = new Color(0.025f, 0.06f, 0.12f, 0.82f);
+        colors.highlightedColor = new Color(0.55f, 0.08f, 0.07f, 0.90f);
         colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.95f);
         colors.selectedColor = colors.highlightedColor;
         colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
@@ -550,7 +565,7 @@ public static class VNPrototypeSceneBuilder
         TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>();
         if (label != null)
         {
-            label.color = new Color(1f, 1f, 1f, 0.94f);
+            label.color = new Color(1f, 1f, 1f, 0.95f);
             label.alignment = TextAlignmentOptions.Center;
             label.rectTransform.offsetMin = new Vector2(40f, 0f);
             label.rectTransform.offsetMax = new Vector2(-40f, 0f);

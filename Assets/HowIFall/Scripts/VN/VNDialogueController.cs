@@ -20,6 +20,7 @@ public class VNDialogueController : MonoBehaviour
     public Image characterImage;
     public GameObject nameBox;
     public Button nextButton;
+    public GameObject choiceDimOverlay;
     public GameObject choicePanel;
     public Button choiceMashaButton;
     public Button choiceArtemButton;
@@ -317,6 +318,7 @@ public class VNDialogueController : MonoBehaviour
 
         showingChoice = true;
         nextButton.interactable = false;
+        SetChoiceOverlayActive(true);
         choicePanel.SetActive(true);
 
         for (int i = 0; i < choiceButtons.Length; i++)
@@ -356,8 +358,17 @@ public class VNDialogueController : MonoBehaviour
         showingChoice = false;
         showingFinalLine = true;
         choicePanel.SetActive(false);
+        SetChoiceOverlayActive(false);
         nextButton.interactable = true;
         ShowNarration(finalLineText);
+    }
+
+    private void SetChoiceOverlayActive(bool isActive)
+    {
+        if (choiceDimOverlay != null)
+        {
+            choiceDimOverlay.SetActive(isActive);
+        }
     }
 
     private void ShowLine(DialogueLine line)
@@ -569,6 +580,8 @@ public class VNDialogueController : MonoBehaviour
         {
             choicePanel.SetActive(false);
         }
+
+        SetChoiceOverlayActive(false);
 
         if (nextButton != null)
         {
@@ -850,6 +863,7 @@ public class VNDialogueController : MonoBehaviour
             showingEndLine = true;
             pendingNextScene = null;
             choicePanel.SetActive(false);
+            SetChoiceOverlayActive(false);
             nextButton.interactable = true;
             ShowNarration(MissingSceneDataText);
             return;
@@ -865,6 +879,7 @@ public class VNDialogueController : MonoBehaviour
             showingEndLine = true;
             pendingNextScene = null;
             choicePanel.SetActive(false);
+            SetChoiceOverlayActive(false);
             nextButton.interactable = true;
             ShowNarration(MissingSceneDataText);
             return;
@@ -880,6 +895,7 @@ public class VNDialogueController : MonoBehaviour
         showingEndLine = false;
         pendingNextScene = null;
         choicePanel.SetActive(false);
+        SetChoiceOverlayActive(false);
         nextButton.interactable = true;
         GameState gameState = GameState.EnsureInstance();
         gameState.currentSceneId = sceneData.sceneId;
