@@ -19,9 +19,6 @@ public static class VNPrototypeSceneBuilder
     private const string PlaceholderCharacterPath = "Assets/HowIFall/Art/Characters/Placeholders/placeholder_female_student_default.png";
     private const string VNDialogueBoxPath = "Assets/HowIFall/Art/UI/VN/dialogue_box_bg.png";
     private const string VNNameBoxPath = "Assets/HowIFall/Art/UI/VN/name_box_brush.png";
-    private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
-    private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
-    private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
 
     [MenuItem("How I Fall/Build VN Prototype Scene")]
     public static void BuildVNPrototypeScene()
@@ -148,8 +145,6 @@ public static class VNPrototypeSceneBuilder
         controller.vnFullscreenToggle = fullscreenToggle;
         controller.vnSettingsCloseButton = settingsCloseButton;
         controller.vnSettingsResetButton = settingsResetButton;
-        controller.uiClickSfx = TryLoadAudioClip(UiClickSfxWavPath, UiClickSfxMp3Path, UiClickSfxOggPath);
-
         EditorSceneManager.SaveScene(scene, VNPrototypeScenePath);
         EnsureBuildSettingsScenes();
         AssetDatabase.SaveAssets();

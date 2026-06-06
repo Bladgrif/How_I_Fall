@@ -44,7 +44,6 @@ public class VNDialogueController : MonoBehaviour
     public Toggle vnFullscreenToggle;
     public Button vnSettingsCloseButton;
     public Button vnSettingsResetButton;
-    public AudioClip uiClickSfx;
     public float baseCharactersPerSecond = 45f;
 
     public Vector2 characterLeftPosition = new Vector2(-420f, -220f);
@@ -167,7 +166,6 @@ public class VNDialogueController : MonoBehaviour
             int choiceIndex = i;
             choiceButtons[i].onClick.AddListener(() =>
             {
-                PlayUiClick();
                 Choose(choiceIndex);
             });
         }
@@ -220,14 +218,6 @@ public class VNDialogueController : MonoBehaviour
         }
     }
 
-    private void PlayUiClick()
-    {
-        if (uiClickSfx != null && AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlaySfx(uiClickSfx);
-        }
-    }
-
     public void AdvanceDialogue()
     {
         if (IsAdvanceBlockedByOpenPanel())
@@ -235,7 +225,6 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        PlayUiClick();
         ShowNextLine();
     }
 
