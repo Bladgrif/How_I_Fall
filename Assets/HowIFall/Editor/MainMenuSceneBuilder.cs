@@ -26,9 +26,6 @@ public static class MainMenuSceneBuilder
     private const string SettingsBackButtonPath = "Assets/HowIFall/Art/UI/Settings/settings_back_button.png";
     private const string MainMenuMusicMp3Path = "Assets/HowIFall/Audio/Music/main_menu_bgm.mp3";
     private const string MainMenuMusicOggPath = "Assets/HowIFall/Audio/Music/main_menu_bgm.ogg";
-    private const string UiClickSfxWavPath = "Assets/HowIFall/Audio/SFX/ui_click.wav";
-    private const string UiClickSfxMp3Path = "Assets/HowIFall/Audio/SFX/ui_click.mp3";
-    private const string UiClickSfxOggPath = "Assets/HowIFall/Audio/SFX/ui_click.ogg";
     private const float MenuRowWidth = 360f;
     private const float MenuHoverBrushWidth = 290f;
     private const float MenuHoverBrushOffsetX = -20f;
@@ -43,7 +40,6 @@ public static class MainMenuSceneBuilder
         CreateEventSystem();
         var backgroundTransform = CreateBackgroundLayer(canvas.transform);
         CreateLeftGradientOverlay(canvas.transform);
-        var clickSfx = TryLoadAudioClip(UiClickSfxWavPath, UiClickSfxMp3Path, UiClickSfxOggPath);
 
         var sceneControllers = new GameObject("Scene Controllers");
         var mainMenuController = sceneControllers.AddComponent<MainMenuController>();
@@ -57,7 +53,7 @@ public static class MainMenuSceneBuilder
         managers.AddComponent<AudioManager>();
         managers.AddComponent<SceneFlowManager>();
 
-        var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController, clickSfx);
+        var menuCanvasGroup = CreateMainMenuRoot(canvas.transform, mainMenuController);
         var titleCanvasGroup = CreateGameLogo(canvas.transform, out var titleObject);
         var pressAnyObject = CreatePressAnyButton(canvas.transform);
 
@@ -72,8 +68,7 @@ public static class MainMenuSceneBuilder
             "Об игре",
             "How I Fall — подростковая визуальная новелла о неловких чувствах, школьных тайнах и выборе, после которого уже нельзя притворяться прежним.\n\nЖанр: школьная драма, романтика, лёгкая мистика, детектив.\nВерсия: In Development",
             new Vector2(820f, 520f),
-            true,
-            clickSfx);
+            true);
         var helpPanel = CreateInfoOverlayPanel(
             canvas.transform,
             mainMenuController,
@@ -81,17 +76,15 @@ public static class MainMenuSceneBuilder
             "Помощь",
             "Управление:\n\nЛКМ / Space — следующая реплика\nEsc — закрыть окно или вернуться назад\nH — история реплик\nCtrl — пропуск текста\nF — полноэкранный режим\n\nВ главном меню:\n\nНачать — новая игра\nЗагрузить — экран сохранений\nНастройки — параметры игры",
             new Vector2(820f, 560f),
-            false,
-            clickSfx);
+            false);
         var loadPanel = CreateLoadPanel(
             canvas.transform,
             mainMenuController,
-            clickSfx,
             out var loadSaveTitleText,
             out var loadSaveMetaText,
             out var loadSavePreviewText,
             out var loadSaveButton);
-        var exitConfirmPanel = CreateExitConfirmPanel(canvas.transform, mainMenuController, clickSfx);
+        var exitConfirmPanel = CreateExitConfirmPanel(canvas.transform, mainMenuController);
         var notificationPanel = CreateNotificationPanel(canvas.transform, out var notificationText);
         AssignMainMenuControllerReferences(
             mainMenuController,
@@ -346,7 +339,7 @@ public static class MainMenuSceneBuilder
         return AssetDatabase.LoadAssetAtPath<Sprite>(LeftGradientOverlayPath);
     }
 
-    private static CanvasGroup CreateMainMenuRoot(Transform canvas, MainMenuController controller, AudioClip clickSfx)
+    private static CanvasGroup CreateMainMenuRoot(Transform canvas, MainMenuController controller)
     {
         var root = CreateUiObject("MainMenuRoot", canvas);
         var canvasGroup = root.AddComponent<CanvasGroup>();
@@ -403,7 +396,7 @@ public static class MainMenuSceneBuilder
             rowRect.anchoredPosition = new Vector2(0f, y);
             rowRect.sizeDelta = new Vector2(MenuRowWidth, rowHeight);
 
-            var button = CreateMenuButton(row.transform, labels[i], clickSfx);
+            var button = CreateMenuButton(row.transform, labels[i]);
             methods[i](button);
 
             if (i < labels.Length - 1)
@@ -425,7 +418,7 @@ public static class MainMenuSceneBuilder
         return canvasGroup;
     }
 
-    private static Button CreateMenuButton(Transform parent, string label, AudioClip clickSfx)
+    private static Button CreateMenuButton(Transform parent, string label)
     {
         var buttonGo = CreateUiObject(label + " Button", parent);
         var buttonRect = buttonGo.GetComponent<RectTransform>();
@@ -475,7 +468,6 @@ public static class MainMenuSceneBuilder
         hoverEffect.pressedHighlightColor = new Color(0.96f, 0.9f, 0.88f, 0.95f);
         hoverEffect.normalTextColor = new Color(0.92f, 0.94f, 0.98f, 0.95f);
         hoverEffect.hoverTextColor = new Color(0.07f, 0.08f, 0.11f, 1f);
-        hoverEffect.clickSfx = clickSfx;
 
         return button;
     }
@@ -759,8 +751,7 @@ public static class MainMenuSceneBuilder
         string titleText,
         string bodyText,
         Vector2 windowSize,
-        bool isAboutPanel,
-        AudioClip clickSfx)
+        bool isAboutPanel)
     {
         var panelRoot = CreateUiObject(panelName, canvas);
         panelRoot.SetActive(false);
@@ -835,7 +826,7 @@ public static class MainMenuSceneBuilder
         closeRect.anchorMax = new Vector2(1f, 0f);
         closeRect.pivot = new Vector2(1f, 0f);
         closeRect.anchoredPosition = new Vector2(-54f, 42f);
-        AddStyledButtonClickSfx(closeButton, clickSfx);
+        AddStyledButtonHoverEffect(closeButton);
 
         if (isAboutPanel)
         {
@@ -852,7 +843,6 @@ public static class MainMenuSceneBuilder
     private static GameObject CreateLoadPanel(
         Transform canvas,
         MainMenuController controller,
-        AudioClip clickSfx,
         out TextMeshProUGUI saveTitleText,
         out TextMeshProUGUI saveMetaText,
         out TextMeshProUGUI savePreviewText,
@@ -972,7 +962,7 @@ public static class MainMenuSceneBuilder
         backRect.anchorMax = new Vector2(1f, 0f);
         backRect.pivot = new Vector2(1f, 0f);
         backRect.anchoredPosition = new Vector2(-54f, 42f);
-        AddStyledButtonClickSfx(backButton, clickSfx);
+        AddStyledButtonHoverEffect(backButton);
         UnityEventTools.AddPersistentListener(backButton.onClick, controller.CloseLoadPanel);
 
         return panelRoot;
@@ -1004,7 +994,7 @@ public static class MainMenuSceneBuilder
         return button;
     }
 
-    private static GameObject CreateExitConfirmPanel(Transform canvas, MainMenuController controller, AudioClip clickSfx)
+    private static GameObject CreateExitConfirmPanel(Transform canvas, MainMenuController controller)
     {
         var panelRoot = CreateUiObject("Exit Confirm Panel", canvas);
         panelRoot.SetActive(false);
@@ -1066,7 +1056,7 @@ public static class MainMenuSceneBuilder
         yesRect.anchorMax = new Vector2(0.5f, 0f);
         yesRect.pivot = new Vector2(0.5f, 0f);
         yesRect.anchoredPosition = new Vector2(-105f, 46f);
-        AddStyledButtonClickSfx(yesButton, clickSfx);
+        AddStyledButtonHoverEffect(yesButton);
         UnityEventTools.AddPersistentListener(yesButton.onClick, controller.ConfirmExit);
 
         var noButton = CreateStyledButton(window.transform, "Нет", new Vector2(170f, 58f));
@@ -1075,7 +1065,7 @@ public static class MainMenuSceneBuilder
         noRect.anchorMax = new Vector2(0.5f, 0f);
         noRect.pivot = new Vector2(0.5f, 0f);
         noRect.anchoredPosition = new Vector2(105f, 46f);
-        AddStyledButtonClickSfx(noButton, clickSfx);
+        AddStyledButtonHoverEffect(noButton);
         UnityEventTools.AddPersistentListener(noButton.onClick, controller.CloseExitConfirm);
 
         return panelRoot;
@@ -1136,14 +1126,13 @@ public static class MainMenuSceneBuilder
         serializedController.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    private static void AddStyledButtonClickSfx(Button button, AudioClip clickSfx)
+    private static void AddStyledButtonHoverEffect(Button button)
     {
         var image = button.GetComponent<Image>();
         var label = button.GetComponentInChildren<Text>();
         var hoverEffect = button.gameObject.AddComponent<MainMenuButtonHoverEffect>();
         hoverEffect.highlightImage = image;
         hoverEffect.labelText = label;
-        hoverEffect.clickSfx = clickSfx;
         hoverEffect.normalHighlightColor = new Color(0.02f, 0.06f, 0.12f, 0.95f);
         hoverEffect.hoverHighlightColor = new Color(0.72f, 0.12f, 0.1f, 0.96f);
         hoverEffect.pressedHighlightColor = new Color(0.9f, 0.08f, 0.06f, 1f);
