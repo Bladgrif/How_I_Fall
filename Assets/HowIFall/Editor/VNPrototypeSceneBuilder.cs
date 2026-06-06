@@ -96,6 +96,9 @@ public static class VNPrototypeSceneBuilder
             out Button confirmExitNoButton);
         confirmExitPanel.SetActive(false);
 
+        GameObject backlogDimOverlay = CreateHistoryDimOverlay(canvas.transform);
+        backlogDimOverlay.SetActive(false);
+
         GameObject backlogPanel = CreateBacklogPanel(
             canvas.transform,
             out TextMeshProUGUI backlogText,
@@ -124,6 +127,7 @@ public static class VNPrototypeSceneBuilder
         controller.choiceMashaButton = choiceMashaButton;
         controller.choiceArtemButton = choiceArtemButton;
         controller.choiceLeraButton = choiceLeraButton;
+        controller.backlogDimOverlay = backlogDimOverlay;
         controller.backlogPanel = backlogPanel;
         controller.backlogText = backlogText;
         controller.backlogCloseButton = backlogCloseButton;
@@ -676,35 +680,74 @@ public static class VNPrototypeSceneBuilder
         out TextMeshProUGUI backlogText,
         out Button closeButton)
     {
-        GameObject panel = CreateOverlayPanel("Backlog Panel", parent, new Color(0f, 0f, 0f, 0.75f));
-        GameObject window = CreateWindow(panel.transform, "Backlog Window", new Vector2(1200f, 760f), Vector2.zero);
-        CreateAccentLine(window.transform, "Backlog Accent Line");
+        GameObject panel = CreateUiObject("History Panel", parent);
+        RectTransform panelRect = panel.GetComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.anchoredPosition = Vector2.zero;
+        panelRect.sizeDelta = new Vector2(1180f, 720f);
 
-        TextMeshProUGUI title = CreateTMPText("Title", window.transform, "История", 42, new Color(0.94f, 0.9f, 0.98f, 1f));
+        Image panelImage = panel.AddComponent<Image>();
+        panelImage.color = new Color(0.015f, 0.035f, 0.075f, 0.90f);
+        panelImage.raycastTarget = true;
+
+        Outline outline = panel.AddComponent<Outline>();
+        outline.effectColor = new Color(0.62f, 0.78f, 1f, 0.28f);
+        outline.effectDistance = new Vector2(1.2f, -1.2f);
+
+        Shadow shadow = panel.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.45f);
+        shadow.effectDistance = new Vector2(6f, -6f);
+
+        TextMeshProUGUI title = CreateTMPText("History Title", panel.transform, "История", 38, new Color(1f, 1f, 1f, 0.95f));
         title.alignment = TextAlignmentOptions.Center;
+        title.fontStyle = FontStyles.Bold;
         RectTransform titleRect = title.rectTransform;
-        titleRect.anchorMin = new Vector2(0f, 1f);
-        titleRect.anchorMax = new Vector2(1f, 1f);
-        titleRect.pivot = new Vector2(0.5f, 1f);
-        titleRect.anchoredPosition = new Vector2(0f, -28f);
-        titleRect.sizeDelta = new Vector2(-120f, 68f);
+        titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        titleRect.pivot = new Vector2(0.5f, 0.5f);
+        titleRect.anchoredPosition = new Vector2(0f, 310f);
+        titleRect.sizeDelta = new Vector2(700f, 52f);
 
-        CreateBacklogScrollView(window.transform, out backlogText);
-        closeButton = CreateCloseButton(window.transform, "Backlog Close Button", "Закрыть");
+        GameObject underline = CreateUiObject("History Title Red Underline", panel.transform);
+        RectTransform underlineRect = underline.GetComponent<RectTransform>();
+        underlineRect.anchorMin = new Vector2(0.5f, 0.5f);
+        underlineRect.anchorMax = new Vector2(0.5f, 0.5f);
+        underlineRect.pivot = new Vector2(0.5f, 0.5f);
+        underlineRect.anchoredPosition = new Vector2(0f, 275f);
+        underlineRect.sizeDelta = new Vector2(180f, 4f);
+        Image underlineImage = underline.AddComponent<Image>();
+        underlineImage.color = new Color(0.9f, 0.08f, 0.06f, 0.95f);
+        underlineImage.raycastTarget = false;
+
+        CreateBacklogScrollView(panel.transform, out backlogText);
+        closeButton = CreateHistoryCloseButton(panel.transform);
         return panel;
+    }
+
+    private static GameObject CreateHistoryDimOverlay(Transform parent)
+    {
+        GameObject overlay = CreateUiObject("History Dim Overlay", parent);
+        StretchFull(overlay.GetComponent<RectTransform>());
+
+        Image image = overlay.AddComponent<Image>();
+        image.color = new Color(0f, 0f, 0f, 0.35f);
+        image.raycastTarget = true;
+        return overlay;
     }
 
     private static void CreateBacklogScrollView(Transform parent, out TextMeshProUGUI backlogText)
     {
-        GameObject scrollView = CreateUiObject("Backlog Scroll View", parent);
+        GameObject scrollView = CreateUiObject("History Scroll View", parent);
         RectTransform scrollRectTransform = scrollView.GetComponent<RectTransform>();
         scrollRectTransform.anchorMin = new Vector2(0f, 0f);
         scrollRectTransform.anchorMax = new Vector2(1f, 1f);
-        scrollRectTransform.offsetMin = new Vector2(82f, 112f);
-        scrollRectTransform.offsetMax = new Vector2(-82f, -118f);
+        scrollRectTransform.offsetMin = new Vector2(70f, 92f);
+        scrollRectTransform.offsetMax = new Vector2(-70f, -136f);
 
         Image scrollBackground = scrollView.AddComponent<Image>();
-        scrollBackground.color = new Color(0.04f, 0.03f, 0.07f, 0.55f);
+        scrollBackground.color = new Color(0f, 0f, 0f, 0f);
         scrollBackground.raycastTarget = true;
 
         ScrollRect scrollRect = scrollView.AddComponent<ScrollRect>();
@@ -717,11 +760,11 @@ public static class VNPrototypeSceneBuilder
         RectTransform viewportRect = viewport.GetComponent<RectTransform>();
         viewportRect.anchorMin = Vector2.zero;
         viewportRect.anchorMax = Vector2.one;
-        viewportRect.offsetMin = new Vector2(24f, 20f);
-        viewportRect.offsetMax = new Vector2(-42f, -20f);
+        viewportRect.offsetMin = new Vector2(0f, 0f);
+        viewportRect.offsetMax = new Vector2(-34f, 0f);
 
         Image viewportImage = viewport.AddComponent<Image>();
-        viewportImage.color = new Color(1f, 1f, 1f, 0.01f);
+        viewportImage.color = new Color(1f, 1f, 1f, 0f);
         viewportImage.raycastTarget = true;
         viewport.AddComponent<RectMask2D>();
 
@@ -743,10 +786,12 @@ public static class VNPrototypeSceneBuilder
         ContentSizeFitter contentSizeFitter = content.AddComponent<ContentSizeFitter>();
         contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        backlogText = CreateTMPText("Backlog Text", content.transform, string.Empty, 28, new Color(0.9f, 0.86f, 0.96f, 1f));
+        backlogText = CreateTMPText("History Text", content.transform, string.Empty, 24, new Color(1f, 1f, 1f, 0.86f));
         backlogText.alignment = TextAlignmentOptions.TopLeft;
         backlogText.enableWordWrapping = true;
         backlogText.overflowMode = TextOverflowModes.Overflow;
+        backlogText.lineSpacing = 8f;
+        backlogText.paragraphSpacing = 14f;
         backlogText.raycastTarget = false;
 
         LayoutElement textLayout = backlogText.gameObject.AddComponent<LayoutElement>();
@@ -760,6 +805,36 @@ public static class VNPrototypeSceneBuilder
         scrollRect.verticalScrollbar = scrollbar.GetComponent<Scrollbar>();
         scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
         scrollRect.verticalScrollbarSpacing = -8f;
+    }
+
+    private static Button CreateHistoryCloseButton(Transform parent)
+    {
+        Button button = CreateStyledButton(parent, "Закрыть", new Vector2(180f, 46f), 22);
+        button.gameObject.name = "History Close Button";
+
+        RectTransform rect = button.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(1f, 0f);
+        rect.anchoredPosition = new Vector2(-70f, 34f);
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = new Color(0.015f, 0.035f, 0.075f, 0.75f);
+        colors.highlightedColor = new Color(0.55f, 0.08f, 0.07f, 0.85f);
+        colors.pressedColor = new Color(0.9f, 0.08f, 0.06f, 0.95f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
+        button.colors = colors;
+
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>();
+        if (label != null)
+        {
+            label.color = new Color(1f, 1f, 1f, 0.95f);
+            label.fontSize = 22;
+            label.alignment = TextAlignmentOptions.Center;
+        }
+
+        return button;
     }
 
     private static GameObject CreateVerticalScrollbar(Transform parent)

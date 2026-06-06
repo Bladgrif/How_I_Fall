@@ -25,6 +25,7 @@ public class VNDialogueController : MonoBehaviour
     public Button choiceMashaButton;
     public Button choiceArtemButton;
     public Button choiceLeraButton;
+    public GameObject backlogDimOverlay;
     public GameObject backlogPanel;
     public TextMeshProUGUI backlogText;
     public Button backlogCloseButton;
@@ -82,6 +83,8 @@ public class VNDialogueController : MonoBehaviour
         {
             backlogPanel.SetActive(false);
         }
+
+        SetBacklogOverlayActive(false);
 
         if (notificationPanel != null)
         {
@@ -420,17 +423,11 @@ public class VNDialogueController : MonoBehaviour
 
         foreach (DialogueBacklogEntry entry in backlog)
         {
-            if (string.IsNullOrWhiteSpace(entry.speaker))
-            {
-                lines.Add(entry.text);
-            }
-            else
-            {
-                lines.Add($"{entry.speaker}: {entry.text}");
-            }
+            lines.Add(FormatBacklogEntry(entry));
         }
 
-        backlogText.text = string.Join("\n\n", lines);
+        backlogText.text = lines.Count > 0 ? string.Join("\n\n", lines) : "История пока пуста.";
+        SetBacklogOverlayActive(true);
         backlogPanel.SetActive(true);
     }
 
@@ -440,6 +437,36 @@ public class VNDialogueController : MonoBehaviour
         {
             backlogPanel.SetActive(false);
         }
+
+        SetBacklogOverlayActive(false);
+    }
+
+    private void SetBacklogOverlayActive(bool isActive)
+    {
+        if (backlogDimOverlay != null)
+        {
+            backlogDimOverlay.SetActive(isActive);
+        }
+    }
+
+    private string FormatBacklogEntry(DialogueBacklogEntry entry)
+    {
+        string text = EscapeRichText(entry.text);
+
+        if (string.IsNullOrWhiteSpace(entry.speaker))
+        {
+            return $"<size=24><color=#FFFFFFDB>{text}</color></size>";
+        }
+
+        string speaker = EscapeRichText(entry.speaker);
+        return $"<size=22><b><color=#F2F2FFFF>{speaker}</color></b></size>\n<size=24><color=#FFFFFFDB>{text}</color></size>";
+    }
+
+    private string EscapeRichText(string text)
+    {
+        return string.IsNullOrEmpty(text)
+            ? string.Empty
+            : text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
     public void SaveGame()
@@ -565,6 +592,8 @@ public class VNDialogueController : MonoBehaviour
         {
             backlogPanel.SetActive(false);
         }
+
+        SetBacklogOverlayActive(false);
 
         if (confirmExitPanel != null)
         {
