@@ -686,11 +686,9 @@ public static class MainMenuSceneBuilder
         underlineImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         underlineImage.raycastTarget = false;
 
-        string[] tabs = { "Графика", "Звук", "Игра", "Управление", "Язык" };
-        for (int i = 0; i < tabs.Length; i++)
-        {
-            CreateSettingsTab(window.transform, tabs[i], tabs[i] == "Звук", new Vector2(-480f, 145f - i * 68f));
-        }
+        Button videoTab = CreateSettingsTab(window.transform, "Видео", false, new Vector2(-480f, 145f), out var videoTabImage, out var videoTabText);
+        Button audioTab = CreateSettingsTab(window.transform, "Аудио", true, new Vector2(-480f, 77f), out var audioTabImage, out var audioTabText);
+        Button gameTab = CreateSettingsTab(window.transform, "Игра", false, new Vector2(-480f, 9f), out var gameTabImage, out var gameTabText);
 
         var divider = CreateUiObject("Settings Divider", window.transform);
         var dividerRect = divider.GetComponent<RectTransform>();
@@ -703,42 +701,61 @@ public static class MainMenuSceneBuilder
         dividerImage.color = new Color(1f, 1f, 1f, 0.22f);
         dividerImage.raycastTarget = false;
 
-        CreatePlaceholderRow(window.transform, "Разрешение", "1920 x 1080 (16:9)", 115f);
-        CreatePlaceholderRow(window.transform, "Режим окна", "Безрамочный экран", 55f);
-        Slider master = CreateSettingsSliderRow(window.transform, "Общая громкость", 0f, 1f, 1f, -5f);
-        Slider music = CreateSettingsSliderRow(window.transform, "Музыка", 0f, 1f, 1f, -65f);
-        Slider sfx = CreateSettingsSliderRow(window.transform, "Звуки", 0f, 1f, 1f, -125f);
-        Slider textSpeed = CreateSettingsSliderRow(window.transform, "Скорость текста", 0.25f, 3f, 1f, -185f);
-        Toggle fullscreenToggle = CreateFullscreenRow(window.transform, -245f);
+        var videoContent = CreateUiObject("Video Settings Content", window.transform);
+        StretchFull(videoContent.GetComponent<RectTransform>());
+        videoContent.SetActive(false);
 
-        var resetButton = CreateStyledButton(window.transform, "Сбросить", new Vector2(180f, 46f));
-        var resetRect = resetButton.GetComponent<RectTransform>();
-        resetRect.anchorMin = new Vector2(0.5f, 0.5f);
-        resetRect.anchorMax = new Vector2(0.5f, 0.5f);
-        resetRect.pivot = new Vector2(0.5f, 0.5f);
-        resetRect.anchoredPosition = new Vector2(430f, -265f);
-        var resetLabel = resetButton.GetComponentInChildren<Text>();
-        if (resetLabel != null)
-        {
-            resetLabel.fontSize = 22;
-        }
+        var audioContent = CreateUiObject("Audio Settings Content", window.transform);
+        StretchFull(audioContent.GetComponent<RectTransform>());
+
+        var audioTitle = CreateTmpLabel(audioContent.transform, "Громкость", 32, TextAlignmentOptions.Left);
+        var audioTitleRect = audioTitle.GetComponent<RectTransform>();
+        audioTitleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        audioTitleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        audioTitleRect.pivot = new Vector2(0f, 0.5f);
+        audioTitleRect.anchoredPosition = new Vector2(-210f, 160f);
+        audioTitleRect.sizeDelta = new Vector2(410f, 46f);
+        audioTitle.color = Color.white;
+
+        Slider master = CreateSettingsSliderRow(audioContent.transform, "Общая", 0f, 1f, 0.8f, 95f);
+        Slider music = CreateSettingsSliderRow(audioContent.transform, "Музыка", 0f, 1f, 0.8f, 35f);
+        Slider sfx = CreateSettingsSliderRow(audioContent.transform, "Звуки", 0f, 1f, 0.8f, -25f);
+        Slider ambient = CreateSettingsSliderRow(audioContent.transform, "Окружение", 0f, 1f, 0.8f, -85f);
+        Toggle musicDuringPauseToggle = CreateSettingsToggleRow(audioContent.transform, "Музыка во время паузы", false, -155f);
+
+        var gameContent = CreateUiObject("Game Settings Content", window.transform);
+        StretchFull(gameContent.GetComponent<RectTransform>());
+        gameContent.SetActive(false);
 
         var backButton = CreateBackButton(panelRoot.transform);
 
         var settingsController = panelRoot.AddComponent<SettingsPanelController>();
         settingsController.root = panelRoot;
+        settingsController.videoContent = videoContent;
+        settingsController.audioContent = audioContent;
+        settingsController.gameContent = gameContent;
+        settingsController.videoTabImage = videoTabImage;
+        settingsController.audioTabImage = audioTabImage;
+        settingsController.gameTabImage = gameTabImage;
+        settingsController.videoTabText = videoTabText;
+        settingsController.audioTabText = audioTabText;
+        settingsController.gameTabText = gameTabText;
+        settingsController.activeTabSprite = TryLoadSprite(SettingsTabActivePath);
+        settingsController.inactiveTabSprite = TryLoadSprite(SettingsTabInactivePath);
         settingsController.masterVolumeSlider = master;
         settingsController.musicVolumeSlider = music;
         settingsController.sfxVolumeSlider = sfx;
-        settingsController.textSpeedSlider = textSpeed;
-        settingsController.fullscreenToggle = fullscreenToggle;
+        settingsController.ambientVolumeSlider = ambient;
+        settingsController.musicDuringPauseToggle = musicDuringPauseToggle;
 
+        UnityEventTools.AddPersistentListener(videoTab.onClick, settingsController.ShowVideoTab);
+        UnityEventTools.AddPersistentListener(audioTab.onClick, settingsController.ShowAudioTab);
+        UnityEventTools.AddPersistentListener(gameTab.onClick, settingsController.ShowGameTab);
         UnityEventTools.AddPersistentListener(master.onValueChanged, settingsController.OnMasterVolumeChanged);
         UnityEventTools.AddPersistentListener(music.onValueChanged, settingsController.OnMusicVolumeChanged);
         UnityEventTools.AddPersistentListener(sfx.onValueChanged, settingsController.OnSfxVolumeChanged);
-        UnityEventTools.AddPersistentListener(textSpeed.onValueChanged, settingsController.OnTextSpeedChanged);
-        UnityEventTools.AddPersistentListener(fullscreenToggle.onValueChanged, settingsController.OnFullscreenChanged);
-        UnityEventTools.AddPersistentListener(resetButton.onClick, settingsController.OnResetClicked);
+        UnityEventTools.AddPersistentListener(ambient.onValueChanged, settingsController.OnAmbientVolumeChanged);
+        UnityEventTools.AddPersistentListener(musicDuringPauseToggle.onValueChanged, settingsController.OnMusicDuringPauseChanged);
         UnityEventTools.AddPersistentListener(backButton.onClick, settingsController.Hide);
 
         return settingsController;
@@ -1194,7 +1211,13 @@ public static class MainMenuSceneBuilder
         return text;
     }
 
-    private static void CreateSettingsTab(Transform parent, string label, bool active, Vector2 position)
+    private static Button CreateSettingsTab(
+        Transform parent,
+        string label,
+        bool active,
+        Vector2 position,
+        out Image image,
+        out TextMeshProUGUI text)
     {
         var tab = CreateUiObject(label + " Tab", parent);
         var rect = tab.GetComponent<RectTransform>();
@@ -1204,14 +1227,18 @@ public static class MainMenuSceneBuilder
         rect.anchoredPosition = position;
         rect.sizeDelta = new Vector2(250f, 54f);
 
-        var image = tab.AddComponent<Image>();
+        image = tab.AddComponent<Image>();
         image.sprite = TryLoadSprite(active ? SettingsTabActivePath : SettingsTabInactivePath);
         image.type = Image.Type.Simple;
         image.preserveAspect = false;
         image.color = image.sprite != null
             ? new Color(1f, 1f, 1f, active ? 0.95f : 0.80f)
             : active ? new Color(0.86f, 0.16f, 0.14f, 0.92f) : new Color(0.02f, 0.06f, 0.12f, 0.58f);
-        image.raycastTarget = false;
+        image.raycastTarget = true;
+
+        var button = tab.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.None;
 
         if (!active && image.sprite == null)
         {
@@ -1220,9 +1247,10 @@ public static class MainMenuSceneBuilder
             outline.effectDistance = new Vector2(1f, -1f);
         }
 
-        var text = CreateTmpLabel(tab.transform, label, 22, TextAlignmentOptions.Center);
+        text = CreateTmpLabel(tab.transform, label, 22, TextAlignmentOptions.Center);
         text.color = active ? Color.white : new Color(1f, 1f, 1f, 0.92f);
         text.raycastTarget = false;
+        return button;
     }
 
     private static void CreatePlaceholderRow(Transform parent, string label, string value, float y)
@@ -1270,6 +1298,28 @@ public static class MainMenuSceneBuilder
         sliderRect.anchoredPosition = new Vector2(250f, y);
         sliderRect.sizeDelta = new Vector2(410f, 24f);
         return slider;
+    }
+
+    private static Toggle CreateSettingsToggleRow(Transform parent, string label, bool value, float y)
+    {
+        var labelText = CreateTmpLabel(parent, label, 23, TextAlignmentOptions.Left);
+        var labelRect = labelText.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot = new Vector2(0f, 0.5f);
+        labelRect.anchoredPosition = new Vector2(-210f, y);
+        labelRect.sizeDelta = new Vector2(360f, 36f);
+        labelText.color = new Color(1f, 1f, 1f, 0.92f);
+
+        var toggle = CreateToggle(parent);
+        toggle.SetIsOnWithoutNotify(value);
+        var toggleRect = toggle.GetComponent<RectTransform>();
+        toggleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        toggleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        toggleRect.pivot = new Vector2(0.5f, 0.5f);
+        toggleRect.anchoredPosition = new Vector2(250f, y);
+        toggleRect.sizeDelta = new Vector2(30f, 30f);
+        return toggle;
     }
 
     private static Toggle CreateFullscreenRow(Transform parent, float y)
@@ -1405,7 +1455,7 @@ public static class MainMenuSceneBuilder
 
     private static Toggle CreateToggle(Transform parent)
     {
-        var toggleGo = CreateUiObject("Fullscreen Toggle", parent);
+        var toggleGo = CreateUiObject("Settings Toggle", parent);
         toggleGo.GetComponent<RectTransform>().sizeDelta = new Vector2(30f, 30f);
 
         var background = toggleGo.AddComponent<Image>();

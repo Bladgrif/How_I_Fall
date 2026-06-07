@@ -1,14 +1,26 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class SettingsPanelController : MonoBehaviour
 {
     public GameObject root;
+    public GameObject videoContent;
+    public GameObject audioContent;
+    public GameObject gameContent;
+    public Image videoTabImage;
+    public Image audioTabImage;
+    public Image gameTabImage;
+    public TextMeshProUGUI videoTabText;
+    public TextMeshProUGUI audioTabText;
+    public TextMeshProUGUI gameTabText;
+    public Sprite activeTabSprite;
+    public Sprite inactiveTabSprite;
     public Slider masterVolumeSlider;
     public Slider musicVolumeSlider;
     public Slider sfxVolumeSlider;
-    public Slider textSpeedSlider;
-    public Toggle fullscreenToggle;
+    public Slider ambientVolumeSlider;
+    public Toggle musicDuringPauseToggle;
     public GameObject[] objectsToHideWhenOpen;
 
     private void Awake()
@@ -28,6 +40,7 @@ public class SettingsPanelController : MonoBehaviour
 
         SetHiddenObjectsActive(false);
         root.SetActive(true);
+        ShowAudioTab();
         RefreshUi();
     }
 
@@ -66,14 +79,14 @@ public class SettingsPanelController : MonoBehaviour
             sfxVolumeSlider.SetValueWithoutNotify(settings.sfxVolume);
         }
 
-        if (textSpeedSlider != null)
+        if (ambientVolumeSlider != null)
         {
-            textSpeedSlider.SetValueWithoutNotify(settings.textSpeed);
+            ambientVolumeSlider.SetValueWithoutNotify(settings.ambientVolume);
         }
 
-        if (fullscreenToggle != null)
+        if (musicDuringPauseToggle != null)
         {
-            fullscreenToggle.SetIsOnWithoutNotify(settings.fullscreen);
+            musicDuringPauseToggle.SetIsOnWithoutNotify(settings.musicDuringPause);
         }
     }
 
@@ -101,29 +114,37 @@ public class SettingsPanelController : MonoBehaviour
         }
     }
 
-    public void OnTextSpeedChanged(float value)
+    public void OnAmbientVolumeChanged(float value)
     {
         if (SettingsManager.Instance != null)
         {
-            SettingsManager.Instance.SetTextSpeed(value);
+            SettingsManager.Instance.SetAmbientVolume(value);
         }
     }
 
-    public void OnFullscreenChanged(bool value)
+    public void OnMusicDuringPauseChanged(bool value)
     {
         if (SettingsManager.Instance != null)
         {
-            SettingsManager.Instance.SetFullscreen(value);
+            SettingsManager.Instance.SetMusicDuringPause(value);
         }
     }
 
-    public void OnResetClicked()
+    public void ShowVideoTab()
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.ResetSettings();
-            RefreshUi();
-        }
+        SetActiveTab(videoContent, videoTabImage, videoTabText);
+        Debug.Log("TODO: Settings video tab");
+    }
+
+    public void ShowAudioTab()
+    {
+        SetActiveTab(audioContent, audioTabImage, audioTabText);
+    }
+
+    public void ShowGameTab()
+    {
+        SetActiveTab(gameContent, gameTabImage, gameTabText);
+        Debug.Log("TODO: Settings game tab");
     }
 
     private void SetHiddenObjectsActive(bool isActive)
@@ -139,6 +160,41 @@ public class SettingsPanelController : MonoBehaviour
             {
                 target.SetActive(isActive);
             }
+        }
+    }
+
+    private void SetActiveTab(GameObject activeContent, Image activeImage, TextMeshProUGUI activeText)
+    {
+        SetContentActive(videoContent, videoContent == activeContent);
+        SetContentActive(audioContent, audioContent == activeContent);
+        SetContentActive(gameContent, gameContent == activeContent);
+
+        SetTabVisual(videoTabImage, videoTabText, videoTabImage == activeImage && videoTabText == activeText);
+        SetTabVisual(audioTabImage, audioTabText, audioTabImage == activeImage && audioTabText == activeText);
+        SetTabVisual(gameTabImage, gameTabText, gameTabImage == activeImage && gameTabText == activeText);
+    }
+
+    private void SetContentActive(GameObject content, bool active)
+    {
+        if (content != null)
+        {
+            content.SetActive(active);
+        }
+    }
+
+    private void SetTabVisual(Image image, TextMeshProUGUI text, bool active)
+    {
+        if (image != null)
+        {
+            image.sprite = active ? activeTabSprite : inactiveTabSprite;
+            image.color = image.sprite != null
+                ? new Color(1f, 1f, 1f, active ? 0.95f : 0.80f)
+                : active ? new Color(0.86f, 0.16f, 0.14f, 0.92f) : new Color(0.02f, 0.06f, 0.12f, 0.58f);
+        }
+
+        if (text != null)
+        {
+            text.color = active ? Color.white : new Color(1f, 1f, 1f, 0.92f);
         }
     }
 }

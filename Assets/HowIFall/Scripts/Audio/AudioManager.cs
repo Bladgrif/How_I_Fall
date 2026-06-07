@@ -81,16 +81,19 @@ public class AudioManager : MonoBehaviour
     {
         float musicVolume = 1f;
         float sfxVolume = 1f;
+        bool musicDuringPause = false;
 
         if (SettingsManager.Instance != null)
         {
             musicVolume = SettingsManager.Instance.settings.musicVolume;
             sfxVolume = SettingsManager.Instance.settings.sfxVolume;
+            musicDuringPause = SettingsManager.Instance.settings.musicDuringPause;
         }
 
         if (musicSource != null)
         {
             musicSource.volume = Mathf.Clamp01(musicVolume);
+            musicSource.ignoreListenerPause = musicDuringPause;
         }
 
         if (sfxSource != null)
