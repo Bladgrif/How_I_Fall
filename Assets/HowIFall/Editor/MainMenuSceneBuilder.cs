@@ -670,7 +670,7 @@ public static class MainMenuSceneBuilder
         titleRect.anchorMax = new Vector2(0.5f, 0.5f);
         titleRect.pivot = new Vector2(0.5f, 0.5f);
         titleRect.anchoredPosition = new Vector2(0f, 315f);
-        titleRect.sizeDelta = new Vector2(420f, 68f);
+        titleRect.sizeDelta = new Vector2(640f, 68f);
         title.color = Color.white;
         title.raycastTarget = false;
 
@@ -705,6 +705,16 @@ public static class MainMenuSceneBuilder
         StretchFull(videoContent.GetComponent<RectTransform>());
         videoContent.SetActive(false);
 
+        Button screenModeSelector = CreateSettingsSelectorRow(videoContent.transform, "Режим экрана", "Полный экран", 155f, out var screenModeValueText);
+        Button resolutionSelector = CreateSettingsSelectorRow(videoContent.transform, "Разрешение", "1920x1080", 100f, out var resolutionValueText);
+        Button refreshRateSelector = CreateSettingsSelectorRow(videoContent.transform, "Частота обновления", "60", 45f, out var refreshRateValueText);
+        Button gameLookSelector = CreateSettingsSelectorRow(videoContent.transform, "Внешний вид игры", "Чистый", -10f, out var gameLookValueText);
+        Button interfaceStyleSelector = CreateSettingsSelectorRow(videoContent.transform, "Стиль интерфейса", "Классический", -65f, out var interfaceStyleValueText);
+        Toggle rewindVhsFilterToggle = CreateSettingsToggleRow(videoContent.transform, "VHS фильтр при перемотке", true, -140f);
+        Toggle runInBackgroundToggle = CreateSettingsToggleRow(videoContent.transform, "Работать в фоновом режиме", false, -190f);
+        Toggle characterAnimationsToggle = CreateSettingsToggleRow(videoContent.transform, "Анимация персонажей", true, -240f);
+        Toggle backgroundAnimationsToggle = CreateSettingsToggleRow(videoContent.transform, "Анимация фонов", true, -290f);
+
         var audioContent = CreateUiObject("Audio Settings Content", window.transform);
         StretchFull(audioContent.GetComponent<RectTransform>());
 
@@ -731,6 +741,7 @@ public static class MainMenuSceneBuilder
 
         var settingsController = panelRoot.AddComponent<SettingsPanelController>();
         settingsController.root = panelRoot;
+        settingsController.settingsTitleText = title;
         settingsController.videoContent = videoContent;
         settingsController.audioContent = audioContent;
         settingsController.gameContent = gameContent;
@@ -747,15 +758,33 @@ public static class MainMenuSceneBuilder
         settingsController.sfxVolumeSlider = sfx;
         settingsController.ambientVolumeSlider = ambient;
         settingsController.musicDuringPauseToggle = musicDuringPauseToggle;
+        settingsController.screenModeValueText = screenModeValueText;
+        settingsController.resolutionValueText = resolutionValueText;
+        settingsController.refreshRateValueText = refreshRateValueText;
+        settingsController.gameLookValueText = gameLookValueText;
+        settingsController.interfaceStyleValueText = interfaceStyleValueText;
+        settingsController.rewindVhsFilterToggle = rewindVhsFilterToggle;
+        settingsController.runInBackgroundToggle = runInBackgroundToggle;
+        settingsController.characterAnimationsToggle = characterAnimationsToggle;
+        settingsController.backgroundAnimationsToggle = backgroundAnimationsToggle;
 
         UnityEventTools.AddPersistentListener(videoTab.onClick, settingsController.ShowVideoTab);
         UnityEventTools.AddPersistentListener(audioTab.onClick, settingsController.ShowAudioTab);
         UnityEventTools.AddPersistentListener(gameTab.onClick, settingsController.ShowGameTab);
+        UnityEventTools.AddPersistentListener(screenModeSelector.onClick, settingsController.CycleScreenMode);
+        UnityEventTools.AddPersistentListener(resolutionSelector.onClick, settingsController.CycleResolution);
+        UnityEventTools.AddPersistentListener(refreshRateSelector.onClick, settingsController.CycleRefreshRate);
+        UnityEventTools.AddPersistentListener(gameLookSelector.onClick, settingsController.CycleGameLook);
+        UnityEventTools.AddPersistentListener(interfaceStyleSelector.onClick, settingsController.CycleInterfaceStyle);
         UnityEventTools.AddPersistentListener(master.onValueChanged, settingsController.OnMasterVolumeChanged);
         UnityEventTools.AddPersistentListener(music.onValueChanged, settingsController.OnMusicVolumeChanged);
         UnityEventTools.AddPersistentListener(sfx.onValueChanged, settingsController.OnSfxVolumeChanged);
         UnityEventTools.AddPersistentListener(ambient.onValueChanged, settingsController.OnAmbientVolumeChanged);
         UnityEventTools.AddPersistentListener(musicDuringPauseToggle.onValueChanged, settingsController.OnMusicDuringPauseChanged);
+        UnityEventTools.AddPersistentListener(rewindVhsFilterToggle.onValueChanged, settingsController.OnRewindVhsFilterChanged);
+        UnityEventTools.AddPersistentListener(runInBackgroundToggle.onValueChanged, settingsController.OnRunInBackgroundChanged);
+        UnityEventTools.AddPersistentListener(characterAnimationsToggle.onValueChanged, settingsController.OnCharacterAnimationsChanged);
+        UnityEventTools.AddPersistentListener(backgroundAnimationsToggle.onValueChanged, settingsController.OnBackgroundAnimationsChanged);
         UnityEventTools.AddPersistentListener(backButton.onClick, settingsController.Hide);
 
         return settingsController;
@@ -1298,6 +1327,48 @@ public static class MainMenuSceneBuilder
         sliderRect.anchoredPosition = new Vector2(250f, y);
         sliderRect.sizeDelta = new Vector2(410f, 24f);
         return slider;
+    }
+
+    private static Button CreateSettingsSelectorRow(Transform parent, string label, string value, float y, out TextMeshProUGUI valueText)
+    {
+        var labelText = CreateTmpLabel(parent, label, 23, TextAlignmentOptions.Left);
+        var labelRect = labelText.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot = new Vector2(0f, 0.5f);
+        labelRect.anchoredPosition = new Vector2(-210f, y);
+        labelRect.sizeDelta = new Vector2(300f, 36f);
+        labelText.color = new Color(1f, 1f, 1f, 0.92f);
+
+        var selector = CreateUiObject(label + " Selector", parent);
+        var selectorRect = selector.GetComponent<RectTransform>();
+        selectorRect.anchorMin = new Vector2(0.5f, 0.5f);
+        selectorRect.anchorMax = new Vector2(0.5f, 0.5f);
+        selectorRect.pivot = new Vector2(0.5f, 0.5f);
+        selectorRect.anchoredPosition = new Vector2(250f, y);
+        selectorRect.sizeDelta = new Vector2(410f, 42f);
+
+        var selectorImage = selector.AddComponent<Image>();
+        selectorImage.color = new Color(0.015f, 0.035f, 0.075f, 0.75f);
+        selectorImage.raycastTarget = true;
+
+        var button = selector.AddComponent<Button>();
+        button.targetGraphic = selectorImage;
+        button.transition = Selectable.Transition.ColorTint;
+        var colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.88f);
+        colors.pressedColor = new Color(0.95f, 0.95f, 0.95f, 0.78f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.45f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        valueText = CreateTmpLabel(selector.transform, value, 20, TextAlignmentOptions.Center);
+        valueText.color = new Color(1f, 1f, 1f, 0.86f);
+        valueText.raycastTarget = false;
+        StretchFull(valueText.GetComponent<RectTransform>(), 18f, 18f, 0f, 0f);
+        return button;
     }
 
     private static Toggle CreateSettingsToggleRow(Transform parent, string label, bool value, float y)
