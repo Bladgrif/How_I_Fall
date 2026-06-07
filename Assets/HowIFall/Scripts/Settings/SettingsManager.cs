@@ -20,7 +20,16 @@ public class SettingsManager : MonoBehaviour
     private const string RunInBackgroundKey = "hif_run_in_background";
     private const string CharacterAnimationsKey = "hif_character_animations";
     private const string BackgroundAnimationsKey = "hif_background_animations";
+    private const string LanguageKey = "hif_language";
+    private const string FontSizeModeKey = "hif_font_size_mode";
+    private const string SkipModeKey = "hif_skip_mode";
+    private const string SkipBehaviorKey = "hif_skip_behavior";
     private const string TextSpeedKey = "hif_text_speed";
+    private const string AutoForwardDelayKey = "hif_auto_forward_delay";
+    private const string SkipAfterChoicesKey = "hif_skip_after_choices";
+    private const string AutoForwardKey = "hif_auto_forward";
+    private const string AutoSaveKey = "hif_auto_save";
+    private const string ShowHintsKey = "hif_show_hints";
     private const string FullscreenKey = "hif_fullscreen";
 
     private void Awake()
@@ -60,7 +69,16 @@ public class SettingsManager : MonoBehaviour
         settings.runInBackground = PlayerPrefs.GetInt(RunInBackgroundKey, 0) == 1;
         settings.characterAnimations = PlayerPrefs.GetInt(CharacterAnimationsKey, 1) == 1;
         settings.backgroundAnimations = PlayerPrefs.GetInt(BackgroundAnimationsKey, 1) == 1;
-        settings.textSpeed = PlayerPrefs.GetFloat(TextSpeedKey, 1f);
+        settings.language = PlayerPrefs.GetString(LanguageKey, "Русский");
+        settings.fontSizeMode = PlayerPrefs.GetString(FontSizeModeKey, "Мелкий");
+        settings.skipMode = PlayerPrefs.GetString(SkipModeKey, "Виденное");
+        settings.skipBehavior = PlayerPrefs.GetString(SkipBehaviorKey, "Классический");
+        settings.textSpeed = Mathf.Clamp(PlayerPrefs.GetFloat(TextSpeedKey, 50f), 20f, 100f);
+        settings.autoForwardDelay = Mathf.Clamp(PlayerPrefs.GetFloat(AutoForwardDelayKey, 250f), 50f, 500f);
+        settings.skipAfterChoices = PlayerPrefs.GetInt(SkipAfterChoicesKey, 0) == 1;
+        settings.autoForward = PlayerPrefs.GetInt(AutoForwardKey, 0) == 1;
+        settings.autoSave = PlayerPrefs.GetInt(AutoSaveKey, 1) == 1;
+        settings.showHints = PlayerPrefs.GetInt(ShowHintsKey, 1) == 1;
         settings.fullscreen = PlayerPrefs.GetInt(FullscreenKey, 1) == 1;
         ApplySettings();
         AudioManager.Instance?.ApplySettingsVolume();
@@ -82,7 +100,16 @@ public class SettingsManager : MonoBehaviour
         PlayerPrefs.SetInt(RunInBackgroundKey, settings.runInBackground ? 1 : 0);
         PlayerPrefs.SetInt(CharacterAnimationsKey, settings.characterAnimations ? 1 : 0);
         PlayerPrefs.SetInt(BackgroundAnimationsKey, settings.backgroundAnimations ? 1 : 0);
+        PlayerPrefs.SetString(LanguageKey, settings.language);
+        PlayerPrefs.SetString(FontSizeModeKey, settings.fontSizeMode);
+        PlayerPrefs.SetString(SkipModeKey, settings.skipMode);
+        PlayerPrefs.SetString(SkipBehaviorKey, settings.skipBehavior);
         PlayerPrefs.SetFloat(TextSpeedKey, settings.textSpeed);
+        PlayerPrefs.SetFloat(AutoForwardDelayKey, settings.autoForwardDelay);
+        PlayerPrefs.SetInt(SkipAfterChoicesKey, settings.skipAfterChoices ? 1 : 0);
+        PlayerPrefs.SetInt(AutoForwardKey, settings.autoForward ? 1 : 0);
+        PlayerPrefs.SetInt(AutoSaveKey, settings.autoSave ? 1 : 0);
+        PlayerPrefs.SetInt(ShowHintsKey, settings.showHints ? 1 : 0);
         PlayerPrefs.SetInt(FullscreenKey, settings.fullscreen ? 1 : 0);
         PlayerPrefs.Save();
     }
@@ -187,9 +214,63 @@ public class SettingsManager : MonoBehaviour
         SaveSettings();
     }
 
+    public void SetLanguage(string value)
+    {
+        settings.language = string.IsNullOrEmpty(value) ? "Русский" : value;
+        SaveSettings();
+    }
+
+    public void SetFontSizeMode(string value)
+    {
+        settings.fontSizeMode = string.IsNullOrEmpty(value) ? "Мелкий" : value;
+        SaveSettings();
+    }
+
+    public void SetSkipMode(string value)
+    {
+        settings.skipMode = string.IsNullOrEmpty(value) ? "Виденное" : value;
+        SaveSettings();
+    }
+
+    public void SetSkipBehavior(string value)
+    {
+        settings.skipBehavior = string.IsNullOrEmpty(value) ? "Классический" : value;
+        SaveSettings();
+    }
+
     public void SetTextSpeed(float value)
     {
-        settings.textSpeed = Mathf.Clamp(value, 0.25f, 3f);
+        settings.textSpeed = Mathf.Clamp(value, 20f, 100f);
+        SaveSettings();
+    }
+
+    public void SetAutoForwardDelay(float value)
+    {
+        settings.autoForwardDelay = Mathf.Clamp(value, 50f, 500f);
+        SaveSettings();
+    }
+
+    public void SetSkipAfterChoices(bool value)
+    {
+        settings.skipAfterChoices = value;
+        SaveSettings();
+    }
+
+    public void SetAutoForward(bool value)
+    {
+        settings.autoForward = value;
+        SaveSettings();
+    }
+
+    public void SetAutoSave(bool value)
+    {
+        settings.autoSave = value;
+        SaveSettings();
+    }
+
+    public void SetShowHints(bool value)
+    {
+        settings.showHints = value;
         SaveSettings();
     }
 

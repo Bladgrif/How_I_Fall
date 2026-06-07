@@ -17,6 +17,15 @@ public class GameSettings
     public bool runInBackground = false;
     public bool characterAnimations = true;
     public bool backgroundAnimations = true;
-    public float textSpeed = 1f;
+    public string language = "Русский";
+    public string fontSizeMode = "Мелкий";
+    public string skipMode = "Виденное";
+    public string skipBehavior = "Классический";
+    public float textSpeed = 50f;
+    public float autoForwardDelay = 250f;
+    public bool skipAfterChoices = false;
+    public bool autoForward = false;
+    public bool autoSave = true;
+    public bool showHints = true;
     public bool fullscreen = true;
 }

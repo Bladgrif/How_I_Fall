@@ -737,6 +737,17 @@ public static class MainMenuSceneBuilder
         StretchFull(gameContent.GetComponent<RectTransform>());
         gameContent.SetActive(false);
 
+        Button languageSelector = CreateSettingsSelectorRow(gameContent.transform, "Язык", "Русский", 155f, out var languageValueText);
+        Button fontSizeModeSelector = CreateSettingsSelectorRow(gameContent.transform, "Шрифт", "Мелкий", 100f, out var fontSizeModeValueText);
+        Button skipModeSelector = CreateSettingsSelectorRow(gameContent.transform, "Пропускать", "Виденное", 45f, out var skipModeValueText);
+        Button skipBehaviorSelector = CreateSettingsSelectorRow(gameContent.transform, "Режим пропуска", "Классический", -10f, out var skipBehaviorValueText);
+        Slider textSpeedSlider = CreateSettingsValueSliderRow(gameContent.transform, "Скорость текста", 20f, 100f, 50f, -85f, "50 симв./сек.", out var textSpeedValueText);
+        Slider autoForwardDelaySlider = CreateSettingsValueSliderRow(gameContent.transform, "Задержка автоперехода", 50f, 500f, 250f, -145f, "250 %", out var autoForwardDelayValueText);
+        Toggle skipAfterChoicesToggle = CreateSettingsToggleRow(gameContent.transform, "Пропуск после выборов", false, -215f);
+        Toggle autoForwardToggle = CreateSettingsToggleRowAt(gameContent.transform, "Автопереход", false, -210f, 50f, -265f, 220f);
+        Toggle autoSaveToggle = CreateSettingsToggleRowAt(gameContent.transform, "Автосохранение", true, 180f, 520f, -265f, 230f);
+        Toggle showHintsToggle = CreateSettingsToggleRow(gameContent.transform, "Показывать подсказки", true, -315f);
+
         var backButton = CreateBackButton(panelRoot.transform);
 
         var settingsController = panelRoot.AddComponent<SettingsPanelController>();
@@ -767,6 +778,18 @@ public static class MainMenuSceneBuilder
         settingsController.runInBackgroundToggle = runInBackgroundToggle;
         settingsController.characterAnimationsToggle = characterAnimationsToggle;
         settingsController.backgroundAnimationsToggle = backgroundAnimationsToggle;
+        settingsController.languageValueText = languageValueText;
+        settingsController.fontSizeModeValueText = fontSizeModeValueText;
+        settingsController.skipModeValueText = skipModeValueText;
+        settingsController.skipBehaviorValueText = skipBehaviorValueText;
+        settingsController.textSpeedSlider = textSpeedSlider;
+        settingsController.textSpeedValueText = textSpeedValueText;
+        settingsController.autoForwardDelaySlider = autoForwardDelaySlider;
+        settingsController.autoForwardDelayValueText = autoForwardDelayValueText;
+        settingsController.skipAfterChoicesToggle = skipAfterChoicesToggle;
+        settingsController.autoForwardToggle = autoForwardToggle;
+        settingsController.autoSaveToggle = autoSaveToggle;
+        settingsController.showHintsToggle = showHintsToggle;
 
         UnityEventTools.AddPersistentListener(videoTab.onClick, settingsController.ShowVideoTab);
         UnityEventTools.AddPersistentListener(audioTab.onClick, settingsController.ShowAudioTab);
@@ -776,6 +799,10 @@ public static class MainMenuSceneBuilder
         UnityEventTools.AddPersistentListener(refreshRateSelector.onClick, settingsController.CycleRefreshRate);
         UnityEventTools.AddPersistentListener(gameLookSelector.onClick, settingsController.CycleGameLook);
         UnityEventTools.AddPersistentListener(interfaceStyleSelector.onClick, settingsController.CycleInterfaceStyle);
+        UnityEventTools.AddPersistentListener(languageSelector.onClick, settingsController.CycleLanguage);
+        UnityEventTools.AddPersistentListener(fontSizeModeSelector.onClick, settingsController.CycleFontSizeMode);
+        UnityEventTools.AddPersistentListener(skipModeSelector.onClick, settingsController.CycleSkipMode);
+        UnityEventTools.AddPersistentListener(skipBehaviorSelector.onClick, settingsController.CycleSkipBehavior);
         UnityEventTools.AddPersistentListener(master.onValueChanged, settingsController.OnMasterVolumeChanged);
         UnityEventTools.AddPersistentListener(music.onValueChanged, settingsController.OnMusicVolumeChanged);
         UnityEventTools.AddPersistentListener(sfx.onValueChanged, settingsController.OnSfxVolumeChanged);
@@ -785,6 +812,12 @@ public static class MainMenuSceneBuilder
         UnityEventTools.AddPersistentListener(runInBackgroundToggle.onValueChanged, settingsController.OnRunInBackgroundChanged);
         UnityEventTools.AddPersistentListener(characterAnimationsToggle.onValueChanged, settingsController.OnCharacterAnimationsChanged);
         UnityEventTools.AddPersistentListener(backgroundAnimationsToggle.onValueChanged, settingsController.OnBackgroundAnimationsChanged);
+        UnityEventTools.AddPersistentListener(textSpeedSlider.onValueChanged, settingsController.OnTextSpeedChanged);
+        UnityEventTools.AddPersistentListener(autoForwardDelaySlider.onValueChanged, settingsController.OnAutoForwardDelayChanged);
+        UnityEventTools.AddPersistentListener(skipAfterChoicesToggle.onValueChanged, settingsController.OnSkipAfterChoicesChanged);
+        UnityEventTools.AddPersistentListener(autoForwardToggle.onValueChanged, settingsController.OnAutoForwardChanged);
+        UnityEventTools.AddPersistentListener(autoSaveToggle.onValueChanged, settingsController.OnAutoSaveChanged);
+        UnityEventTools.AddPersistentListener(showHintsToggle.onValueChanged, settingsController.OnShowHintsChanged);
         UnityEventTools.AddPersistentListener(backButton.onClick, settingsController.Hide);
 
         return settingsController;
@@ -1371,6 +1404,45 @@ public static class MainMenuSceneBuilder
         return button;
     }
 
+    private static Slider CreateSettingsValueSliderRow(
+        Transform parent,
+        string label,
+        float min,
+        float max,
+        float value,
+        float y,
+        string valueLabel,
+        out TextMeshProUGUI valueText)
+    {
+        var labelText = CreateTmpLabel(parent, label, 23, TextAlignmentOptions.Left);
+        var labelRect = labelText.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot = new Vector2(0f, 0.5f);
+        labelRect.anchoredPosition = new Vector2(-210f, y);
+        labelRect.sizeDelta = new Vector2(300f, 36f);
+        labelText.color = new Color(1f, 1f, 1f, 0.92f);
+
+        var slider = CreateSlider(parent, min, max, value);
+        slider.wholeNumbers = true;
+        var sliderRect = slider.GetComponent<RectTransform>();
+        sliderRect.anchorMin = new Vector2(0.5f, 0.5f);
+        sliderRect.anchorMax = new Vector2(0.5f, 0.5f);
+        sliderRect.pivot = new Vector2(0.5f, 0.5f);
+        sliderRect.anchoredPosition = new Vector2(200f, y);
+        sliderRect.sizeDelta = new Vector2(300f, 24f);
+
+        valueText = CreateTmpLabel(parent, valueLabel, 20, TextAlignmentOptions.Left);
+        var valueRect = valueText.GetComponent<RectTransform>();
+        valueRect.anchorMin = new Vector2(0.5f, 0.5f);
+        valueRect.anchorMax = new Vector2(0.5f, 0.5f);
+        valueRect.pivot = new Vector2(0f, 0.5f);
+        valueRect.anchoredPosition = new Vector2(380f, y);
+        valueRect.sizeDelta = new Vector2(170f, 36f);
+        valueText.color = new Color(1f, 1f, 1f, 0.86f);
+        return slider;
+    }
+
     private static Toggle CreateSettingsToggleRow(Transform parent, string label, bool value, float y)
     {
         var labelText = CreateTmpLabel(parent, label, 23, TextAlignmentOptions.Left);
@@ -1389,6 +1461,35 @@ public static class MainMenuSceneBuilder
         toggleRect.anchorMax = new Vector2(0.5f, 0.5f);
         toggleRect.pivot = new Vector2(0.5f, 0.5f);
         toggleRect.anchoredPosition = new Vector2(250f, y);
+        toggleRect.sizeDelta = new Vector2(30f, 30f);
+        return toggle;
+    }
+
+    private static Toggle CreateSettingsToggleRowAt(
+        Transform parent,
+        string label,
+        bool value,
+        float labelX,
+        float toggleX,
+        float y,
+        float labelWidth)
+    {
+        var labelText = CreateTmpLabel(parent, label, 23, TextAlignmentOptions.Left);
+        var labelRect = labelText.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot = new Vector2(0f, 0.5f);
+        labelRect.anchoredPosition = new Vector2(labelX, y);
+        labelRect.sizeDelta = new Vector2(labelWidth, 36f);
+        labelText.color = new Color(1f, 1f, 1f, 0.92f);
+
+        var toggle = CreateToggle(parent);
+        toggle.SetIsOnWithoutNotify(value);
+        var toggleRect = toggle.GetComponent<RectTransform>();
+        toggleRect.anchorMin = new Vector2(0.5f, 0.5f);
+        toggleRect.anchorMax = new Vector2(0.5f, 0.5f);
+        toggleRect.pivot = new Vector2(0.5f, 0.5f);
+        toggleRect.anchoredPosition = new Vector2(toggleX, y);
         toggleRect.sizeDelta = new Vector2(30f, 30f);
         return toggle;
     }

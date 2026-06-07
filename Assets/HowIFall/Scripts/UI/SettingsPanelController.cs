@@ -9,6 +9,10 @@ public class SettingsPanelController : MonoBehaviour
     private static readonly string[] RefreshRateOptions = { "60", "120", "144" };
     private static readonly string[] GameLookOptions = { "Чистый", "VHS", "Кинематографичный" };
     private static readonly string[] InterfaceStyleOptions = { "Классический", "Современный" };
+    private static readonly string[] LanguageOptions = { "Русский", "English" };
+    private static readonly string[] FontSizeModeOptions = { "Мелкий", "Средний", "Крупный" };
+    private static readonly string[] SkipModeOptions = { "Виденное", "Всё", "Ничего" };
+    private static readonly string[] SkipBehaviorOptions = { "Классический", "Быстрый" };
 
     public GameObject root;
     public TextMeshProUGUI settingsTitleText;
@@ -37,6 +41,18 @@ public class SettingsPanelController : MonoBehaviour
     public Toggle runInBackgroundToggle;
     public Toggle characterAnimationsToggle;
     public Toggle backgroundAnimationsToggle;
+    public TextMeshProUGUI languageValueText;
+    public TextMeshProUGUI fontSizeModeValueText;
+    public TextMeshProUGUI skipModeValueText;
+    public TextMeshProUGUI skipBehaviorValueText;
+    public Slider textSpeedSlider;
+    public TextMeshProUGUI textSpeedValueText;
+    public Slider autoForwardDelaySlider;
+    public TextMeshProUGUI autoForwardDelayValueText;
+    public Toggle skipAfterChoicesToggle;
+    public Toggle autoForwardToggle;
+    public Toggle autoSaveToggle;
+    public Toggle showHintsToggle;
     public GameObject[] objectsToHideWhenOpen;
 
     private void Awake()
@@ -129,6 +145,45 @@ public class SettingsPanelController : MonoBehaviour
         if (backgroundAnimationsToggle != null)
         {
             backgroundAnimationsToggle.SetIsOnWithoutNotify(settings.backgroundAnimations);
+        }
+
+        SetValueText(languageValueText, settings.language);
+        SetValueText(fontSizeModeValueText, settings.fontSizeMode);
+        SetValueText(skipModeValueText, settings.skipMode);
+        SetValueText(skipBehaviorValueText, settings.skipBehavior);
+
+        if (textSpeedSlider != null)
+        {
+            textSpeedSlider.SetValueWithoutNotify(settings.textSpeed);
+        }
+
+        SetTextSpeedValue(settings.textSpeed);
+
+        if (autoForwardDelaySlider != null)
+        {
+            autoForwardDelaySlider.SetValueWithoutNotify(settings.autoForwardDelay);
+        }
+
+        SetAutoForwardDelayValue(settings.autoForwardDelay);
+
+        if (skipAfterChoicesToggle != null)
+        {
+            skipAfterChoicesToggle.SetIsOnWithoutNotify(settings.skipAfterChoices);
+        }
+
+        if (autoForwardToggle != null)
+        {
+            autoForwardToggle.SetIsOnWithoutNotify(settings.autoForward);
+        }
+
+        if (autoSaveToggle != null)
+        {
+            autoSaveToggle.SetIsOnWithoutNotify(settings.autoSave);
+        }
+
+        if (showHintsToggle != null)
+        {
+            showHintsToggle.SetIsOnWithoutNotify(settings.showHints);
         }
     }
 
@@ -264,6 +319,106 @@ public class SettingsPanelController : MonoBehaviour
         }
     }
 
+    public void CycleLanguage()
+    {
+        if (SettingsManager.Instance == null)
+        {
+            return;
+        }
+
+        string value = GetNextValue(LanguageOptions, SettingsManager.Instance.settings.language);
+        SettingsManager.Instance.SetLanguage(value);
+        SetValueText(languageValueText, value);
+    }
+
+    public void CycleFontSizeMode()
+    {
+        if (SettingsManager.Instance == null)
+        {
+            return;
+        }
+
+        string value = GetNextValue(FontSizeModeOptions, SettingsManager.Instance.settings.fontSizeMode);
+        SettingsManager.Instance.SetFontSizeMode(value);
+        SetValueText(fontSizeModeValueText, value);
+    }
+
+    public void CycleSkipMode()
+    {
+        if (SettingsManager.Instance == null)
+        {
+            return;
+        }
+
+        string value = GetNextValue(SkipModeOptions, SettingsManager.Instance.settings.skipMode);
+        SettingsManager.Instance.SetSkipMode(value);
+        SetValueText(skipModeValueText, value);
+    }
+
+    public void CycleSkipBehavior()
+    {
+        if (SettingsManager.Instance == null)
+        {
+            return;
+        }
+
+        string value = GetNextValue(SkipBehaviorOptions, SettingsManager.Instance.settings.skipBehavior);
+        SettingsManager.Instance.SetSkipBehavior(value);
+        SetValueText(skipBehaviorValueText, value);
+    }
+
+    public void OnTextSpeedChanged(float value)
+    {
+        if (SettingsManager.Instance != null)
+        {
+            SettingsManager.Instance.SetTextSpeed(value);
+        }
+
+        SetTextSpeedValue(value);
+    }
+
+    public void OnAutoForwardDelayChanged(float value)
+    {
+        if (SettingsManager.Instance != null)
+        {
+            SettingsManager.Instance.SetAutoForwardDelay(value);
+        }
+
+        SetAutoForwardDelayValue(value);
+    }
+
+    public void OnSkipAfterChoicesChanged(bool value)
+    {
+        if (SettingsManager.Instance != null)
+        {
+            SettingsManager.Instance.SetSkipAfterChoices(value);
+        }
+    }
+
+    public void OnAutoForwardChanged(bool value)
+    {
+        if (SettingsManager.Instance != null)
+        {
+            SettingsManager.Instance.SetAutoForward(value);
+        }
+    }
+
+    public void OnAutoSaveChanged(bool value)
+    {
+        if (SettingsManager.Instance != null)
+        {
+            SettingsManager.Instance.SetAutoSave(value);
+        }
+    }
+
+    public void OnShowHintsChanged(bool value)
+    {
+        if (SettingsManager.Instance != null)
+        {
+            SettingsManager.Instance.SetShowHints(value);
+        }
+    }
+
     public void ShowVideoTab()
     {
         SetActiveTab(videoContent, videoTabImage, videoTabText);
@@ -280,7 +435,6 @@ public class SettingsPanelController : MonoBehaviour
     {
         SetActiveTab(gameContent, gameTabImage, gameTabText);
         SetTitle("Настройки: игра");
-        Debug.Log("TODO: Settings game tab");
     }
 
     private void SetHiddenObjectsActive(bool isActive)
@@ -348,6 +502,16 @@ public class SettingsPanelController : MonoBehaviour
         {
             text.text = value;
         }
+    }
+
+    private void SetTextSpeedValue(float value)
+    {
+        SetValueText(textSpeedValueText, $"{Mathf.RoundToInt(value)} симв./сек.");
+    }
+
+    private void SetAutoForwardDelayValue(float value)
+    {
+        SetValueText(autoForwardDelayValueText, $"{Mathf.RoundToInt(value)} %");
     }
 
     private string GetNextValue(string[] options, string current)
