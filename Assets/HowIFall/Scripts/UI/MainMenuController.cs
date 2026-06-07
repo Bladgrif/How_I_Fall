@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,6 +19,7 @@ public class MainMenuController : MonoBehaviour
     }
 
     public SettingsPanelController settingsPanel;
+    public SaveLoadPanelController saveLoadPanel;
 
     [SerializeField] private GameObject aboutPanel;
     [SerializeField] private GameObject helpPanel;
@@ -60,9 +62,15 @@ public class MainMenuController : MonoBehaviour
 
     public void OpenLoadPanel()
     {
+        if (saveLoadPanel != null)
+        {
+            saveLoadPanel.OpenLoad();
+            return;
+        }
+
         if (loadPanel == null)
         {
-            ContinueGame();
+            ShowNotification("Экран загрузки недоступен");
             return;
         }
 
@@ -370,6 +378,7 @@ public class MainMenuController : MonoBehaviour
 public class SaveLoadSlotButton : MonoBehaviour
 {
     public MainMenuController controller;
+    public SaveLoadPanelController panelController;
     public Button button;
     public TextMeshProUGUI titleText;
     public TextMeshProUGUI dateText;
@@ -377,6 +386,7 @@ public class SaveLoadSlotButton : MonoBehaviour
     public Image previewImage;
 
     private int visibleSlotIndex;
+    private Sprite previewSprite;
 
     public void SetSlotInfo(SaveSlotInfo slot, int visibleIndex)
     {
@@ -397,22 +407,406 @@ public class SaveLoadSlotButton : MonoBehaviour
 
         if (previewText != null)
         {
-            previewText.text = hasSave ? "Превью недоступно" : string.Empty;
+            previewText.text = string.Empty;
         }
 
         if (previewImage != null)
         {
-            previewImage.color = hasSave
-                ? new Color(0.05f, 0.08f, 0.13f, 0.9f)
-                : new Color(0f, 0f, 0f, 0f);
+            ApplyPreview(slot, hasSave);
         }
     }
 
     public void Click()
     {
+        if (panelController != null)
+        {
+            panelController.OnSlotClicked(visibleSlotIndex);
+            return;
+        }
+
         if (controller != null)
         {
             controller.OnSaveLoadSlotClicked(visibleSlotIndex);
         }
+    }
+
+    private void ApplyPreview(SaveSlotInfo slot, bool hasSave)
+    {
+        if (previewSprite != null)
+        {
+            Destroy(previewSprite.texture);
+            Destroy(previewSprite);
+            previewSprite = null;
+        }
+
+        previewImage.sprite = null;
+        previewImage.color = hasSave ? new Color(0.05f, 0.08f, 0.13f, 0.9f) : new Color(0f, 0f, 0f, 0f);
+
+        if (!hasSave || slot == null || string.IsNullOrEmpty(slot.PreviewPath) || !File.Exists(slot.PreviewPath))
+        {
+            return;
+        }
+
+        byte[] bytes = File.ReadAllBytes(slot.PreviewPath);
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!texture.LoadImage(bytes))
+        {
+            Destroy(texture);
+            return;
+        }
+
+        previewSprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+        previewImage.sprite = previewSprite;
+        previewImage.preserveAspect = true;
+        previewImage.color = Color.white;
+    }
+}
+
+public class SaveLoadPanelController : MonoBehaviour
+{
+    private const int PageSize = 8;
+    private const int TotalPages = 20;
+
+    private enum Mode
+    {
+        Auto,
+        Load,
+        Save
+    }
+
+    public GameObject root;
+    public bool saveEnabled;
+    public MainMenuController mainMenuController;
+    public VNDialogueController vnController;
+    public GameObject[] objectsToHideWhenOpen;
+    public Button autoButton;
+    public Button loadButton;
+    public Button saveButton;
+    public TextMeshProUGUI autoLabel;
+    public TextMeshProUGUI loadLabel;
+    public TextMeshProUGUI saveLabel;
+    public Button previousPageButton;
+    public Button nextPageButton;
+    public TextMeshProUGUI pageText;
+    public SaveLoadSlotButton[] slotButtons;
+
+    private Mode mode = Mode.Load;
+    private int page = 1;
+
+    private void Awake()
+    {
+        if (root == null)
+        {
+            root = gameObject;
+        }
+    }
+
+    public void OpenAuto()
+    {
+        Open(Mode.Auto);
+    }
+
+    public void OpenLoad()
+    {
+        Open(Mode.Load);
+    }
+
+    public void OpenSave()
+    {
+        if (!saveEnabled)
+        {
+            ShowToast("Сохранение доступно из игры");
+            return;
+        }
+
+        Open(Mode.Save);
+    }
+
+    public void Close()
+    {
+        if (root != null)
+        {
+            root.SetActive(false);
+        }
+
+        SetHiddenObjectsActive(true);
+    }
+
+    public void ShowAuto()
+    {
+        mode = Mode.Auto;
+        Refresh();
+    }
+
+    public void ShowLoad()
+    {
+        mode = Mode.Load;
+        Refresh();
+    }
+
+    public void ShowSave()
+    {
+        if (!saveEnabled)
+        {
+            ShowToast("Сохранение доступно из игры");
+            return;
+        }
+
+        mode = Mode.Save;
+        Refresh();
+    }
+
+    public void PreviousPage()
+    {
+        page = Mathf.Max(1, page - 1);
+        Refresh();
+    }
+
+    public void NextPage()
+    {
+        page = Mathf.Min(TotalPages, page + 1);
+        Refresh();
+    }
+
+    public void OnSlotClicked(int visibleSlotIndex)
+    {
+        int slotIndex = (page - 1) * PageSize + visibleSlotIndex + 1;
+        bool isAuto = mode == Mode.Auto;
+
+        if (mode == Mode.Save)
+        {
+            if (!saveEnabled)
+            {
+                ShowToast("Сохранение доступно из игры");
+                return;
+            }
+
+            if (vnController != null)
+            {
+                StartCoroutine(SaveVnSlotWithPreview(slotIndex));
+                return;
+            }
+
+            if (SaveManager.Instance == null || !SaveManager.Instance.SaveToSlot(slotIndex, false, GetLinePreview()))
+            {
+                ShowToast("Не удалось сохранить");
+                return;
+            }
+
+            ShowToast(SaveManager.Instance.HasSaveSlot(slotIndex, false) ? "Сохранено" : "Слот перезаписан");
+            StartCoroutine(RefreshAfterPreviewCapture());
+            return;
+        }
+
+        if (SaveManager.Instance == null || !SaveManager.Instance.HasSaveSlot(slotIndex, isAuto))
+        {
+            ShowToast("Пустой слот");
+            return;
+        }
+
+        if (!SaveManager.Instance.LoadFromSlot(slotIndex, isAuto))
+        {
+            ShowToast("Не удалось загрузить");
+            return;
+        }
+
+        if (vnController != null)
+        {
+            vnController.RestoreLoadedSaveFromPanel();
+            Close();
+            ShowToast("Загружено");
+            return;
+        }
+
+        SceneFlowManager.EnsureInstance().LoadLoadedGameScene();
+    }
+
+    private IEnumerator SaveVnSlotWithPreview(int slotIndex)
+    {
+        CanvasGroup group = root != null ? root.GetComponent<CanvasGroup>() : null;
+        if (root != null && group == null)
+        {
+            group = root.AddComponent<CanvasGroup>();
+        }
+
+        float previousAlpha = group != null ? group.alpha : 1f;
+        bool previousInteractable = group == null || group.interactable;
+        bool previousBlocksRaycasts = group == null || group.blocksRaycasts;
+
+        if (group != null)
+        {
+            group.alpha = 0f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+        }
+
+        yield return new WaitForEndOfFrame();
+
+        Texture2D previewTexture = null;
+        try
+        {
+            previewTexture = ScreenCapture.CaptureScreenshotAsTexture();
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogWarning($"SaveLoadPanelController: preview capture failed. {exception.Message}");
+        }
+
+        if (group != null)
+        {
+            group.alpha = previousAlpha;
+            group.interactable = previousInteractable;
+            group.blocksRaycasts = previousBlocksRaycasts;
+        }
+
+        bool saved = SaveManager.Instance != null
+            && SaveManager.Instance.SaveToSlot(slotIndex, false, GetLinePreview(), previewTexture);
+
+        if (previewTexture != null)
+        {
+            Destroy(previewTexture);
+        }
+
+        if (!saved)
+        {
+            ShowToast("Не удалось сохранить");
+            Refresh();
+            yield break;
+        }
+
+        ShowToast("Сохранено");
+        Refresh();
+    }
+
+    private void Open(Mode openMode)
+    {
+        mode = openMode;
+        page = 1;
+        SetHiddenObjectsActive(false);
+
+        if (root != null)
+        {
+            root.SetActive(true);
+        }
+
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        SetModeLabel(autoLabel, mode == Mode.Auto, true);
+        SetModeLabel(loadLabel, mode == Mode.Load, true);
+        SetModeLabel(saveLabel, mode == Mode.Save, saveEnabled);
+
+        if (autoButton != null)
+        {
+            autoButton.interactable = true;
+        }
+
+        if (loadButton != null)
+        {
+            loadButton.interactable = true;
+        }
+
+        if (saveButton != null)
+        {
+            saveButton.interactable = saveEnabled;
+        }
+
+        if (pageText != null)
+        {
+            pageText.text = $"{page} / {TotalPages}";
+        }
+
+        if (previousPageButton != null)
+        {
+            previousPageButton.interactable = page > 1;
+        }
+
+        if (nextPageButton != null)
+        {
+            nextPageButton.interactable = page < TotalPages;
+        }
+
+        List<SaveSlotInfo> slots = mode == Mode.Auto
+            ? SaveManager.Instance?.GetAutoSaveSlots(page, PageSize)
+            : SaveManager.Instance?.GetManualSaveSlots(page, PageSize);
+
+        if (slotButtons == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < slotButtons.Length; i++)
+        {
+            if (slotButtons[i] == null)
+            {
+                continue;
+            }
+
+            SaveSlotInfo slot = slots != null && i < slots.Count ? slots[i] : null;
+            slotButtons[i].SetSlotInfo(slot, i);
+        }
+    }
+
+    private IEnumerator RefreshAfterPreviewCapture()
+    {
+        yield return new WaitForEndOfFrame();
+        yield return null;
+        Refresh();
+    }
+
+    private void SetModeLabel(TextMeshProUGUI label, bool active, bool enabled)
+    {
+        if (label == null)
+        {
+            return;
+        }
+
+        if (!enabled)
+        {
+            label.color = new Color(1f, 1f, 1f, 0.35f);
+            return;
+        }
+
+        label.color = active ? Color.white : new Color(1f, 1f, 1f, 0.72f);
+    }
+
+    private void SetHiddenObjectsActive(bool isActive)
+    {
+        if (objectsToHideWhenOpen == null)
+        {
+            return;
+        }
+
+        foreach (GameObject target in objectsToHideWhenOpen)
+        {
+            if (target != null)
+            {
+                target.SetActive(isActive);
+            }
+        }
+    }
+
+    private string GetLinePreview()
+    {
+        return vnController == null ? string.Empty : vnController.GetCurrentLinePreview();
+    }
+
+    private void ShowToast(string message)
+    {
+        if (vnController != null)
+        {
+            vnController.ShowToastMessage(message);
+            return;
+        }
+
+        if (mainMenuController != null)
+        {
+            mainMenuController.ShowNotification(message);
+            return;
+        }
+
+        Debug.Log(message);
     }
 }

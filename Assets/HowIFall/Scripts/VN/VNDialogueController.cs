@@ -44,6 +44,7 @@ public class VNDialogueController : MonoBehaviour
     public Toggle vnFullscreenToggle;
     public Button vnSettingsCloseButton;
     public Button vnSettingsResetButton;
+    public SaveLoadPanelController saveLoadPanel;
     public float baseCharactersPerSecond = 45f;
 
     public Vector2 characterLeftPosition = new Vector2(-420f, -220f);
@@ -213,6 +214,12 @@ public class VNDialogueController : MonoBehaviour
             if (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
             {
                 HideSettings();
+                return;
+            }
+
+            if (saveLoadPanel != null && saveLoadPanel.root != null && saveLoadPanel.root.activeSelf)
+            {
+                saveLoadPanel.Close();
                 return;
             }
         }
@@ -463,6 +470,12 @@ public class VNDialogueController : MonoBehaviour
 
     public void SaveGame()
     {
+        if (saveLoadPanel != null)
+        {
+            saveLoadPanel.OpenSave();
+            return;
+        }
+
         if (SaveManager.Instance == null)
         {
             ShowToast("Не удалось сохранить");
@@ -483,6 +496,12 @@ public class VNDialogueController : MonoBehaviour
 
     public void LoadGame()
     {
+        if (saveLoadPanel != null)
+        {
+            saveLoadPanel.OpenLoad();
+            return;
+        }
+
         if (SaveManager.Instance == null)
         {
             ShowToast("Не удалось загрузить");
@@ -511,6 +530,21 @@ public class VNDialogueController : MonoBehaviour
             Debug.LogWarning($"VNDialogueController: quick load failed. {exception.Message}", this);
             ShowToast("Не удалось загрузить");
         }
+    }
+
+    public string GetCurrentLinePreview()
+    {
+        return currentFullText;
+    }
+
+    public void RestoreLoadedSaveFromPanel()
+    {
+        RestoreFromGameState();
+    }
+
+    public void ShowToastMessage(string message)
+    {
+        ShowToast(message);
     }
 
     public void OpenSettings()

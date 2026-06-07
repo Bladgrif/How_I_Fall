@@ -8,6 +8,9 @@ public class SaveData
     public string savedAt;
     public string sceneTitle;
     public string linePreview;
+    public int slotIndex;
+    public bool isAutoSave;
+    public string previewPath;
 
     public int lust;
     public int romance;

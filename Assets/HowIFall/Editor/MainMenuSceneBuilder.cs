@@ -74,7 +74,7 @@ public static class MainMenuSceneBuilder
             mainMenuController,
             "Help Panel",
             "Помощь",
-            "Управление:\n\nЛКМ / Space — следующая реплика\nEsc — закрыть окно или вернуться назад\nH — история реплик\nCtrl — пропуск текста\nF — полноэкранный режим\n\nВ главном меню:\n\nНачать — новая игра\nЗагрузить — экран сохранений\nНастройки — параметры игры",
+            "Управление:\n\nЛКМ / Space — следующая реплика\nEsc — закрыть окно или вернуться назад\nH — история реплик\nCtrl — пропуск текста\nF — полноэкранный режим\n\nВ главном меню:\n\nНовая игра — новая игра\nЗагрузить — экран сохранений\nНастройки — параметры игры",
             new Vector2(820f, 560f),
             false);
         var loadPanel = CreateLoadPanel(
@@ -89,7 +89,8 @@ public static class MainMenuSceneBuilder
             out var previousSavePageButton,
             out var nextSavePageButton,
             out var savePageText,
-            out var saveSlotButtons);
+            out var saveSlotButtons,
+            out var saveLoadPanelController);
         var exitConfirmPanel = CreateExitConfirmPanel(canvas.transform, mainMenuController);
         var notificationPanel = CreateNotificationPanel(canvas.transform, out var notificationText);
         AssignMainMenuControllerReferences(
@@ -108,6 +109,7 @@ public static class MainMenuSceneBuilder
             nextSavePageButton,
             savePageText,
             saveSlotButtons,
+            saveLoadPanelController,
             new[] { menuCanvasGroup.gameObject, titleObject, pressAnyObject },
             notificationPanel,
             notificationText);
@@ -385,7 +387,7 @@ public static class MainMenuSceneBuilder
         var content = CreateUiObject("Menu Content", root.transform);
         StretchFull(content.GetComponent<RectTransform>());
 
-        string[] labels = { "Начать", "Продолжить", "Загрузить", "Настройки", "Об игре", "Помощь", "Выход" };
+        string[] labels = { "Новая игра", "Продолжить", "Загрузить", "Настройки", "Об игре", "Помощь", "Выход" };
         var methods = new System.Action<Button>[]
         {
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.StartGame),
@@ -945,7 +947,8 @@ public static class MainMenuSceneBuilder
         out Button previousSavePageButton,
         out Button nextSavePageButton,
         out TextMeshProUGUI savePageText,
-        out SaveLoadSlotButton[] saveSlotButtons)
+        out SaveLoadSlotButton[] saveSlotButtons,
+        out SaveLoadPanelController saveLoadPanelController)
     {
         var panelRoot = CreateUiObject("Main Menu SaveLoad Panel", canvas);
         panelRoot.SetActive(false);
@@ -1035,9 +1038,14 @@ public static class MainMenuSceneBuilder
         saveModeButton.interactable = false;
         saveModeLabel.color = new Color(1f, 1f, 1f, 0.35f);
 
-        UnityEventTools.AddPersistentListener(autoSavesButton.onClick, controller.ShowAutoSaves);
-        UnityEventTools.AddPersistentListener(manualSavesButton.onClick, controller.ShowManualSaves);
-        UnityEventTools.AddPersistentListener(saveModeButton.onClick, controller.ShowSaveMode);
+        saveLoadPanelController = panelRoot.AddComponent<SaveLoadPanelController>();
+        saveLoadPanelController.root = panelRoot;
+        saveLoadPanelController.saveEnabled = false;
+        saveLoadPanelController.mainMenuController = controller;
+
+        UnityEventTools.AddPersistentListener(autoSavesButton.onClick, saveLoadPanelController.ShowAuto);
+        UnityEventTools.AddPersistentListener(manualSavesButton.onClick, saveLoadPanelController.ShowLoad);
+        UnityEventTools.AddPersistentListener(saveModeButton.onClick, saveLoadPanelController.ShowSave);
 
         var divider = CreateUiObject("SaveLoad Divider", window.transform);
         var dividerRect = divider.GetComponent<RectTransform>();
@@ -1063,6 +1071,7 @@ public static class MainMenuSceneBuilder
             int column = i % 4;
             int row = i / 4;
             var slot = CreateSaveLoadSlot(window.transform, controller, i);
+            slot.panelController = saveLoadPanelController;
             var slotRect = slot.GetComponent<RectTransform>();
             slotRect.anchorMin = new Vector2(0.5f, 0.5f);
             slotRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1086,7 +1095,7 @@ public static class MainMenuSceneBuilder
             previousPageLabel.fontSize = 18;
         }
         AddStyledButtonHoverEffect(previousSavePageButton);
-        UnityEventTools.AddPersistentListener(previousSavePageButton.onClick, controller.PreviousSavePage);
+        UnityEventTools.AddPersistentListener(previousSavePageButton.onClick, saveLoadPanelController.PreviousPage);
 
         savePageText = CreateTmpLabel(window.transform, "1 / 20", 24, TextAlignmentOptions.Center);
         var pageRect = savePageText.GetComponent<RectTransform>();
@@ -1109,7 +1118,7 @@ public static class MainMenuSceneBuilder
             nextPageLabel.fontSize = 18;
         }
         AddStyledButtonHoverEffect(nextSavePageButton);
-        UnityEventTools.AddPersistentListener(nextSavePageButton.onClick, controller.NextSavePage);
+        UnityEventTools.AddPersistentListener(nextSavePageButton.onClick, saveLoadPanelController.NextPage);
 
         var backButton = CreateStyledButton(window.transform, "Назад", new Vector2(190f, 58f));
         var backRect = backButton.GetComponent<RectTransform>();
@@ -1118,7 +1127,18 @@ public static class MainMenuSceneBuilder
         backRect.pivot = new Vector2(1f, 0f);
         backRect.anchoredPosition = new Vector2(-54f, 42f);
         AddStyledButtonHoverEffect(backButton);
-        UnityEventTools.AddPersistentListener(backButton.onClick, controller.CloseLoadPanel);
+        UnityEventTools.AddPersistentListener(backButton.onClick, saveLoadPanelController.Close);
+
+        saveLoadPanelController.autoButton = autoSavesButton;
+        saveLoadPanelController.loadButton = manualSavesButton;
+        saveLoadPanelController.saveButton = saveModeButton;
+        saveLoadPanelController.autoLabel = autoSavesLabel;
+        saveLoadPanelController.loadLabel = manualSavesLabel;
+        saveLoadPanelController.saveLabel = saveModeLabel;
+        saveLoadPanelController.previousPageButton = previousSavePageButton;
+        saveLoadPanelController.nextPageButton = nextSavePageButton;
+        saveLoadPanelController.pageText = savePageText;
+        saveLoadPanelController.slotButtons = saveSlotButtons;
 
         return panelRoot;
     }
@@ -1377,6 +1397,7 @@ public static class MainMenuSceneBuilder
         Button nextSavePageButton,
         TextMeshProUGUI savePageText,
         SaveLoadSlotButton[] saveSlotButtons,
+        SaveLoadPanelController saveLoadPanelController,
         GameObject[] objectsToHideWhenLoadOpen,
         GameObject notificationPanel,
         TextMeshProUGUI notificationText)
@@ -1386,6 +1407,7 @@ public static class MainMenuSceneBuilder
         serializedController.FindProperty("helpPanel").objectReferenceValue = helpPanel;
         serializedController.FindProperty("exitConfirmPanel").objectReferenceValue = exitConfirmPanel;
         serializedController.FindProperty("loadPanel").objectReferenceValue = loadPanel;
+        serializedController.FindProperty("saveLoadPanel").objectReferenceValue = saveLoadPanelController;
         serializedController.FindProperty("autoSavesButton").objectReferenceValue = autoSavesButton;
         serializedController.FindProperty("manualSavesButton").objectReferenceValue = manualSavesButton;
         serializedController.FindProperty("saveModeButton").objectReferenceValue = saveModeButton;
@@ -1406,6 +1428,18 @@ public static class MainMenuSceneBuilder
         for (int i = 0; i < loadHiddenObjectsProperty.arraySize; i++)
         {
             loadHiddenObjectsProperty.GetArrayElementAtIndex(i).objectReferenceValue = objectsToHideWhenLoadOpen[i];
+        }
+        if (saveLoadPanelController != null)
+        {
+            var serializedSaveLoad = new SerializedObject(saveLoadPanelController);
+            var panelHiddenObjectsProperty = serializedSaveLoad.FindProperty("objectsToHideWhenOpen");
+            panelHiddenObjectsProperty.arraySize = objectsToHideWhenLoadOpen == null ? 0 : objectsToHideWhenLoadOpen.Length;
+            for (int i = 0; i < panelHiddenObjectsProperty.arraySize; i++)
+            {
+                panelHiddenObjectsProperty.GetArrayElementAtIndex(i).objectReferenceValue = objectsToHideWhenLoadOpen[i];
+            }
+
+            serializedSaveLoad.ApplyModifiedPropertiesWithoutUndo();
         }
         serializedController.FindProperty("notificationPanel").objectReferenceValue = notificationPanel;
         serializedController.FindProperty("notificationText").objectReferenceValue = notificationText;

@@ -76,6 +76,9 @@ public static class VNPrototypeSceneBuilder
             out TextMeshProUGUI notificationText);
         notificationPanel.SetActive(false);
 
+        SaveLoadPanelController saveLoadPanel = CreateVNSaveLoadPanel(canvas.transform, controller);
+        saveLoadPanel.root.SetActive(false);
+
         GameObject settingsDimOverlay = CreateSettingsDimOverlay(canvas.transform);
         settingsDimOverlay.SetActive(false);
 
@@ -145,6 +148,7 @@ public static class VNPrototypeSceneBuilder
         controller.vnFullscreenToggle = fullscreenToggle;
         controller.vnSettingsCloseButton = settingsCloseButton;
         controller.vnSettingsResetButton = settingsResetButton;
+        controller.saveLoadPanel = saveLoadPanel;
         EditorSceneManager.SaveScene(scene, VNPrototypeScenePath);
         EnsureBuildSettingsScenes();
         AssetDatabase.SaveAssets();
@@ -638,6 +642,189 @@ public static class VNPrototypeSceneBuilder
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
         return group;
+    }
+
+    private static SaveLoadPanelController CreateVNSaveLoadPanel(Transform parent, VNDialogueController controller)
+    {
+        GameObject root = CreateUiObject("VN SaveLoad Panel", parent);
+        StretchFull(root.GetComponent<RectTransform>());
+
+        Image blocker = root.AddComponent<Image>();
+        blocker.color = new Color(0f, 0f, 0f, 0.42f);
+        blocker.raycastTarget = true;
+
+        GameObject panel = CreateUiObject("SaveLoad Window", root.transform);
+        RectTransform panelRect = panel.GetComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.anchoredPosition = Vector2.zero;
+        panelRect.sizeDelta = new Vector2(1260f, 720f);
+
+        Image panelImage = panel.AddComponent<Image>();
+        panelImage.color = new Color(0.015f, 0.035f, 0.075f, 0.94f);
+        panelImage.raycastTarget = true;
+        Outline outline = panel.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.28f);
+        outline.effectDistance = new Vector2(2f, -2f);
+        Shadow shadow = panel.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+        shadow.effectDistance = new Vector2(6f, -6f);
+
+        TextMeshProUGUI title = CreateTMPText("SaveLoad Title", panel.transform, "Загрузить", 46, Color.white);
+        title.alignment = TextAlignmentOptions.Center;
+        title.fontStyle = FontStyles.Bold;
+        RectTransform titleRect = title.rectTransform;
+        titleRect.anchorMin = new Vector2(0.5f, 1f);
+        titleRect.anchorMax = new Vector2(0.5f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -32f);
+        titleRect.sizeDelta = new Vector2(520f, 58f);
+
+        SaveLoadPanelController saveLoad = root.AddComponent<SaveLoadPanelController>();
+        saveLoad.root = root;
+        saveLoad.saveEnabled = true;
+        saveLoad.vnController = controller;
+
+        Button autoButton = CreateVNSaveLoadModeButton(panel.transform, "Авто", new Vector2(-500f, 180f), false, out TextMeshProUGUI autoLabel);
+        Button loadButton = CreateVNSaveLoadModeButton(panel.transform, "Загрузить", new Vector2(-500f, 115f), true, out TextMeshProUGUI loadLabel);
+        Button saveButton = CreateVNSaveLoadModeButton(panel.transform, "Сохранить", new Vector2(-500f, 50f), false, out TextMeshProUGUI saveLabel);
+        UnityEventTools.AddPersistentListener(autoButton.onClick, saveLoad.ShowAuto);
+        UnityEventTools.AddPersistentListener(loadButton.onClick, saveLoad.ShowLoad);
+        UnityEventTools.AddPersistentListener(saveButton.onClick, saveLoad.ShowSave);
+
+        SaveLoadSlotButton[] slots = new SaveLoadSlotButton[8];
+        const float slotWidth = 190f;
+        const float slotHeight = 155f;
+        const float firstSlotX = -215f;
+        const float firstSlotY = 88f;
+        for (int i = 0; i < slots.Length; i++)
+        {
+            int column = i % 4;
+            int row = i / 4;
+            SaveLoadSlotButton slot = CreateVNSaveLoadSlot(panel.transform, saveLoad, i);
+            RectTransform slotRect = slot.GetComponent<RectTransform>();
+            slotRect.anchorMin = new Vector2(0.5f, 0.5f);
+            slotRect.anchorMax = new Vector2(0.5f, 0.5f);
+            slotRect.pivot = new Vector2(0.5f, 0.5f);
+            slotRect.anchoredPosition = new Vector2(firstSlotX + column * 214f, firstSlotY - row * 182f);
+            slotRect.sizeDelta = new Vector2(slotWidth, slotHeight);
+            slots[i] = slot;
+        }
+
+        Button previousButton = CreateStyledButton(panel.transform, "Назад страница", new Vector2(190f, 46f), 18);
+        RectTransform previousRect = previousButton.GetComponent<RectTransform>();
+        previousRect.anchorMin = new Vector2(0.5f, 0f);
+        previousRect.anchorMax = new Vector2(0.5f, 0f);
+        previousRect.pivot = new Vector2(0.5f, 0f);
+        previousRect.anchoredPosition = new Vector2(-150f, 44f);
+        UnityEventTools.AddPersistentListener(previousButton.onClick, saveLoad.PreviousPage);
+
+        TextMeshProUGUI pageText = CreateTMPText("SaveLoad Page", panel.transform, "1 / 20", 24, Color.white);
+        pageText.alignment = TextAlignmentOptions.Center;
+        RectTransform pageRect = pageText.rectTransform;
+        pageRect.anchorMin = new Vector2(0.5f, 0f);
+        pageRect.anchorMax = new Vector2(0.5f, 0f);
+        pageRect.pivot = new Vector2(0.5f, 0f);
+        pageRect.anchoredPosition = new Vector2(80f, 52f);
+        pageRect.sizeDelta = new Vector2(120f, 38f);
+
+        Button nextButton = CreateStyledButton(panel.transform, "Вперёд страница", new Vector2(190f, 46f), 18);
+        RectTransform nextRect = nextButton.GetComponent<RectTransform>();
+        nextRect.anchorMin = new Vector2(0.5f, 0f);
+        nextRect.anchorMax = new Vector2(0.5f, 0f);
+        nextRect.pivot = new Vector2(0.5f, 0f);
+        nextRect.anchoredPosition = new Vector2(310f, 44f);
+        UnityEventTools.AddPersistentListener(nextButton.onClick, saveLoad.NextPage);
+
+        Button closeButton = CreateStyledButton(panel.transform, "Назад", new Vector2(180f, 50f), 22);
+        RectTransform closeRect = closeButton.GetComponent<RectTransform>();
+        closeRect.anchorMin = new Vector2(1f, 0f);
+        closeRect.anchorMax = new Vector2(1f, 0f);
+        closeRect.pivot = new Vector2(1f, 0f);
+        closeRect.anchoredPosition = new Vector2(-44f, 42f);
+        UnityEventTools.AddPersistentListener(closeButton.onClick, saveLoad.Close);
+
+        saveLoad.autoButton = autoButton;
+        saveLoad.loadButton = loadButton;
+        saveLoad.saveButton = saveButton;
+        saveLoad.autoLabel = autoLabel;
+        saveLoad.loadLabel = loadLabel;
+        saveLoad.saveLabel = saveLabel;
+        saveLoad.previousPageButton = previousButton;
+        saveLoad.nextPageButton = nextButton;
+        saveLoad.pageText = pageText;
+        saveLoad.slotButtons = slots;
+        return saveLoad;
+    }
+
+    private static Button CreateVNSaveLoadModeButton(Transform parent, string label, Vector2 position, bool active, out TextMeshProUGUI labelText)
+    {
+        Button button = CreateStyledButton(parent, label, new Vector2(220f, 50f), 22);
+        RectTransform rect = button.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        labelText = button.GetComponentInChildren<TextMeshProUGUI>();
+        if (labelText != null)
+        {
+            labelText.color = active ? Color.white : new Color(1f, 1f, 1f, 0.72f);
+        }
+
+        return button;
+    }
+
+    private static SaveLoadSlotButton CreateVNSaveLoadSlot(Transform parent, SaveLoadPanelController panelController, int visibleIndex)
+    {
+        GameObject slotGo = CreateUiObject("Save Slot " + (visibleIndex + 1), parent);
+        Image image = slotGo.AddComponent<Image>();
+        image.color = new Color(0.02f, 0.05f, 0.1f, 0.72f);
+        image.raycastTarget = true;
+        Outline outline = slotGo.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.25f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        Button button = slotGo.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        GameObject preview = CreateUiObject("Preview", slotGo.transform);
+        RectTransform previewRect = preview.GetComponent<RectTransform>();
+        previewRect.anchorMin = new Vector2(0f, 0f);
+        previewRect.anchorMax = new Vector2(1f, 0f);
+        previewRect.offsetMin = new Vector2(12f, 12f);
+        previewRect.offsetMax = new Vector2(-12f, 76f);
+        Image previewImage = preview.AddComponent<Image>();
+        previewImage.color = new Color(0f, 0f, 0f, 0f);
+        previewImage.raycastTarget = false;
+
+        TextMeshProUGUI titleText = CreateTMPText("Title", slotGo.transform, string.Empty, 18, Color.white);
+        RectTransform titleRect = titleText.rectTransform;
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.offsetMin = new Vector2(12f, -40f);
+        titleRect.offsetMax = new Vector2(-12f, -10f);
+
+        TextMeshProUGUI dateText = CreateTMPText("Date", slotGo.transform, string.Empty, 14, new Color(1f, 1f, 1f, 0.68f));
+        dateText.fontStyle = FontStyles.Normal;
+        RectTransform dateRect = dateText.rectTransform;
+        dateRect.anchorMin = new Vector2(0f, 1f);
+        dateRect.anchorMax = new Vector2(1f, 1f);
+        dateRect.offsetMin = new Vector2(12f, -66f);
+        dateRect.offsetMax = new Vector2(-12f, -42f);
+
+        TextMeshProUGUI previewText = CreateTMPText("Preview Text", preview.transform, string.Empty, 14, Color.white);
+        previewText.alignment = TextAlignmentOptions.Center;
+        StretchFull(previewText.rectTransform);
+
+        SaveLoadSlotButton slot = slotGo.AddComponent<SaveLoadSlotButton>();
+        slot.panelController = panelController;
+        slot.button = button;
+        slot.titleText = titleText;
+        slot.dateText = dateText;
+        slot.previewText = previewText;
+        slot.previewImage = previewImage;
+        UnityEventTools.AddPersistentListener(button.onClick, slot.Click);
+        return slot;
     }
 
     private static Button CreateQuickMenuButton(Transform parent, string labelText, bool interactable)
