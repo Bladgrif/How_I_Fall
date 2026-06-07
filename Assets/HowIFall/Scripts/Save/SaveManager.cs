@@ -1,6 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+
+public class SaveSlotInfo
+{
+    public int SlotIndex;
+    public bool IsAutoSave;
+    public bool HasSave;
+    public string SaveDateText;
+    public string PreviewPath;
+}
 
 public class SaveManager : MonoBehaviour
 {
@@ -144,6 +154,31 @@ public class SaveManager : MonoBehaviour
         }
     }
 
+    public List<SaveSlotInfo> GetManualSaveSlots(int page, int pageSize)
+    {
+        return GetSaveSlots(page, pageSize, false);
+    }
+
+    public List<SaveSlotInfo> GetAutoSaveSlots(int page, int pageSize)
+    {
+        return GetSaveSlots(page, pageSize, true);
+    }
+
+    public bool HasSaveSlot(int slotIndex, bool isAuto)
+    {
+        return !isAuto && slotIndex == 1 && HasSave();
+    }
+
+    public bool LoadSlot(int slotIndex, bool isAuto)
+    {
+        if (!HasSaveSlot(slotIndex, isAuto))
+        {
+            return false;
+        }
+
+        return Load();
+    }
+
     public void DeleteSave()
     {
         if (!HasSave())
@@ -152,5 +187,36 @@ public class SaveManager : MonoBehaviour
         }
 
         File.Delete(SavePath);
+    }
+
+    private List<SaveSlotInfo> GetSaveSlots(int page, int pageSize, bool isAuto)
+    {
+        int safePage = Mathf.Max(1, page);
+        int safePageSize = Mathf.Max(1, pageSize);
+        int startSlotIndex = (safePage - 1) * safePageSize + 1;
+        var slots = new List<SaveSlotInfo>(safePageSize);
+
+        for (int i = 0; i < safePageSize; i++)
+        {
+            int slotIndex = startSlotIndex + i;
+            var slot = new SaveSlotInfo
+            {
+                SlotIndex = slotIndex,
+                IsAutoSave = isAuto,
+                HasSave = HasSaveSlot(slotIndex, isAuto),
+                SaveDateText = string.Empty,
+                PreviewPath = string.Empty
+            };
+
+            if (slot.HasSave)
+            {
+                SaveData info = GetSaveInfo();
+                slot.SaveDateText = info == null ? string.Empty : info.savedAt;
+            }
+
+            slots.Add(slot);
+        }
+
+        return slots;
     }
 }

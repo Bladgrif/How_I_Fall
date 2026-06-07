@@ -80,10 +80,16 @@ public static class MainMenuSceneBuilder
         var loadPanel = CreateLoadPanel(
             canvas.transform,
             mainMenuController,
-            out var loadSaveTitleText,
-            out var loadSaveMetaText,
-            out var loadSavePreviewText,
-            out var loadSaveButton);
+            out var autoSavesButton,
+            out var manualSavesButton,
+            out var saveModeButton,
+            out var autoSavesLabel,
+            out var manualSavesLabel,
+            out var saveModeLabel,
+            out var previousSavePageButton,
+            out var nextSavePageButton,
+            out var savePageText,
+            out var saveSlotButtons);
         var exitConfirmPanel = CreateExitConfirmPanel(canvas.transform, mainMenuController);
         var notificationPanel = CreateNotificationPanel(canvas.transform, out var notificationText);
         AssignMainMenuControllerReferences(
@@ -92,10 +98,16 @@ public static class MainMenuSceneBuilder
             helpPanel,
             exitConfirmPanel,
             loadPanel,
-            loadSaveTitleText,
-            loadSaveMetaText,
-            loadSavePreviewText,
-            loadSaveButton,
+            autoSavesButton,
+            manualSavesButton,
+            saveModeButton,
+            autoSavesLabel,
+            manualSavesLabel,
+            saveModeLabel,
+            previousSavePageButton,
+            nextSavePageButton,
+            savePageText,
+            saveSlotButtons,
             notificationPanel,
             notificationText);
 
@@ -922,28 +934,34 @@ public static class MainMenuSceneBuilder
     private static GameObject CreateLoadPanel(
         Transform canvas,
         MainMenuController controller,
-        out TextMeshProUGUI saveTitleText,
-        out TextMeshProUGUI saveMetaText,
-        out TextMeshProUGUI savePreviewText,
-        out Button saveButton)
+        out Button autoSavesButton,
+        out Button manualSavesButton,
+        out Button saveModeButton,
+        out TextMeshProUGUI autoSavesLabel,
+        out TextMeshProUGUI manualSavesLabel,
+        out TextMeshProUGUI saveModeLabel,
+        out Button previousSavePageButton,
+        out Button nextSavePageButton,
+        out TextMeshProUGUI savePageText,
+        out SaveLoadSlotButton[] saveSlotButtons)
     {
-        var panelRoot = CreateUiObject("Load Panel", canvas);
+        var panelRoot = CreateUiObject("Main Menu SaveLoad Panel", canvas);
         panelRoot.SetActive(false);
         StretchFull(panelRoot.GetComponent<RectTransform>());
 
-        var dim = CreateUiObject("Load Dim Blocker", panelRoot.transform);
+        var dim = CreateUiObject("SaveLoad Dim Blocker", panelRoot.transform);
         StretchFull(dim.GetComponent<RectTransform>());
         var dimImage = dim.AddComponent<Image>();
         dimImage.color = new Color(0.02f, 0.04f, 0.08f, 0.45f);
         dimImage.raycastTarget = true;
 
-        var window = CreateUiObject("Load Window", panelRoot.transform);
+        var window = CreateUiObject("SaveLoad Window", panelRoot.transform);
         var windowRect = window.GetComponent<RectTransform>();
         windowRect.anchorMin = new Vector2(0.5f, 0.5f);
         windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.pivot = new Vector2(0.5f, 0.5f);
         windowRect.anchoredPosition = Vector2.zero;
-        windowRect.sizeDelta = new Vector2(820f, 520f);
+        windowRect.sizeDelta = new Vector2(1260f, 760f);
 
         var windowImage = window.AddComponent<Image>();
         windowImage.sprite = TryLoadSprite(SettingsPanelBgPath);
@@ -982,58 +1000,87 @@ public static class MainMenuSceneBuilder
         underlineImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
         underlineImage.raycastTarget = false;
 
-        saveButton = CreateSaveCardButton(window.transform);
-        var cardRect = saveButton.GetComponent<RectTransform>();
-        cardRect.anchorMin = new Vector2(0.5f, 0.5f);
-        cardRect.anchorMax = new Vector2(0.5f, 0.5f);
-        cardRect.pivot = new Vector2(0.5f, 0.5f);
-        cardRect.anchoredPosition = new Vector2(0f, -34f);
-        cardRect.sizeDelta = new Vector2(640f, 180f);
+        autoSavesButton = CreateSaveLoadModeButton(window.transform, "Авто", new Vector2(-500f, 190f), false, out autoSavesLabel);
+        manualSavesButton = CreateSaveLoadModeButton(window.transform, "Загрузить", new Vector2(-500f, 125f), true, out manualSavesLabel);
+        saveModeButton = CreateSaveLoadModeButton(window.transform, "Сохранить", new Vector2(-500f, 60f), false, out saveModeLabel);
+        saveModeButton.interactable = false;
+        saveModeLabel.color = new Color(1f, 1f, 1f, 0.35f);
 
-        var accent = CreateUiObject("Save Card Red Accent", saveButton.transform);
-        var accentRect = accent.GetComponent<RectTransform>();
-        accentRect.anchorMin = new Vector2(0f, 0f);
-        accentRect.anchorMax = new Vector2(0f, 1f);
-        accentRect.pivot = new Vector2(0f, 0.5f);
-        accentRect.anchoredPosition = Vector2.zero;
-        accentRect.sizeDelta = new Vector2(6f, 0f);
-        var accentImage = accent.AddComponent<Image>();
-        accentImage.color = new Color(0.9f, 0.08f, 0.06f, 1f);
-        accentImage.raycastTarget = false;
+        UnityEventTools.AddPersistentListener(autoSavesButton.onClick, controller.ShowAutoSaves);
+        UnityEventTools.AddPersistentListener(manualSavesButton.onClick, controller.ShowManualSaves);
+        UnityEventTools.AddPersistentListener(saveModeButton.onClick, controller.ShowSaveMode);
 
-        saveTitleText = CreateTmpLabel(saveButton.transform, "Сохранение не найдено", 28, TextAlignmentOptions.Left);
-        var saveTitleRect = saveTitleText.GetComponent<RectTransform>();
-        saveTitleRect.anchorMin = new Vector2(0f, 1f);
-        saveTitleRect.anchorMax = new Vector2(1f, 1f);
-        saveTitleRect.pivot = new Vector2(0f, 1f);
-        saveTitleRect.offsetMin = new Vector2(32f, -58f);
-        saveTitleRect.offsetMax = new Vector2(-28f, -18f);
-        saveTitleText.color = Color.white;
-        saveTitleText.raycastTarget = false;
+        var divider = CreateUiObject("SaveLoad Divider", window.transform);
+        var dividerRect = divider.GetComponent<RectTransform>();
+        dividerRect.anchorMin = new Vector2(0.5f, 0.5f);
+        dividerRect.anchorMax = new Vector2(0.5f, 0.5f);
+        dividerRect.pivot = new Vector2(0.5f, 0.5f);
+        dividerRect.anchoredPosition = new Vector2(-360f, -20f);
+        dividerRect.sizeDelta = new Vector2(2f, 500f);
+        var dividerImage = divider.AddComponent<Image>();
+        dividerImage.color = new Color(1f, 1f, 1f, 0.22f);
+        dividerImage.raycastTarget = false;
 
-        saveMetaText = CreateTmpLabel(saveButton.transform, string.Empty, 18, TextAlignmentOptions.Left);
-        var saveMetaRect = saveMetaText.GetComponent<RectTransform>();
-        saveMetaRect.anchorMin = new Vector2(0f, 1f);
-        saveMetaRect.anchorMax = new Vector2(1f, 1f);
-        saveMetaRect.pivot = new Vector2(0f, 1f);
-        saveMetaRect.offsetMin = new Vector2(32f, -88f);
-        saveMetaRect.offsetMax = new Vector2(-28f, -62f);
-        saveMetaText.fontStyle = FontStyles.Normal;
-        saveMetaText.color = new Color(1f, 1f, 1f, 0.62f);
-        saveMetaText.raycastTarget = false;
+        saveSlotButtons = new SaveLoadSlotButton[8];
+        const float slotWidth = 190f;
+        const float slotHeight = 160f;
+        const float slotSpacingX = 24f;
+        const float slotSpacingY = 28f;
+        const float firstSlotX = -215f;
+        const float firstSlotY = 100f;
 
-        savePreviewText = CreateTmpLabel(saveButton.transform, "Начните игру и выполните сохранение.", 21, TextAlignmentOptions.Left);
-        var savePreviewRect = savePreviewText.GetComponent<RectTransform>();
-        savePreviewRect.anchorMin = new Vector2(0f, 0f);
-        savePreviewRect.anchorMax = new Vector2(1f, 0f);
-        savePreviewRect.pivot = new Vector2(0f, 0f);
-        savePreviewRect.offsetMin = new Vector2(32f, 28f);
-        savePreviewRect.offsetMax = new Vector2(-28f, 86f);
-        savePreviewText.fontStyle = FontStyles.Normal;
-        savePreviewText.color = new Color(1f, 1f, 1f, 0.86f);
-        savePreviewText.raycastTarget = false;
+        for (int i = 0; i < saveSlotButtons.Length; i++)
+        {
+            int column = i % 4;
+            int row = i / 4;
+            var slot = CreateSaveLoadSlot(window.transform, controller, i);
+            var slotRect = slot.GetComponent<RectTransform>();
+            slotRect.anchorMin = new Vector2(0.5f, 0.5f);
+            slotRect.anchorMax = new Vector2(0.5f, 0.5f);
+            slotRect.pivot = new Vector2(0.5f, 0.5f);
+            slotRect.anchoredPosition = new Vector2(
+                firstSlotX + column * (slotWidth + slotSpacingX),
+                firstSlotY - row * (slotHeight + slotSpacingY));
+            slotRect.sizeDelta = new Vector2(slotWidth, slotHeight);
+            saveSlotButtons[i] = slot;
+        }
 
-        UnityEventTools.AddPersistentListener(saveButton.onClick, controller.LoadSelectedSave);
+        previousSavePageButton = CreateStyledButton(window.transform, "Назад страница", new Vector2(190f, 46f));
+        var previousPageRect = previousSavePageButton.GetComponent<RectTransform>();
+        previousPageRect.anchorMin = new Vector2(0.5f, 0f);
+        previousPageRect.anchorMax = new Vector2(0.5f, 0f);
+        previousPageRect.pivot = new Vector2(0.5f, 0f);
+        previousPageRect.anchoredPosition = new Vector2(-150f, 54f);
+        var previousPageLabel = previousSavePageButton.GetComponentInChildren<Text>();
+        if (previousPageLabel != null)
+        {
+            previousPageLabel.fontSize = 18;
+        }
+        AddStyledButtonHoverEffect(previousSavePageButton);
+        UnityEventTools.AddPersistentListener(previousSavePageButton.onClick, controller.PreviousSavePage);
+
+        savePageText = CreateTmpLabel(window.transform, "1 / 20", 24, TextAlignmentOptions.Center);
+        var pageRect = savePageText.GetComponent<RectTransform>();
+        pageRect.anchorMin = new Vector2(0.5f, 0f);
+        pageRect.anchorMax = new Vector2(0.5f, 0f);
+        pageRect.pivot = new Vector2(0.5f, 0f);
+        pageRect.anchoredPosition = new Vector2(80f, 60f);
+        pageRect.sizeDelta = new Vector2(120f, 38f);
+        savePageText.color = Color.white;
+
+        nextSavePageButton = CreateStyledButton(window.transform, "Вперёд страница", new Vector2(190f, 46f));
+        var nextPageRect = nextSavePageButton.GetComponent<RectTransform>();
+        nextPageRect.anchorMin = new Vector2(0.5f, 0f);
+        nextPageRect.anchorMax = new Vector2(0.5f, 0f);
+        nextPageRect.pivot = new Vector2(0.5f, 0f);
+        nextPageRect.anchoredPosition = new Vector2(310f, 54f);
+        var nextPageLabel = nextSavePageButton.GetComponentInChildren<Text>();
+        if (nextPageLabel != null)
+        {
+            nextPageLabel.fontSize = 18;
+        }
+        AddStyledButtonHoverEffect(nextSavePageButton);
+        UnityEventTools.AddPersistentListener(nextSavePageButton.onClick, controller.NextSavePage);
 
         var backButton = CreateStyledButton(window.transform, "Назад", new Vector2(190f, 58f));
         var backRect = backButton.GetComponent<RectTransform>();
@@ -1045,6 +1092,113 @@ public static class MainMenuSceneBuilder
         UnityEventTools.AddPersistentListener(backButton.onClick, controller.CloseLoadPanel);
 
         return panelRoot;
+    }
+
+    private static Button CreateSaveLoadModeButton(
+        Transform parent,
+        string label,
+        Vector2 position,
+        bool active,
+        out TextMeshProUGUI labelText)
+    {
+        var buttonGo = CreateUiObject(label + " Mode Button", parent);
+        var rect = buttonGo.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = new Vector2(230f, 52f);
+
+        var image = buttonGo.AddComponent<Image>();
+        image.color = active ? new Color(0.9f, 0.08f, 0.06f, 0.82f) : new Color(0.015f, 0.035f, 0.075f, 0.55f);
+        image.raycastTarget = true;
+
+        var button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = image;
+        button.transition = Selectable.Transition.ColorTint;
+        var colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.88f);
+        colors.pressedColor = new Color(0.95f, 0.95f, 0.95f, 0.78f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.45f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        labelText = CreateTmpLabel(buttonGo.transform, label, 22, TextAlignmentOptions.Center);
+        labelText.color = active ? Color.white : new Color(1f, 1f, 1f, 0.72f);
+        labelText.raycastTarget = false;
+        return button;
+    }
+
+    private static SaveLoadSlotButton CreateSaveLoadSlot(Transform parent, MainMenuController controller, int visibleIndex)
+    {
+        var slotGo = CreateUiObject("Save Slot " + (visibleIndex + 1), parent);
+        var image = slotGo.AddComponent<Image>();
+        image.color = new Color(0.015f, 0.035f, 0.075f, 0.62f);
+        image.raycastTarget = true;
+
+        var outline = slotGo.AddComponent<Outline>();
+        outline.effectColor = new Color(1f, 1f, 1f, 0.26f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        var button = slotGo.AddComponent<Button>();
+        button.targetGraphic = image;
+        var colors = button.colors;
+        colors.normalColor = new Color(1f, 1f, 1f, 1f);
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.86f);
+        colors.pressedColor = new Color(0.92f, 0.92f, 0.92f, 0.78f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        var preview = CreateUiObject("Preview Placeholder", slotGo.transform);
+        var previewRect = preview.GetComponent<RectTransform>();
+        previewRect.anchorMin = new Vector2(0f, 0f);
+        previewRect.anchorMax = new Vector2(1f, 0f);
+        previewRect.pivot = new Vector2(0.5f, 0f);
+        previewRect.offsetMin = new Vector2(14f, 14f);
+        previewRect.offsetMax = new Vector2(-14f, 82f);
+        var previewImage = preview.AddComponent<Image>();
+        previewImage.color = new Color(0f, 0f, 0f, 0f);
+        previewImage.raycastTarget = false;
+
+        var titleText = CreateTmpLabel(slotGo.transform, string.Empty, 19, TextAlignmentOptions.Left);
+        var titleRect = titleText.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0f, 1f);
+        titleRect.offsetMin = new Vector2(14f, -42f);
+        titleRect.offsetMax = new Vector2(-14f, -12f);
+        titleText.color = Color.white;
+        titleText.raycastTarget = false;
+
+        var dateText = CreateTmpLabel(slotGo.transform, string.Empty, 15, TextAlignmentOptions.Left);
+        var dateRect = dateText.GetComponent<RectTransform>();
+        dateRect.anchorMin = new Vector2(0f, 1f);
+        dateRect.anchorMax = new Vector2(1f, 1f);
+        dateRect.pivot = new Vector2(0f, 1f);
+        dateRect.offsetMin = new Vector2(14f, -70f);
+        dateRect.offsetMax = new Vector2(-14f, -44f);
+        dateText.fontStyle = FontStyles.Normal;
+        dateText.color = new Color(1f, 1f, 1f, 0.68f);
+        dateText.raycastTarget = false;
+
+        var previewText = CreateTmpLabel(preview.transform, string.Empty, 14, TextAlignmentOptions.Center);
+        previewText.fontStyle = FontStyles.Normal;
+        previewText.color = new Color(1f, 1f, 1f, 0.6f);
+        previewText.raycastTarget = false;
+
+        var slotButton = slotGo.AddComponent<SaveLoadSlotButton>();
+        slotButton.controller = controller;
+        slotButton.button = button;
+        slotButton.titleText = titleText;
+        slotButton.dateText = dateText;
+        slotButton.previewText = previewText;
+        slotButton.previewImage = previewImage;
+        UnityEventTools.AddPersistentListener(button.onClick, slotButton.Click);
+        return slotButton;
     }
 
     private static Button CreateSaveCardButton(Transform parent)
@@ -1184,10 +1338,16 @@ public static class MainMenuSceneBuilder
         GameObject helpPanel,
         GameObject exitConfirmPanel,
         GameObject loadPanel,
-        TextMeshProUGUI loadSaveTitleText,
-        TextMeshProUGUI loadSaveMetaText,
-        TextMeshProUGUI loadSavePreviewText,
-        Button loadSaveButton,
+        Button autoSavesButton,
+        Button manualSavesButton,
+        Button saveModeButton,
+        TextMeshProUGUI autoSavesLabel,
+        TextMeshProUGUI manualSavesLabel,
+        TextMeshProUGUI saveModeLabel,
+        Button previousSavePageButton,
+        Button nextSavePageButton,
+        TextMeshProUGUI savePageText,
+        SaveLoadSlotButton[] saveSlotButtons,
         GameObject notificationPanel,
         TextMeshProUGUI notificationText)
     {
@@ -1196,10 +1356,21 @@ public static class MainMenuSceneBuilder
         serializedController.FindProperty("helpPanel").objectReferenceValue = helpPanel;
         serializedController.FindProperty("exitConfirmPanel").objectReferenceValue = exitConfirmPanel;
         serializedController.FindProperty("loadPanel").objectReferenceValue = loadPanel;
-        serializedController.FindProperty("loadSaveTitleText").objectReferenceValue = loadSaveTitleText;
-        serializedController.FindProperty("loadSaveMetaText").objectReferenceValue = loadSaveMetaText;
-        serializedController.FindProperty("loadSavePreviewText").objectReferenceValue = loadSavePreviewText;
-        serializedController.FindProperty("loadSaveButton").objectReferenceValue = loadSaveButton;
+        serializedController.FindProperty("autoSavesButton").objectReferenceValue = autoSavesButton;
+        serializedController.FindProperty("manualSavesButton").objectReferenceValue = manualSavesButton;
+        serializedController.FindProperty("saveModeButton").objectReferenceValue = saveModeButton;
+        serializedController.FindProperty("autoSavesLabel").objectReferenceValue = autoSavesLabel;
+        serializedController.FindProperty("manualSavesLabel").objectReferenceValue = manualSavesLabel;
+        serializedController.FindProperty("saveModeLabel").objectReferenceValue = saveModeLabel;
+        serializedController.FindProperty("previousSavePageButton").objectReferenceValue = previousSavePageButton;
+        serializedController.FindProperty("nextSavePageButton").objectReferenceValue = nextSavePageButton;
+        serializedController.FindProperty("savePageText").objectReferenceValue = savePageText;
+        var slotButtonsProperty = serializedController.FindProperty("saveSlotButtons");
+        slotButtonsProperty.arraySize = saveSlotButtons == null ? 0 : saveSlotButtons.Length;
+        for (int i = 0; i < slotButtonsProperty.arraySize; i++)
+        {
+            slotButtonsProperty.GetArrayElementAtIndex(i).objectReferenceValue = saveSlotButtons[i];
+        }
         serializedController.FindProperty("notificationPanel").objectReferenceValue = notificationPanel;
         serializedController.FindProperty("notificationText").objectReferenceValue = notificationText;
         serializedController.ApplyModifiedPropertiesWithoutUndo();
