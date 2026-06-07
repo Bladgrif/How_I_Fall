@@ -131,6 +131,16 @@ public class SaveManager : MonoBehaviour
         return File.Exists(SavePath);
     }
 
+    public bool HasAnySave()
+    {
+        return HasSave();
+    }
+
+    public bool LoadLatestSave()
+    {
+        return Load();
+    }
+
     public string GetSavePathForDebug()
     {
         return SavePath;

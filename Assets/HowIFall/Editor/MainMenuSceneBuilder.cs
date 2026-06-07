@@ -108,6 +108,7 @@ public static class MainMenuSceneBuilder
             nextSavePageButton,
             savePageText,
             saveSlotButtons,
+            new[] { menuCanvasGroup.gameObject, titleObject, pressAnyObject },
             notificationPanel,
             notificationText);
 
@@ -360,7 +361,7 @@ public static class MainMenuSceneBuilder
         rootRect.anchorMax = new Vector2(0f, 0.5f);
         rootRect.pivot = new Vector2(0f, 0.5f);
         rootRect.anchoredPosition = new Vector2(140f, -96f);
-        rootRect.sizeDelta = new Vector2(380f, 410f);
+        rootRect.sizeDelta = new Vector2(380f, 480f);
 
         var panel = root.AddComponent<Image>();
         panel.color = new Color(1f, 1f, 1f, 0f);
@@ -384,10 +385,11 @@ public static class MainMenuSceneBuilder
         var content = CreateUiObject("Menu Content", root.transform);
         StretchFull(content.GetComponent<RectTransform>());
 
-        string[] labels = { "Начать", "Загрузить", "Настройки", "Об игре", "Помощь", "Выход" };
+        string[] labels = { "Начать", "Продолжить", "Загрузить", "Настройки", "Об игре", "Помощь", "Выход" };
         var methods = new System.Action<Button>[]
         {
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.StartGame),
+            b => UnityEventTools.AddPersistentListener(b.onClick, controller.ContinueGame),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenLoadPanel),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenSettings),
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenAbout),
@@ -395,11 +397,11 @@ public static class MainMenuSceneBuilder
             b => UnityEventTools.AddPersistentListener(b.onClick, controller.OpenExitConfirm)
         };
 
-        const float rowHeight = 62f;
+        const float rowHeight = 58f;
         const float rowSpacing = 0f;
         for (int i = 0; i < labels.Length; i++)
         {
-            float y = 136f - i * (rowHeight + rowSpacing);
+            float y = 174f - i * (rowHeight + rowSpacing);
             var row = CreateUiObject(labels[i] + " Row", content.transform);
             var rowRect = row.GetComponent<RectTransform>();
             rowRect.anchorMin = new Vector2(0f, 0.5f);
@@ -949,19 +951,43 @@ public static class MainMenuSceneBuilder
         panelRoot.SetActive(false);
         StretchFull(panelRoot.GetComponent<RectTransform>());
 
+        var background = CreateUiObject("SaveLoad Background", panelRoot.transform);
+        var backgroundRect = background.GetComponent<RectTransform>();
+        StretchFull(backgroundRect);
+        var backgroundImage = background.AddComponent<Image>();
+        var backgroundSprite = TryLoadSprite(SettingsBackgroundPath);
+        if (backgroundSprite != null)
+        {
+            backgroundImage.sprite = backgroundSprite;
+            backgroundImage.type = Image.Type.Simple;
+            backgroundImage.preserveAspect = false;
+            backgroundImage.color = Color.white;
+        }
+        else
+        {
+            backgroundImage.sprite = TryLoadMainMenuBackgroundSprite();
+            backgroundImage.type = Image.Type.Simple;
+            backgroundImage.preserveAspect = false;
+            backgroundImage.color = new Color(0.72f, 0.78f, 0.88f, 1f);
+        }
+
+        backgroundImage.raycastTarget = false;
+
         var dim = CreateUiObject("SaveLoad Dim Blocker", panelRoot.transform);
         StretchFull(dim.GetComponent<RectTransform>());
         var dimImage = dim.AddComponent<Image>();
-        dimImage.color = new Color(0.02f, 0.04f, 0.08f, 0.45f);
+        dimImage.color = new Color(0.02f, 0.04f, 0.08f, 0.22f);
         dimImage.raycastTarget = true;
+
+        CreateSettingsLogo(panelRoot.transform);
 
         var window = CreateUiObject("SaveLoad Window", panelRoot.transform);
         var windowRect = window.GetComponent<RectTransform>();
         windowRect.anchorMin = new Vector2(0.5f, 0.5f);
         windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.pivot = new Vector2(0.5f, 0.5f);
-        windowRect.anchoredPosition = Vector2.zero;
-        windowRect.sizeDelta = new Vector2(1260f, 760f);
+        windowRect.anchoredPosition = new Vector2(130f, 10f);
+        windowRect.sizeDelta = new Vector2(1450f, 860f);
 
         var windowImage = window.AddComponent<Image>();
         windowImage.sprite = TryLoadSprite(SettingsPanelBgPath);
@@ -974,16 +1000,19 @@ public static class MainMenuSceneBuilder
         windowShadow.effectColor = new Color(0f, 0f, 0f, 0.58f);
         windowShadow.effectDistance = new Vector2(5f, -5f);
 
-        var outline = window.AddComponent<Outline>();
-        outline.effectColor = new Color(1f, 1f, 1f, 0.35f);
-        outline.effectDistance = new Vector2(2f, -2f);
+        if (windowImage.sprite == null)
+        {
+            var outline = window.AddComponent<Outline>();
+            outline.effectColor = new Color(1f, 1f, 1f, 0.35f);
+            outline.effectDistance = new Vector2(2f, -2f);
+        }
 
         var title = CreateTmpLabel(window.transform, "Загрузить", 52, TextAlignmentOptions.Center);
         var titleRect = title.GetComponent<RectTransform>();
         titleRect.anchorMin = new Vector2(0.5f, 1f);
         titleRect.anchorMax = new Vector2(0.5f, 1f);
         titleRect.pivot = new Vector2(0.5f, 1f);
-        titleRect.anchoredPosition = new Vector2(0f, -44f);
+        titleRect.anchoredPosition = new Vector2(0f, -46f);
         titleRect.sizeDelta = new Vector2(520f, 64f);
         title.color = Color.white;
         title.raycastTarget = false;
@@ -993,7 +1022,7 @@ public static class MainMenuSceneBuilder
         underlineRect.anchorMin = new Vector2(0.5f, 1f);
         underlineRect.anchorMax = new Vector2(0.5f, 1f);
         underlineRect.pivot = new Vector2(0.5f, 0.5f);
-        underlineRect.anchoredPosition = new Vector2(0f, -116f);
+        underlineRect.anchoredPosition = new Vector2(0f, -118f);
         underlineRect.sizeDelta = new Vector2(170f, 5f);
         underlineRect.localRotation = Quaternion.Euler(0f, 0f, -4f);
         var underlineImage = underline.AddComponent<Image>();
@@ -1348,6 +1377,7 @@ public static class MainMenuSceneBuilder
         Button nextSavePageButton,
         TextMeshProUGUI savePageText,
         SaveLoadSlotButton[] saveSlotButtons,
+        GameObject[] objectsToHideWhenLoadOpen,
         GameObject notificationPanel,
         TextMeshProUGUI notificationText)
     {
@@ -1370,6 +1400,12 @@ public static class MainMenuSceneBuilder
         for (int i = 0; i < slotButtonsProperty.arraySize; i++)
         {
             slotButtonsProperty.GetArrayElementAtIndex(i).objectReferenceValue = saveSlotButtons[i];
+        }
+        var loadHiddenObjectsProperty = serializedController.FindProperty("objectsToHideWhenLoadOpen");
+        loadHiddenObjectsProperty.arraySize = objectsToHideWhenLoadOpen == null ? 0 : objectsToHideWhenLoadOpen.Length;
+        for (int i = 0; i < loadHiddenObjectsProperty.arraySize; i++)
+        {
+            loadHiddenObjectsProperty.GetArrayElementAtIndex(i).objectReferenceValue = objectsToHideWhenLoadOpen[i];
         }
         serializedController.FindProperty("notificationPanel").objectReferenceValue = notificationPanel;
         serializedController.FindProperty("notificationText").objectReferenceValue = notificationText;

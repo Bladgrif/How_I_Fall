@@ -51,13 +51,18 @@ public class SceneFlowManager : MonoBehaviour
 
     public void ContinueGame()
     {
-        if (SaveManager.Instance != null && SaveManager.Instance.Load())
+        if (SaveManager.Instance != null && SaveManager.Instance.LoadLatestSave())
         {
-            SceneManager.LoadScene(VNPrototypeSceneName, LoadSceneMode.Single);
+            LoadLoadedGameScene();
             return;
         }
 
         Debug.LogWarning("No save file found.");
+    }
+
+    public void LoadLoadedGameScene()
+    {
+        SceneManager.LoadScene(VNPrototypeSceneName, LoadSceneMode.Single);
     }
 
     public void ReturnToMainMenu()

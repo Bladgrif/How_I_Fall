@@ -23,6 +23,7 @@ public class MainMenuController : MonoBehaviour
     [SerializeField] private GameObject helpPanel;
     [SerializeField] private GameObject exitConfirmPanel;
     [SerializeField] private GameObject loadPanel;
+    [SerializeField] private GameObject[] objectsToHideWhenLoadOpen;
     [SerializeField] private Button autoSavesButton;
     [SerializeField] private Button manualSavesButton;
     [SerializeField] private Button saveModeButton;
@@ -47,7 +48,7 @@ public class MainMenuController : MonoBehaviour
 
     public void ContinueGame()
     {
-        if (SaveManager.Instance != null && SaveManager.Instance.HasSave())
+        if (SaveManager.Instance != null && SaveManager.Instance.HasAnySave())
         {
             SceneFlowManager.EnsureInstance().ContinueGame();
             return;
@@ -67,6 +68,7 @@ public class MainMenuController : MonoBehaviour
 
         saveLoadMode = SaveLoadMode.Load;
         saveLoadPage = 1;
+        SetLoadHiddenObjectsActive(false);
         loadPanel.SetActive(true);
         RefreshSaveLoadPanel();
     }
@@ -77,6 +79,8 @@ public class MainMenuController : MonoBehaviour
         {
             loadPanel.SetActive(false);
         }
+
+        SetLoadHiddenObjectsActive(true);
     }
 
     public void ShowAutoSaves()
@@ -129,7 +133,7 @@ public class MainMenuController : MonoBehaviour
 
         if (SaveManager.Instance.LoadSlot(slotIndex, isAuto))
         {
-            SceneFlowManager.EnsureInstance().ContinueGame();
+            SceneFlowManager.EnsureInstance().LoadLoadedGameScene();
             return;
         }
 
@@ -232,6 +236,22 @@ public class MainMenuController : MonoBehaviour
         }
 
         label.color = active ? Color.white : new Color(1f, 1f, 1f, 0.72f);
+    }
+
+    private void SetLoadHiddenObjectsActive(bool isActive)
+    {
+        if (objectsToHideWhenLoadOpen == null)
+        {
+            return;
+        }
+
+        foreach (GameObject target in objectsToHideWhenLoadOpen)
+        {
+            if (target != null)
+            {
+                target.SetActive(isActive);
+            }
+        }
     }
 
     public void OpenSettings()
