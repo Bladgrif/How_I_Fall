@@ -4,6 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 public static class HowIFallProjectValidator
 {
@@ -16,6 +17,7 @@ public static class HowIFallProjectValidator
         int issueCount = 0;
 
         issueCount += ValidateBuildSettings();
+        issueCount += DialogueContentValidator.Validate();
         issueCount += ValidateMainMenuScene();
         issueCount += ValidateVNPrototypeScene();
 
