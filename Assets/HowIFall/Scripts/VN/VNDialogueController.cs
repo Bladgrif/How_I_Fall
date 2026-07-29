@@ -66,6 +66,7 @@ public class VNDialogueController : MonoBehaviour
     private string currentFullText = string.Empty;
     private bool isTyping;
     private readonly DialogueBacklog backlog = new DialogueBacklog(100);
+    private VNSettingsPresenter settingsPresenter;
 
     private void Start()
     {
@@ -96,12 +97,20 @@ public class VNDialogueController : MonoBehaviour
             confirmExitPanel.SetActive(false);
         }
 
-        if (vnSettingsPanel != null)
-        {
-            vnSettingsPanel.SetActive(false);
-        }
-
-        SetSettingsOverlayActive(false);
+        settingsPresenter = new VNSettingsPresenter(
+            vnSettingsDimOverlay,
+            vnSettingsPanel,
+            vnMasterVolumeSlider,
+            vnMusicVolumeSlider,
+            vnSfxVolumeSlider,
+            vnTextSpeedSlider,
+            vnFullscreenToggle,
+            vnSettingsCloseButton,
+            vnSettingsResetButton,
+            new VNSettingsService(),
+            ShowToast,
+            this);
+        settingsPresenter.Initialize();
 
         if (backlogCloseButton != null)
         {
@@ -116,41 +125,6 @@ public class VNDialogueController : MonoBehaviour
         if (confirmExitNoButton != null)
         {
             confirmExitNoButton.onClick.AddListener(HideConfirmExit);
-        }
-
-        if (vnSettingsCloseButton != null)
-        {
-            vnSettingsCloseButton.onClick.AddListener(HideSettings);
-        }
-
-        if (vnSettingsResetButton != null)
-        {
-            vnSettingsResetButton.onClick.AddListener(ResetSettings);
-        }
-
-        if (vnMasterVolumeSlider != null)
-        {
-            vnMasterVolumeSlider.onValueChanged.AddListener(OnMasterVolumeChanged);
-        }
-
-        if (vnMusicVolumeSlider != null)
-        {
-            vnMusicVolumeSlider.onValueChanged.AddListener(OnMusicVolumeChanged);
-        }
-
-        if (vnSfxVolumeSlider != null)
-        {
-            vnSfxVolumeSlider.onValueChanged.AddListener(OnSfxVolumeChanged);
-        }
-
-        if (vnTextSpeedSlider != null)
-        {
-            vnTextSpeedSlider.onValueChanged.AddListener(OnTextSpeedChanged);
-        }
-
-        if (vnFullscreenToggle != null)
-        {
-            vnFullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
         }
 
         nextButton.onClick.AddListener(AdvanceDialogue);
@@ -507,105 +481,42 @@ public class VNDialogueController : MonoBehaviour
 
     public void OpenSettings()
     {
-        if (vnSettingsPanel == null)
-        {
-            Debug.LogWarning("VN settings panel is not assigned.", this);
-            return;
-        }
-
-        RefreshSettingsUi();
-        SetSettingsOverlayActive(true);
-        vnSettingsPanel.SetActive(true);
+        settingsPresenter?.Open();
     }
 
     public void HideSettings()
     {
-        if (vnSettingsPanel != null)
-        {
-            vnSettingsPanel.SetActive(false);
-        }
-
-        SetSettingsOverlayActive(false);
-    }
-
-    private void SetSettingsOverlayActive(bool isActive)
-    {
-        if (vnSettingsDimOverlay != null)
-        {
-            vnSettingsDimOverlay.SetActive(isActive);
-        }
-    }
-
-    private void RefreshSettingsUi()
-    {
-        if (SettingsManager.Instance == null)
-        {
-            return;
-        }
-
-        GameSettings settings = SettingsManager.Instance.settings;
-
-        if (vnMasterVolumeSlider != null)
-        {
-            vnMasterVolumeSlider.SetValueWithoutNotify(settings.masterVolume);
-        }
-
-        if (vnMusicVolumeSlider != null)
-        {
-            vnMusicVolumeSlider.SetValueWithoutNotify(settings.musicVolume);
-        }
-
-        if (vnSfxVolumeSlider != null)
-        {
-            vnSfxVolumeSlider.SetValueWithoutNotify(settings.sfxVolume);
-        }
-
-        if (vnTextSpeedSlider != null)
-        {
-            vnTextSpeedSlider.SetValueWithoutNotify(settings.textSpeed);
-        }
-
-        if (vnFullscreenToggle != null)
-        {
-            vnFullscreenToggle.SetIsOnWithoutNotify(settings.fullscreen);
-        }
+        settingsPresenter?.Hide();
     }
 
     public void ResetSettings()
     {
-        if (SettingsManager.Instance == null)
-        {
-            return;
-        }
-
-        SettingsManager.Instance.ResetSettings();
-        RefreshSettingsUi();
-        ShowToast("Настройки сброшены");
+        settingsPresenter?.Reset();
     }
 
     public void OnMasterVolumeChanged(float value)
     {
-        SettingsManager.Instance?.SetMasterVolume(value);
+        settingsPresenter?.SetMasterVolume(value);
     }
 
     public void OnMusicVolumeChanged(float value)
     {
-        SettingsManager.Instance?.SetMusicVolume(value);
+        settingsPresenter?.SetMusicVolume(value);
     }
 
     public void OnSfxVolumeChanged(float value)
     {
-        SettingsManager.Instance?.SetSfxVolume(value);
+        settingsPresenter?.SetSfxVolume(value);
     }
 
     public void OnTextSpeedChanged(float value)
     {
-        SettingsManager.Instance?.SetTextSpeed(value);
+        settingsPresenter?.SetTextSpeed(value);
     }
 
     public void OnFullscreenChanged(bool value)
     {
-        SettingsManager.Instance?.SetFullscreen(value);
+        settingsPresenter?.SetFullscreen(value);
     }
 
     public void ReturnToMainMenu()
@@ -622,12 +533,7 @@ public class VNDialogueController : MonoBehaviour
             confirmExitPanel.SetActive(false);
         }
 
-        if (vnSettingsPanel != null)
-        {
-            vnSettingsPanel.SetActive(false);
-        }
-
-        SetSettingsOverlayActive(false);
+        settingsPresenter?.Hide();
 
         if (choicePanel != null)
         {
