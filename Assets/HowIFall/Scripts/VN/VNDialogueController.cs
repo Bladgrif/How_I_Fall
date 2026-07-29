@@ -8,7 +8,6 @@ using UnityEngine.UI;
 public class VNDialogueController : MonoBehaviour
 {
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
-    private const int MaxBacklogEntries = 100;
     private const string EndPrototypeText = "Конец Unity-прототипа.";
 
     public DialogueSceneData sceneData;
@@ -66,7 +65,7 @@ public class VNDialogueController : MonoBehaviour
     private Coroutine notificationCoroutine;
     private string currentFullText = string.Empty;
     private bool isTyping;
-    private readonly List<DialogueBacklogEntry> backlog = new List<DialogueBacklogEntry>();
+    private readonly DialogueBacklog backlog = new DialogueBacklog(100);
 
     private void Start()
     {
@@ -393,21 +392,7 @@ public class VNDialogueController : MonoBehaviour
 
     private void AddToBacklog(string speaker, string text)
     {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return;
-        }
-
-        backlog.Add(new DialogueBacklogEntry
-        {
-            speaker = speaker,
-            text = text
-        });
-
-        while (backlog.Count > MaxBacklogEntries)
-        {
-            backlog.RemoveAt(0);
-        }
+        backlog.Add(speaker, text);
     }
 
     public void ShowBacklog()
@@ -418,14 +403,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        List<string> lines = new List<string>();
-
-        foreach (DialogueBacklogEntry entry in backlog)
-        {
-            lines.Add(FormatBacklogEntry(entry));
-        }
-
-        backlogText.text = lines.Count > 0 ? string.Join("\n\n", lines) : "История пока пуста.";
+        backlogText.text = backlog.BuildRichText();
         SetBacklogOverlayActive(true);
         backlogPanel.SetActive(true);
     }
@@ -446,26 +424,6 @@ public class VNDialogueController : MonoBehaviour
         {
             backlogDimOverlay.SetActive(isActive);
         }
-    }
-
-    private string FormatBacklogEntry(DialogueBacklogEntry entry)
-    {
-        string text = EscapeRichText(entry.text);
-
-        if (string.IsNullOrWhiteSpace(entry.speaker))
-        {
-            return $"<size=24><color=#FFFFFFDB>{text}</color></size>";
-        }
-
-        string speaker = EscapeRichText(entry.speaker);
-        return $"<size=22><b><color=#F2F2FFFF>{speaker}</color></b></size>\n<size=24><color=#FFFFFFDB>{text}</color></size>";
-    }
-
-    private string EscapeRichText(string text)
-    {
-        return string.IsNullOrEmpty(text)
-            ? string.Empty
-            : text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
     public void SaveGame()
