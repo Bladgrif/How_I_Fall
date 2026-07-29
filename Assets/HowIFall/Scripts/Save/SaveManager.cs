@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Collections;
+using System.Text;
 using UnityEngine;
 
 public class SaveSlotInfo
@@ -19,6 +20,8 @@ public class SaveManager : MonoBehaviour
     public static SaveManager Instance { get; private set; }
 
     private const string SaveFileName = "save_01.json";
+    private const string BackupSuffix = ".bak";
+    private const string TemporarySuffix = ".tmp";
     private string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
     private string SavesDirectory => Path.Combine(Application.persistentDataPath, "Saves");
 
@@ -55,9 +58,10 @@ public class SaveManager : MonoBehaviour
             return;
         }
 
-        string json = JsonUtility.ToJson(saveData, true);
-        File.WriteAllText(SavePath, json);
-        Debug.Log($"SaveManager: game saved to '{SavePath}'.");
+        if (WriteSaveData(SavePath, saveData))
+        {
+            Debug.Log($"SaveManager: game saved to '{SavePath}'.");
+        }
     }
 
     private SaveData CreateSaveData(string linePreview, int slotIndex, bool isAuto, string previewPath)
@@ -71,6 +75,7 @@ public class SaveManager : MonoBehaviour
 
         return new SaveData
         {
+            version = SaveData.CurrentVersion,
             currentSceneId = gameState.currentSceneId,
             currentLineIndex = gameState.currentLineIndex,
             savedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -123,19 +128,7 @@ public class SaveManager : MonoBehaviour
             return false;
         }
 
-        GameState gameState = GameState.EnsureInstance();
-        gameState.currentSceneId = saveData.currentSceneId;
-        gameState.currentLineIndex = saveData.currentLineIndex;
-        gameState.lust = saveData.lust;
-        gameState.romance = saveData.romance;
-        gameState.purity = saveData.purity;
-        gameState.corruptionLevel = saveData.corruptionLevel;
-        gameState.selfControl = saveData.selfControl;
-        gameState.suspicion = saveData.suspicion;
-        gameState.trustMasha = saveData.trustMasha;
-        gameState.trustArtem = saveData.trustArtem;
-        gameState.leraInterest = saveData.leraInterest;
-        gameState.hasLoadedSave = true;
+        ApplySaveData(saveData);
         return true;
     }
 
@@ -172,15 +165,7 @@ public class SaveManager : MonoBehaviour
             return null;
         }
 
-        try
-        {
-            string json = File.ReadAllText(SavePath);
-            return JsonUtility.FromJson<SaveData>(json);
-        }
-        catch
-        {
-            return null;
-        }
+        return ReadSaveData(SavePath);
     }
 
     public List<SaveSlotInfo> GetManualSaveSlots(int page, int pageSize)
@@ -234,11 +219,17 @@ public class SaveManager : MonoBehaviour
         }
 
         string savePath = GetSlotSavePath(slotIndex, isAuto);
-        File.WriteAllText(savePath, JsonUtility.ToJson(saveData, true));
+        if (!WriteSaveData(savePath, saveData))
+        {
+            return false;
+        }
 
         if (!isAuto && slotIndex == 1)
         {
-            File.WriteAllText(SavePath, JsonUtility.ToJson(saveData, true));
+            if (!WriteSaveData(SavePath, saveData))
+            {
+                Debug.LogWarning("SaveManager: slot was saved, but the compatibility quick-save file could not be updated.");
+            }
         }
 
         if (previewTexture != null)
@@ -314,13 +305,118 @@ public class SaveManager : MonoBehaviour
             return null;
         }
 
+        if (TryReadSaveData(path, out SaveData saveData, out string primaryError))
+        {
+            return saveData;
+        }
+
+        string backupPath = path + BackupSuffix;
+        string backupError = string.Empty;
+        if (File.Exists(backupPath) && TryReadSaveData(backupPath, out saveData, out backupError))
+        {
+            Debug.LogWarning($"SaveManager: '{path}' is unreadable ({primaryError}). Recovered from backup '{backupPath}'.");
+            return saveData;
+        }
+
+        string backupDetails = File.Exists(backupPath) ? $" Backup error: {backupError}" : string.Empty;
+        Debug.LogError($"SaveManager: failed to read '{path}'. {primaryError}{backupDetails}");
+        return null;
+    }
+
+    private static bool TryReadSaveData(string path, out SaveData saveData, out string error)
+    {
+        saveData = null;
+        error = string.Empty;
+
         try
         {
-            return JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
+            string json = File.ReadAllText(path, Encoding.UTF8);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                error = "The file is empty.";
+                return false;
+            }
+
+            saveData = JsonUtility.FromJson<SaveData>(json);
+            if (saveData == null)
+            {
+                error = "The file does not contain valid save data.";
+                return false;
+            }
+
+            if (!saveData.TryMigrateToCurrentVersion(out error))
+            {
+                saveData = null;
+                return false;
+            }
+
+            return true;
         }
-        catch
+        catch (Exception exception)
         {
-            return null;
+            error = exception.Message;
+            saveData = null;
+            return false;
+        }
+    }
+
+    private static bool WriteSaveData(string path, SaveData saveData)
+    {
+        if (saveData == null || string.IsNullOrEmpty(path))
+        {
+            return false;
+        }
+
+        string directory = Path.GetDirectoryName(path);
+        string temporaryPath = path + TemporarySuffix;
+        string backupPath = path + BackupSuffix;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            saveData.version = SaveData.CurrentVersion;
+            string json = JsonUtility.ToJson(saveData, true);
+
+            using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+            {
+                writer.Write(json);
+                writer.Flush();
+                stream.Flush(true);
+            }
+
+            if (File.Exists(path))
+            {
+                File.Replace(temporaryPath, path, backupPath, true);
+            }
+            else
+            {
+                File.Move(temporaryPath, path);
+            }
+
+            return true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError($"SaveManager: failed to write '{path}'. {exception.Message}");
+
+            try
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
+            }
+            catch (Exception cleanupException)
+            {
+                Debug.LogWarning($"SaveManager: failed to remove temporary save '{temporaryPath}'. {cleanupException.Message}");
+            }
+
+            return false;
         }
     }
 
