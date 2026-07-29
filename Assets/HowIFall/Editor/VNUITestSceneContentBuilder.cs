@@ -65,6 +65,7 @@ public static class VNUITestSceneContentBuilder
         {
             new DialogueLine
             {
+                lineId = "ui_intro",
                 background = background,
                 characterSprite = placeholder,
                 characterPosition = CharacterPosition.Left,
@@ -74,6 +75,7 @@ public static class VNUITestSceneContentBuilder
             },
             new DialogueLine
             {
+                lineId = "ui_story_placeholder",
                 background = null,
                 characterSprite = placeholder,
                 characterPosition = CharacterPosition.Left,
@@ -83,6 +85,7 @@ public static class VNUITestSceneContentBuilder
             },
             new DialogueLine
             {
+                lineId = "ui_visual_setup",
                 background = null,
                 characterSprite = placeholder,
                 characterPosition = CharacterPosition.Left,

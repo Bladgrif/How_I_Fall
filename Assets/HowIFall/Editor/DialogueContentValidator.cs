@@ -92,6 +92,8 @@ public static class DialogueContentValidator
         }
         else
         {
+            var lineIds = new HashSet<string>(StringComparer.Ordinal);
+
             for (int i = 0; i < scene.lines.Count; i++)
             {
                 DialogueLine line = scene.lines[i];
@@ -102,6 +104,16 @@ public static class DialogueContentValidator
                 else if (string.IsNullOrWhiteSpace(line.text))
                 {
                     issues += LogError($"Dialogue scene '{scene.name}', line {i}: text is empty.");
+                }
+
+                if (line != null && string.IsNullOrWhiteSpace(line.lineId))
+                {
+                    issues += LogError($"Dialogue scene '{scene.name}', line {i}: lineId is empty.");
+                }
+                else if (line != null && !lineIds.Add(line.lineId))
+                {
+                    issues += LogError(
+                        $"Dialogue scene '{scene.name}': lineId '{line.lineId}' is used more than once.");
                 }
             }
         }

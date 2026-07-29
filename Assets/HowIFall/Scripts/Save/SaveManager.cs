@@ -78,6 +78,7 @@ public class SaveManager : MonoBehaviour
             version = SaveData.CurrentVersion,
             currentSceneId = gameState.currentSceneId,
             currentLineIndex = gameState.currentLineIndex,
+            currentLineId = gameState.currentLineId,
             savedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
             sceneTitle = string.IsNullOrEmpty(gameState.currentSceneId) ? "Unknown Scene" : gameState.currentSceneId,
             linePreview = NormalizeLinePreview(linePreview),
@@ -425,6 +426,7 @@ public class SaveManager : MonoBehaviour
         GameState gameState = GameState.EnsureInstance();
         gameState.currentSceneId = saveData.currentSceneId;
         gameState.currentLineIndex = saveData.currentLineIndex;
+        gameState.currentLineId = saveData.currentLineId;
         gameState.lust = saveData.lust;
         gameState.romance = saveData.romance;
         gameState.purity = saveData.purity;

@@ -3,11 +3,12 @@ using System;
 [Serializable]
 public class SaveData
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public int version = CurrentVersion;
     public string currentSceneId;
     public int currentLineIndex;
+    public string currentLineId;
     public string savedAt;
     public string sceneTitle;
     public string linePreview;
@@ -47,7 +48,16 @@ public class SaveData
             version = 1;
         }
 
+        // Version 1 stored only a mutable line index. Version 2 adds a stable line ID
+        // while retaining the index as a fallback for legacy saves.
+        if (version == 1)
+        {
+            currentLineId = string.Empty;
+            version = 2;
+        }
+
         currentSceneId ??= string.Empty;
+        currentLineId ??= string.Empty;
         savedAt ??= string.Empty;
         sceneTitle ??= string.Empty;
         linePreview ??= string.Empty;

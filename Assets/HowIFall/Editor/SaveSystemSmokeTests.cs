@@ -22,8 +22,25 @@ public static class SaveSystemSmokeTests
     private static void Run()
     {
         TestLegacyMigration();
+        TestVersionOneMigration();
         TestFutureVersionRejection();
+        TestStableLineLookup();
         TestAtomicWriteAndBackupRecovery();
+    }
+
+    private static void TestVersionOneMigration()
+    {
+        var versionOne = new SaveData
+        {
+            version = 1,
+            currentLineIndex = 4,
+            currentLineId = null
+        };
+
+        Require(versionOne.TryMigrateToCurrentVersion(out string error), error);
+        Require(versionOne.version == SaveData.CurrentVersion, "Version 1 save was not upgraded.");
+        Require(versionOne.currentLineIndex == 4, "Version 1 line-index fallback was not preserved.");
+        Require(versionOne.currentLineId == string.Empty, "Version 1 line ID was not normalized.");
     }
 
     private static void TestLegacyMigration()
@@ -46,6 +63,24 @@ public static class SaveSystemSmokeTests
         var future = new SaveData { version = SaveData.CurrentVersion + 1 };
         Require(!future.TryMigrateToCurrentVersion(out string error), "A future save version was accepted.");
         Require(!string.IsNullOrEmpty(error), "Future-version rejection did not provide a diagnostic.");
+    }
+
+    private static void TestStableLineLookup()
+    {
+        var scene = ScriptableObject.CreateInstance<DialogueSceneData>();
+
+        try
+        {
+            scene.lines.Add(new DialogueLine { lineId = "inserted", text = "Inserted line" });
+            scene.lines.Add(new DialogueLine { lineId = "saved_line", text = "Saved line" });
+
+            Require(scene.FindLineIndexById("saved_line") == 1, "Stable line ID did not survive an inserted line.");
+            Require(scene.FindLineIndexById("missing") == -1, "Missing line ID returned an index.");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(scene);
+        }
     }
 
     private static void TestAtomicWriteAndBackupRecovery()

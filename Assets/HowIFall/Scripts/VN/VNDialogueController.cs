@@ -279,7 +279,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         currentLineIndex++;
-        GameState.EnsureInstance().currentLineIndex = currentLineIndex;
+        UpdateSavedDialoguePosition();
 
         if (currentLineIndex >= activeLines.Count)
         {
@@ -934,7 +934,13 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        LoadDialogueScene(restoredScene, gameState.currentLineIndex);
+        int restoredLineIndex = restoredScene.FindLineIndexById(gameState.currentLineId);
+        if (restoredLineIndex < 0)
+        {
+            restoredLineIndex = gameState.currentLineIndex;
+        }
+
+        LoadDialogueScene(restoredScene, restoredLineIndex);
     }
 
     private void LoadDialogueScene(DialogueSceneData data)
@@ -1000,6 +1006,7 @@ public class VNDialogueController : MonoBehaviour
         GameState gameState = GameState.EnsureInstance();
         gameState.currentSceneId = sceneData.sceneId;
         gameState.currentLineIndex = currentLineIndex;
+        gameState.currentLineId = activeLines[currentLineIndex].lineId ?? string.Empty;
 
         Sprite restoredBackground = FindLastBackgroundBeforeOrAt(currentLineIndex);
         if (backgroundImage != null && restoredBackground != null)
@@ -1010,6 +1017,18 @@ public class VNDialogueController : MonoBehaviour
         }
 
         ShowLine(activeLines[currentLineIndex]);
+    }
+
+    private void UpdateSavedDialoguePosition()
+    {
+        GameState gameState = GameState.EnsureInstance();
+        gameState.currentLineIndex = currentLineIndex;
+        gameState.currentLineId = activeLines != null
+            && currentLineIndex >= 0
+            && currentLineIndex < activeLines.Count
+            && activeLines[currentLineIndex] != null
+                ? activeLines[currentLineIndex].lineId ?? string.Empty
+                : string.Empty;
     }
 
     private void ApplySceneAudio()

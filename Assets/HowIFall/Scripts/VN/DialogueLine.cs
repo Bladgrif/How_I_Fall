@@ -3,6 +3,7 @@ using UnityEngine;
 [System.Serializable]
 public class DialogueLine
 {
+    public string lineId;
     public Sprite background;
     public Sprite characterSprite;
     public CharacterPosition characterPosition = CharacterPosition.Center;

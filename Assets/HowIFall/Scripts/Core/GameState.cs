@@ -16,6 +16,7 @@ public class GameState : MonoBehaviour
 
     public string currentSceneId;
     public int currentLineIndex;
+    public string currentLineId;
     public bool hasLoadedSave;
 
     public static GameState EnsureInstance()
@@ -88,6 +89,7 @@ public class GameState : MonoBehaviour
         leraInterest = 0;
         currentSceneId = string.Empty;
         currentLineIndex = 0;
+        currentLineId = string.Empty;
         hasLoadedSave = false;
     }
 }
