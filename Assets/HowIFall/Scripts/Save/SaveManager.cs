@@ -7,8 +7,9 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public sealed class ManualSaveSlotInfo
+public sealed class SaveSlotInfo
 {
+    public SaveSlotType SlotType { get; internal set; }
     public int SlotIndex { get; internal set; }
     public bool IsOccupied { get; internal set; }
     public bool IsLoadable { get; internal set; }
@@ -39,6 +40,8 @@ public sealed class SaveManager : MonoBehaviour
     public string SaveDirectoryPath => string.IsNullOrEmpty(saveDirectoryOverride)
         ? Path.Combine(Application.persistentDataPath, "Saves")
         : saveDirectoryOverride;
+    public string AutoSaveDirectoryPath => Path.Combine(SaveDirectoryPath, "Auto");
+    public string QuickSaveDirectoryPath => Path.Combine(SaveDirectoryPath, "Quick");
     public bool HasPendingSceneRestore => pendingSceneRestore;
     public int PendingSlotIndex => pendingSlotIndex;
 
@@ -80,7 +83,7 @@ public sealed class SaveManager : MonoBehaviour
 
         try
         {
-            Directory.CreateDirectory(SaveDirectoryPath);
+            EnsureSaveDirectories();
             Debug.Log($"[SAVE] SaveManager ready. directory='{SaveDirectoryPath}'.", this);
         }
         catch (Exception exception)
@@ -109,15 +112,20 @@ public sealed class SaveManager : MonoBehaviour
     public void ConfigureSaveDirectoryForTests(string absolutePath)
     {
         saveDirectoryOverride = absolutePath;
-        Directory.CreateDirectory(SaveDirectoryPath);
+        EnsureSaveDirectories();
     }
 #endif
 
     public bool SaveSlot(int slotIndex, Texture2D previewTexture)
     {
-        if (!IsValidSlotIndex(slotIndex))
+        return SaveSlot(SaveSlotType.Manual, slotIndex, previewTexture);
+    }
+
+    public bool SaveSlot(SaveSlotType type, int slotIndex, Texture2D previewTexture)
+    {
+        if (!TryValidateSlotAddress(type, slotIndex, out string addressError))
         {
-            Debug.LogError($"[SAVE] Slot index {slotIndex} is outside 1..{SlotCount}.", this);
+            Debug.LogError($"[SAVE] {addressError}", this);
             return false;
         }
 
@@ -171,15 +179,15 @@ public sealed class SaveManager : MonoBehaviour
             return false;
         }
 
-        string previewFileName = GetSlotFileStem(slotIndex) + ".png";
-        SaveData data = CaptureGameState(gameState);
-        data.version = SaveData.CurrentVersion;
-        data.slotIndex = slotIndex;
-        data.createdAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-        data.sceneId = sceneId;
-        data.lineId = lineId;
-        data.lineIndex = resolvedLineIndex;
-        data.previewFileName = previewFileName;
+        string previewFileName = GetSlotFileStem(type, slotIndex) + ".png";
+        SaveData data = CreateSaveData(
+            gameState,
+            type,
+            slotIndex,
+            sceneId,
+            lineId,
+            resolvedLineIndex,
+            previewFileName);
 
         if (!TryValidateChoiceState(data, scene, out string choiceError))
         {
@@ -195,9 +203,9 @@ public sealed class SaveManager : MonoBehaviour
                 return false;
             }
 
-            Directory.CreateDirectory(SaveDirectoryPath);
-            string jsonPath = GetSlotJsonPath(slotIndex);
-            string previewPath = GetSlotPreviewPath(slotIndex);
+            Directory.CreateDirectory(GetSlotDirectoryPath(type));
+            string jsonPath = GetSlotJsonPath(type, slotIndex);
+            string previewPath = GetSlotPreviewPath(type, slotIndex);
             string jsonTemporaryPath = jsonPath + ".tmp";
             string previewTemporaryPath = previewPath + ".tmp";
 
@@ -219,23 +227,51 @@ public sealed class SaveManager : MonoBehaviour
             }
 
             Debug.Log(
-                $"[SAVE] Slot {slotIndex} saved. json='{jsonPath}', preview='{previewPath}', sceneId='{sceneId}', lineId='{lineId}', lineIndex={resolvedLineIndex}, choiceIndex={data.selectedChoiceIndex}.",
+                $"[SAVE] {type} slot {slotIndex} saved. json='{jsonPath}', preview='{previewPath}', sceneId='{sceneId}', lineId='{lineId}', lineIndex={resolvedLineIndex}, choiceIndex={data.selectedChoiceIndex}.",
                 this);
             return true;
         }
         catch (Exception exception)
         {
-            Debug.LogError($"[SAVE] Slot {slotIndex} write failed. {exception.Message}", this);
+            Debug.LogError($"[SAVE] {type} slot {slotIndex} write failed. {exception.Message}", this);
             return false;
         }
     }
 
+    public bool SaveAuto(Texture2D previewTexture)
+    {
+        return SaveRotatingSlot(SaveSlotType.Auto, previewTexture);
+    }
+
+    public bool SaveQuick(Texture2D previewTexture)
+    {
+        return SaveRotatingSlot(SaveSlotType.Quick, previewTexture);
+    }
+
+    private bool SaveRotatingSlot(SaveSlotType type, Texture2D previewTexture)
+    {
+        int targetSlotIndex = SelectRotationTargetSlot(type);
+        if (targetSlotIndex <= 0)
+        {
+            Debug.LogError($"[SAVE] Could not choose a rotation target for {type}.", this);
+            return false;
+        }
+
+        Debug.Log($"[SAVE] {type} rotation selected slot {targetSlotIndex}.", this);
+        return SaveSlot(type, targetSlotIndex, previewTexture);
+    }
+
     public bool LoadSlot(int slotIndex)
     {
-        ManualSaveSlotInfo slot = ReadSlot(slotIndex);
+        return LoadSlot(SaveSlotType.Manual, slotIndex);
+    }
+
+    public bool LoadSlot(SaveSlotType type, int slotIndex)
+    {
+        SaveSlotInfo slot = ReadSlot(type, slotIndex);
         if (!slot.IsLoadable || slot.Data == null)
         {
-            Debug.LogError($"[LOAD] Slot {slotIndex} is not loadable. {slot.Error}", this);
+            Debug.LogError($"[LOAD] {type} slot {slotIndex} is not loadable. {slot.Error}", this);
             return false;
         }
 
@@ -244,15 +280,15 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool LoadLatest()
     {
-        ManualSaveSlotInfo latest = FindLatestLoadableSlot();
+        SaveSlotInfo latest = FindLatestLoadableSlot();
 
         if (latest == null)
         {
-            Debug.LogWarning("[LOAD] Continue found no valid manual save.", this);
+            Debug.LogWarning("[LOAD] Continue found no valid Manual, Auto or Quick save.", this);
             return false;
         }
 
-        Debug.Log($"[LOAD] Continue selected slot {latest.SlotIndex} created at {latest.Data.createdAtUtc}.", this);
+        Debug.Log($"[LOAD] Continue selected {latest.SlotType} slot {latest.SlotIndex} created at {latest.Data.createdAtUtc}.", this);
         return ApplyAndRoute(latest);
     }
 
@@ -263,14 +299,19 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool DeleteSlot(int slotIndex)
     {
-        if (!IsValidSlotIndex(slotIndex))
+        return DeleteSlot(SaveSlotType.Manual, slotIndex);
+    }
+
+    public bool DeleteSlot(SaveSlotType type, int slotIndex)
+    {
+        if (!TryValidateSlotAddress(type, slotIndex, out string addressError))
         {
-            Debug.LogError($"[SAVE DELETE] Slot index {slotIndex} is outside 1..{SlotCount}.", this);
+            Debug.LogError($"[SAVE DELETE] {addressError}", this);
             return false;
         }
 
-        string jsonPath = GetSlotJsonPath(slotIndex);
-        string previewPath = GetSlotPreviewPath(slotIndex);
+        string jsonPath = GetSlotJsonPath(type, slotIndex);
+        string previewPath = GetSlotPreviewPath(type, slotIndex);
         string[] paths =
         {
             jsonPath,
@@ -288,37 +329,47 @@ public sealed class SaveManager : MonoBehaviour
                 File.Delete(path);
                 if (existed)
                 {
-                    Debug.Log($"[SAVE DELETE] Deleted '{path}' for slot {slotIndex}.", this);
+                    Debug.Log($"[SAVE DELETE] Deleted '{path}' for {type} slot {slotIndex}.", this);
                 }
             }
             catch (Exception exception)
             {
                 succeeded = false;
-                Debug.LogError($"[SAVE DELETE] Failed to delete '{path}' for slot {slotIndex}. {exception.Message}", this);
+                Debug.LogError($"[SAVE DELETE] Failed to delete '{path}' for {type} slot {slotIndex}. {exception.Message}", this);
             }
         }
 
         if (!succeeded)
         {
-            Debug.LogError($"[SAVE DELETE] Slot {slotIndex} was only partially deleted.", this);
+            Debug.LogError($"[SAVE DELETE] {type} slot {slotIndex} was only partially deleted.", this);
             return false;
         }
 
-        Debug.Log($"[SAVE DELETE] Slot {slotIndex} deleted successfully.", this);
+        Debug.Log($"[SAVE DELETE] {type} slot {slotIndex} deleted successfully.", this);
         return true;
     }
 
-    public ManualSaveSlotInfo GetSlot(int slotIndex)
+    public SaveSlotInfo GetSlot(int slotIndex)
     {
-        return ReadSlot(slotIndex);
+        return GetSlot(SaveSlotType.Manual, slotIndex);
     }
 
-    public IReadOnlyList<ManualSaveSlotInfo> GetAllSlots()
+    public SaveSlotInfo GetSlot(SaveSlotType type, int index)
     {
-        var slots = new List<ManualSaveSlotInfo>(SlotCount);
+        return ReadSlot(type, index);
+    }
+
+    public IReadOnlyList<SaveSlotInfo> GetAllSlots()
+    {
+        return GetAllSlots(SaveSlotType.Manual);
+    }
+
+    public IReadOnlyList<SaveSlotInfo> GetAllSlots(SaveSlotType type)
+    {
+        var slots = new List<SaveSlotInfo>(SlotCount);
         for (int slotIndex = 1; slotIndex <= SlotCount; slotIndex++)
         {
-            slots.Add(ReadSlot(slotIndex));
+            slots.Add(ReadSlot(type, slotIndex));
         }
 
         return slots;
@@ -326,12 +377,22 @@ public sealed class SaveManager : MonoBehaviour
 
     public string GetSlotJsonPath(int slotIndex)
     {
-        return Path.Combine(SaveDirectoryPath, GetSlotFileStem(slotIndex) + ".json");
+        return GetSlotJsonPath(SaveSlotType.Manual, slotIndex);
+    }
+
+    public string GetSlotJsonPath(SaveSlotType type, int slotIndex)
+    {
+        return ResolveSlotPath(type, slotIndex, ".json");
     }
 
     public string GetSlotPreviewPath(int slotIndex)
     {
-        return Path.Combine(SaveDirectoryPath, GetSlotFileStem(slotIndex) + ".png");
+        return GetSlotPreviewPath(SaveSlotType.Manual, slotIndex);
+    }
+
+    public string GetSlotPreviewPath(SaveSlotType type, int slotIndex)
+    {
+        return ResolveSlotPath(type, slotIndex, ".png");
     }
 
     public void CompletePendingSceneRestore()
@@ -351,12 +412,14 @@ public sealed class SaveManager : MonoBehaviour
         pendingSlotIndex = 0;
     }
 
-    private ManualSaveSlotInfo ReadSlot(int slotIndex)
+    private SaveSlotInfo ReadSlot(SaveSlotType type, int slotIndex)
     {
-        string jsonPath = IsValidSlotIndex(slotIndex) ? GetSlotJsonPath(slotIndex) : string.Empty;
-        string previewPath = IsValidSlotIndex(slotIndex) ? GetSlotPreviewPath(slotIndex) : string.Empty;
-        var result = new ManualSaveSlotInfo
+        bool validAddress = TryValidateSlotAddress(type, slotIndex, out string addressError);
+        string jsonPath = validAddress ? GetSlotJsonPath(type, slotIndex) : string.Empty;
+        string previewPath = validAddress ? GetSlotPreviewPath(type, slotIndex) : string.Empty;
+        var result = new SaveSlotInfo
         {
+            SlotType = type,
             SlotIndex = slotIndex,
             JsonPath = jsonPath,
             PreviewPath = string.Empty,
@@ -370,9 +433,9 @@ public sealed class SaveManager : MonoBehaviour
                     || File.Exists(previewPath + ".tmp"))
         };
 
-        if (!IsValidSlotIndex(slotIndex))
+        if (!validAddress)
         {
-            result.Error = $"Slot index must be between 1 and {SlotCount}.";
+            result.Error = addressError;
             return result;
         }
 
@@ -405,9 +468,27 @@ public sealed class SaveManager : MonoBehaviour
             return result;
         }
 
-        if (data.version != SaveData.CurrentVersion)
+        if (data.version == 1)
+        {
+            if (type != SaveSlotType.Manual)
+            {
+                result.Error = $"Save version 1 is accepted only from Manual paths, not {type}.";
+                return result;
+            }
+
+            // Controlled in-memory compatibility only. The source v1 JSON is never rewritten.
+            data.version = SaveData.CurrentVersion;
+            data.slotType = SaveSlotType.Manual;
+        }
+        else if (data.version != SaveData.CurrentVersion)
         {
             result.Error = $"Unsupported save version {data.version}; expected {SaveData.CurrentVersion}.";
+            return result;
+        }
+
+        if (data.slotType != type)
+        {
+            result.Error = $"Slot type mismatch: path is {type}, JSON contains {data.slotType}.";
             return result;
         }
 
@@ -469,7 +550,7 @@ public sealed class SaveManager : MonoBehaviour
             return result;
         }
 
-        string expectedPreviewFileName = GetSlotFileStem(slotIndex) + ".png";
+        string expectedPreviewFileName = GetSlotFileStem(type, slotIndex) + ".png";
         if (Path.IsPathRooted(data.previewFileName)
             || !string.Equals(Path.GetFileName(data.previewFileName), data.previewFileName, StringComparison.Ordinal)
             || !string.Equals(data.previewFileName, expectedPreviewFileName, StringComparison.Ordinal))
@@ -489,7 +570,7 @@ public sealed class SaveManager : MonoBehaviour
         return result;
     }
 
-    private bool ApplyAndRoute(ManualSaveSlotInfo slot)
+    private bool ApplyAndRoute(SaveSlotInfo slot)
     {
         SaveData data = slot.Data;
         GameState gameState = GameState.EnsureInstance();
@@ -509,7 +590,7 @@ public sealed class SaveManager : MonoBehaviour
             }
 
             Debug.Log(
-                $"[LOAD] Slot {slot.SlotIndex} restored in-place. sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}, choiceIndex={data.selectedChoiceIndex}.",
+                $"[LOAD] {slot.SlotType} slot {slot.SlotIndex} restored in-place. sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}, choiceIndex={data.selectedChoiceIndex}.",
                 this);
             return true;
         }
@@ -521,7 +602,7 @@ public sealed class SaveManager : MonoBehaviour
         try
         {
             Debug.Log(
-                $"[LOAD] Slot {slot.SlotIndex} validated. Opening '{GameplaySceneName}' for sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}.",
+                $"[LOAD] {slot.SlotType} slot {slot.SlotIndex} validated. Opening '{GameplaySceneName}' for sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}.",
                 this);
             SceneFlowManager.EnsureInstance().OpenLoadedGame();
             return true;
@@ -535,11 +616,14 @@ public sealed class SaveManager : MonoBehaviour
         }
     }
 
-    private ManualSaveSlotInfo FindLatestLoadableSlot()
+    private SaveSlotInfo FindLatestLoadableSlot()
     {
-        return GetAllSlots()
+        return GetAllSlots(SaveSlotType.Manual)
+            .Concat(GetAllSlots(SaveSlotType.Quick))
+            .Concat(GetAllSlots(SaveSlotType.Auto))
             .Where(slot => slot.IsLoadable)
             .OrderByDescending(slot => slot.CreatedAtUtc)
+            .ThenBy(slot => GetContinueTypePriority(slot.SlotType))
             .ThenBy(slot => slot.SlotIndex)
             .FirstOrDefault();
     }
@@ -686,6 +770,27 @@ public sealed class SaveManager : MonoBehaviour
         };
     }
 
+    private static SaveData CreateSaveData(
+        GameState gameState,
+        SaveSlotType type,
+        int slotIndex,
+        string sceneId,
+        string lineId,
+        int lineIndex,
+        string previewFileName)
+    {
+        SaveData data = CaptureGameState(gameState);
+        data.version = SaveData.CurrentVersion;
+        data.slotType = type;
+        data.slotIndex = slotIndex;
+        data.createdAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+        data.sceneId = sceneId ?? string.Empty;
+        data.lineId = lineId ?? string.Empty;
+        data.lineIndex = lineIndex;
+        data.previewFileName = previewFileName ?? string.Empty;
+        return data;
+    }
+
     private static void ApplyGameState(SaveData data, GameState gameState)
     {
         gameState.currentSceneId = data.sceneId ?? string.Empty;
@@ -789,14 +894,106 @@ public sealed class SaveManager : MonoBehaviour
         }
     }
 
-    private static bool IsValidSlotIndex(int slotIndex)
+    private int SelectRotationTargetSlot(SaveSlotType type)
     {
-        return slotIndex >= 1 && slotIndex <= SlotCount;
+        if (type != SaveSlotType.Auto && type != SaveSlotType.Quick)
+        {
+            return 0;
+        }
+
+        IReadOnlyList<SaveSlotInfo> slots = GetAllSlots(type);
+        SaveSlotInfo empty = slots
+            .Where(slot => !slot.IsOccupied)
+            .OrderBy(slot => slot.SlotIndex)
+            .FirstOrDefault();
+        if (empty != null)
+        {
+            return empty.SlotIndex;
+        }
+
+        SaveSlotInfo invalid = slots
+            .Where(slot => slot.IsOccupied && !slot.IsLoadable)
+            .OrderBy(slot => slot.SlotIndex)
+            .FirstOrDefault();
+        if (invalid != null)
+        {
+            return invalid.SlotIndex;
+        }
+
+        SaveSlotInfo oldest = slots
+            .Where(slot => slot.IsLoadable)
+            .OrderBy(slot => slot.CreatedAtUtc)
+            .ThenBy(slot => slot.SlotIndex)
+            .FirstOrDefault();
+        return oldest != null ? oldest.SlotIndex : 0;
     }
 
-    private static string GetSlotFileStem(int slotIndex)
+    private static int GetContinueTypePriority(SaveSlotType type)
     {
-        return $"slot_{slotIndex:D2}";
+        return type switch
+        {
+            SaveSlotType.Manual => 0,
+            SaveSlotType.Quick => 1,
+            SaveSlotType.Auto => 2,
+            _ => int.MaxValue
+        };
+    }
+
+    private void EnsureSaveDirectories()
+    {
+        Directory.CreateDirectory(SaveDirectoryPath);
+        Directory.CreateDirectory(AutoSaveDirectoryPath);
+        Directory.CreateDirectory(QuickSaveDirectoryPath);
+    }
+
+    private string ResolveSlotPath(SaveSlotType type, int slotIndex, string extension)
+    {
+        if (!TryValidateSlotAddress(type, slotIndex, out string error))
+        {
+            throw new ArgumentOutOfRangeException(nameof(slotIndex), error);
+        }
+
+        return Path.Combine(GetSlotDirectoryPath(type), GetSlotFileStem(type, slotIndex) + extension);
+    }
+
+    private string GetSlotDirectoryPath(SaveSlotType type)
+    {
+        return type switch
+        {
+            SaveSlotType.Manual => SaveDirectoryPath,
+            SaveSlotType.Auto => AutoSaveDirectoryPath,
+            SaveSlotType.Quick => QuickSaveDirectoryPath,
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported save slot type.")
+        };
+    }
+
+    private static bool TryValidateSlotAddress(SaveSlotType type, int slotIndex, out string error)
+    {
+        if (type != SaveSlotType.Manual && type != SaveSlotType.Auto && type != SaveSlotType.Quick)
+        {
+            error = $"Save slot type value {(int)type} is unsupported.";
+            return false;
+        }
+
+        if (slotIndex < 1 || slotIndex > SlotCount)
+        {
+            error = $"Slot index {slotIndex} is outside 1..{SlotCount}.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static string GetSlotFileStem(SaveSlotType type, int slotIndex)
+    {
+        return type switch
+        {
+            SaveSlotType.Manual => $"slot_{slotIndex:D2}",
+            SaveSlotType.Auto => $"auto_{slotIndex:D2}",
+            SaveSlotType.Quick => $"quick_{slotIndex:D2}",
+            _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported save slot type.")
+        };
     }
 
     private static void DeleteTemporaryFile(string path)

@@ -1,11 +1,19 @@
 using System;
 
+public enum SaveSlotType
+{
+    Manual = 0,
+    Auto = 1,
+    Quick = 2
+}
+
 [Serializable]
 public sealed class SaveData
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public int version = CurrentVersion;
+    public SaveSlotType slotType = SaveSlotType.Manual;
     public int slotIndex;
     public string createdAtUtc;
     public string sceneId;

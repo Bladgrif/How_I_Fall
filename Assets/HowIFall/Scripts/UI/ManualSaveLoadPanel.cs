@@ -157,7 +157,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         if (mode == PanelMode.Save)
         {
-            ManualSaveSlotInfo slot = saveManager.GetSlot(slotIndex);
+            SaveSlotInfo slot = saveManager.GetSlot(slotIndex);
             if (slot.IsOccupied)
             {
                 OpenConfirmation(ConfirmationAction.Overwrite, slotIndex);
@@ -171,7 +171,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         bool loadInsideVn = VNDialogueController.Instance != null;
         if (!saveManager.LoadSlot(slotIndex))
         {
-            ManualSaveSlotInfo slot = saveManager.GetSlot(slotIndex);
+            SaveSlotInfo slot = saveManager.GetSlot(slotIndex);
             SetStatus(string.IsNullOrEmpty(slot.Error) ? "Не удалось загрузить слот" : slot.Error, true);
             Refresh();
             return;
@@ -463,9 +463,9 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         for (int i = 0; i < slotViews.Length; i++)
         {
-            ManualSaveSlotInfo slot = saveManager != null
+            SaveSlotInfo slot = saveManager != null
                 ? saveManager.GetSlot(i + 1)
-                : new ManualSaveSlotInfo { SlotIndex = i + 1 };
+                : new SaveSlotInfo { SlotIndex = i + 1 };
             slotViews[i]?.Render(slot, mode == PanelMode.Save);
         }
     }

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
@@ -57,17 +58,17 @@ public static class ManualSaveSystemV1SmokeTests
         }
     }
 
-    [MenuItem("How I Fall/Tests/Run Manual Save v1 Smoke Tests")]
+    [MenuItem("How I Fall/Tests/Run Save Backend v2 Smoke Tests")]
     public static void RunFromMenu()
     {
         Run();
-        Debug.Log("How I Fall manual Save v1 smoke tests passed.");
+        Debug.Log("How I Fall Save backend v2 smoke tests passed.");
     }
 
     public static void RunBatchMode()
     {
         Run();
-        Debug.Log("How I Fall manual Save v1 smoke tests passed.");
+        Debug.Log("How I Fall Save backend v2 smoke tests passed.");
     }
 
     private static void Run()
@@ -96,6 +97,22 @@ public static class ManualSaveSystemV1SmokeTests
         TestDeleteFailureDoesNotTouchOtherSlots(context);
         TestDeleteLastValidSaveClearsContinue(context);
         TestDeleteKeepsNeighbourSlot(context);
+        TestExistingV1ManualRemainsLoadable(context);
+        TestV1RejectedOutsideManual(context);
+        TestNewRecordsUseV2AndCorrectType(context);
+        TestTypeMismatchIsRejected(context);
+        TestSlotTypePathsDoNotIntersect(context);
+        TestManualWrappersRemainManual(context);
+        TestAutoFillsSlotsOneThroughSix(context);
+        TestQuickFillsSlotsOneThroughSix(context);
+        TestSeventhRotationOverwritesOldest(context);
+        TestCorruptRotationTargetPrecedesValidSlots(context);
+        TestAutoRotationDoesNotChangeQuickOrManual(context);
+        TestQuickRotationDoesNotChangeAutoOrManual(context);
+        TestGenericDeleteDoesNotTouchOtherTypes(context);
+        TestContinueSelectsNewestAcrossAllTypes(context);
+        TestContinueIgnoresNewerInvalidAcrossTypes(context);
+        TestRollbackWorksForAutoAndQuick(context);
     }
 
     private static void TestCorruptJson(TestContext context)
@@ -103,7 +120,7 @@ public static class ManualSaveSystemV1SmokeTests
         ResetFiles(context);
         File.WriteAllText(context.Manager.GetSlotJsonPath(1), "{ this is not valid json");
 
-        ManualSaveSlotInfo slot = context.Manager.GetSlot(1);
+        SaveSlotInfo slot = context.Manager.GetSlot(1);
         Require(slot.IsOccupied, "Corrupt JSON was not reported as occupied.");
         Require(!slot.IsLoadable, "Corrupt JSON was loadable.");
         Require(!string.IsNullOrEmpty(slot.Error), "Corrupt JSON has no validation error.");
@@ -156,7 +173,7 @@ public static class ManualSaveSystemV1SmokeTests
         SaveData data = CreateValidData(1);
         WriteData(context, data);
 
-        ManualSaveSlotInfo slot = context.Manager.GetSlot(1);
+        SaveSlotInfo slot = context.Manager.GetSlot(1);
         Require(slot.IsLoadable, "A missing preview incorrectly blocked loading.");
         Require(string.IsNullOrEmpty(slot.PreviewPath), "Missing preview produced a non-empty PreviewPath.");
     }
@@ -242,7 +259,7 @@ public static class ManualSaveSystemV1SmokeTests
         data.pendingNextSceneId = string.Empty;
         WriteData(context, data);
 
-        ManualSaveSlotInfo slot = context.Manager.GetSlot(1);
+        SaveSlotInfo slot = context.Manager.GetSlot(1);
         Require(slot.IsLoadable, "Empty pendingNextSceneId was not computed from the selected choice.");
         Require(slot.Data.pendingNextSceneId == "scene_next", "Computed pendingNextSceneId is incorrect.");
     }
@@ -264,7 +281,7 @@ public static class ManualSaveSystemV1SmokeTests
             BindingFlags.Instance | BindingFlags.NonPublic);
         Require(method != null, "FindLatestLoadableSlot test hook was not found.");
 
-        var latest = method.Invoke(context.Manager, null) as ManualSaveSlotInfo;
+        var latest = method.Invoke(context.Manager, null) as SaveSlotInfo;
         Require(latest != null && latest.SlotIndex == 1, "Continue did not ignore the newer invalid save.");
     }
 
@@ -468,6 +485,269 @@ public static class ManualSaveSystemV1SmokeTests
             "DeleteSlot changed the neighbouring PNG.");
     }
 
+    private static void TestExistingV1ManualRemainsLoadable(TestContext context)
+    {
+        ResetFiles(context);
+        SaveData legacy = CreateValidData(1, SaveSlotType.Manual);
+        legacy.version = 1;
+        string originalJson = WriteV1Data(context, SaveSlotType.Manual, legacy);
+
+        SaveSlotInfo slot = context.Manager.GetSlot(SaveSlotType.Manual, 1);
+        Require(slot.IsLoadable, $"Existing v1 Manual save was rejected: {slot.Error}");
+        Require(slot.Data.version == SaveData.CurrentVersion, "v1 Manual save was not upgraded in memory to the current schema.");
+        Require(slot.Data.slotType == SaveSlotType.Manual, "v1 Manual save was not treated as Manual in memory.");
+        Require(File.ReadAllText(context.Manager.GetSlotJsonPath(1)) == originalJson, "Reading v1 Manual rewrote the source JSON.");
+    }
+
+    private static void TestV1RejectedOutsideManual(TestContext context)
+    {
+        ResetFiles(context);
+        SaveData auto = CreateValidData(1, SaveSlotType.Auto);
+        auto.version = 1;
+        WriteV1Data(context, SaveSlotType.Auto, auto);
+        SaveData quick = CreateValidData(1, SaveSlotType.Quick);
+        quick.version = 1;
+        WriteV1Data(context, SaveSlotType.Quick, quick);
+
+        Require(!context.Manager.GetSlot(SaveSlotType.Auto, 1).IsLoadable, "v1 save in Auto was accepted.");
+        Require(!context.Manager.GetSlot(SaveSlotType.Quick, 1).IsLoadable, "v1 save in Quick was accepted.");
+    }
+
+    private static void TestNewRecordsUseV2AndCorrectType(TestContext context)
+    {
+        MethodInfo method = typeof(SaveManager).GetMethod("CreateSaveData", BindingFlags.Static | BindingFlags.NonPublic);
+        Require(method != null, "CreateSaveData test hook was not found.");
+
+        GameObject gameStateObject = new GameObject("SaveData v2 capture");
+        GameState gameState = gameStateObject.AddComponent<GameState>();
+        try
+        {
+            foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
+            {
+                string previewName = GetExpectedPreviewFileName(type, 2);
+                var data = method.Invoke(
+                    null,
+                    new object[] { gameState, type, 2, "scene_main", "line_0", 0, previewName }) as SaveData;
+                Require(data != null, $"CreateSaveData returned null for {type}.");
+                Require(data.version == 2, $"New {type} record was not created as v2.");
+                Require(data.slotType == type, $"New {type} record contains slotType {data.slotType}.");
+                Require(data.previewFileName == previewName, $"New {type} record contains an incorrect previewFileName.");
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(gameStateObject);
+        }
+    }
+
+    private static void TestTypeMismatchIsRejected(TestContext context)
+    {
+        ResetFiles(context);
+        SaveData data = CreateValidData(1, SaveSlotType.Quick);
+        WriteData(context, SaveSlotType.Auto, data);
+
+        SaveSlotInfo slot = context.Manager.GetSlot(SaveSlotType.Auto, 1);
+        Require(slot.IsOccupied && !slot.IsLoadable, "Type mismatch between Auto path and Quick JSON was accepted.");
+    }
+
+    private static void TestSlotTypePathsDoNotIntersect(TestContext context)
+    {
+        string manual = context.Manager.GetSlotJsonPath(SaveSlotType.Manual, 1);
+        string auto = context.Manager.GetSlotJsonPath(SaveSlotType.Auto, 1);
+        string quick = context.Manager.GetSlotJsonPath(SaveSlotType.Quick, 1);
+
+        Require(manual != auto && manual != quick && auto != quick, "Save slot type JSON paths intersect.");
+        Require(Path.GetFileName(manual) == "slot_01.json", "Manual filename changed.");
+        Require(Path.GetFileName(auto) == "auto_01.json", "Auto filename is incorrect.");
+        Require(Path.GetFileName(quick) == "quick_01.json", "Quick filename is incorrect.");
+        Require(Path.GetFileName(Path.GetDirectoryName(auto)) == "Auto", "Auto directory is incorrect.");
+        Require(Path.GetFileName(Path.GetDirectoryName(quick)) == "Quick", "Quick directory is incorrect.");
+    }
+
+    private static void TestManualWrappersRemainManual(TestContext context)
+    {
+        ResetFiles(context);
+        WriteData(context, CreateValidData(1, SaveSlotType.Manual));
+
+        SaveSlotInfo wrapper = context.Manager.GetSlot(1);
+        SaveSlotInfo generic = context.Manager.GetSlot(SaveSlotType.Manual, 1);
+        Require(wrapper.IsLoadable && generic.IsLoadable, "Manual GetSlot wrapper stopped loading a Manual save.");
+        Require(wrapper.SlotType == SaveSlotType.Manual, "Manual GetSlot wrapper returned another slot type.");
+        Require(context.Manager.GetSlotJsonPath(1) == context.Manager.GetSlotJsonPath(SaveSlotType.Manual, 1), "Manual JSON path wrapper changed.");
+        Require(context.Manager.GetSlotPreviewPath(1) == context.Manager.GetSlotPreviewPath(SaveSlotType.Manual, 1), "Manual preview path wrapper changed.");
+    }
+
+    private static void TestAutoFillsSlotsOneThroughSix(TestContext context)
+    {
+        ResetFiles(context);
+        for (int expected = 1; expected <= SaveManager.SlotCount; expected++)
+        {
+            int selected = SimulateRotationWrite(context, SaveSlotType.Auto, expected);
+            Require(selected == expected, $"Auto rotation selected slot {selected}; expected {expected}.");
+        }
+    }
+
+    private static void TestQuickFillsSlotsOneThroughSix(TestContext context)
+    {
+        ResetFiles(context);
+        for (int expected = 1; expected <= SaveManager.SlotCount; expected++)
+        {
+            int selected = SimulateRotationWrite(context, SaveSlotType.Quick, expected);
+            Require(selected == expected, $"Quick rotation selected slot {selected}; expected {expected}.");
+        }
+    }
+
+    private static void TestSeventhRotationOverwritesOldest(TestContext context)
+    {
+        ResetFiles(context);
+        for (int slotIndex = 1; slotIndex <= SaveManager.SlotCount; slotIndex++)
+        {
+            SaveData data = CreateValidData(slotIndex, SaveSlotType.Auto);
+            int day = slotIndex == 4 ? 1 : slotIndex + 1;
+            data.createdAtUtc = $"2026-01-{day:D2}T00:00:00.0000000Z";
+            WriteData(context, SaveSlotType.Auto, data);
+        }
+
+        Require(InvokeRotationTarget(context, SaveSlotType.Auto) == 4, "Seventh Auto save did not select the oldest valid slot.");
+
+        ResetFiles(context);
+        for (int slotIndex = 1; slotIndex <= SaveManager.SlotCount; slotIndex++)
+        {
+            SaveData data = CreateValidData(slotIndex, SaveSlotType.Quick);
+            data.createdAtUtc = "2026-02-01T00:00:00.0000000Z";
+            WriteData(context, SaveSlotType.Quick, data);
+        }
+
+        Require(InvokeRotationTarget(context, SaveSlotType.Quick) == 1, "Equal rotation timestamps did not select the smaller slot index.");
+    }
+
+    private static void TestCorruptRotationTargetPrecedesValidSlots(TestContext context)
+    {
+        ResetFiles(context);
+        for (int slotIndex = 1; slotIndex <= SaveManager.SlotCount; slotIndex++)
+        {
+            WriteData(context, SaveSlotType.Auto, CreateValidData(slotIndex, SaveSlotType.Auto));
+        }
+
+        File.WriteAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Auto, 3), "{ corrupt json");
+        Require(InvokeRotationTarget(context, SaveSlotType.Auto) == 3, "Corrupt occupied Auto slot was not selected before valid slots.");
+    }
+
+    private static void TestAutoRotationDoesNotChangeQuickOrManual(TestContext context)
+    {
+        ResetFiles(context);
+        WriteData(context, SaveSlotType.Manual, CreateValidData(1, SaveSlotType.Manual));
+        WriteData(context, SaveSlotType.Quick, CreateValidData(1, SaveSlotType.Quick));
+        string manualBefore = File.ReadAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Manual, 1));
+        string quickBefore = File.ReadAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Quick, 1));
+
+        SimulateRotationWrite(context, SaveSlotType.Auto, 1);
+
+        Require(File.ReadAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Manual, 1)) == manualBefore, "Auto rotation changed Manual.");
+        Require(File.ReadAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Quick, 1)) == quickBefore, "Auto rotation changed Quick.");
+    }
+
+    private static void TestQuickRotationDoesNotChangeAutoOrManual(TestContext context)
+    {
+        ResetFiles(context);
+        WriteData(context, SaveSlotType.Manual, CreateValidData(1, SaveSlotType.Manual));
+        WriteData(context, SaveSlotType.Auto, CreateValidData(1, SaveSlotType.Auto));
+        string manualBefore = File.ReadAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Manual, 1));
+        string autoBefore = File.ReadAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Auto, 1));
+
+        SimulateRotationWrite(context, SaveSlotType.Quick, 1);
+
+        Require(File.ReadAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Manual, 1)) == manualBefore, "Quick rotation changed Manual.");
+        Require(File.ReadAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Auto, 1)) == autoBefore, "Quick rotation changed Auto.");
+    }
+
+    private static void TestGenericDeleteDoesNotTouchOtherTypes(TestContext context)
+    {
+        ResetFiles(context);
+        foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
+        {
+            WriteData(context, type, CreateValidData(1, type));
+            File.WriteAllBytes(context.Manager.GetSlotPreviewPath(type, 1), new byte[] { 1, 2, 3 });
+        }
+
+        Require(context.Manager.DeleteSlot(SaveSlotType.Auto, 1), "Generic Auto DeleteSlot failed.");
+        Require(!File.Exists(context.Manager.GetSlotJsonPath(SaveSlotType.Auto, 1)), "Generic delete left Auto JSON.");
+        Require(File.Exists(context.Manager.GetSlotJsonPath(SaveSlotType.Manual, 1)), "Generic Auto delete removed Manual JSON.");
+        Require(File.Exists(context.Manager.GetSlotJsonPath(SaveSlotType.Quick, 1)), "Generic Auto delete removed Quick JSON.");
+    }
+
+    private static void TestContinueSelectsNewestAcrossAllTypes(TestContext context)
+    {
+        ResetFiles(context);
+        SaveData manual = CreateValidData(1, SaveSlotType.Manual);
+        manual.createdAtUtc = "2026-01-01T00:00:00.0000000Z";
+        WriteData(context, SaveSlotType.Manual, manual);
+        SaveData auto = CreateValidData(2, SaveSlotType.Auto);
+        auto.createdAtUtc = "2026-03-01T00:00:00.0000000Z";
+        WriteData(context, SaveSlotType.Auto, auto);
+        SaveData quick = CreateValidData(3, SaveSlotType.Quick);
+        quick.createdAtUtc = "2026-02-01T00:00:00.0000000Z";
+        WriteData(context, SaveSlotType.Quick, quick);
+
+        SaveSlotInfo latest = InvokeLatest(context);
+        Require(latest != null && latest.SlotType == SaveSlotType.Auto && latest.SlotIndex == 2, "Continue did not choose the newest valid save across all types.");
+
+        auto.createdAtUtc = manual.createdAtUtc;
+        quick.createdAtUtc = manual.createdAtUtc;
+        WriteData(context, SaveSlotType.Auto, auto);
+        WriteData(context, SaveSlotType.Quick, quick);
+        latest = InvokeLatest(context);
+        Require(latest != null && latest.SlotType == SaveSlotType.Manual, "Continue tie-break did not prefer Manual over Quick and Auto.");
+    }
+
+    private static void TestContinueIgnoresNewerInvalidAcrossTypes(TestContext context)
+    {
+        ResetFiles(context);
+        SaveData manual = CreateValidData(1, SaveSlotType.Manual);
+        manual.createdAtUtc = "2026-01-01T00:00:00.0000000Z";
+        WriteData(context, SaveSlotType.Manual, manual);
+        SaveData invalidAuto = CreateValidData(1, SaveSlotType.Auto);
+        invalidAuto.createdAtUtc = "2026-12-01T00:00:00.0000000Z";
+        invalidAuto.lineId = "missing_line";
+        WriteData(context, SaveSlotType.Auto, invalidAuto);
+
+        SaveSlotInfo latest = InvokeLatest(context);
+        Require(latest != null && latest.SlotType == SaveSlotType.Manual, "Continue selected a newer invalid Auto save.");
+    }
+
+    private static void TestRollbackWorksForAutoAndQuick(TestContext context)
+    {
+        GameObject gameStateObject = new GameObject("Auto Quick rollback GameState");
+        GameState gameState = gameStateObject.AddComponent<GameState>();
+        MethodInfo method = typeof(SaveManager).GetMethod("TryApplyInPlace", BindingFlags.Instance | BindingFlags.NonPublic);
+        Require(method != null, "TryApplyInPlace test hook was not found.");
+
+        try
+        {
+            foreach (SaveSlotType type in new[] { SaveSlotType.Auto, SaveSlotType.Quick })
+            {
+                gameState.currentSceneId = "original_scene";
+                gameState.currentLineId = "original_line";
+                gameState.currentLineIndex = 5;
+                gameState.lust = 7;
+
+                SaveData loaded = CreateValidData(1, type);
+                loaded.lust = 99;
+                object[] arguments = { loaded, 1, gameState, new Func<bool>(() => false), null };
+                bool restored = (bool)method.Invoke(context.Manager, arguments);
+
+                Require(!restored, $"Failed {type} restore reported success.");
+                Require(gameState.currentSceneId == "original_scene" && gameState.currentLineId == "original_line", $"{type} rollback lost dialogue position.");
+                Require(gameState.currentLineIndex == 5 && gameState.lust == 7, $"{type} rollback lost GameState values.");
+                Require(!context.Manager.HasPendingSceneRestore, $"{type} rollback left pending load state.");
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(gameStateObject);
+        }
+    }
+
     private static void SetGameStateInstance(GameState gameState)
     {
         FieldInfo field = typeof(GameState).GetField(
@@ -479,9 +759,15 @@ public static class ManualSaveSystemV1SmokeTests
 
     private static SaveData CreateValidData(int slotIndex)
     {
+        return CreateValidData(slotIndex, SaveSlotType.Manual);
+    }
+
+    private static SaveData CreateValidData(int slotIndex, SaveSlotType type)
+    {
         return new SaveData
         {
             version = SaveData.CurrentVersion,
+            slotType = type,
             slotIndex = slotIndex,
             createdAtUtc = "2026-08-06T10:00:00.0000000Z",
             sceneId = "scene_main",
@@ -490,7 +776,7 @@ public static class ManualSaveSystemV1SmokeTests
             selectedChoiceIndex = -1,
             choiceResultActive = false,
             pendingNextSceneId = string.Empty,
-            previewFileName = $"slot_{slotIndex:D2}.png",
+            previewFileName = GetExpectedPreviewFileName(type, slotIndex),
             selfControl = 5
         };
     }
@@ -510,16 +796,72 @@ public static class ManualSaveSystemV1SmokeTests
         File.WriteAllText(context.Manager.GetSlotJsonPath(slotIndex), JsonUtility.ToJson(data, true));
     }
 
+    private static void WriteData(TestContext context, SaveSlotType pathType, SaveData data, int? fileSlotIndex = null)
+    {
+        int slotIndex = fileSlotIndex ?? data.slotIndex;
+        File.WriteAllText(context.Manager.GetSlotJsonPath(pathType, slotIndex), JsonUtility.ToJson(data, true));
+    }
+
+    private static string WriteV1Data(TestContext context, SaveSlotType pathType, SaveData data)
+    {
+        string json = JsonUtility.ToJson(data, true);
+        json = Regex.Replace(
+            json,
+            "^\\s*\"slotType\"\\s*:\\s*\\d+\\s*,?\\s*\\r?\\n",
+            string.Empty,
+            RegexOptions.Multiline);
+        File.WriteAllText(context.Manager.GetSlotJsonPath(pathType, data.slotIndex), json);
+        return json;
+    }
+
+    private static int SimulateRotationWrite(TestContext context, SaveSlotType type, int sequence)
+    {
+        int slotIndex = InvokeRotationTarget(context, type);
+        Require(slotIndex > 0, $"Rotation returned no target for {type}.");
+        SaveData data = CreateValidData(slotIndex, type);
+        data.createdAtUtc = $"2026-04-{sequence:D2}T00:00:00.0000000Z";
+        WriteData(context, type, data);
+        return slotIndex;
+    }
+
+    private static int InvokeRotationTarget(TestContext context, SaveSlotType type)
+    {
+        MethodInfo method = typeof(SaveManager).GetMethod("SelectRotationTargetSlot", BindingFlags.Instance | BindingFlags.NonPublic);
+        Require(method != null, "SelectRotationTargetSlot test hook was not found.");
+        return (int)method.Invoke(context.Manager, new object[] { type });
+    }
+
+    private static SaveSlotInfo InvokeLatest(TestContext context)
+    {
+        MethodInfo method = typeof(SaveManager).GetMethod("FindLatestLoadableSlot", BindingFlags.Instance | BindingFlags.NonPublic);
+        Require(method != null, "FindLatestLoadableSlot test hook was not found.");
+        return method.Invoke(context.Manager, null) as SaveSlotInfo;
+    }
+
+    private static string GetExpectedPreviewFileName(SaveSlotType type, int slotIndex)
+    {
+        return type switch
+        {
+            SaveSlotType.Manual => $"slot_{slotIndex:D2}.png",
+            SaveSlotType.Auto => $"auto_{slotIndex:D2}.png",
+            SaveSlotType.Quick => $"quick_{slotIndex:D2}.png",
+            _ => string.Empty
+        };
+    }
+
     private static void ResetFiles(TestContext context)
     {
-        for (int slotIndex = 1; slotIndex <= SaveManager.SlotCount; slotIndex++)
+        foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
         {
-            string jsonPath = context.Manager.GetSlotJsonPath(slotIndex);
-            string previewPath = context.Manager.GetSlotPreviewPath(slotIndex);
-            DeleteIfExists(jsonPath);
-            DeleteIfExists(previewPath);
-            DeleteIfExists(jsonPath + ".tmp");
-            DeleteIfExists(previewPath + ".tmp");
+            for (int slotIndex = 1; slotIndex <= SaveManager.SlotCount; slotIndex++)
+            {
+                string jsonPath = context.Manager.GetSlotJsonPath(type, slotIndex);
+                string previewPath = context.Manager.GetSlotPreviewPath(type, slotIndex);
+                DeleteIfExists(jsonPath);
+                DeleteIfExists(previewPath);
+                DeleteIfExists(jsonPath + ".tmp");
+                DeleteIfExists(previewPath + ".tmp");
+            }
         }
     }
 

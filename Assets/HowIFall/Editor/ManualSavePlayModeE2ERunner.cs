@@ -262,7 +262,7 @@ public static class ManualSavePlayModeE2ERunner
     private static void WaitInitialSave()
     {
         SaveManager manager = SaveManager.Instance;
-        ManualSaveSlotInfo slot = manager?.GetSlot(1);
+        SaveSlotInfo slot = manager?.GetSlot(1);
         if (slot == null || !slot.IsLoadable || !File.Exists(manager.GetSlotPreviewPath(1)))
         {
             int attempts = SessionState.GetInt(CounterKey, 0) + 1;
@@ -548,7 +548,7 @@ public static class ManualSavePlayModeE2ERunner
 
     private static void WaitOverwrite()
     {
-        ManualSaveSlotInfo slot = SaveManager.Instance.GetSlot(1);
+        SaveSlotInfo slot = SaveManager.Instance.GetSlot(1);
         string previousTime = SessionState.GetString(InitialCreatedAtKey, string.Empty);
         if (!slot.IsLoadable || slot.Data.createdAtUtc == previousTime)
         {
@@ -655,7 +655,7 @@ public static class ManualSavePlayModeE2ERunner
         Success();
     }
 
-    private static void VerifyOccupiedCard(ManualSaveLoadPanel panel, ManualSaveSlotInfo slot)
+    private static void VerifyOccupiedCard(ManualSaveLoadPanel panel, SaveSlotInfo slot)
     {
         Require(panel != null && panel.slotViews != null && panel.slotViews.Length == SaveManager.SlotCount, "Save panel does not contain six card views.");
         ManualSaveSlotView occupied = panel.slotViews[0];

@@ -65,7 +65,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
         }
     }
 
-    public void Render(ManualSaveSlotInfo info, bool saveMode)
+    public void Render(SaveSlotInfo info, bool saveMode)
     {
         isOccupied = info != null && info.IsOccupied;
         isLoadable = info != null && info.IsLoadable;
