@@ -10,7 +10,7 @@ public class VNDialogueController : MonoBehaviour
     public static VNDialogueController Instance { get; private set; }
 
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
-    private const string EndPrototypeText = "РљРѕРЅРµС† Unity-РїСЂРѕС‚РѕС‚РёРїР°.";
+    private const string EndPrototypeText = "Конец Unity-прототипа.";
 
     public DialogueSceneData sceneData;
     public DialogueSceneRegistry sceneRegistry;
@@ -160,14 +160,20 @@ public class VNDialogueController : MonoBehaviour
             });
         }
 
-        if (saveManager.TryConsumePendingSceneRestore())
+        if (saveManager.HasPendingSceneRestore)
         {
-            if (!RestoreFromGameState())
+            int pendingSlotIndex = saveManager.PendingSlotIndex;
+            if (RestoreFromGameState())
             {
-                Debug.LogError("[LOAD] Validated save could not be restored by VNDialogueController. Starting the configured scene instead.", this);
-                LoadDialogueScene(sceneData);
+                saveManager.CompletePendingSceneRestore();
+                return;
             }
 
+            saveManager.FailPendingSceneRestoreAndReset();
+            Debug.LogError(
+                $"[LOAD] Pending restore for slot {pendingSlotIndex} failed in VNDialogueController.Start(). Loaded GameState was discarded, ResetState() was applied, and configured start scene '{(sceneData != null ? sceneData.sceneId : "<null>")}' will be started.",
+                this);
+            LoadDialogueScene(sceneData);
             return;
         }
 
@@ -789,8 +795,8 @@ public class VNDialogueController : MonoBehaviour
 
         bool restoreChoiceResult = gameState.choiceResultActive;
         int restoredChoiceIndex = gameState.selectedChoiceIndex;
-        string restoredPendingNextSceneId = gameState.pendingNextSceneId;
-        Debug.Log($"[VN LOAD] Restoring GameState. sceneId='{gameState.currentSceneId}', lineId='{gameState.currentLineId}', fallbackLineIndex={gameState.currentLineIndex}, choiceIndex={restoredChoiceIndex}, choiceResultActive={restoreChoiceResult}, pendingNextSceneId='{restoredPendingNextSceneId}'.", this);
+        string restoredPendingNextSceneId = gameState.pendingNextSceneId ?? string.Empty;
+        Debug.Log($"[VN LOAD] Preflighting GameState. sceneId='{gameState.currentSceneId}', lineId='{gameState.currentLineId}', fallbackLineIndex={gameState.currentLineIndex}, choiceIndex={restoredChoiceIndex}, choiceResultActive={restoreChoiceResult}, pendingNextSceneId='{restoredPendingNextSceneId}'.", this);
         DialogueSceneData restoredScene = sceneRegistry.FindById(gameState.currentSceneId);
 
         if (restoredScene == null)
@@ -802,18 +808,79 @@ public class VNDialogueController : MonoBehaviour
         Debug.Log($"[VN LOAD] Found DialogueSceneData sceneId='{restoredScene.sceneId}' asset='{restoredScene.name}'.", this);
 
         int restoredLineIndex = restoredScene.FindLineIndexById(gameState.currentLineId);
-        if (restoredLineIndex < 0)
+        if (restoredLineIndex < 0 && string.IsNullOrEmpty(gameState.currentLineId))
         {
             restoredLineIndex = gameState.currentLineIndex;
         }
 
-        Debug.Log($"[VN LOAD] Resolved line. requestedLineId='{gameState.currentLineId}', resolvedIndex={restoredLineIndex}, resolvedLineId='{(restoredLineIndex >= 0 && restoredLineIndex < restoredScene.lines.Count && restoredScene.lines[restoredLineIndex] != null ? restoredScene.lines[restoredLineIndex].lineId : "<invalid>")}'.", this);
+        if (restoredScene.lines == null
+            || restoredLineIndex < 0
+            || restoredLineIndex >= restoredScene.lines.Count
+            || restoredScene.lines[restoredLineIndex] == null)
+        {
+            Debug.LogWarning($"[VN LOAD] Line '{gameState.currentLineId}' with fallback index {gameState.currentLineIndex} is invalid for scene '{restoredScene.sceneId}'. No dialogue state was changed.", this);
+            return false;
+        }
+
+        DialogueChoice restoredChoice = null;
+        DialogueSceneData restoredPendingNextScene = null;
+        if (!restoreChoiceResult)
+        {
+            if (restoredChoiceIndex != -1 || !string.IsNullOrEmpty(restoredPendingNextSceneId))
+            {
+                Debug.LogWarning("[VN LOAD] Inactive choice state contains a selected choice or pending scene. No dialogue state was changed.", this);
+                return false;
+            }
+        }
+        else
+        {
+            if (restoredScene.choices == null
+                || restoredChoiceIndex < 0
+                || restoredChoiceIndex >= restoredScene.choices.Count)
+            {
+                Debug.LogWarning($"[VN LOAD] Choice index {restoredChoiceIndex} is invalid for scene '{restoredScene.sceneId}'. No dialogue state was changed.", this);
+                return false;
+            }
+
+            restoredChoice = restoredScene.choices[restoredChoiceIndex];
+            if (restoredChoice == null)
+            {
+                Debug.LogWarning($"[VN LOAD] Choice {restoredChoiceIndex} in scene '{restoredScene.sceneId}' is null. No dialogue state was changed.", this);
+                return false;
+            }
+
+            DialogueSceneData configuredNextScene = restoredChoice.nextScene != null
+                ? restoredChoice.nextScene
+                : restoredScene.defaultNextScene;
+
+            if (!string.IsNullOrEmpty(restoredPendingNextSceneId))
+            {
+                restoredPendingNextScene = sceneRegistry.FindById(restoredPendingNextSceneId);
+                if (restoredPendingNextScene == null
+                    || (configuredNextScene != null && restoredPendingNextScene != configuredNextScene))
+                {
+                    Debug.LogWarning($"[VN LOAD] Pending scene '{restoredPendingNextSceneId}' is invalid for choice {restoredChoiceIndex}. No dialogue state was changed.", this);
+                    return false;
+                }
+            }
+            else if (configuredNextScene != null)
+            {
+                restoredPendingNextScene = sceneRegistry.FindById(configuredNextScene.sceneId);
+                if (restoredPendingNextScene != configuredNextScene)
+                {
+                    Debug.LogWarning($"[VN LOAD] Configured choice target '{configuredNextScene.sceneId}' is absent from the registry. No dialogue state was changed.", this);
+                    return false;
+                }
+            }
+        }
+
+        Debug.Log($"[VN LOAD] Preflight passed. requestedLineId='{gameState.currentLineId}', resolvedIndex={restoredLineIndex}, resolvedLineId='{restoredScene.lines[restoredLineIndex].lineId}'.", this);
 
         LoadDialogueScene(restoredScene, restoredLineIndex);
 
         if (restoreChoiceResult)
         {
-            RestoreChoiceResult(restoredScene, restoredChoiceIndex, restoredPendingNextSceneId);
+            RestoreChoiceResult(restoredChoice, restoredChoiceIndex, restoredPendingNextScene);
         }
 
         Debug.Log($"[VN LOAD] Restoration finished. activeSceneId='{sceneData.sceneId}', activeLineIndex={currentLineIndex}, activeLineId='{(activeLines != null && currentLineIndex >= 0 && currentLineIndex < activeLines.Count && activeLines[currentLineIndex] != null ? activeLines[currentLineIndex].lineId : "<invalid>")}', choiceResultActive={GameState.Instance.choiceResultActive}.", this);
@@ -821,35 +888,11 @@ public class VNDialogueController : MonoBehaviour
     }
 
     private void RestoreChoiceResult(
-        DialogueSceneData restoredScene,
+        DialogueChoice restoredChoice,
         int restoredChoiceIndex,
-        string restoredPendingNextSceneId)
+        DialogueSceneData restoredPendingNextScene)
     {
-        if (restoredScene == null
-            || restoredScene.choices == null
-            || restoredChoiceIndex < 0
-            || restoredChoiceIndex >= restoredScene.choices.Count)
-        {
-            Debug.LogWarning("VNDialogueController: saved choice state is invalid and was ignored.", this);
-            ClearChoiceState();
-            return;
-        }
-
-        DialogueChoice restoredChoice = restoredScene.choices[restoredChoiceIndex];
-        if (restoredChoice == null)
-        {
-            Debug.LogWarning("VNDialogueController: saved choice reference is missing and was ignored.", this);
-            ClearChoiceState();
-            return;
-        }
-
-        pendingNextScene = sceneRegistry.FindById(restoredPendingNextSceneId);
-        if (pendingNextScene == null)
-        {
-            pendingNextScene = restoredChoice.nextScene != null
-                ? restoredChoice.nextScene
-                : restoredScene.defaultNextScene;
-        }
+        pendingNextScene = restoredPendingNextScene;
 
         GameState gameState = GameState.EnsureInstance();
         gameState.selectedChoiceIndex = restoredChoiceIndex;

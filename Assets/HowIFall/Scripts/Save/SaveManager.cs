@@ -24,14 +24,22 @@ public sealed class SaveManager : MonoBehaviour
 {
     public const int SlotCount = 6;
     public const string GameplaySceneName = "VNPrototype";
+    public const int PreviewWidth = 384;
+    public const int PreviewHeight = 216;
 
     public static SaveManager Instance { get; private set; }
 
     [SerializeField] private DialogueSceneRegistry dialogueRegistry;
 
     private bool pendingSceneRestore;
+    private int pendingSlotIndex;
+    private string saveDirectoryOverride;
 
-    public string SaveDirectoryPath => Path.Combine(Application.persistentDataPath, "Saves");
+    public string SaveDirectoryPath => string.IsNullOrEmpty(saveDirectoryOverride)
+        ? Path.Combine(Application.persistentDataPath, "Saves")
+        : saveDirectoryOverride;
+    public bool HasPendingSceneRestore => pendingSceneRestore;
+    public int PendingSlotIndex => pendingSlotIndex;
 
     public static SaveManager EnsureInstance(DialogueSceneRegistry registry = null)
     {
@@ -96,6 +104,14 @@ public sealed class SaveManager : MonoBehaviour
         }
     }
 
+#if UNITY_EDITOR
+    public void ConfigureSaveDirectoryForTests(string absolutePath)
+    {
+        saveDirectoryOverride = absolutePath;
+        Directory.CreateDirectory(SaveDirectoryPath);
+    }
+#endif
+
     public bool SaveSlot(int slotIndex, Texture2D previewTexture)
     {
         if (!IsValidSlotIndex(slotIndex))
@@ -155,35 +171,26 @@ public sealed class SaveManager : MonoBehaviour
         }
 
         string previewFileName = GetSlotFileStem(slotIndex) + ".png";
-        var data = new SaveData
+        SaveData data = CaptureGameState(gameState);
+        data.version = SaveData.CurrentVersion;
+        data.slotIndex = slotIndex;
+        data.createdAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+        data.sceneId = sceneId;
+        data.lineId = lineId;
+        data.lineIndex = resolvedLineIndex;
+        data.previewFileName = previewFileName;
+
+        if (!TryValidateChoiceState(data, scene, out string choiceError))
         {
-            version = SaveData.CurrentVersion,
-            slotIndex = slotIndex,
-            createdAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
-            sceneId = sceneId,
-            lineId = lineId,
-            lineIndex = resolvedLineIndex,
-            selectedChoiceIndex = gameState.selectedChoiceIndex,
-            choiceResultActive = gameState.choiceResultActive,
-            pendingNextSceneId = gameState.pendingNextSceneId ?? string.Empty,
-            previewFileName = previewFileName,
-            lust = gameState.lust,
-            romance = gameState.romance,
-            purity = gameState.purity,
-            corruptionLevel = gameState.corruptionLevel,
-            selfControl = gameState.selfControl,
-            suspicion = gameState.suspicion,
-            trustMasha = gameState.trustMasha,
-            trustArtem = gameState.trustArtem,
-            leraInterest = gameState.leraInterest
-        };
+            Debug.LogError($"[SAVE] Current choice state is invalid. {choiceError}", this);
+            return false;
+        }
 
         try
         {
-            byte[] previewBytes = previewTexture.EncodeToPNG();
-            if (previewBytes == null || previewBytes.Length == 0)
+            if (!TryEncodePreviewPng(previewTexture, out byte[] previewBytes, out string previewError))
             {
-                Debug.LogError("[SAVE] Screenshot could not be encoded as PNG.", this);
+                Debug.LogError($"[SAVE] Screenshot could not be converted to {PreviewWidth}x{PreviewHeight} PNG. {previewError}", this);
                 return false;
             }
 
@@ -236,11 +243,7 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool LoadLatest()
     {
-        ManualSaveSlotInfo latest = GetAllSlots()
-            .Where(slot => slot.IsLoadable)
-            .OrderByDescending(slot => slot.CreatedAtUtc)
-            .ThenBy(slot => slot.SlotIndex)
-            .FirstOrDefault();
+        ManualSaveSlotInfo latest = FindLatestLoadableSlot();
 
         if (latest == null)
         {
@@ -254,7 +257,7 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool HasAnyValidSave()
     {
-        return GetAllSlots().Any(slot => slot.IsLoadable);
+        return FindLatestLoadableSlot() != null;
     }
 
     public ManualSaveSlotInfo GetSlot(int slotIndex)
@@ -283,20 +286,21 @@ public sealed class SaveManager : MonoBehaviour
         return Path.Combine(SaveDirectoryPath, GetSlotFileStem(slotIndex) + ".png");
     }
 
-    public bool TryConsumePendingSceneRestore()
+    public void CompletePendingSceneRestore()
     {
-        if (!pendingSceneRestore)
-        {
-            return false;
-        }
+        ClearPendingLoad();
+    }
 
-        pendingSceneRestore = false;
-        return true;
+    public void FailPendingSceneRestoreAndReset()
+    {
+        ClearPendingLoad();
+        GameState.EnsureInstance().ResetState();
     }
 
     public void ClearPendingLoad()
     {
         pendingSceneRestore = false;
+        pendingSlotIndex = 0;
     }
 
     private ManualSaveSlotInfo ReadSlot(int slotIndex)
@@ -405,6 +409,12 @@ public sealed class SaveManager : MonoBehaviour
 
         data.lineIndex = resolvedLineIndex;
 
+        if (!TryValidateChoiceState(data, scene, out string choiceError))
+        {
+            result.Error = choiceError;
+            return result;
+        }
+
         string expectedPreviewFileName = GetSlotFileStem(slotIndex) + ".png";
         if (Path.IsPathRooted(data.previewFileName)
             || !string.Equals(Path.GetFileName(data.previewFileName), data.previewFileName, StringComparison.Ordinal)
@@ -428,8 +438,203 @@ public sealed class SaveManager : MonoBehaviour
         SaveData data = slot.Data;
         GameState gameState = GameState.EnsureInstance();
 
-        gameState.currentSceneId = data.sceneId;
-        gameState.currentLineId = data.lineId;
+        VNDialogueController dialogueController = VNDialogueController.Instance;
+        if (SceneManager.GetActiveScene().name == GameplaySceneName && dialogueController != null)
+        {
+            if (!TryApplyInPlace(
+                    data,
+                    slot.SlotIndex,
+                    gameState,
+                    dialogueController.RestoreFromGameState,
+                    out string restoreError))
+            {
+                Debug.LogError($"[LOAD] Slot {slot.SlotIndex} was not restored in-place. Previous GameState and dialogue position were preserved. {restoreError}", this);
+                return false;
+            }
+
+            Debug.Log(
+                $"[LOAD] Slot {slot.SlotIndex} restored in-place. sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}, choiceIndex={data.selectedChoiceIndex}.",
+                this);
+            return true;
+        }
+
+        SaveData previousState = CaptureGameState(gameState);
+        ApplyGameState(data, gameState);
+        BeginPendingSceneRestore(slot.SlotIndex);
+
+        try
+        {
+            Debug.Log(
+                $"[LOAD] Slot {slot.SlotIndex} validated. Opening '{GameplaySceneName}' for sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}.",
+                this);
+            SceneFlowManager.EnsureInstance().OpenLoadedGame();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            ApplyGameState(previousState, gameState);
+            ClearPendingLoad();
+            Debug.LogError($"[LOAD] Could not open '{GameplaySceneName}' for slot {slot.SlotIndex}. Previous GameState was restored. {exception.Message}", this);
+            return false;
+        }
+    }
+
+    private ManualSaveSlotInfo FindLatestLoadableSlot()
+    {
+        return GetAllSlots()
+            .Where(slot => slot.IsLoadable)
+            .OrderByDescending(slot => slot.CreatedAtUtc)
+            .ThenBy(slot => slot.SlotIndex)
+            .FirstOrDefault();
+    }
+
+    private bool TryApplyInPlace(
+        SaveData data,
+        int slotIndex,
+        GameState gameState,
+        Func<bool> restoreDialogue,
+        out string error)
+    {
+        error = string.Empty;
+        SaveData previousState = CaptureGameState(gameState);
+        ApplyGameState(data, gameState);
+        BeginPendingSceneRestore(slotIndex);
+
+        bool restored;
+        try
+        {
+            restored = restoreDialogue != null && restoreDialogue();
+        }
+        catch (Exception exception)
+        {
+            restored = false;
+            error = $"VNDialogueController threw {exception.GetType().Name}: {exception.Message}";
+        }
+
+        if (restored)
+        {
+            CompletePendingSceneRestore();
+            return true;
+        }
+
+        ApplyGameState(previousState, gameState);
+        ClearPendingLoad();
+        if (string.IsNullOrEmpty(error))
+        {
+            error = "VNDialogueController.RestoreFromGameState() returned false.";
+        }
+
+        return false;
+    }
+
+    private void BeginPendingSceneRestore(int slotIndex)
+    {
+        pendingSceneRestore = true;
+        pendingSlotIndex = slotIndex;
+    }
+
+    private bool TryValidateChoiceState(SaveData data, DialogueSceneData scene, out string error)
+    {
+        error = string.Empty;
+
+        if (!data.choiceResultActive)
+        {
+            if (data.selectedChoiceIndex != -1)
+            {
+                error = $"Choice state is inactive, but selectedChoiceIndex is {data.selectedChoiceIndex}; expected -1.";
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(data.pendingNextSceneId))
+            {
+                error = $"Choice state is inactive, but pendingNextSceneId is '{data.pendingNextSceneId}'.";
+                return false;
+            }
+
+            return true;
+        }
+
+        if (scene.choices == null
+            || data.selectedChoiceIndex < 0
+            || data.selectedChoiceIndex >= scene.choices.Count)
+        {
+            int choiceCount = scene.choices != null ? scene.choices.Count : 0;
+            error = $"selectedChoiceIndex {data.selectedChoiceIndex} is invalid for scene '{scene.sceneId}' with {choiceCount} choice(s).";
+            return false;
+        }
+
+        DialogueChoice selectedChoice = scene.choices[data.selectedChoiceIndex];
+        if (selectedChoice == null)
+        {
+            error = $"Choice {data.selectedChoiceIndex} in scene '{scene.sceneId}' is null.";
+            return false;
+        }
+
+        DialogueSceneData configuredNextScene = selectedChoice.nextScene != null
+            ? selectedChoice.nextScene
+            : scene.defaultNextScene;
+
+        if (!string.IsNullOrEmpty(data.pendingNextSceneId))
+        {
+            DialogueSceneData pendingScene = dialogueRegistry.FindById(data.pendingNextSceneId);
+            if (pendingScene == null)
+            {
+                error = $"pendingNextSceneId '{data.pendingNextSceneId}' is absent from DialogueSceneRegistry.";
+                return false;
+            }
+
+            if (configuredNextScene != null && pendingScene != configuredNextScene)
+            {
+                error = $"pendingNextSceneId '{data.pendingNextSceneId}' does not match choice target '{configuredNextScene.sceneId}'.";
+                return false;
+            }
+
+            return true;
+        }
+
+        if (configuredNextScene == null)
+        {
+            data.pendingNextSceneId = string.Empty;
+            return true;
+        }
+
+        DialogueSceneData registeredNextScene = dialogueRegistry.FindById(configuredNextScene.sceneId);
+        if (registeredNextScene != configuredNextScene)
+        {
+            error = $"Choice target '{configuredNextScene.sceneId}' is absent from DialogueSceneRegistry.";
+            return false;
+        }
+
+        data.pendingNextSceneId = configuredNextScene.sceneId;
+        return true;
+    }
+
+    private static SaveData CaptureGameState(GameState gameState)
+    {
+        return new SaveData
+        {
+            sceneId = gameState.currentSceneId ?? string.Empty,
+            lineId = gameState.currentLineId ?? string.Empty,
+            lineIndex = gameState.currentLineIndex,
+            selectedChoiceIndex = gameState.selectedChoiceIndex,
+            choiceResultActive = gameState.choiceResultActive,
+            pendingNextSceneId = gameState.pendingNextSceneId ?? string.Empty,
+            lust = gameState.lust,
+            romance = gameState.romance,
+            purity = gameState.purity,
+            corruptionLevel = gameState.corruptionLevel,
+            selfControl = gameState.selfControl,
+            suspicion = gameState.suspicion,
+            trustMasha = gameState.trustMasha,
+            trustArtem = gameState.trustArtem,
+            leraInterest = gameState.leraInterest
+        };
+    }
+
+    private static void ApplyGameState(SaveData data, GameState gameState)
+    {
+        gameState.currentSceneId = data.sceneId ?? string.Empty;
+        gameState.currentLineId = data.lineId ?? string.Empty;
         gameState.currentLineIndex = data.lineIndex;
         gameState.selectedChoiceIndex = data.selectedChoiceIndex;
         gameState.choiceResultActive = data.choiceResultActive;
@@ -443,26 +648,90 @@ public sealed class SaveManager : MonoBehaviour
         gameState.trustMasha = data.trustMasha;
         gameState.trustArtem = data.trustArtem;
         gameState.leraInterest = data.leraInterest;
+    }
 
-        pendingSceneRestore = true;
-        Debug.Log(
-            $"[LOAD] Slot {slot.SlotIndex} validated and applied. sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}, choiceIndex={data.selectedChoiceIndex}, suspicion={data.suspicion}.",
-            this);
+    private static bool TryEncodePreviewPng(Texture2D source, out byte[] pngBytes, out string error)
+    {
+        pngBytes = null;
+        error = string.Empty;
 
-        VNDialogueController dialogueController = VNDialogueController.Instance;
-        if (SceneManager.GetActiveScene().name == GameplaySceneName && dialogueController != null)
+        if (source == null || source.width <= 0 || source.height <= 0)
         {
-            bool restored = dialogueController.RestoreFromGameState();
-            if (restored)
-            {
-                pendingSceneRestore = false;
-            }
-
-            return restored;
+            error = "Source texture is empty.";
+            return false;
         }
 
-        SceneFlowManager.EnsureInstance().OpenLoadedGame();
-        return true;
+        RenderTexture previousActive = RenderTexture.active;
+        RenderTexture renderTexture = null;
+        Texture2D previewTexture = null;
+
+        try
+        {
+            renderTexture = RenderTexture.GetTemporary(
+                PreviewWidth,
+                PreviewHeight,
+                0,
+                RenderTextureFormat.ARGB32,
+                RenderTextureReadWrite.Default);
+
+            float sourceAspect = (float)source.width / source.height;
+            float targetAspect = (float)PreviewWidth / PreviewHeight;
+            Vector2 scale = Vector2.one;
+            Vector2 offset = Vector2.zero;
+
+            if (sourceAspect > targetAspect)
+            {
+                scale.x = targetAspect / sourceAspect;
+                offset.x = (1f - scale.x) * 0.5f;
+            }
+            else if (sourceAspect < targetAspect)
+            {
+                scale.y = sourceAspect / targetAspect;
+                offset.y = (1f - scale.y) * 0.5f;
+            }
+
+            Graphics.Blit(source, renderTexture, scale, offset);
+            RenderTexture.active = renderTexture;
+
+            previewTexture = new Texture2D(PreviewWidth, PreviewHeight, TextureFormat.RGB24, false);
+            previewTexture.ReadPixels(new Rect(0f, 0f, PreviewWidth, PreviewHeight), 0, 0, false);
+            previewTexture.Apply(false, false);
+            pngBytes = previewTexture.EncodeToPNG();
+
+            if (pngBytes == null || pngBytes.Length == 0)
+            {
+                error = "Texture2D.EncodeToPNG() returned no data.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            return false;
+        }
+        finally
+        {
+            RenderTexture.active = previousActive;
+
+            if (previewTexture != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(previewTexture);
+                }
+                else
+                {
+                    DestroyImmediate(previewTexture);
+                }
+            }
+
+            if (renderTexture != null)
+            {
+                RenderTexture.ReleaseTemporary(renderTexture);
+            }
+        }
     }
 
     private static bool IsValidSlotIndex(int slotIndex)

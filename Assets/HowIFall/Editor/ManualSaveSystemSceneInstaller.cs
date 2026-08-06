@@ -50,6 +50,7 @@ public static class ManualSaveSystemSceneInstaller
     {
         Scene scene = EditorSceneManager.OpenScene(MainMenuScenePath, OpenSceneMode.Single);
         RemoveOldSaveObjects(scene);
+        CleanSceneReferences(scene);
 
         Canvas canvas = FindInScene<Canvas>(scene);
         MainMenuController controller = FindInScene<MainMenuController>(scene);
@@ -82,7 +83,6 @@ public static class ManualSaveSystemSceneInstaller
 
         EditorUtility.SetDirty(controller);
         EditorUtility.SetDirty(saveManager);
-        CleanSceneReferences(scene);
         ValidateScene(scene, false);
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -92,6 +92,7 @@ public static class ManualSaveSystemSceneInstaller
     {
         Scene scene = EditorSceneManager.OpenScene(VnScenePath, OpenSceneMode.Single);
         RemoveOldSaveObjects(scene);
+        CleanSceneReferences(scene);
 
         Canvas canvas = FindInScene<Canvas>(scene);
         VNDialogueController controller = FindInScene<VNDialogueController>(scene);
@@ -122,7 +123,6 @@ public static class ManualSaveSystemSceneInstaller
 
         EditorUtility.SetDirty(controller);
         EditorUtility.SetDirty(saveManager);
-        CleanSceneReferences(scene);
         ValidateScene(scene, true);
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -132,6 +132,12 @@ public static class ManualSaveSystemSceneInstaller
     {
         EnsureAssetFolder("Assets/HowIFall", "Prefabs");
         EnsureAssetFolder("Assets/HowIFall/Prefabs", "UI");
+
+        GameObject existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+        if (existingPrefab != null)
+        {
+            return existingPrefab;
+        }
 
         GameObject root = CreateUiObject("Manual Save Load Panel", null);
         try
@@ -338,6 +344,21 @@ public static class ManualSaveSystemSceneInstaller
 
     private static ManualSaveLoadPanel InstantiatePanel(GameObject prefab, Transform canvas)
     {
+        ManualSaveLoadPanel[] existingPanels = canvas.GetComponentsInChildren<ManualSaveLoadPanel>(true);
+        if (existingPanels.Length > 0)
+        {
+            ManualSaveLoadPanel existingPanel = existingPanels[0];
+            existingPanel.gameObject.name = "Manual Save Load Panel";
+            existingPanel.gameObject.SetActive(false);
+
+            for (int i = 1; i < existingPanels.Length; i++)
+            {
+                UnityEngine.Object.DestroyImmediate(existingPanels[i].gameObject);
+            }
+
+            return existingPanel;
+        }
+
         GameObject instance = PrefabUtility.InstantiatePrefab(prefab, canvas) as GameObject;
         if (instance == null)
         {
@@ -370,8 +391,7 @@ public static class ManualSaveSystemSceneInstaller
         string[] oldNames =
         {
             "Main Menu SaveLoad Panel",
-            "VN SaveLoad Panel",
-            "Manual Save Load Panel"
+            "VN SaveLoad Panel"
         };
 
         foreach (string objectName in oldNames)
@@ -438,30 +458,24 @@ public static class ManualSaveSystemSceneInstaller
 
     private static void CleanSceneReferences(Scene scene)
     {
-        foreach (GameObject root in scene.GetRootGameObjects())
+        string[] installerOwnedButtonNames =
         {
-            foreach (Transform transform in root.GetComponentsInChildren<Transform>(true))
+            "Continue Button",
+            "Load Button",
+            "Save Button",
+            "РџСЂРѕРґРѕР»Р¶РёС‚СЊ Button",
+            "Р—Р°РіСЂСѓР·РёС‚СЊ Button",
+            "РЎРѕС…СЂ. Button",
+            "Р—Р°РіСЂ. Button"
+        };
+
+        foreach (string buttonName in installerOwnedButtonNames)
+        {
+            Transform transform = FindTransform(scene, buttonName);
+            if (transform != null && transform.TryGetComponent(out Button button))
             {
-                GameObjectUtility.RemoveMonoBehavioursWithMissingScript(transform.gameObject);
-
-                foreach (Button button in transform.GetComponents<Button>())
-                {
-                    for (int i = button.onClick.GetPersistentEventCount() - 1; i >= 0; i--)
-                    {
-                        UnityEngine.Object target = button.onClick.GetPersistentTarget(i);
-                        string method = button.onClick.GetPersistentMethodName(i);
-                        bool methodExists = target != null
-                            && !string.IsNullOrEmpty(method)
-                            && target.GetType().GetMethod(
-                                method,
-                                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) != null;
-
-                        if (!methodExists)
-                        {
-                            UnityEventTools.RemovePersistentListener(button.onClick, i);
-                        }
-                    }
-                }
+                button.onClick = new Button.ButtonClickedEvent();
+                EditorUtility.SetDirty(button);
             }
         }
     }
@@ -481,8 +495,15 @@ public static class ManualSaveSystemSceneInstaller
                 {
                     for (int i = 0; i < button.onClick.GetPersistentEventCount(); i++)
                     {
-                        if (button.onClick.GetPersistentTarget(i) == null
-                            || string.IsNullOrEmpty(button.onClick.GetPersistentMethodName(i)))
+                        UnityEngine.Object target = button.onClick.GetPersistentTarget(i);
+                        string method = button.onClick.GetPersistentMethodName(i);
+                        bool methodExists = target != null
+                            && !string.IsNullOrEmpty(method)
+                            && target.GetType().GetMethod(
+                                method,
+                                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) != null;
+
+                        if (!methodExists)
                         {
                             invalidEventCount++;
                         }

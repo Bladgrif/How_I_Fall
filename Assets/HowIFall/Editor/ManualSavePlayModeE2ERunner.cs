@@ -232,6 +232,7 @@ public static class ManualSavePlayModeE2ERunner
 
         Require(Path.GetFileName(slot.JsonPath) == "slot_01.json", "Unexpected JSON file name.");
         Require(Path.GetFileName(slot.PreviewPath) == "slot_01.png", "Unexpected preview file name.");
+        VerifyPreviewDimensions(slot.PreviewPath);
         SessionState.SetString(SnapshotKey, JsonUtility.ToJson(slot.Data));
         SessionState.SetString(InitialCreatedAtKey, slot.Data.createdAtUtc);
         Pass("Slot 1 JSON and screenshot written");
@@ -400,8 +401,28 @@ public static class ManualSavePlayModeE2ERunner
             return;
         }
 
+        VerifyPreviewDimensions(slot.PreviewPath);
         Pass("Overwrite confirmation Yes replaced JSON and PNG");
         Success();
+    }
+
+    private static void VerifyPreviewDimensions(string previewPath)
+    {
+        Require(File.Exists(previewPath), $"Preview file '{previewPath}' is missing.");
+        byte[] pngBytes = File.ReadAllBytes(previewPath);
+        var texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
+
+        try
+        {
+            Require(texture.LoadImage(pngBytes, true), $"Preview file '{previewPath}' is not a readable PNG.");
+            Require(
+                texture.width == SaveManager.PreviewWidth && texture.height == SaveManager.PreviewHeight,
+                $"Preview size is {texture.width}x{texture.height}; expected {SaveManager.PreviewWidth}x{SaveManager.PreviewHeight}.");
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(texture);
+        }
     }
 
     private static void VerifySnapshot(string context)

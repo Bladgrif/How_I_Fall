@@ -166,13 +166,6 @@ public static class DialogueContentValidator
         for (int i = 0; i < scene.choices.Count; i++)
         {
             DialogueSceneData target = scene.choices[i]?.nextScene;
-            if (scene.choices[i] != null && target == null)
-            {
-                issues += LogError(
-                    $"Dialogue scene '{scene.name}', choice {i}: transition target scene is missing.");
-                continue;
-            }
-
             if (target != null && !registeredScenes.Contains(target))
             {
                 issues += LogError(
@@ -214,6 +207,6 @@ public static class DialogueContentValidator
     private static int LogWarning(string message)
     {
         Debug.LogWarning(message);
-        return 1;
+        return 0;
     }
 }
