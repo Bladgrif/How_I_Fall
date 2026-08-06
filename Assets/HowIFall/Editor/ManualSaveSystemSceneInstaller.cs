@@ -463,10 +463,10 @@ public static class ManualSaveSystemSceneInstaller
             "Continue Button",
             "Load Button",
             "Save Button",
-            "РџСЂРѕРґРѕР»Р¶РёС‚СЊ Button",
-            "Р—Р°РіСЂСѓР·РёС‚СЊ Button",
-            "РЎРѕС…СЂ. Button",
-            "Р—Р°РіСЂ. Button"
+            "Продолжить Button",
+            "Загрузить Button",
+            "Сохр. Button",
+            "Загр. Button"
         };
 
         foreach (string buttonName in installerOwnedButtonNames)

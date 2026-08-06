@@ -853,22 +853,27 @@ public class VNDialogueController : MonoBehaviour
                 ? restoredChoice.nextScene
                 : restoredScene.defaultNextScene;
 
-            if (!string.IsNullOrEmpty(restoredPendingNextSceneId))
+            if (configuredNextScene == null)
             {
-                restoredPendingNextScene = sceneRegistry.FindById(restoredPendingNextSceneId);
-                if (restoredPendingNextScene == null
-                    || (configuredNextScene != null && restoredPendingNextScene != configuredNextScene))
+                if (!string.IsNullOrEmpty(restoredPendingNextSceneId))
                 {
-                    Debug.LogWarning($"[VN LOAD] Pending scene '{restoredPendingNextSceneId}' is invalid for choice {restoredChoiceIndex}. No dialogue state was changed.", this);
+                    Debug.LogWarning($"[VN LOAD] Choice {restoredChoiceIndex} has no transition target, but pending scene is '{restoredPendingNextSceneId}'. No dialogue state was changed.", this);
                     return false;
                 }
             }
-            else if (configuredNextScene != null)
+            else
             {
                 restoredPendingNextScene = sceneRegistry.FindById(configuredNextScene.sceneId);
                 if (restoredPendingNextScene != configuredNextScene)
                 {
                     Debug.LogWarning($"[VN LOAD] Configured choice target '{configuredNextScene.sceneId}' is absent from the registry. No dialogue state was changed.", this);
+                    return false;
+                }
+
+                if (!string.IsNullOrEmpty(restoredPendingNextSceneId)
+                    && restoredPendingNextSceneId != configuredNextScene.sceneId)
+                {
+                    Debug.LogWarning($"[VN LOAD] Pending scene '{restoredPendingNextSceneId}' does not exactly match choice target '{configuredNextScene.sceneId}'. No dialogue state was changed.", this);
                     return false;
                 }
             }

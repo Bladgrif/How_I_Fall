@@ -574,26 +574,14 @@ public sealed class SaveManager : MonoBehaviour
             ? selectedChoice.nextScene
             : scene.defaultNextScene;
 
-        if (!string.IsNullOrEmpty(data.pendingNextSceneId))
-        {
-            DialogueSceneData pendingScene = dialogueRegistry.FindById(data.pendingNextSceneId);
-            if (pendingScene == null)
-            {
-                error = $"pendingNextSceneId '{data.pendingNextSceneId}' is absent from DialogueSceneRegistry.";
-                return false;
-            }
-
-            if (configuredNextScene != null && pendingScene != configuredNextScene)
-            {
-                error = $"pendingNextSceneId '{data.pendingNextSceneId}' does not match choice target '{configuredNextScene.sceneId}'.";
-                return false;
-            }
-
-            return true;
-        }
-
         if (configuredNextScene == null)
         {
+            if (!string.IsNullOrEmpty(data.pendingNextSceneId))
+            {
+                error = $"Choice {data.selectedChoiceIndex} in scene '{scene.sceneId}' has no transition target, but pendingNextSceneId is '{data.pendingNextSceneId}'.";
+                return false;
+            }
+
             data.pendingNextSceneId = string.Empty;
             return true;
         }
@@ -605,7 +593,18 @@ public sealed class SaveManager : MonoBehaviour
             return false;
         }
 
-        data.pendingNextSceneId = configuredNextScene.sceneId;
+        if (string.IsNullOrEmpty(data.pendingNextSceneId))
+        {
+            data.pendingNextSceneId = configuredNextScene.sceneId;
+            return true;
+        }
+
+        if (!string.Equals(data.pendingNextSceneId, configuredNextScene.sceneId, StringComparison.Ordinal))
+        {
+            error = $"pendingNextSceneId '{data.pendingNextSceneId}' does not exactly match choice target '{configuredNextScene.sceneId}'.";
+            return false;
+        }
+
         return true;
     }
 

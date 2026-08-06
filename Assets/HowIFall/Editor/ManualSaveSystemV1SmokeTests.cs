@@ -81,6 +81,7 @@ public static class ManualSaveSystemV1SmokeTests
         TestInvalidSelectedChoiceIndex(context);
         TestNullSelectedChoice(context);
         TestPendingNextSceneIsComputed(context);
+        TestTerminalChoiceRejectsRegisteredPendingScene(context);
         TestInvalidPendingNextScene(context);
         TestContinueIgnoresNewerInvalidSave(context);
         TestGameStateRollbackWhenInPlaceRestoreFails(context);
@@ -185,6 +186,32 @@ public static class ManualSaveSystemV1SmokeTests
         WriteData(context, data);
 
         Require(!context.Manager.GetSlot(1).IsLoadable, "Invalid pendingNextSceneId was loadable.");
+    }
+
+    private static void TestTerminalChoiceRejectsRegisteredPendingScene(TestContext context)
+    {
+        ResetFiles(context);
+        DialogueChoice choice = context.MainScene.choices[0];
+        DialogueSceneData originalChoiceNextScene = choice.nextScene;
+        DialogueSceneData originalDefaultNextScene = context.MainScene.defaultNextScene;
+        choice.nextScene = null;
+        context.MainScene.defaultNextScene = null;
+
+        try
+        {
+            SaveData data = CreateValidChoiceData(1);
+            data.pendingNextSceneId = context.NextScene.sceneId;
+            WriteData(context, data);
+
+            Require(
+                !context.Manager.GetSlot(1).IsLoadable,
+                "A terminal choice accepted another registered scene as pendingNextSceneId.");
+        }
+        finally
+        {
+            choice.nextScene = originalChoiceNextScene;
+            context.MainScene.defaultNextScene = originalDefaultNextScene;
+        }
     }
 
     private static void TestPendingNextSceneIsComputed(TestContext context)
