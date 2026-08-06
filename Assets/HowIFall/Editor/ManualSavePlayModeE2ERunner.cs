@@ -2,9 +2,11 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -128,6 +130,18 @@ public static class ManualSavePlayModeE2ERunner
                 break;
             case "WaitOverwrite":
                 WaitOverwrite();
+                break;
+            case "DeleteCancel":
+                DeleteCancel();
+                break;
+            case "DeleteConfirm":
+                DeleteConfirm();
+                break;
+            case "WaitDelete":
+                WaitDelete();
+                break;
+            case "WaitMainAfterDelete":
+                WaitMainAfterDelete();
                 break;
         }
     }
@@ -403,7 +417,119 @@ public static class ManualSavePlayModeE2ERunner
 
         VerifyPreviewDimensions(slot.PreviewPath);
         Pass("Overwrite confirmation Yes replaced JSON and PNG");
+        SessionState.SetString(StageKey, "DeleteCancel");
+        SetDelay(0.2d);
+    }
+
+    private static void DeleteCancel()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        ManualSaveSlotView slotView = panel.slotViews[0];
+        string jsonPath = SaveManager.Instance.GetSlotJsonPath(1);
+        string previewPath = SaveManager.Instance.GetSlotPreviewPath(1);
+        panel.OpenSave();
+
+        Require(slotView.deleteButton != null, "Slot 1 has no delete button.");
+        Require(slotView.deleteButton.gameObject.activeSelf && slotView.deleteButton.interactable, "Occupied slot does not show an active delete button.");
+        ClickButtonThroughEventSystem(slotView.deleteButton);
+        Require(panel.confirmationRoot.activeSelf, "Delete did not open confirmation.");
+        Require(panel.confirmationText.text == "Удалить сохранение из слота 1?", "Delete confirmation text is incorrect.");
+        Require(GetButtonLabel(panel.confirmationYesButton) == "Удалить", "Delete confirmation action label is incorrect.");
+        Require(GetButtonLabel(panel.confirmationNoButton) == "Отмена", "Delete confirmation cancel label is incorrect.");
+
+        panel.confirmationNoButton.onClick.Invoke();
+        Require(!panel.confirmationRoot.activeSelf, "Delete Cancel did not close confirmation.");
+        Require(File.Exists(jsonPath), "Delete Cancel removed the JSON file.");
+        Require(File.Exists(previewPath), "Delete Cancel removed the PNG file.");
+        Require(SaveManager.Instance.GetSlot(1).IsLoadable, "Delete Cancel changed slot 1.");
+        Pass("Delete confirmation Cancel preserved JSON and PNG");
+        SessionState.SetString(StageKey, "DeleteConfirm");
+        SetDelay(0.2d);
+    }
+
+    private static void DeleteConfirm()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        ClickButtonThroughEventSystem(panel.slotViews[0].deleteButton);
+        Require(panel.confirmationRoot.activeSelf, "Second Delete did not open confirmation.");
+        Require(panel.confirmationText.text == "Удалить сохранение из слота 1?", "Second Delete opened the wrong confirmation action.");
+        panel.confirmationYesButton.onClick.Invoke();
+        SessionState.SetString(StageKey, "WaitDelete");
+        SetDelay(0.1d);
+    }
+
+    private static void WaitDelete()
+    {
+        SaveManager manager = SaveManager.Instance;
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        ManualSaveSlotView slotView = panel.slotViews[0];
+        string jsonPath = manager.GetSlotJsonPath(1);
+        string previewPath = manager.GetSlotPreviewPath(1);
+
+        Require(!File.Exists(jsonPath), "Confirmed Delete left the JSON file.");
+        Require(!File.Exists(previewPath), "Confirmed Delete left the PNG file.");
+        Require(!File.Exists(jsonPath + ".tmp"), "Confirmed Delete left the JSON temporary file.");
+        Require(!File.Exists(previewPath + ".tmp"), "Confirmed Delete left the PNG temporary file.");
+        Require(!manager.GetSlot(1).IsOccupied, "Deleted slot is still occupied.");
+        Require(panel.statusText.text == "Слот 1 удалён", "Delete success status is incorrect.");
+        Require(slotView.emptyText.gameObject.activeSelf && slotView.emptyText.text == "Пустой слот", "Deleted card did not become empty.");
+        Require(!slotView.deleteButton.gameObject.activeSelf, "Empty slot still shows the delete button.");
+
+        panel.OpenLoad();
+        Require(!slotView.button.interactable, "Deleted slot is interactable in Load mode.");
+        Require(!slotView.deleteButton.gameObject.activeSelf, "Deleted slot shows Delete in Load mode.");
+        Pass("Delete removed files and refreshed the slot in Load mode");
+
+        panel.Close();
+        SessionState.SetString(StageKey, "WaitMainAfterDelete");
+        SetDelay(0.75d);
+        SceneFlowManager.EnsureInstance().ReturnToMainMenu();
+    }
+
+    private static void WaitMainAfterDelete()
+    {
+        if (SceneManager.GetActiveScene().name != "MainMenu")
+        {
+            SetDelay(0.25d);
+            return;
+        }
+
+        MainMenuController menu = UnityEngine.Object.FindAnyObjectByType<MainMenuController>();
+        if (menu == null || SaveManager.Instance == null)
+        {
+            SetDelay(0.25d);
+            return;
+        }
+
+        Require(!SaveManager.Instance.HasAnyValidSave(), "Continue still finds a save after deleting the last valid slot.");
+        menu.RefreshContinueAvailability();
+        Require(menu.continueButton != null && !menu.continueButton.interactable, "Continue is enabled after deleting the last valid slot.");
+        menu.manualSaveLoadPanel.OpenLoad();
+        Require(!menu.manualSaveLoadPanel.slotViews[0].button.interactable, "Deleted Main Menu slot is interactable in Load mode.");
+        Require(!menu.manualSaveLoadPanel.slotViews[0].deleteButton.gameObject.activeSelf, "Deleted Main Menu slot still shows Delete.");
+        Pass("Deleting the last valid slot disabled Continue in Main Menu");
         Success();
+    }
+
+    private static string GetButtonLabel(Button button)
+    {
+        TextMeshProUGUI label = button != null ? button.GetComponentInChildren<TextMeshProUGUI>(true) : null;
+        return label != null ? label.text : string.Empty;
+    }
+
+    private static void ClickButtonThroughEventSystem(Button button)
+    {
+        Require(button != null, "Cannot click a missing button.");
+        Require(EventSystem.current != null, "EventSystem is unavailable for the UI click test.");
+        var pointer = new PointerEventData(EventSystem.current)
+        {
+            button = PointerEventData.InputButton.Left
+        };
+        GameObject handler = ExecuteEvents.ExecuteHierarchy(
+            button.gameObject,
+            pointer,
+            ExecuteEvents.pointerClickHandler);
+        Require(handler == button.gameObject, "Delete click was handled by the slot card instead of its child button.");
     }
 
     private static void VerifyPreviewDimensions(string previewPath)

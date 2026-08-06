@@ -260,6 +260,53 @@ public sealed class SaveManager : MonoBehaviour
         return FindLatestLoadableSlot() != null;
     }
 
+    public bool DeleteSlot(int slotIndex)
+    {
+        if (!IsValidSlotIndex(slotIndex))
+        {
+            Debug.LogError($"[SAVE DELETE] Slot index {slotIndex} is outside 1..{SlotCount}.", this);
+            return false;
+        }
+
+        string jsonPath = GetSlotJsonPath(slotIndex);
+        string previewPath = GetSlotPreviewPath(slotIndex);
+        string[] paths =
+        {
+            jsonPath,
+            previewPath,
+            jsonPath + ".tmp",
+            previewPath + ".tmp"
+        };
+
+        bool succeeded = true;
+        foreach (string path in paths)
+        {
+            bool existed = File.Exists(path);
+            try
+            {
+                File.Delete(path);
+                if (existed)
+                {
+                    Debug.Log($"[SAVE DELETE] Deleted '{path}' for slot {slotIndex}.", this);
+                }
+            }
+            catch (Exception exception)
+            {
+                succeeded = false;
+                Debug.LogError($"[SAVE DELETE] Failed to delete '{path}' for slot {slotIndex}. {exception.Message}", this);
+            }
+        }
+
+        if (!succeeded)
+        {
+            Debug.LogError($"[SAVE DELETE] Slot {slotIndex} was only partially deleted.", this);
+            return false;
+        }
+
+        Debug.Log($"[SAVE DELETE] Slot {slotIndex} deleted successfully.", this);
+        return true;
+    }
+
     public ManualSaveSlotInfo GetSlot(int slotIndex)
     {
         return ReadSlot(slotIndex);
@@ -306,6 +353,7 @@ public sealed class SaveManager : MonoBehaviour
     private ManualSaveSlotInfo ReadSlot(int slotIndex)
     {
         string jsonPath = IsValidSlotIndex(slotIndex) ? GetSlotJsonPath(slotIndex) : string.Empty;
+        string previewPath = IsValidSlotIndex(slotIndex) ? GetSlotPreviewPath(slotIndex) : string.Empty;
         var result = new ManualSaveSlotInfo
         {
             SlotIndex = slotIndex,
@@ -313,7 +361,11 @@ public sealed class SaveManager : MonoBehaviour
             PreviewPath = string.Empty,
             DisplayDate = string.Empty,
             Error = string.Empty,
-            IsOccupied = !string.IsNullOrEmpty(jsonPath) && File.Exists(jsonPath)
+            IsOccupied = !string.IsNullOrEmpty(jsonPath)
+                && (File.Exists(jsonPath)
+                    || File.Exists(previewPath)
+                    || File.Exists(jsonPath + ".tmp")
+                    || File.Exists(previewPath + ".tmp"))
         };
 
         if (!IsValidSlotIndex(slotIndex))
@@ -424,7 +476,6 @@ public sealed class SaveManager : MonoBehaviour
             return result;
         }
 
-        string previewPath = GetSlotPreviewPath(slotIndex);
         result.Data = data;
         result.CreatedAtUtc = createdAt.UtcDateTime;
         result.DisplayDate = createdAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);

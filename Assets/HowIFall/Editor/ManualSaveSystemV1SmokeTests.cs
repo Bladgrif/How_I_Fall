@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
@@ -86,6 +87,13 @@ public static class ManualSaveSystemV1SmokeTests
         TestContinueIgnoresNewerInvalidSave(context);
         TestGameStateRollbackWhenInPlaceRestoreFails(context);
         TestFailedPendingRestoreResetsState(context);
+        TestDeleteJsonPreviewAndTemporaryFiles(context);
+        TestDeleteWithoutPreview(context);
+        TestDeleteOrphanPreview(context);
+        TestDeleteRejectsInvalidSlotIndex(context);
+        TestDeleteFailureDoesNotTouchOtherSlots(context);
+        TestDeleteLastValidSaveClearsContinue(context);
+        TestDeleteKeepsNeighbourSlot(context);
     }
 
     private static void TestCorruptJson(TestContext context)
@@ -346,6 +354,107 @@ public static class ManualSaveSystemV1SmokeTests
         }
     }
 
+    private static void TestDeleteJsonPreviewAndTemporaryFiles(TestContext context)
+    {
+        ResetFiles(context);
+        string jsonPath = context.Manager.GetSlotJsonPath(1);
+        string previewPath = context.Manager.GetSlotPreviewPath(1);
+        WriteData(context, CreateValidData(1));
+        File.WriteAllBytes(previewPath, new byte[] { 1, 2, 3 });
+        File.WriteAllText(jsonPath + ".tmp", "temporary json");
+        File.WriteAllBytes(previewPath + ".tmp", new byte[] { 4, 5, 6 });
+
+        Require(context.Manager.DeleteSlot(1), "DeleteSlot failed for a complete slot.");
+        Require(!File.Exists(jsonPath), "DeleteSlot left the JSON file.");
+        Require(!File.Exists(previewPath), "DeleteSlot left the PNG file.");
+        Require(!File.Exists(jsonPath + ".tmp"), "DeleteSlot left the JSON temporary file.");
+        Require(!File.Exists(previewPath + ".tmp"), "DeleteSlot left the PNG temporary file.");
+    }
+
+    private static void TestDeleteWithoutPreview(TestContext context)
+    {
+        ResetFiles(context);
+        string jsonPath = context.Manager.GetSlotJsonPath(1);
+        WriteData(context, CreateValidData(1));
+
+        Require(context.Manager.DeleteSlot(1), "DeleteSlot failed when the preview was absent.");
+        Require(!File.Exists(jsonPath), "DeleteSlot left JSON when the preview was absent.");
+    }
+
+    private static void TestDeleteOrphanPreview(TestContext context)
+    {
+        ResetFiles(context);
+        string previewPath = context.Manager.GetSlotPreviewPath(1);
+        File.WriteAllBytes(previewPath, new byte[] { 7, 8, 9 });
+
+        Require(context.Manager.GetSlot(1).IsOccupied, "An orphan PNG was not exposed as an occupied slot.");
+        Require(context.Manager.DeleteSlot(1), "DeleteSlot failed for an orphan PNG.");
+        Require(!File.Exists(previewPath), "DeleteSlot left the orphan PNG.");
+        Require(!context.Manager.GetSlot(1).IsOccupied, "The orphan PNG slot did not become empty.");
+    }
+
+    private static void TestDeleteRejectsInvalidSlotIndex(TestContext context)
+    {
+        ResetFiles(context);
+        string jsonPath = context.Manager.GetSlotJsonPath(1);
+        WriteData(context, CreateValidData(1));
+
+        Require(!context.Manager.DeleteSlot(0), "DeleteSlot accepted slot index 0.");
+        Require(!context.Manager.DeleteSlot(SaveManager.SlotCount + 1), "DeleteSlot accepted a slot index above SlotCount.");
+        Require(File.Exists(jsonPath), "Invalid DeleteSlot call changed a valid slot.");
+    }
+
+    private static void TestDeleteFailureDoesNotTouchOtherSlots(TestContext context)
+    {
+        ResetFiles(context);
+        string lockedJsonPath = context.Manager.GetSlotJsonPath(1);
+        string neighbourJsonPath = context.Manager.GetSlotJsonPath(2);
+        string neighbourPreviewPath = context.Manager.GetSlotPreviewPath(2);
+        WriteData(context, CreateValidData(1));
+        WriteData(context, CreateValidData(2));
+        File.WriteAllBytes(neighbourPreviewPath, new byte[] { 10, 11, 12 });
+        string neighbourJson = File.ReadAllText(neighbourJsonPath);
+
+        using (new FileStream(lockedJsonPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            Require(!context.Manager.DeleteSlot(1), "DeleteSlot reported success despite a filesystem deletion error.");
+            Require(File.Exists(neighbourJsonPath), "Failed deletion removed the neighbouring JSON.");
+            Require(File.Exists(neighbourPreviewPath), "Failed deletion removed the neighbouring PNG.");
+            Require(File.ReadAllText(neighbourJsonPath) == neighbourJson, "Failed deletion changed the neighbouring JSON.");
+        }
+    }
+
+    private static void TestDeleteLastValidSaveClearsContinue(TestContext context)
+    {
+        ResetFiles(context);
+        WriteData(context, CreateValidData(1));
+
+        Require(context.Manager.HasAnyValidSave(), "The valid setup slot was not visible to Continue.");
+        Require(context.Manager.DeleteSlot(1), "DeleteSlot failed for the last valid save.");
+        Require(!context.Manager.HasAnyValidSave(), "Continue still found a valid save after deleting the last slot.");
+    }
+
+    private static void TestDeleteKeepsNeighbourSlot(TestContext context)
+    {
+        ResetFiles(context);
+        string neighbourJsonPath = context.Manager.GetSlotJsonPath(2);
+        string neighbourPreviewPath = context.Manager.GetSlotPreviewPath(2);
+        WriteData(context, CreateValidData(1));
+        WriteData(context, CreateValidData(2));
+        File.WriteAllBytes(context.Manager.GetSlotPreviewPath(1), new byte[] { 13 });
+        File.WriteAllBytes(neighbourPreviewPath, new byte[] { 14, 15 });
+        string neighbourJson = File.ReadAllText(neighbourJsonPath);
+        byte[] neighbourPreview = File.ReadAllBytes(neighbourPreviewPath);
+
+        Require(context.Manager.DeleteSlot(1), "DeleteSlot failed while checking the neighbouring slot.");
+        Require(File.Exists(neighbourJsonPath), "DeleteSlot removed the neighbouring JSON.");
+        Require(File.Exists(neighbourPreviewPath), "DeleteSlot removed the neighbouring PNG.");
+        Require(File.ReadAllText(neighbourJsonPath) == neighbourJson, "DeleteSlot changed the neighbouring JSON.");
+        Require(
+            File.ReadAllBytes(neighbourPreviewPath).SequenceEqual(neighbourPreview),
+            "DeleteSlot changed the neighbouring PNG.");
+    }
+
     private static void SetGameStateInstance(GameState gameState)
     {
         FieldInfo field = typeof(GameState).GetField(
@@ -392,8 +501,12 @@ public static class ManualSaveSystemV1SmokeTests
     {
         for (int slotIndex = 1; slotIndex <= SaveManager.SlotCount; slotIndex++)
         {
-            DeleteIfExists(context.Manager.GetSlotJsonPath(slotIndex));
-            DeleteIfExists(context.Manager.GetSlotPreviewPath(slotIndex));
+            string jsonPath = context.Manager.GetSlotJsonPath(slotIndex);
+            string previewPath = context.Manager.GetSlotPreviewPath(slotIndex);
+            DeleteIfExists(jsonPath);
+            DeleteIfExists(previewPath);
+            DeleteIfExists(jsonPath + ".tmp");
+            DeleteIfExists(previewPath + ".tmp");
         }
     }
 

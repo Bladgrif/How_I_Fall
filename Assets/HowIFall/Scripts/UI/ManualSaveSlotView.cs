@@ -11,6 +11,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour
     public TextMeshProUGUI slotNumberText;
     public TextMeshProUGUI dateText;
     public TextMeshProUGUI emptyText;
+    public Button deleteButton;
 
     private ManualSaveLoadPanel panel;
     private int slotIndex;
@@ -25,6 +26,12 @@ public sealed class ManualSaveSlotView : MonoBehaviour
         {
             button.onClick.RemoveListener(HandleClick);
             button.onClick.AddListener(HandleClick);
+        }
+
+        if (deleteButton != null)
+        {
+            deleteButton.onClick.RemoveListener(HandleDeleteClick);
+            deleteButton.onClick.AddListener(HandleDeleteClick);
         }
     }
 
@@ -54,12 +61,23 @@ public sealed class ManualSaveSlotView : MonoBehaviour
             button.interactable = saveMode || loadable;
         }
 
+        if (deleteButton != null)
+        {
+            deleteButton.gameObject.SetActive(occupied);
+            deleteButton.interactable = occupied;
+        }
+
         ApplyPreview(loadable ? info.PreviewPath : string.Empty);
     }
 
     private void HandleClick()
     {
         panel?.OnSlotSelected(slotIndex);
+    }
+
+    private void HandleDeleteClick()
+    {
+        panel?.OnDeleteRequested(slotIndex);
     }
 
     private void ApplyPreview(string path)

@@ -136,7 +136,7 @@ public static class ManualSaveSystemSceneInstaller
         GameObject existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
         if (existingPrefab != null)
         {
-            return existingPrefab;
+            return UpgradeExistingPanelPrefab();
         }
 
         GameObject root = CreateUiObject("Manual Save Load Panel", null);
@@ -291,7 +291,80 @@ public static class ManualSaveSystemSceneInstaller
             Vector2.zero,
             new Vector2(320f, 60f));
 
+        view.deleteButton = CreateDeleteButton(view);
+
         return view;
+    }
+
+    private static GameObject UpgradeExistingPanelPrefab()
+    {
+        GameObject root = PrefabUtility.LoadPrefabContents(PrefabPath);
+        try
+        {
+            ManualSaveLoadPanel panel = root.GetComponent<ManualSaveLoadPanel>();
+            if (panel == null || panel.slotViews == null || panel.slotViews.Length != SaveManager.SlotCount)
+            {
+                throw new InvalidOperationException($"Prefab '{PrefabPath}' does not contain the expected manual save panel.");
+            }
+
+            bool changed = false;
+            foreach (ManualSaveSlotView view in panel.slotViews)
+            {
+                if (view == null)
+                {
+                    throw new InvalidOperationException($"Prefab '{PrefabPath}' contains a null slot view.");
+                }
+
+                if (view.deleteButton == null)
+                {
+                    Transform existing = view.transform.Find("Delete Button");
+                    view.deleteButton = existing != null ? existing.GetComponent<Button>() : null;
+                    changed = view.deleteButton != null;
+                }
+
+                if (view.deleteButton == null)
+                {
+                    view.deleteButton = CreateDeleteButton(view);
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    EditorUtility.SetDirty(view);
+                }
+            }
+
+            if (changed)
+            {
+                PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+            }
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+
+        return AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+    }
+
+    private static Button CreateDeleteButton(ManualSaveSlotView view)
+    {
+        Button deleteButton = CreateButton(
+            "Delete Button",
+            view.transform,
+            "×",
+            new Vector2(1f, 1f),
+            new Vector2(1f, 1f),
+            new Vector2(-34f, -34f),
+            new Vector2(52f, 52f));
+
+        if (deleteButton.targetGraphic is Image image)
+        {
+            image.color = new Color(0.42f, 0.12f, 0.16f, 0.96f);
+        }
+
+        deleteButton.transform.SetAsLastSibling();
+        return deleteButton;
     }
 
     private static void BuildConfirmation(ManualSaveLoadPanel panel, Transform parent)
@@ -523,6 +596,11 @@ public static class ManualSaveSystemSceneInstaller
         if (panels.Length != 1 || panels[0].slotViews == null || panels[0].slotViews.Length != SaveManager.SlotCount)
         {
             throw new InvalidOperationException($"Scene '{scene.path}' must contain one six-slot ManualSaveLoadPanel.");
+        }
+
+        if (panels[0].slotViews.Any(view => view == null || view.deleteButton == null))
+        {
+            throw new InvalidOperationException($"Scene '{scene.path}' contains a manual save slot without a delete button.");
         }
 
         if (managers.Length != 1)

@@ -11,6 +11,13 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         Load
     }
 
+    private enum ConfirmationAction
+    {
+        None,
+        Overwrite,
+        Delete
+    }
+
     public CanvasGroup canvasGroup;
     public TextMeshProUGUI titleText;
     public TextMeshProUGUI statusText;
@@ -22,7 +29,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     public Button confirmationNoButton;
 
     private PanelMode mode;
-    private int pendingOverwriteSlot;
+    private ConfirmationAction pendingConfirmationAction;
+    private int pendingConfirmationSlot;
     private bool saveInProgress;
 
     public bool IsOpen => gameObject.activeSelf;
@@ -42,14 +50,14 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         if (confirmationYesButton != null)
         {
-            confirmationYesButton.onClick.RemoveListener(ConfirmOverwrite);
-            confirmationYesButton.onClick.AddListener(ConfirmOverwrite);
+            confirmationYesButton.onClick.RemoveListener(ConfirmPendingAction);
+            confirmationYesButton.onClick.AddListener(ConfirmPendingAction);
         }
 
         if (confirmationNoButton != null)
         {
-            confirmationNoButton.onClick.RemoveListener(CancelOverwrite);
-            confirmationNoButton.onClick.AddListener(CancelOverwrite);
+            confirmationNoButton.onClick.RemoveListener(CancelConfirmation);
+            confirmationNoButton.onClick.AddListener(CancelConfirmation);
         }
 
         if (slotViews != null)
@@ -88,7 +96,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             return;
         }
 
-        pendingOverwriteSlot = 0;
+        ClearPendingConfirmation();
         SetConfirmationVisible(false);
         gameObject.SetActive(false);
     }
@@ -112,13 +120,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             ManualSaveSlotInfo slot = saveManager.GetSlot(slotIndex);
             if (slot.IsOccupied)
             {
-                pendingOverwriteSlot = slotIndex;
-                if (confirmationText != null)
-                {
-                    confirmationText.text = $"Перезаписать слот {slotIndex}?";
-                }
-
-                SetConfirmationVisible(true);
+                OpenConfirmation(ConfirmationAction.Overwrite, slotIndex);
                 return;
             }
 
@@ -141,10 +143,33 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
     }
 
+    public void OnDeleteRequested(int slotIndex)
+    {
+        if (saveInProgress)
+        {
+            return;
+        }
+
+        SaveManager saveManager = ResolveSaveManager();
+        if (saveManager == null)
+        {
+            SetStatus("Система сохранений недоступна", true);
+            return;
+        }
+
+        if (!saveManager.GetSlot(slotIndex).IsOccupied)
+        {
+            Refresh();
+            return;
+        }
+
+        OpenConfirmation(ConfirmationAction.Delete, slotIndex);
+    }
+
     private void Open()
     {
         gameObject.SetActive(true);
-        pendingOverwriteSlot = 0;
+        ClearPendingConfirmation();
         SetConfirmationVisible(false);
         SetStatus(string.Empty, false);
 
@@ -156,22 +181,61 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         Refresh();
     }
 
-    private void ConfirmOverwrite()
+    private void ConfirmPendingAction()
     {
-        int slotIndex = pendingOverwriteSlot;
-        pendingOverwriteSlot = 0;
+        ConfirmationAction action = pendingConfirmationAction;
+        int slotIndex = pendingConfirmationSlot;
+        ClearPendingConfirmation();
         SetConfirmationVisible(false);
 
-        if (slotIndex > 0)
+        if (slotIndex <= 0)
+        {
+            return;
+        }
+
+        if (action == ConfirmationAction.Overwrite)
         {
             StartCoroutine(CaptureAndSave(slotIndex));
+            return;
+        }
+
+        if (action == ConfirmationAction.Delete)
+        {
+            SaveManager saveManager = ResolveSaveManager();
+            bool deleted = saveManager != null && saveManager.DeleteSlot(slotIndex);
+            SetStatus(deleted ? $"Слот {slotIndex} удалён" : $"Не удалось удалить слот {slotIndex}", !deleted);
+            Refresh();
+            RefreshContinueAvailability();
         }
     }
 
-    private void CancelOverwrite()
+    private void CancelConfirmation()
     {
-        pendingOverwriteSlot = 0;
+        ClearPendingConfirmation();
         SetConfirmationVisible(false);
+    }
+
+    private void OpenConfirmation(ConfirmationAction action, int slotIndex)
+    {
+        pendingConfirmationAction = action;
+        pendingConfirmationSlot = slotIndex;
+
+        if (confirmationText != null)
+        {
+            confirmationText.text = action == ConfirmationAction.Delete
+                ? $"Удалить сохранение из слота {slotIndex}?"
+                : $"Перезаписать слот {slotIndex}?";
+        }
+
+        SetButtonLabel(confirmationYesButton, action == ConfirmationAction.Delete ? "Удалить" : "Перезаписать");
+        SetButtonLabel(confirmationNoButton, "Отмена");
+        SetConfirmationVisible(true);
+    }
+
+    private void ClearPendingConfirmation()
+    {
+        pendingConfirmationAction = ConfirmationAction.None;
+        pendingConfirmationSlot = 0;
     }
 
     private IEnumerator CaptureAndSave(int slotIndex)
@@ -257,6 +321,29 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         if (confirmationRoot != null)
         {
             confirmationRoot.SetActive(visible);
+        }
+    }
+
+    private void RefreshContinueAvailability()
+    {
+        MainMenuController mainMenu = FindAnyObjectByType<MainMenuController>();
+        if (mainMenu != null)
+        {
+            mainMenu.RefreshContinueAvailability();
+        }
+    }
+
+    private static void SetButtonLabel(Button button, string label)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (text != null)
+        {
+            text.text = label;
         }
     }
 
