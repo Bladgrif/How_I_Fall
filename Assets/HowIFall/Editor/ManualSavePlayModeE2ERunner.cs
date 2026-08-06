@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -20,7 +21,16 @@ public static class ManualSavePlayModeE2ERunner
     private const string SnapshotKey = "HowIFall.SaveE2E.Snapshot";
     private const string InitialCreatedAtKey = "HowIFall.SaveE2E.InitialCreatedAt";
     private const string ErrorsKey = "HowIFall.SaveE2E.Errors";
+    private const string UiResolutionIndexKey = "HowIFall.SaveE2E.UiResolutionIndex";
     private const string ResultPath = "manual_save_playmode_result.txt";
+    private const string ScreenshotFolder = "docs/screenshots/save_load_ui";
+
+    private static readonly Vector2Int[] UiResolutions =
+    {
+        new Vector2Int(1920, 1080),
+        new Vector2Int(2560, 1440),
+        new Vector2Int(1280, 720)
+    };
 
     static ManualSavePlayModeE2ERunner()
     {
@@ -47,12 +57,15 @@ public static class ManualSavePlayModeE2ERunner
         }
 
         CleanNewSaveFiles();
+        CleanUiScreenshots();
+        ManualSaveSystemSceneInstaller.ValidateInstalledScenes();
         SessionState.SetBool(ActiveKey, true);
         SessionState.SetString(StageKey, "WaitMainNewGame");
         SessionState.SetInt(CounterKey, 0);
         SessionState.SetString(SnapshotKey, string.Empty);
         SessionState.SetString(InitialCreatedAtKey, string.Empty);
         SessionState.SetString(ErrorsKey, string.Empty);
+        SessionState.SetInt(UiResolutionIndexKey, 0);
         SetDelay(1.0d);
 
         EditorSceneManager.OpenScene("Assets/HowIFall/Scenes/MainMenu.unity", OpenSceneMode.Single);
@@ -98,6 +111,15 @@ public static class ManualSavePlayModeE2ERunner
             case "WaitInitialSave":
                 WaitInitialSave();
                 break;
+            case "SetUiResolution":
+                SetUiResolution();
+                break;
+            case "CaptureUiResolution":
+                CaptureUiResolution();
+                break;
+            case "WaitUiScreenshot":
+                WaitUiScreenshot();
+                break;
             case "AdvanceAfterSave":
                 AdvanceAfterSave();
                 break;
@@ -121,6 +143,12 @@ public static class ManualSavePlayModeE2ERunner
                 break;
             case "WaitVnContinue":
                 WaitVnContinue();
+                break;
+            case "EscapeConfirmation":
+                EscapeConfirmation();
+                break;
+            case "WaitEscapePanelClosed":
+                WaitEscapePanelClosed();
                 break;
             case "OverwriteCancel":
                 OverwriteCancel();
@@ -247,14 +275,90 @@ public static class ManualSavePlayModeE2ERunner
         Require(Path.GetFileName(slot.JsonPath) == "slot_01.json", "Unexpected JSON file name.");
         Require(Path.GetFileName(slot.PreviewPath) == "slot_01.png", "Unexpected preview file name.");
         VerifyPreviewDimensions(slot.PreviewPath);
+        VerifyOccupiedCard(VNDialogueController.Instance.manualSaveLoadPanel, slot);
         SessionState.SetString(SnapshotKey, JsonUtility.ToJson(slot.Data));
         SessionState.SetString(InitialCreatedAtKey, slot.Data.createdAtUtc);
         Pass("Slot 1 JSON and screenshot written");
 
+        SessionState.SetInt(UiResolutionIndexKey, 0);
+        SessionState.SetString(StageKey, "SetUiResolution");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.2d);
+    }
+
+    private static void SetUiResolution()
+    {
+        int index = SessionState.GetInt(UiResolutionIndexKey, 0);
+        Require(index >= 0 && index < UiResolutions.Length, "UI resolution index is invalid.");
+        Vector2Int resolution = UiResolutions[index];
+        ConfigureGameViewResolution(resolution);
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureUiResolution");
+        SetDelay(0.5d);
+    }
+
+    private static void CaptureUiResolution()
+    {
+        int index = SessionState.GetInt(UiResolutionIndexKey, 0);
+        Vector2Int resolution = UiResolutions[index];
+        if (Screen.width != resolution.x || Screen.height != resolution.y)
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 40, $"Game View did not switch to {resolution.x}x{resolution.y}; actual {Screen.width}x{Screen.height}.");
+            ConfigureGameViewResolution(resolution);
+            SetDelay(0.2d);
+            return;
+        }
+
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen, "Save panel closed before UI screenshot capture.");
+        VerifyPanelLayout(panel, resolution);
+
+        string path = GetUiScreenshotPath(resolution);
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+
+        ScreenCapture.CaptureScreenshot(path);
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "WaitUiScreenshot");
+        SetDelay(0.25d);
+    }
+
+    private static void WaitUiScreenshot()
+    {
+        int index = SessionState.GetInt(UiResolutionIndexKey, 0);
+        Vector2Int resolution = UiResolutions[index];
+        string path = GetUiScreenshotPath(resolution);
+        if (!File.Exists(path) || new FileInfo(path).Length == 0)
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 80, $"UI screenshot was not written for {resolution.x}x{resolution.y}.");
+            SetDelay(0.1d);
+            return;
+        }
+
+        VerifyImageDimensions(path, resolution.x, resolution.y, "UI screenshot");
+        Pass($"Save UI layout and screenshot {resolution.x}x{resolution.y}");
+
+        index++;
+        if (index < UiResolutions.Length)
+        {
+            SessionState.SetInt(UiResolutionIndexKey, index);
+            SessionState.SetString(StageKey, "SetUiResolution");
+            SetDelay(0.15d);
+            return;
+        }
+
+        ConfigureGameViewResolution(new Vector2Int(1920, 1080));
         VNDialogueController.Instance.manualSaveLoadPanel.Close();
         SessionState.SetString(StageKey, "AdvanceAfterSave");
         SessionState.SetInt(CounterKey, 0);
-        SetDelay(0.1d);
+        SetDelay(0.3d);
     }
 
     private static void AdvanceAfterSave()
@@ -373,8 +477,48 @@ public static class ManualSavePlayModeE2ERunner
 
         VerifySnapshot("Continue after Play Mode restart");
         Pass("Continue restored newest valid save after Play Mode restart");
-        SessionState.SetString(StageKey, "OverwriteCancel");
+        SessionState.SetString(StageKey, "EscapeConfirmation");
         SetDelay(0.2d);
+    }
+
+    private static void EscapeConfirmation()
+    {
+        VNDialogueController controller = VNDialogueController.Instance;
+        ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
+        Require(controller.TryGetSavePosition(out string beforeScene, out string beforeLine, out int beforeIndex, out string beforeError), $"Position unavailable before opening Save UI: {beforeError}");
+
+        panel.OpenSave();
+        Require(controller.TryGetSavePosition(out string afterScene, out string afterLine, out int afterIndex, out string afterError), $"Position unavailable after opening Save UI: {afterError}");
+        Require(beforeScene == afterScene && beforeLine == afterLine && beforeIndex == afterIndex, "Opening Save UI advanced the dialogue.");
+        panel.slotViews[0].button.onClick.Invoke();
+        Require(panel.IsConfirmationOpen, "Occupied slot did not open confirmation for Escape test.");
+        Require(panel.contentCanvasGroup != null && !panel.contentCanvasGroup.interactable, "Main Save UI remained interactive under confirmation.");
+
+        Require(panel.HandleEscape(), "First Escape was not handled by Save UI.");
+        Require(!panel.IsConfirmationOpen, "First Escape did not close confirmation.");
+        Require(panel.IsOpen, "First Escape closed the whole Save UI together with confirmation.");
+
+        Require(panel.HandleEscape(), "Second Escape was not handled by Save UI.");
+        SessionState.SetString(StageKey, "WaitEscapePanelClosed");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.05d);
+    }
+
+    private static void WaitEscapePanelClosed()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        if (panel.IsOpen)
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 40, "Second Escape did not close Save UI after fade.");
+            SetDelay(0.05d);
+            return;
+        }
+
+        Pass("Escape closed confirmation first and Save UI second without advancing dialogue");
+        SessionState.SetString(StageKey, "OverwriteCancel");
+        SetDelay(0.15d);
     }
 
     private static void OverwriteCancel()
@@ -511,6 +655,173 @@ public static class ManualSavePlayModeE2ERunner
         Success();
     }
 
+    private static void VerifyOccupiedCard(ManualSaveLoadPanel panel, ManualSaveSlotInfo slot)
+    {
+        Require(panel != null && panel.slotViews != null && panel.slotViews.Length == SaveManager.SlotCount, "Save panel does not contain six card views.");
+        ManualSaveSlotView occupied = panel.slotViews[0];
+        Require(occupied != null, "Occupied slot view is missing.");
+        Require(occupied.previewImage != null && occupied.previewImage.sprite != null, "Occupied card does not show preview.");
+        Require(occupied.dateText != null && occupied.dateText.gameObject.activeSelf && occupied.dateText.text == slot.DisplayDate, "Occupied card does not show local date and time.");
+        Require(occupied.sceneNameText != null && occupied.sceneNameText.gameObject.activeSelf && occupied.sceneNameText.text == "Первый урок", "Occupied card does not show DialogueSceneData.displayName.");
+        Require(occupied.emptyText != null && !occupied.emptyText.gameObject.activeSelf, "Occupied card still shows its empty placeholder.");
+        Require(occupied.deleteButton != null && occupied.deleteButton.gameObject.activeSelf, "Occupied card does not show Delete.");
+
+        ManualSaveSlotView empty = panel.slotViews[1];
+        Require(empty.button.interactable, "Empty slot is disabled in Save mode.");
+        Require(empty.emptyText.gameObject.activeSelf && empty.emptyText.text == "Пустой слот", "Empty slot placeholder is incorrect.");
+        Require(!empty.deleteButton.gameObject.activeSelf, "Empty slot shows Delete.");
+    }
+
+    private static void VerifyPanelLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
+    {
+        Require(Screen.width == resolution.x && Screen.height == resolution.y, "Layout validation resolution does not match Game View.");
+        Require(panel.windowRect != null && panel.statusText != null, "Panel layout references are missing.");
+        Rect windowRect = GetScreenRect(panel.windowRect);
+        Require(windowRect.xMin >= -2f && windowRect.yMin >= -2f, $"Save window is clipped at {resolution.x}x{resolution.y} (min).");
+        Require(windowRect.xMax <= Screen.width + 2f && windowRect.yMax <= Screen.height + 2f, $"Save window is clipped at {resolution.x}x{resolution.y} (max).");
+
+        Rect[] cardRects = panel.slotViews.Select(view => GetScreenRect(view.cardRect)).ToArray();
+        Require(cardRects.Length == SaveManager.SlotCount, "Layout validation did not find six cards.");
+        foreach (Rect rect in cardRects)
+        {
+            Require(rect.width > 200f && rect.height > 140f, $"Save card collapsed at {resolution.x}x{resolution.y}.");
+            Require(rect.xMin >= 0f && rect.yMin >= 0f && rect.xMax <= Screen.width && rect.yMax <= Screen.height, $"Save card is outside screen at {resolution.x}x{resolution.y}.");
+        }
+
+        float[] firstRowX = cardRects.Take(3).Select(rect => rect.center.x).OrderBy(value => value).ToArray();
+        Require(firstRowX[1] - firstRowX[0] > 200f && firstRowX[2] - firstRowX[1] > 200f, "Save cards are not arranged into three columns.");
+        Require(Mathf.Abs(cardRects[0].center.y - cardRects[1].center.y) < 3f, "First card row is misaligned.");
+        Require(Mathf.Abs(cardRects[3].center.y - cardRects[4].center.y) < 3f, "Second card row is misaligned.");
+        Require(cardRects[0].center.y - cardRects[3].center.y > 140f, "Save cards are not arranged into two rows.");
+
+        Rect statusRect = GetScreenRect(panel.statusText.rectTransform);
+        float lowestCardBottom = cardRects.Min(rect => rect.yMin);
+        Require(statusRect.yMax <= lowestCardBottom + 2f, $"Status text overlaps cards at {resolution.x}x{resolution.y}.");
+    }
+
+    private static Rect GetScreenRect(RectTransform rectTransform)
+    {
+        var corners = new Vector3[4];
+        rectTransform.GetWorldCorners(corners);
+        float minX = corners.Min(corner => corner.x);
+        float maxX = corners.Max(corner => corner.x);
+        float minY = corners.Min(corner => corner.y);
+        float maxY = corners.Max(corner => corner.y);
+        return Rect.MinMaxRect(minX, minY, maxX, maxY);
+    }
+
+    private static string GetUiScreenshotPath(Vector2Int resolution)
+    {
+        string fileName = $"manual_save_{resolution.x}x{resolution.y}.png";
+        return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), ScreenshotFolder, fileName));
+    }
+
+    private static void ConfigureGameViewResolution(Vector2Int resolution)
+    {
+        try
+        {
+            Assembly editorAssembly = typeof(EditorWindow).Assembly;
+            Type gameViewType = editorAssembly.GetType("UnityEditor.GameView", true);
+            Type gameViewSizesType = editorAssembly.GetType("UnityEditor.GameViewSizes", true);
+            Type gameViewSizeType = editorAssembly.GetType("UnityEditor.GameViewSize", true);
+            Type gameViewSizeModeType = editorAssembly.GetType("UnityEditor.GameViewSizeType", true);
+
+            Type singletonType = typeof(ScriptableSingleton<>).MakeGenericType(gameViewSizesType);
+            PropertyInfo instanceProperty = singletonType.GetProperty(
+                "instance",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            object sizesInstance = instanceProperty?.GetValue(null);
+            Require(sizesInstance != null, "Unity GameViewSizes singleton is unavailable.");
+
+            MethodInfo getGroup = gameViewSizesType.GetMethod(
+                "GetGroup",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Require(getGroup != null, "Unity GameViewSizes.GetGroup() is unavailable.");
+            Type groupTypeEnum = getGroup.GetParameters()[0].ParameterType;
+            object standaloneGroup = Enum.Parse(groupTypeEnum, "Standalone");
+            object group = getGroup.Invoke(sizesInstance, new[] { standaloneGroup });
+            Require(group != null, "Unity Standalone Game View size group is unavailable.");
+
+            MethodInfo getTotalCount = group.GetType().GetMethod(
+                "GetTotalCount",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            MethodInfo getGameViewSize = group.GetType().GetMethod(
+                "GetGameViewSize",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            MethodInfo addCustomSize = group.GetType().GetMethod(
+                "AddCustomSize",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Require(getTotalCount != null && getGameViewSize != null && addCustomSize != null, "Unity Game View size group API is incomplete.");
+
+            PropertyInfo widthProperty = gameViewSizeType.GetProperty(
+                "width",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            PropertyInfo heightProperty = gameViewSizeType.GetProperty(
+                "height",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Require(widthProperty != null && heightProperty != null, "Unity GameViewSize dimensions are unavailable.");
+
+            int selectedIndex = -1;
+            int count = (int)getTotalCount.Invoke(group, null);
+            for (int i = 0; i < count; i++)
+            {
+                object size = getGameViewSize.Invoke(group, new object[] { i });
+                if ((int)widthProperty.GetValue(size) == resolution.x
+                    && (int)heightProperty.GetValue(size) == resolution.y)
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+
+            if (selectedIndex < 0)
+            {
+                object fixedResolution = Enum.Parse(gameViewSizeModeType, "FixedResolution");
+                ConstructorInfo constructor = gameViewSizeType.GetConstructor(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    null,
+                    new[] { gameViewSizeModeType, typeof(int), typeof(int), typeof(string) },
+                    null);
+                Require(constructor != null, "Unity GameViewSize constructor is unavailable.");
+                object newSize = constructor.Invoke(new object[]
+                {
+                    fixedResolution,
+                    resolution.x,
+                    resolution.y,
+                    $"How I Fall {resolution.x}x{resolution.y}"
+                });
+                addCustomSize.Invoke(group, new[] { newSize });
+                selectedIndex = (int)getTotalCount.Invoke(group, null) - 1;
+            }
+
+            EditorWindow gameView = EditorWindow.GetWindow(gameViewType);
+            PropertyInfo selectedSizeProperty = gameViewType.GetProperty(
+                "selectedSizeIndex",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Require(selectedSizeProperty != null && selectedSizeProperty.CanWrite, "Unity GameView.selectedSizeIndex is unavailable.");
+            selectedSizeProperty.SetValue(gameView, selectedIndex);
+            gameView.Repaint();
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException($"Could not configure Game View to {resolution.x}x{resolution.y}.", exception);
+        }
+
+        Screen.SetResolution(resolution.x, resolution.y, FullScreenMode.Windowed);
+    }
+
+    private static void CleanUiScreenshots()
+    {
+        foreach (Vector2Int resolution in UiResolutions)
+        {
+            string path = GetUiScreenshotPath(resolution);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
     private static string GetButtonLabel(Button button)
     {
         TextMeshProUGUI label = button != null ? button.GetComponentInChildren<TextMeshProUGUI>(true) : null;
@@ -534,16 +845,21 @@ public static class ManualSavePlayModeE2ERunner
 
     private static void VerifyPreviewDimensions(string previewPath)
     {
-        Require(File.Exists(previewPath), $"Preview file '{previewPath}' is missing.");
-        byte[] pngBytes = File.ReadAllBytes(previewPath);
+        VerifyImageDimensions(previewPath, SaveManager.PreviewWidth, SaveManager.PreviewHeight, "Preview");
+    }
+
+    private static void VerifyImageDimensions(string path, int expectedWidth, int expectedHeight, string label)
+    {
+        Require(File.Exists(path), $"{label} file '{path}' is missing.");
+        byte[] pngBytes = File.ReadAllBytes(path);
         var texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
 
         try
         {
-            Require(texture.LoadImage(pngBytes, true), $"Preview file '{previewPath}' is not a readable PNG.");
+            Require(texture.LoadImage(pngBytes, true), $"{label} file '{path}' is not a readable PNG.");
             Require(
-                texture.width == SaveManager.PreviewWidth && texture.height == SaveManager.PreviewHeight,
-                $"Preview size is {texture.width}x{texture.height}; expected {SaveManager.PreviewWidth}x{SaveManager.PreviewHeight}.");
+                texture.width == expectedWidth && texture.height == expectedHeight,
+                $"{label} size is {texture.width}x{texture.height}; expected {expectedWidth}x{expectedHeight}.");
         }
         finally
         {

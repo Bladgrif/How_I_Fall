@@ -14,6 +14,7 @@ public sealed class ManualSaveSlotInfo
     public bool IsLoadable { get; internal set; }
     public DateTime CreatedAtUtc { get; internal set; }
     public string DisplayDate { get; internal set; }
+    public string DisplayName { get; internal set; }
     public string JsonPath { get; internal set; }
     public string PreviewPath { get; internal set; }
     public string Error { get; internal set; }
@@ -360,6 +361,7 @@ public sealed class SaveManager : MonoBehaviour
             JsonPath = jsonPath,
             PreviewPath = string.Empty,
             DisplayDate = string.Empty,
+            DisplayName = string.Empty,
             Error = string.Empty,
             IsOccupied = !string.IsNullOrEmpty(jsonPath)
                 && (File.Exists(jsonPath)
@@ -479,6 +481,9 @@ public sealed class SaveManager : MonoBehaviour
         result.Data = data;
         result.CreatedAtUtc = createdAt.UtcDateTime;
         result.DisplayDate = createdAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        result.DisplayName = string.IsNullOrWhiteSpace(scene.displayName)
+            ? "Без названия"
+            : scene.displayName.Trim();
         result.PreviewPath = File.Exists(previewPath) ? previewPath : string.Empty;
         result.IsLoadable = true;
         return result;

@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: classroom_choice_investigate
   m_EditorClassIdentifier: Assembly-CSharp::DialogueSceneData
   sceneId: classroom_choice_investigate
+  displayName: "После урока — расследование"
   backgroundMusic: {fileID: 0}
   stopMusicOnStart: 0
   lines:

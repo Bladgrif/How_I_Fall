@@ -5,6 +5,7 @@ using UnityEngine;
 public class DialogueSceneData : ScriptableObject
 {
     public string sceneId;
+    public string displayName;
     public AudioClip backgroundMusic;
     public bool stopMusicOnStart;
     public List<DialogueLine> lines = new List<DialogueLine>();

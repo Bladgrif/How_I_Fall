@@ -1,6 +1,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public sealed class ManualSaveLoadPanel : MonoBehaviour
@@ -18,12 +19,22 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         Delete
     }
 
+    private const float PanelFadeDuration = 0.16f;
+    private const float ConfirmationDuration = 0.12f;
+
+    public int visualVersion;
     public CanvasGroup canvasGroup;
+    public CanvasGroup contentCanvasGroup;
+    public RectTransform windowRect;
     public TextMeshProUGUI titleText;
     public TextMeshProUGUI statusText;
+    public CanvasGroup statusCanvasGroup;
+    public float statusVisibleDuration = 1.75f;
     public Button closeButton;
     public ManualSaveSlotView[] slotViews;
     public GameObject confirmationRoot;
+    public CanvasGroup confirmationCanvasGroup;
+    public RectTransform confirmationWindow;
     public TextMeshProUGUI confirmationText;
     public Button confirmationYesButton;
     public Button confirmationNoButton;
@@ -32,8 +43,12 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private ConfirmationAction pendingConfirmationAction;
     private int pendingConfirmationSlot;
     private bool saveInProgress;
+    private Coroutine panelAnimation;
+    private Coroutine confirmationAnimation;
+    private Coroutine statusAnimation;
 
     public bool IsOpen => gameObject.activeSelf;
+    public bool IsConfirmationOpen => confirmationRoot != null && confirmationRoot.activeSelf;
 
     private void Awake()
     {
@@ -68,7 +83,15 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             }
         }
 
-        SetConfirmationVisible(false);
+        SetConfirmationVisible(false, true);
+    }
+
+    private void Update()
+    {
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            HandleEscape();
+        }
     }
 
     public void OpenSave()
@@ -91,19 +114,36 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void Close()
     {
-        if (saveInProgress)
+        if (saveInProgress || !gameObject.activeSelf)
         {
             return;
         }
 
         ClearPendingConfirmation();
-        SetConfirmationVisible(false);
-        gameObject.SetActive(false);
+        SetConfirmationVisible(false, true);
+        StartPanelAnimation(false);
+    }
+
+    public bool HandleEscape()
+    {
+        if (!gameObject.activeSelf || saveInProgress)
+        {
+            return false;
+        }
+
+        if (IsConfirmationOpen)
+        {
+            CancelConfirmation();
+            return true;
+        }
+
+        Close();
+        return true;
     }
 
     public void OnSlotSelected(int slotIndex)
     {
-        if (saveInProgress)
+        if (saveInProgress || IsConfirmationOpen)
         {
             return;
         }
@@ -145,7 +185,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void OnDeleteRequested(int slotIndex)
     {
-        if (saveInProgress)
+        if (saveInProgress || IsConfirmationOpen)
         {
             return;
         }
@@ -168,9 +208,10 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void Open()
     {
+        bool wasAlreadyOpen = gameObject.activeSelf;
         gameObject.SetActive(true);
         ClearPendingConfirmation();
-        SetConfirmationVisible(false);
+        SetConfirmationVisible(false, true);
         SetStatus(string.Empty, false);
 
         if (titleText != null)
@@ -179,6 +220,111 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         Refresh();
+        if (wasAlreadyOpen)
+        {
+            ShowImmediately();
+        }
+        else
+        {
+            StartPanelAnimation(true);
+        }
+    }
+
+    private void ShowImmediately()
+    {
+        if (panelAnimation != null)
+        {
+            StopCoroutine(panelAnimation);
+            panelAnimation = null;
+        }
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+
+        if (windowRect != null)
+        {
+            windowRect.localScale = Vector3.one;
+        }
+
+        SetContentInteractive(true);
+    }
+
+    private void StartPanelAnimation(bool opening)
+    {
+        if (panelAnimation != null)
+        {
+            StopCoroutine(panelAnimation);
+        }
+
+        panelAnimation = StartCoroutine(AnimatePanel(opening));
+    }
+
+    private IEnumerator AnimatePanel(bool opening)
+    {
+        if (canvasGroup != null)
+        {
+            canvasGroup.blocksRaycasts = true;
+            canvasGroup.interactable = opening;
+        }
+
+        SetContentInteractive(opening);
+        float startAlpha = canvasGroup != null ? canvasGroup.alpha : (opening ? 0f : 1f);
+        float targetAlpha = opening ? 1f : 0f;
+        Vector3 startScale = windowRect != null
+            ? windowRect.localScale
+            : Vector3.one * (opening ? 0.985f : 1f);
+        Vector3 targetScale = Vector3.one * (opening ? 1f : 0.985f);
+        float elapsed = 0f;
+
+        while (elapsed < PanelFadeDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / PanelFadeDuration));
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, t);
+            }
+
+            if (windowRect != null)
+            {
+                windowRect.localScale = Vector3.LerpUnclamped(startScale, targetScale, t);
+            }
+
+            yield return null;
+        }
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = targetAlpha;
+        }
+
+        if (windowRect != null)
+        {
+            windowRect.localScale = targetScale;
+        }
+
+        panelAnimation = null;
+        if (opening)
+        {
+            if (canvasGroup != null)
+            {
+                canvasGroup.interactable = true;
+            }
+
+            SetContentInteractive(true);
+            yield break;
+        }
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.blocksRaycasts = false;
+        }
+
+        gameObject.SetActive(false);
     }
 
     private void ConfirmPendingAction()
@@ -186,7 +332,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         ConfirmationAction action = pendingConfirmationAction;
         int slotIndex = pendingConfirmationSlot;
         ClearPendingConfirmation();
-        SetConfirmationVisible(false);
+        SetConfirmationVisible(false, true);
 
         if (slotIndex <= 0)
         {
@@ -212,11 +358,12 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private void CancelConfirmation()
     {
         ClearPendingConfirmation();
-        SetConfirmationVisible(false);
+        SetConfirmationVisible(false, true);
     }
 
     private void OpenConfirmation(ConfirmationAction action, int slotIndex)
     {
+        ClearPendingConfirmation();
         pendingConfirmationAction = action;
         pendingConfirmationSlot = slotIndex;
 
@@ -229,7 +376,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         SetButtonLabel(confirmationYesButton, action == ConfirmationAction.Delete ? "Удалить" : "Перезаписать");
         SetButtonLabel(confirmationNoButton, "Отмена");
-        SetConfirmationVisible(true);
+        SetConfirmationVisible(true, false);
     }
 
     private void ClearPendingConfirmation()
@@ -242,6 +389,26 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     {
         saveInProgress = true;
         SetStatus("Создание сохранения...", false);
+
+        if (panelAnimation != null)
+        {
+            StopCoroutine(panelAnimation);
+            panelAnimation = null;
+        }
+
+        if (windowRect != null)
+        {
+            windowRect.localScale = Vector3.one;
+        }
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+
+        SetContentInteractive(true);
 
         float previousAlpha = canvasGroup != null ? canvasGroup.alpha : 1f;
         bool previousInteractable = canvasGroup == null || canvasGroup.interactable;
@@ -316,12 +483,98 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         return SaveManager.EnsureInstance(registry);
     }
 
-    private void SetConfirmationVisible(bool visible)
+    private void SetConfirmationVisible(bool visible, bool immediate)
     {
-        if (confirmationRoot != null)
+        if (confirmationAnimation != null)
         {
-            confirmationRoot.SetActive(visible);
+            StopCoroutine(confirmationAnimation);
+            confirmationAnimation = null;
         }
+
+        if (confirmationRoot == null)
+        {
+            SetContentInteractive(!visible);
+            return;
+        }
+
+        SetContentInteractive(!visible);
+        if (!visible || immediate)
+        {
+            if (confirmationCanvasGroup != null)
+            {
+                confirmationCanvasGroup.alpha = visible ? 1f : 0f;
+                confirmationCanvasGroup.interactable = visible;
+                confirmationCanvasGroup.blocksRaycasts = visible;
+            }
+
+            if (confirmationWindow != null)
+            {
+                confirmationWindow.localScale = Vector3.one;
+            }
+
+            confirmationRoot.SetActive(visible);
+            return;
+        }
+
+        confirmationRoot.SetActive(true);
+        confirmationAnimation = StartCoroutine(AnimateConfirmation());
+    }
+
+    private IEnumerator AnimateConfirmation()
+    {
+        if (confirmationCanvasGroup != null)
+        {
+            confirmationCanvasGroup.alpha = 0f;
+            confirmationCanvasGroup.interactable = false;
+            confirmationCanvasGroup.blocksRaycasts = true;
+        }
+
+        if (confirmationWindow != null)
+        {
+            confirmationWindow.localScale = Vector3.one * 0.96f;
+        }
+
+        float elapsed = 0f;
+        while (elapsed < ConfirmationDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / ConfirmationDuration));
+            if (confirmationCanvasGroup != null)
+            {
+                confirmationCanvasGroup.alpha = t;
+            }
+
+            if (confirmationWindow != null)
+            {
+                confirmationWindow.localScale = Vector3.one * Mathf.Lerp(0.96f, 1f, t);
+            }
+
+            yield return null;
+        }
+
+        if (confirmationCanvasGroup != null)
+        {
+            confirmationCanvasGroup.alpha = 1f;
+            confirmationCanvasGroup.interactable = true;
+        }
+
+        if (confirmationWindow != null)
+        {
+            confirmationWindow.localScale = Vector3.one;
+        }
+
+        confirmationAnimation = null;
+    }
+
+    private void SetContentInteractive(bool interactive)
+    {
+        if (contentCanvasGroup == null)
+        {
+            return;
+        }
+
+        contentCanvasGroup.interactable = interactive;
+        contentCanvasGroup.blocksRaycasts = interactive;
     }
 
     private void RefreshContinueAvailability()
@@ -354,9 +607,60 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             return;
         }
 
+        if (statusAnimation != null)
+        {
+            StopCoroutine(statusAnimation);
+            statusAnimation = null;
+        }
+
         statusText.text = message;
         statusText.color = isError
-            ? new Color(1f, 0.45f, 0.45f, 1f)
-            : new Color(0.85f, 0.9f, 1f, 1f);
+            ? new Color(0.92f, 0.48f, 0.52f, 1f)
+            : new Color(0.72f, 0.82f, 0.94f, 1f);
+
+        if (statusCanvasGroup != null)
+        {
+            statusCanvasGroup.alpha = string.IsNullOrEmpty(message) ? 0f : 1f;
+        }
+
+        if (!string.IsNullOrEmpty(message))
+        {
+            statusAnimation = StartCoroutine(HideStatusAfterDelay());
+        }
+    }
+
+    private IEnumerator HideStatusAfterDelay()
+    {
+        float elapsed = 0f;
+        while (elapsed < statusVisibleDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        const float fadeDuration = 0.28f;
+        elapsed = 0f;
+        while (elapsed < fadeDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            if (statusCanvasGroup != null)
+            {
+                statusCanvasGroup.alpha = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / fadeDuration));
+            }
+
+            yield return null;
+        }
+
+        if (statusCanvasGroup != null)
+        {
+            statusCanvasGroup.alpha = 0f;
+        }
+
+        if (statusText != null)
+        {
+            statusText.text = string.Empty;
+        }
+
+        statusAnimation = null;
     }
 }

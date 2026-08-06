@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: classroom_choice_ignore
   m_EditorClassIdentifier: Assembly-CSharp::DialogueSceneData
   sceneId: classroom_choice_ignore
+  displayName: "После урока — промолчать"
   backgroundMusic: {fileID: 0}
   stopMusicOnStart: 0
   lines:

@@ -27,6 +27,7 @@ public static class ManualSaveSystemV1SmokeTests
 
             MainScene = ScriptableObject.CreateInstance<DialogueSceneData>();
             MainScene.sceneId = "scene_main";
+            MainScene.displayName = "Основная сцена";
             MainScene.lines.Add(new DialogueLine { lineId = "line_0", text = "First" });
             MainScene.lines.Add(new DialogueLine { lineId = "line_1", text = "Second" });
             MainScene.choices.Add(new DialogueChoice { text = "Choice", resultText = "Result", nextScene = NextScene });
@@ -79,6 +80,7 @@ public static class ManualSaveSystemV1SmokeTests
         TestMissingScene(context);
         TestMissingLine(context);
         TestMissingPreviewIsLoadable(context);
+        TestDisplayNameAndFallback(context);
         TestInvalidSelectedChoiceIndex(context);
         TestNullSelectedChoice(context);
         TestPendingNextSceneIsComputed(context);
@@ -157,6 +159,17 @@ public static class ManualSaveSystemV1SmokeTests
         ManualSaveSlotInfo slot = context.Manager.GetSlot(1);
         Require(slot.IsLoadable, "A missing preview incorrectly blocked loading.");
         Require(string.IsNullOrEmpty(slot.PreviewPath), "Missing preview produced a non-empty PreviewPath.");
+    }
+
+    private static void TestDisplayNameAndFallback(TestContext context)
+    {
+        ResetFiles(context);
+        WriteData(context, CreateValidData(1));
+        Require(context.Manager.GetSlot(1).DisplayName == "Основная сцена", "Slot UI metadata did not use DialogueSceneData.displayName.");
+
+        context.MainScene.displayName = "   ";
+        Require(context.Manager.GetSlot(1).DisplayName == "Без названия", "Empty displayName did not use the safe fallback.");
+        context.MainScene.displayName = "Основная сцена";
     }
 
     private static void TestInvalidSelectedChoiceIndex(TestContext context)

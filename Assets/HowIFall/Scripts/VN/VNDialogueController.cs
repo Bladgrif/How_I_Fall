@@ -219,7 +219,8 @@ public class VNDialogueController : MonoBehaviour
 
             if (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             {
-                manualSaveLoadPanel.Close();
+                // ManualSaveLoadPanel handles Escape itself so that an open
+                // confirmation is cancelled before the whole panel closes.
                 return;
             }
         }
