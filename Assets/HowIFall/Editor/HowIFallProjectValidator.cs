@@ -70,6 +70,9 @@ public static class HowIFallProjectValidator
         if (mainMenuController != null)
         {
             issues += ValidateRequiredReference(sceneName, "MainMenuController.settingsPanel", mainMenuController.settingsPanel);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.manualSaveLoadPanel", mainMenuController.manualSaveLoadPanel);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.dialogueRegistry", mainMenuController.dialogueRegistry);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.continueButton", mainMenuController.continueButton);
         }
 
         issues += ValidateRequiredObject(sceneName, FindAny<SettingsPanelController>(), nameof(SettingsPanelController));
@@ -78,6 +81,13 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredObject(sceneName, FindAny<GameState>(), nameof(GameState));
         issues += ValidateRequiredObject(sceneName, FindAny<SettingsManager>(), nameof(SettingsManager));
         issues += ValidateRequiredObject(sceneName, FindAny<AudioManager>(), nameof(AudioManager));
+
+        ManualSaveLoadPanel saveLoadPanel = FindAny<ManualSaveLoadPanel>();
+        issues += ValidateRequiredObject(sceneName, saveLoadPanel, nameof(ManualSaveLoadPanel));
+        if (saveLoadPanel != null && (saveLoadPanel.slotViews == null || saveLoadPanel.slotViews.Length != SaveManager.SlotCount))
+        {
+            issues += LogError($"{sceneName}: ManualSaveLoadPanel must contain exactly {SaveManager.SlotCount} slot views.");
+        }
 
         return issues;
     }
@@ -120,13 +130,21 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.confirmExitYesButton", controller.confirmExitYesButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.confirmExitNoButton", controller.confirmExitNoButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsPanel", controller.vnSettingsPanel);
-        issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnMasterVolumeSlider", controller.vnMasterVolumeSlider);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnMusicVolumeSlider", controller.vnMusicVolumeSlider);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSfxVolumeSlider", controller.vnSfxVolumeSlider);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnTextSpeedSlider", controller.vnTextSpeedSlider);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnFullscreenToggle", controller.vnFullscreenToggle);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsCloseButton", controller.vnSettingsCloseButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsResetButton", controller.vnSettingsResetButton);
+        issues += ValidateRequiredReference(sceneName, "VNDialogueController.manualSaveLoadPanel", controller.manualSaveLoadPanel);
+        issues += ValidateRequiredObject(sceneName, FindAny<SaveManager>(), nameof(SaveManager));
+
+        ManualSaveLoadPanel saveLoadPanel = FindAny<ManualSaveLoadPanel>();
+        issues += ValidateRequiredObject(sceneName, saveLoadPanel, nameof(ManualSaveLoadPanel));
+        if (saveLoadPanel != null && (saveLoadPanel.slotViews == null || saveLoadPanel.slotViews.Length != SaveManager.SlotCount))
+        {
+            issues += LogError($"{sceneName}: ManualSaveLoadPanel must contain exactly {SaveManager.SlotCount} slot views.");
+        }
 
         return issues;
     }

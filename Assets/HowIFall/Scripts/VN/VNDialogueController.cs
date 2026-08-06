@@ -7,8 +7,10 @@ using UnityEngine.UI;
 
 public class VNDialogueController : MonoBehaviour
 {
+    public static VNDialogueController Instance { get; private set; }
+
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
-    private const string EndPrototypeText = "Конец Unity-прототипа.";
+    private const string EndPrototypeText = "РљРѕРЅРµС† Unity-РїСЂРѕС‚РѕС‚РёРїР°.";
 
     public DialogueSceneData sceneData;
     public DialogueSceneRegistry sceneRegistry;
@@ -43,7 +45,7 @@ public class VNDialogueController : MonoBehaviour
     public Toggle vnFullscreenToggle;
     public Button vnSettingsCloseButton;
     public Button vnSettingsResetButton;
-    public SaveLoadPanelController saveLoadPanel;
+    public ManualSaveLoadPanel manualSaveLoadPanel;
     public float baseCharactersPerSecond = 45f;
 
     public Vector2 characterLeftPosition = new Vector2(-420f, -220f);
@@ -68,6 +70,18 @@ public class VNDialogueController : MonoBehaviour
     private readonly DialogueBacklog backlog = new DialogueBacklog(100);
     private VNSettingsPresenter settingsPresenter;
 
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Debug.LogError($"[VN] Duplicate VNDialogueController detected on '{gameObject.name}'.", this);
+            enabled = false;
+            return;
+        }
+
+        Instance = this;
+    }
+
     private void Start()
     {
         if (!ValidateRequiredUiReferences())
@@ -77,6 +91,8 @@ public class VNDialogueController : MonoBehaviour
         }
 
         GameState gameState = GameState.EnsureInstance();
+        SaveManager saveManager = SaveManager.EnsureInstance(sceneRegistry);
+        Debug.Log($"[VN] Start. sceneId='{gameState.currentSceneId}', lineId='{gameState.currentLineId}', lineIndex={gameState.currentLineIndex}, sceneData='{(sceneData != null ? sceneData.sceneId : "<null>")}'.", this);
 
         choiceButtons = new[] { choiceMashaButton, choiceArtemButton, choiceLeraButton };
 
@@ -144,9 +160,14 @@ public class VNDialogueController : MonoBehaviour
             });
         }
 
-        if (gameState.hasLoadedSave && !string.IsNullOrEmpty(gameState.currentSceneId) && sceneRegistry != null)
+        if (saveManager.TryConsumePendingSceneRestore())
         {
-            RestoreFromGameState();
+            if (!RestoreFromGameState())
+            {
+                Debug.LogError("[LOAD] Validated save could not be restored by VNDialogueController. Starting the configured scene instead.", this);
+                LoadDialogueScene(sceneData);
+            }
+
             return;
         }
 
@@ -157,12 +178,12 @@ public class VNDialogueController : MonoBehaviour
     {
         if (Keyboard.current != null && Keyboard.current.f5Key.wasPressedThisFrame)
         {
-            SaveGame();
+            manualSaveLoadPanel?.OpenSave();
         }
 
         if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
         {
-            LoadGame();
+            manualSaveLoadPanel?.OpenLoad();
         }
 
         if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame)
@@ -190,9 +211,9 @@ public class VNDialogueController : MonoBehaviour
                 return;
             }
 
-            if (saveLoadPanel != null && saveLoadPanel.root != null && saveLoadPanel.root.activeSelf)
+            if (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             {
-                saveLoadPanel.Close();
+                manualSaveLoadPanel.Close();
                 return;
             }
         }
@@ -213,7 +234,8 @@ public class VNDialogueController : MonoBehaviour
         return (choicePanel != null && choicePanel.activeSelf)
             || (backlogPanel != null && backlogPanel.activeSelf)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf)
-            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf);
+            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen);
     }
 
     private void ShowNextLine()
@@ -237,10 +259,12 @@ public class VNDialogueController : MonoBehaviour
             {
                 DialogueSceneData nextSceneData = pendingNextScene;
                 pendingNextScene = null;
+                ClearChoiceState();
                 LoadDialogueScene(nextSceneData);
                 return;
             }
 
+            ClearChoiceState();
             showingEndLine = true;
             ShowNarration(EndPrototypeText);
             return;
@@ -264,6 +288,7 @@ public class VNDialogueController : MonoBehaviour
 
             if (sceneData != null && sceneData.defaultNextScene != null)
             {
+                ClearChoiceState();
                 LoadDialogueScene(sceneData.defaultNextScene);
                 return;
             }
@@ -282,6 +307,7 @@ public class VNDialogueController : MonoBehaviour
         {
             if (sceneData != null && sceneData.defaultNextScene != null)
             {
+                ClearChoiceState();
                 LoadDialogueScene(sceneData.defaultNextScene);
                 return;
             }
@@ -292,6 +318,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         showingChoice = true;
+        RememberChoicePosition();
         nextButton.interactable = false;
         SetChoiceOverlayActive(true);
         choicePanel.SetActive(true);
@@ -322,8 +349,12 @@ public class VNDialogueController : MonoBehaviour
         }
 
         DialogueChoice choice = activeChoices[choiceIndex];
-        GameState.EnsureInstance().ApplyChoice(choice);
+        GameState gameState = GameState.EnsureInstance();
+        gameState.ApplyChoice(choice);
+        gameState.selectedChoiceIndex = choiceIndex;
+        gameState.choiceResultActive = true;
         pendingNextScene = choice.nextScene != null ? choice.nextScene : sceneData.defaultNextScene;
+        gameState.pendingNextSceneId = pendingNextScene != null ? pendingNextScene.sceneId : string.Empty;
         ShowFinalLine(choice.resultText);
     }
 
@@ -400,83 +431,49 @@ public class VNDialogueController : MonoBehaviour
         }
     }
 
-    public void SaveGame()
+    public bool TryGetSavePosition(
+        out string sceneId,
+        out string lineId,
+        out int lineIndex,
+        out string error)
     {
-        if (saveLoadPanel != null)
+        sceneId = string.Empty;
+        lineId = string.Empty;
+        lineIndex = -1;
+        error = string.Empty;
+
+        if (sceneData == null || activeLines == null || activeLines.Count == 0)
         {
-            saveLoadPanel.OpenSave();
-            return;
+            error = "No active dialogue scene or lines.";
+            return false;
         }
 
-        if (SaveManager.Instance == null)
+        int resolvedIndex = currentLineIndex;
+        GameState gameState = GameState.Instance;
+        if ((resolvedIndex < 0 || resolvedIndex >= activeLines.Count)
+            && gameState != null
+            && gameState.currentSceneId == sceneData.sceneId)
         {
-            ShowToast("Не удалось сохранить");
-            return;
+            resolvedIndex = gameState.currentLineIndex;
         }
 
-        try
+        if (resolvedIndex < 0 || resolvedIndex >= activeLines.Count || activeLines[resolvedIndex] == null)
         {
-            SaveManager.Instance.Save(currentFullText);
-            ShowToast("Сохранено");
-        }
-        catch (System.Exception exception)
-        {
-            Debug.LogWarning($"VNDialogueController: quick save failed. {exception.Message}", this);
-            ShowToast("Не удалось сохранить");
-        }
-    }
-
-    public void LoadGame()
-    {
-        if (saveLoadPanel != null)
-        {
-            saveLoadPanel.OpenLoad();
-            return;
+            error = $"Current line index {resolvedIndex} is invalid for scene '{sceneData.sceneId}'.";
+            return false;
         }
 
-        if (SaveManager.Instance == null)
+        sceneId = sceneData.sceneId ?? string.Empty;
+        lineId = activeLines[resolvedIndex].lineId ?? string.Empty;
+        lineIndex = resolvedIndex;
+
+        if (string.IsNullOrWhiteSpace(sceneId) || string.IsNullOrWhiteSpace(lineId))
         {
-            ShowToast("Не удалось загрузить");
-            return;
+            error = "Current sceneId or lineId is empty.";
+            return false;
         }
 
-        if (!SaveManager.Instance.HasSave())
-        {
-            ShowToast("Нет сохранения");
-            return;
-        }
-
-        try
-        {
-            if (SaveManager.Instance.Load())
-            {
-                RestoreFromGameState();
-                ShowToast("Загружено");
-                return;
-            }
-
-            ShowToast("Не удалось загрузить");
-        }
-        catch (System.Exception exception)
-        {
-            Debug.LogWarning($"VNDialogueController: quick load failed. {exception.Message}", this);
-            ShowToast("Не удалось загрузить");
-        }
-    }
-
-    public string GetCurrentLinePreview()
-    {
-        return currentFullText;
-    }
-
-    public void RestoreLoadedSaveFromPanel()
-    {
-        RestoreFromGameState();
-    }
-
-    public void ShowToastMessage(string message)
-    {
-        ShowToast(message);
+        return true;
     }
 
     public void OpenSettings()
@@ -774,29 +771,35 @@ public class VNDialogueController : MonoBehaviour
         return false;
     }
 
-    public void RestoreFromGameState()
+    public bool RestoreFromGameState()
     {
         GameState gameState = GameState.Instance;
 
         if (gameState == null)
         {
             Debug.LogWarning("VNDialogueController: GameState.Instance is missing.");
-            return;
+            return false;
         }
 
         if (sceneRegistry == null)
         {
             Debug.LogWarning("VNDialogueController: sceneRegistry is not assigned.", this);
-            return;
+            return false;
         }
 
+        bool restoreChoiceResult = gameState.choiceResultActive;
+        int restoredChoiceIndex = gameState.selectedChoiceIndex;
+        string restoredPendingNextSceneId = gameState.pendingNextSceneId;
+        Debug.Log($"[VN LOAD] Restoring GameState. sceneId='{gameState.currentSceneId}', lineId='{gameState.currentLineId}', fallbackLineIndex={gameState.currentLineIndex}, choiceIndex={restoredChoiceIndex}, choiceResultActive={restoreChoiceResult}, pendingNextSceneId='{restoredPendingNextSceneId}'.", this);
         DialogueSceneData restoredScene = sceneRegistry.FindById(gameState.currentSceneId);
 
         if (restoredScene == null)
         {
-            Debug.LogWarning($"VNDialogueController: scene '{gameState.currentSceneId}' was not found in registry.", this);
-            return;
+            Debug.LogWarning($"[VN LOAD] Scene '{gameState.currentSceneId}' was not found in DialogueSceneRegistry; no new scene was started.", this);
+            return false;
         }
+
+        Debug.Log($"[VN LOAD] Found DialogueSceneData sceneId='{restoredScene.sceneId}' asset='{restoredScene.name}'.", this);
 
         int restoredLineIndex = restoredScene.FindLineIndexById(gameState.currentLineId);
         if (restoredLineIndex < 0)
@@ -804,7 +807,82 @@ public class VNDialogueController : MonoBehaviour
             restoredLineIndex = gameState.currentLineIndex;
         }
 
+        Debug.Log($"[VN LOAD] Resolved line. requestedLineId='{gameState.currentLineId}', resolvedIndex={restoredLineIndex}, resolvedLineId='{(restoredLineIndex >= 0 && restoredLineIndex < restoredScene.lines.Count && restoredScene.lines[restoredLineIndex] != null ? restoredScene.lines[restoredLineIndex].lineId : "<invalid>")}'.", this);
+
         LoadDialogueScene(restoredScene, restoredLineIndex);
+
+        if (restoreChoiceResult)
+        {
+            RestoreChoiceResult(restoredScene, restoredChoiceIndex, restoredPendingNextSceneId);
+        }
+
+        Debug.Log($"[VN LOAD] Restoration finished. activeSceneId='{sceneData.sceneId}', activeLineIndex={currentLineIndex}, activeLineId='{(activeLines != null && currentLineIndex >= 0 && currentLineIndex < activeLines.Count && activeLines[currentLineIndex] != null ? activeLines[currentLineIndex].lineId : "<invalid>")}', choiceResultActive={GameState.Instance.choiceResultActive}.", this);
+        return true;
+    }
+
+    private void RestoreChoiceResult(
+        DialogueSceneData restoredScene,
+        int restoredChoiceIndex,
+        string restoredPendingNextSceneId)
+    {
+        if (restoredScene == null
+            || restoredScene.choices == null
+            || restoredChoiceIndex < 0
+            || restoredChoiceIndex >= restoredScene.choices.Count)
+        {
+            Debug.LogWarning("VNDialogueController: saved choice state is invalid and was ignored.", this);
+            ClearChoiceState();
+            return;
+        }
+
+        DialogueChoice restoredChoice = restoredScene.choices[restoredChoiceIndex];
+        if (restoredChoice == null)
+        {
+            Debug.LogWarning("VNDialogueController: saved choice reference is missing and was ignored.", this);
+            ClearChoiceState();
+            return;
+        }
+
+        pendingNextScene = sceneRegistry.FindById(restoredPendingNextSceneId);
+        if (pendingNextScene == null)
+        {
+            pendingNextScene = restoredChoice.nextScene != null
+                ? restoredChoice.nextScene
+                : restoredScene.defaultNextScene;
+        }
+
+        GameState gameState = GameState.EnsureInstance();
+        gameState.selectedChoiceIndex = restoredChoiceIndex;
+        gameState.choiceResultActive = true;
+        gameState.pendingNextSceneId = pendingNextScene != null ? pendingNextScene.sceneId : string.Empty;
+        ShowFinalLine(restoredChoice.resultText);
+    }
+
+    private void RememberChoicePosition()
+    {
+        if (activeLines == null || activeLines.Count == 0)
+        {
+            return;
+        }
+
+        GameState gameState = GameState.EnsureInstance();
+        gameState.currentLineIndex = activeLines.Count - 1;
+        gameState.currentLineId = activeLines[activeLines.Count - 1] != null
+            ? activeLines[activeLines.Count - 1].lineId ?? string.Empty
+            : string.Empty;
+    }
+
+    private void ClearChoiceState()
+    {
+        GameState gameState = GameState.Instance;
+        if (gameState == null)
+        {
+            return;
+        }
+
+        gameState.selectedChoiceIndex = -1;
+        gameState.choiceResultActive = false;
+        gameState.pendingNextSceneId = string.Empty;
     }
 
     private void LoadDialogueScene(DialogueSceneData data)
@@ -911,6 +989,14 @@ public class VNDialogueController : MonoBehaviour
         if (sceneData.backgroundMusic != null)
         {
             AudioManager.Instance.PlayMusic(sceneData.backgroundMusic);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
         }
     }
 }

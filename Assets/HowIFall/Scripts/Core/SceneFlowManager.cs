@@ -35,33 +35,27 @@ public class SceneFlowManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            Debug.LogWarning($"[SCENEFLOW] Duplicate SceneFlowManager ignored on '{gameObject.name}'. Existing instance: '{Instance.gameObject.name}'.", this);
             Destroy(gameObject);
             return;
         }
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        Debug.Log($"[SCENEFLOW] SceneFlowManager ready on '{gameObject.name}'.", this);
     }
 
     public void StartNewGame()
     {
+        Debug.Log("[SCENEFLOW] Starting a new game.", this);
+        SaveManager.Instance?.ClearPendingLoad();
         GameState.EnsureInstance().ResetState();
         SceneManager.LoadScene(VNPrototypeSceneName, LoadSceneMode.Single);
     }
 
-    public void ContinueGame()
+    public void OpenLoadedGame()
     {
-        if (SaveManager.Instance != null && SaveManager.Instance.LoadLatestSave())
-        {
-            LoadLoadedGameScene();
-            return;
-        }
-
-        Debug.LogWarning("No save file found.");
-    }
-
-    public void LoadLoadedGameScene()
-    {
+        Debug.Log("[SCENEFLOW] Opening VNPrototype for validated save data.", this);
         SceneManager.LoadScene(VNPrototypeSceneName, LoadSceneMode.Single);
     }
 

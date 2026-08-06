@@ -14,3 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DialogueSceneRegistry
   scenes:
   - {fileID: 11400000, guid: 346dc5d10fd6400db9d16dcc4617b7b6, type: 2}
+  - {fileID: 11400000, guid: 5e44c75e6ec2480aa8f9a42071cb6db6, type: 2}
+  - {fileID: 11400000, guid: 01083cd8dc2447b38785c2b528062a65, type: 2}
+  - {fileID: 11400000, guid: 0cbd7bd60a2745e0b7586d32f01ac555, type: 2}

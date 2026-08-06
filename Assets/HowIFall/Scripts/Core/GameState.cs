@@ -17,7 +17,9 @@ public class GameState : MonoBehaviour
     public string currentSceneId;
     public int currentLineIndex;
     public string currentLineId;
-    public bool hasLoadedSave;
+    public int selectedChoiceIndex = -1;
+    public bool choiceResultActive;
+    public string pendingNextSceneId;
 
     public static GameState EnsureInstance()
     {
@@ -42,12 +44,14 @@ public class GameState : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            Debug.LogWarning($"[GAMESTATE] Duplicate GameState ignored on '{gameObject.name}'. Existing instance: '{Instance.gameObject.name}'.", this);
             Destroy(gameObject);
             return;
         }
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+        Debug.Log($"[GAMESTATE] GameState ready on '{gameObject.name}'. sceneId='{currentSceneId}', lineId='{currentLineId}'.", this);
     }
 
     private void OnDestroy()
@@ -90,6 +94,9 @@ public class GameState : MonoBehaviour
         currentSceneId = string.Empty;
         currentLineIndex = 0;
         currentLineId = string.Empty;
-        hasLoadedSave = false;
+        selectedChoiceIndex = -1;
+        choiceResultActive = false;
+        pendingNextSceneId = string.Empty;
+        Debug.Log("[GAMESTATE] State reset for a new game.", this);
     }
 }

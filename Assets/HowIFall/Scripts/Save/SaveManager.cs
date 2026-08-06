@@ -1,40 +1,83 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Collections;
 using System.Text;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
-public class SaveSlotInfo
+public sealed class ManualSaveSlotInfo
 {
-    public int SlotIndex;
-    public bool IsAutoSave;
-    public bool HasSave;
-    public string SaveDateText;
-    public string PreviewPath;
+    public int SlotIndex { get; internal set; }
+    public bool IsOccupied { get; internal set; }
+    public bool IsLoadable { get; internal set; }
+    public DateTime CreatedAtUtc { get; internal set; }
+    public string DisplayDate { get; internal set; }
+    public string JsonPath { get; internal set; }
+    public string PreviewPath { get; internal set; }
+    public string Error { get; internal set; }
+    public SaveData Data { get; internal set; }
 }
 
-public class SaveManager : MonoBehaviour
+public sealed class SaveManager : MonoBehaviour
 {
+    public const int SlotCount = 6;
+    public const string GameplaySceneName = "VNPrototype";
+
     public static SaveManager Instance { get; private set; }
 
-    private const string SaveFileName = "save_01.json";
-    private const string BackupSuffix = ".bak";
-    private const string TemporarySuffix = ".tmp";
-    private string SavePath => Path.Combine(Application.persistentDataPath, SaveFileName);
-    private string SavesDirectory => Path.Combine(Application.persistentDataPath, "Saves");
+    [SerializeField] private DialogueSceneRegistry dialogueRegistry;
+
+    private bool pendingSceneRestore;
+
+    public string SaveDirectoryPath => Path.Combine(Application.persistentDataPath, "Saves");
+
+    public static SaveManager EnsureInstance(DialogueSceneRegistry registry = null)
+    {
+        if (Instance == null)
+        {
+            SaveManager existing = FindAnyObjectByType<SaveManager>();
+            if (existing != null)
+            {
+                Instance = existing;
+            }
+            else
+            {
+                GameObject managerObject = new GameObject("SaveManager");
+                Instance = managerObject.AddComponent<SaveManager>();
+            }
+        }
+
+        if (registry != null)
+        {
+            Instance.ConfigureRegistry(registry);
+        }
+
+        return Instance;
+    }
 
     private void Awake()
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(gameObject);
+            Debug.LogWarning($"[SAVE] Duplicate SaveManager component removed from '{gameObject.name}'.", this);
+            Destroy(this);
             return;
         }
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        try
+        {
+            Directory.CreateDirectory(SaveDirectoryPath);
+            Debug.Log($"[SAVE] SaveManager ready. directory='{SaveDirectoryPath}'.", this);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError($"[SAVE] Cannot create save directory '{SaveDirectoryPath}'. {exception.Message}", this);
+        }
     }
 
     private void OnDestroy()
@@ -45,46 +88,85 @@ public class SaveManager : MonoBehaviour
         }
     }
 
-    public void Save()
+    public void ConfigureRegistry(DialogueSceneRegistry registry)
     {
-        Save(string.Empty);
-    }
-
-    public void Save(string linePreview)
-    {
-        SaveData saveData = CreateSaveData(linePreview, 1, false, string.Empty);
-        if (saveData == null)
+        if (registry != null)
         {
-            return;
-        }
-
-        if (WriteSaveData(SavePath, saveData))
-        {
-            Debug.Log($"SaveManager: game saved to '{SavePath}'.");
+            dialogueRegistry = registry;
         }
     }
 
-    private SaveData CreateSaveData(string linePreview, int slotIndex, bool isAuto, string previewPath)
+    public bool SaveSlot(int slotIndex, Texture2D previewTexture)
     {
+        if (!IsValidSlotIndex(slotIndex))
+        {
+            Debug.LogError($"[SAVE] Slot index {slotIndex} is outside 1..{SlotCount}.", this);
+            return false;
+        }
+
+        if (dialogueRegistry == null)
+        {
+            Debug.LogError("[SAVE] DialogueSceneRegistry is not configured.", this);
+            return false;
+        }
+
+        VNDialogueController dialogueController = VNDialogueController.Instance;
+        if (dialogueController == null)
+        {
+            Debug.LogError("[SAVE] Saving is available only while VNDialogueController is active.", this);
+            return false;
+        }
+
+        if (!dialogueController.TryGetSavePosition(
+                out string sceneId,
+                out string lineId,
+                out int lineIndex,
+                out string positionError))
+        {
+            Debug.LogError($"[SAVE] Cannot obtain the current dialogue position. {positionError}", dialogueController);
+            return false;
+        }
+
+        DialogueSceneData scene = dialogueRegistry.FindById(sceneId);
+        if (scene == null)
+        {
+            Debug.LogError($"[SAVE] Scene '{sceneId}' is absent from DialogueSceneRegistry.", this);
+            return false;
+        }
+
+        int resolvedLineIndex = scene.FindLineIndexById(lineId);
+        if (resolvedLineIndex < 0)
+        {
+            Debug.LogError($"[SAVE] Line '{lineId}' is absent from scene '{sceneId}'.", this);
+            return false;
+        }
+
+        if (previewTexture == null)
+        {
+            Debug.LogError("[SAVE] Screenshot capture returned no texture. Save was not written.", this);
+            return false;
+        }
+
         GameState gameState = GameState.Instance;
         if (gameState == null)
         {
-            Debug.LogWarning("SaveManager: GameState.Instance is missing. Save skipped.");
-            return null;
+            Debug.LogError("[SAVE] GameState is unavailable.", this);
+            return false;
         }
 
-        return new SaveData
+        string previewFileName = GetSlotFileStem(slotIndex) + ".png";
+        var data = new SaveData
         {
             version = SaveData.CurrentVersion,
-            currentSceneId = gameState.currentSceneId,
-            currentLineIndex = gameState.currentLineIndex,
-            currentLineId = gameState.currentLineId,
-            savedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-            sceneTitle = string.IsNullOrEmpty(gameState.currentSceneId) ? "Unknown Scene" : gameState.currentSceneId,
-            linePreview = NormalizeLinePreview(linePreview),
             slotIndex = slotIndex,
-            isAutoSave = isAuto,
-            previewPath = previewPath,
+            createdAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+            sceneId = sceneId,
+            lineId = lineId,
+            lineIndex = resolvedLineIndex,
+            selectedChoiceIndex = gameState.selectedChoiceIndex,
+            choiceResultActive = gameState.choiceResultActive,
+            pendingNextSceneId = gameState.pendingNextSceneId ?? string.Empty,
+            previewFileName = previewFileName,
             lust = gameState.lust,
             romance = gameState.romance,
             purity = gameState.purity,
@@ -95,421 +177,316 @@ public class SaveManager : MonoBehaviour
             trustArtem = gameState.trustArtem,
             leraInterest = gameState.leraInterest
         };
-    }
 
-    private static string NormalizeLinePreview(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
+        try
         {
-            return string.Empty;
-        }
-
-        string normalized = value.Replace("\n", " ").Replace("\r", " ").Trim();
-
-        const int maxLength = 100;
-        if (normalized.Length <= maxLength)
-        {
-            return normalized;
-        }
-
-        return normalized.Substring(0, maxLength) + "...";
-    }
-
-    public bool Load()
-    {
-        if (!HasSave())
-        {
-            return false;
-        }
-
-        SaveData saveData = ReadSaveData(SavePath);
-
-        if (saveData == null)
-        {
-            return false;
-        }
-
-        ApplySaveData(saveData);
-        return true;
-    }
-
-    public bool HasSave()
-    {
-        return File.Exists(SavePath);
-    }
-
-    public bool HasAnySave()
-    {
-        return HasSave() || GetSlotSavePaths().Any(File.Exists);
-    }
-
-    public bool LoadLatestSave()
-    {
-        string latestPath = GetLatestSavePath();
-        if (string.IsNullOrEmpty(latestPath))
-        {
-            return false;
-        }
-
-        return LoadFromPath(latestPath);
-    }
-
-    public string GetSavePathForDebug()
-    {
-        return SavePath;
-    }
-
-    public SaveData GetSaveInfo()
-    {
-        if (!HasSave())
-        {
-            return null;
-        }
-
-        return ReadSaveData(SavePath);
-    }
-
-    public List<SaveSlotInfo> GetManualSaveSlots(int page, int pageSize)
-    {
-        return GetSaveSlots(page, pageSize, false);
-    }
-
-    public List<SaveSlotInfo> GetAutoSaveSlots(int page, int pageSize)
-    {
-        return GetSaveSlots(page, pageSize, true);
-    }
-
-    public bool HasSaveSlot(int slotIndex, bool isAuto)
-    {
-        return File.Exists(GetSlotSavePath(slotIndex, isAuto));
-    }
-
-    public bool LoadSlot(int slotIndex, bool isAuto)
-    {
-        return LoadFromSlot(slotIndex, isAuto);
-    }
-
-    public bool LoadFromSlot(int slotIndex, bool isAuto)
-    {
-        if (!HasSaveSlot(slotIndex, isAuto))
-        {
-            return false;
-        }
-
-        return LoadFromPath(GetSlotSavePath(slotIndex, isAuto));
-    }
-
-    public bool SaveToSlot(int slotIndex, bool isAuto)
-    {
-        return SaveToSlot(slotIndex, isAuto, string.Empty);
-    }
-
-    public bool SaveToSlot(int slotIndex, bool isAuto, string linePreview)
-    {
-        return SaveToSlot(slotIndex, isAuto, linePreview, null);
-    }
-
-    public bool SaveToSlot(int slotIndex, bool isAuto, string linePreview, Texture2D previewTexture)
-    {
-        Directory.CreateDirectory(SavesDirectory);
-        string previewPath = GetSlotPreviewPath(slotIndex, isAuto);
-        SaveData saveData = CreateSaveData(linePreview, slotIndex, isAuto, previewPath);
-        if (saveData == null)
-        {
-            return false;
-        }
-
-        string savePath = GetSlotSavePath(slotIndex, isAuto);
-        if (!WriteSaveData(savePath, saveData))
-        {
-            return false;
-        }
-
-        if (!isAuto && slotIndex == 1)
-        {
-            if (!WriteSaveData(SavePath, saveData))
+            byte[] previewBytes = previewTexture.EncodeToPNG();
+            if (previewBytes == null || previewBytes.Length == 0)
             {
-                Debug.LogWarning("SaveManager: slot was saved, but the compatibility quick-save file could not be updated.");
-            }
-        }
-
-        if (previewTexture != null)
-        {
-            WritePreviewTexture(previewPath, previewTexture);
-        }
-        else
-        {
-            StartCoroutine(CapturePreviewEndOfFrame(previewPath));
-        }
-
-        return true;
-    }
-
-    public void DeleteSave()
-    {
-        if (!HasSave())
-        {
-            return;
-        }
-
-        File.Delete(SavePath);
-    }
-
-    private List<SaveSlotInfo> GetSaveSlots(int page, int pageSize, bool isAuto)
-    {
-        int safePage = Mathf.Max(1, page);
-        int safePageSize = Mathf.Max(1, pageSize);
-        int startSlotIndex = (safePage - 1) * safePageSize + 1;
-        var slots = new List<SaveSlotInfo>(safePageSize);
-
-        for (int i = 0; i < safePageSize; i++)
-        {
-            int slotIndex = startSlotIndex + i;
-            var slot = new SaveSlotInfo
-            {
-                SlotIndex = slotIndex,
-                IsAutoSave = isAuto,
-                HasSave = HasSaveSlot(slotIndex, isAuto),
-                SaveDateText = string.Empty,
-                PreviewPath = string.Empty
-            };
-
-            if (slot.HasSave)
-            {
-                SaveData info = ReadSaveData(GetSlotSavePath(slotIndex, isAuto));
-                slot.SaveDateText = info == null ? string.Empty : info.savedAt;
-                slot.PreviewPath = info == null ? string.Empty : info.previewPath;
+                Debug.LogError("[SAVE] Screenshot could not be encoded as PNG.", this);
+                return false;
             }
 
-            slots.Add(slot);
+            Directory.CreateDirectory(SaveDirectoryPath);
+            string jsonPath = GetSlotJsonPath(slotIndex);
+            string previewPath = GetSlotPreviewPath(slotIndex);
+            string jsonTemporaryPath = jsonPath + ".tmp";
+            string previewTemporaryPath = previewPath + ".tmp";
+
+            try
+            {
+                File.WriteAllBytes(previewTemporaryPath, previewBytes);
+                File.WriteAllText(
+                    jsonTemporaryPath,
+                    JsonUtility.ToJson(data, true),
+                    new UTF8Encoding(false));
+
+                File.Copy(previewTemporaryPath, previewPath, true);
+                File.Copy(jsonTemporaryPath, jsonPath, true);
+            }
+            finally
+            {
+                DeleteTemporaryFile(jsonTemporaryPath);
+                DeleteTemporaryFile(previewTemporaryPath);
+            }
+
+            Debug.Log(
+                $"[SAVE] Slot {slotIndex} saved. json='{jsonPath}', preview='{previewPath}', sceneId='{sceneId}', lineId='{lineId}', lineIndex={resolvedLineIndex}, choiceIndex={data.selectedChoiceIndex}.",
+                this);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError($"[SAVE] Slot {slotIndex} write failed. {exception.Message}", this);
+            return false;
+        }
+    }
+
+    public bool LoadSlot(int slotIndex)
+    {
+        ManualSaveSlotInfo slot = ReadSlot(slotIndex);
+        if (!slot.IsLoadable || slot.Data == null)
+        {
+            Debug.LogError($"[LOAD] Slot {slotIndex} is not loadable. {slot.Error}", this);
+            return false;
+        }
+
+        return ApplyAndRoute(slot);
+    }
+
+    public bool LoadLatest()
+    {
+        ManualSaveSlotInfo latest = GetAllSlots()
+            .Where(slot => slot.IsLoadable)
+            .OrderByDescending(slot => slot.CreatedAtUtc)
+            .ThenBy(slot => slot.SlotIndex)
+            .FirstOrDefault();
+
+        if (latest == null)
+        {
+            Debug.LogWarning("[LOAD] Continue found no valid manual save.", this);
+            return false;
+        }
+
+        Debug.Log($"[LOAD] Continue selected slot {latest.SlotIndex} created at {latest.Data.createdAtUtc}.", this);
+        return ApplyAndRoute(latest);
+    }
+
+    public bool HasAnyValidSave()
+    {
+        return GetAllSlots().Any(slot => slot.IsLoadable);
+    }
+
+    public ManualSaveSlotInfo GetSlot(int slotIndex)
+    {
+        return ReadSlot(slotIndex);
+    }
+
+    public IReadOnlyList<ManualSaveSlotInfo> GetAllSlots()
+    {
+        var slots = new List<ManualSaveSlotInfo>(SlotCount);
+        for (int slotIndex = 1; slotIndex <= SlotCount; slotIndex++)
+        {
+            slots.Add(ReadSlot(slotIndex));
         }
 
         return slots;
     }
 
-    private bool LoadFromPath(string path)
+    public string GetSlotJsonPath(int slotIndex)
     {
-        SaveData saveData = ReadSaveData(path);
-        if (saveData == null)
+        return Path.Combine(SaveDirectoryPath, GetSlotFileStem(slotIndex) + ".json");
+    }
+
+    public string GetSlotPreviewPath(int slotIndex)
+    {
+        return Path.Combine(SaveDirectoryPath, GetSlotFileStem(slotIndex) + ".png");
+    }
+
+    public bool TryConsumePendingSceneRestore()
+    {
+        if (!pendingSceneRestore)
         {
             return false;
         }
 
-        ApplySaveData(saveData);
+        pendingSceneRestore = false;
         return true;
     }
 
-    private static SaveData ReadSaveData(string path)
+    public void ClearPendingLoad()
     {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-        {
-            return null;
-        }
-
-        if (TryReadSaveData(path, out SaveData saveData, out string primaryError))
-        {
-            return saveData;
-        }
-
-        string backupPath = path + BackupSuffix;
-        string backupError = string.Empty;
-        if (File.Exists(backupPath) && TryReadSaveData(backupPath, out saveData, out backupError))
-        {
-            Debug.LogWarning($"SaveManager: '{path}' is unreadable ({primaryError}). Recovered from backup '{backupPath}'.");
-            return saveData;
-        }
-
-        string backupDetails = File.Exists(backupPath) ? $" Backup error: {backupError}" : string.Empty;
-        Debug.LogError($"SaveManager: failed to read '{path}'. {primaryError}{backupDetails}");
-        return null;
+        pendingSceneRestore = false;
     }
 
-    private static bool TryReadSaveData(string path, out SaveData saveData, out string error)
+    private ManualSaveSlotInfo ReadSlot(int slotIndex)
     {
-        saveData = null;
-        error = string.Empty;
+        string jsonPath = IsValidSlotIndex(slotIndex) ? GetSlotJsonPath(slotIndex) : string.Empty;
+        var result = new ManualSaveSlotInfo
+        {
+            SlotIndex = slotIndex,
+            JsonPath = jsonPath,
+            PreviewPath = string.Empty,
+            DisplayDate = string.Empty,
+            Error = string.Empty,
+            IsOccupied = !string.IsNullOrEmpty(jsonPath) && File.Exists(jsonPath)
+        };
 
+        if (!IsValidSlotIndex(slotIndex))
+        {
+            result.Error = $"Slot index must be between 1 and {SlotCount}.";
+            return result;
+        }
+
+        if (!result.IsOccupied)
+        {
+            return result;
+        }
+
+        if (dialogueRegistry == null)
+        {
+            result.Error = "DialogueSceneRegistry is not configured.";
+            return result;
+        }
+
+        SaveData data;
         try
         {
-            string json = File.ReadAllText(path, Encoding.UTF8);
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                error = "The file is empty.";
-                return false;
-            }
-
-            saveData = JsonUtility.FromJson<SaveData>(json);
-            if (saveData == null)
-            {
-                error = "The file does not contain valid save data.";
-                return false;
-            }
-
-            if (!saveData.TryMigrateToCurrentVersion(out error))
-            {
-                saveData = null;
-                return false;
-            }
-
-            return true;
+            string json = File.ReadAllText(jsonPath, Encoding.UTF8);
+            data = JsonUtility.FromJson<SaveData>(json);
         }
         catch (Exception exception)
         {
-            error = exception.Message;
-            saveData = null;
-            return false;
+            result.Error = $"JSON read failed: {exception.Message}";
+            return result;
         }
+
+        if (data == null)
+        {
+            result.Error = "JSON does not contain SaveData.";
+            return result;
+        }
+
+        if (data.version != SaveData.CurrentVersion)
+        {
+            result.Error = $"Unsupported save version {data.version}; expected {SaveData.CurrentVersion}.";
+            return result;
+        }
+
+        if (data.slotIndex != slotIndex)
+        {
+            result.Error = $"Slot mismatch: file is slot {slotIndex}, JSON contains {data.slotIndex}.";
+            return result;
+        }
+
+        if (!DateTimeOffset.TryParse(
+                data.createdAtUtc,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out DateTimeOffset createdAt))
+        {
+            result.Error = "createdAtUtc is empty or invalid.";
+            return result;
+        }
+
+        if (string.IsNullOrWhiteSpace(data.sceneId))
+        {
+            result.Error = "sceneId is empty.";
+            return result;
+        }
+
+        DialogueSceneData scene = dialogueRegistry.FindById(data.sceneId);
+        if (scene == null)
+        {
+            result.Error = $"Scene '{data.sceneId}' is absent from DialogueSceneRegistry.";
+            return result;
+        }
+
+        int resolvedLineIndex = scene.FindLineIndexById(data.lineId);
+        if (resolvedLineIndex < 0 && string.IsNullOrEmpty(data.lineId))
+        {
+            bool validFallback = scene.lines != null
+                && data.lineIndex >= 0
+                && data.lineIndex < scene.lines.Count
+                && scene.lines[data.lineIndex] != null;
+
+            if (validFallback)
+            {
+                resolvedLineIndex = data.lineIndex;
+                data.lineId = scene.lines[resolvedLineIndex].lineId ?? string.Empty;
+            }
+        }
+
+        if (resolvedLineIndex < 0)
+        {
+            result.Error = $"Line '{data.lineId}' is absent from scene '{data.sceneId}', and fallback index {data.lineIndex} is not allowed.";
+            return result;
+        }
+
+        data.lineIndex = resolvedLineIndex;
+
+        string expectedPreviewFileName = GetSlotFileStem(slotIndex) + ".png";
+        if (Path.IsPathRooted(data.previewFileName)
+            || !string.Equals(Path.GetFileName(data.previewFileName), data.previewFileName, StringComparison.Ordinal)
+            || !string.Equals(data.previewFileName, expectedPreviewFileName, StringComparison.Ordinal))
+        {
+            result.Error = $"previewFileName must be '{expectedPreviewFileName}'.";
+            return result;
+        }
+
+        string previewPath = GetSlotPreviewPath(slotIndex);
+        result.Data = data;
+        result.CreatedAtUtc = createdAt.UtcDateTime;
+        result.DisplayDate = createdAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        result.PreviewPath = File.Exists(previewPath) ? previewPath : string.Empty;
+        result.IsLoadable = true;
+        return result;
     }
 
-    private static bool WriteSaveData(string path, SaveData saveData)
+    private bool ApplyAndRoute(ManualSaveSlotInfo slot)
     {
-        if (saveData == null || string.IsNullOrEmpty(path))
+        SaveData data = slot.Data;
+        GameState gameState = GameState.EnsureInstance();
+
+        gameState.currentSceneId = data.sceneId;
+        gameState.currentLineId = data.lineId;
+        gameState.currentLineIndex = data.lineIndex;
+        gameState.selectedChoiceIndex = data.selectedChoiceIndex;
+        gameState.choiceResultActive = data.choiceResultActive;
+        gameState.pendingNextSceneId = data.pendingNextSceneId ?? string.Empty;
+        gameState.lust = data.lust;
+        gameState.romance = data.romance;
+        gameState.purity = data.purity;
+        gameState.corruptionLevel = data.corruptionLevel;
+        gameState.selfControl = data.selfControl;
+        gameState.suspicion = data.suspicion;
+        gameState.trustMasha = data.trustMasha;
+        gameState.trustArtem = data.trustArtem;
+        gameState.leraInterest = data.leraInterest;
+
+        pendingSceneRestore = true;
+        Debug.Log(
+            $"[LOAD] Slot {slot.SlotIndex} validated and applied. sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}, choiceIndex={data.selectedChoiceIndex}, suspicion={data.suspicion}.",
+            this);
+
+        VNDialogueController dialogueController = VNDialogueController.Instance;
+        if (SceneManager.GetActiveScene().name == GameplaySceneName && dialogueController != null)
         {
-            return false;
+            bool restored = dialogueController.RestoreFromGameState();
+            if (restored)
+            {
+                pendingSceneRestore = false;
+            }
+
+            return restored;
         }
 
-        string directory = Path.GetDirectoryName(path);
-        string temporaryPath = path + TemporarySuffix;
-        string backupPath = path + BackupSuffix;
+        SceneFlowManager.EnsureInstance().OpenLoadedGame();
+        return true;
+    }
 
+    private static bool IsValidSlotIndex(int slotIndex)
+    {
+        return slotIndex >= 1 && slotIndex <= SlotCount;
+    }
+
+    private static string GetSlotFileStem(int slotIndex)
+    {
+        return $"slot_{slotIndex:D2}";
+    }
+
+    private static void DeleteTemporaryFile(string path)
+    {
         try
         {
-            if (!string.IsNullOrEmpty(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            saveData.version = SaveData.CurrentVersion;
-            string json = JsonUtility.ToJson(saveData, true);
-
-            using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
-            using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
-            {
-                writer.Write(json);
-                writer.Flush();
-                stream.Flush(true);
-            }
-
             if (File.Exists(path))
             {
-                File.Replace(temporaryPath, path, backupPath, true);
+                File.Delete(path);
             }
-            else
-            {
-                File.Move(temporaryPath, path);
-            }
-
-            return true;
         }
         catch (Exception exception)
         {
-            Debug.LogError($"SaveManager: failed to write '{path}'. {exception.Message}");
-
-            try
-            {
-                if (File.Exists(temporaryPath))
-                {
-                    File.Delete(temporaryPath);
-                }
-            }
-            catch (Exception cleanupException)
-            {
-                Debug.LogWarning($"SaveManager: failed to remove temporary save '{temporaryPath}'. {cleanupException.Message}");
-            }
-
-            return false;
+            Debug.LogWarning($"[SAVE] Temporary file '{path}' could not be removed. {exception.Message}");
         }
-    }
-
-    private static void ApplySaveData(SaveData saveData)
-    {
-        GameState gameState = GameState.EnsureInstance();
-        gameState.currentSceneId = saveData.currentSceneId;
-        gameState.currentLineIndex = saveData.currentLineIndex;
-        gameState.currentLineId = saveData.currentLineId;
-        gameState.lust = saveData.lust;
-        gameState.romance = saveData.romance;
-        gameState.purity = saveData.purity;
-        gameState.corruptionLevel = saveData.corruptionLevel;
-        gameState.selfControl = saveData.selfControl;
-        gameState.suspicion = saveData.suspicion;
-        gameState.trustMasha = saveData.trustMasha;
-        gameState.trustArtem = saveData.trustArtem;
-        gameState.leraInterest = saveData.leraInterest;
-        gameState.hasLoadedSave = true;
-    }
-
-    private string GetSlotSavePath(int slotIndex, bool isAuto)
-    {
-        string kind = isAuto ? "auto" : "manual";
-        return Path.Combine(SavesDirectory, $"slot_{slotIndex}_{kind}.json");
-    }
-
-    private string GetSlotPreviewPath(int slotIndex, bool isAuto)
-    {
-        string kind = isAuto ? "auto" : "manual";
-        return Path.Combine(SavesDirectory, $"slot_{slotIndex}_{kind}_preview.png");
-    }
-
-    private IEnumerable<string> GetSlotSavePaths()
-    {
-        if (!Directory.Exists(SavesDirectory))
-        {
-            return Array.Empty<string>();
-        }
-
-        return Directory.GetFiles(SavesDirectory, "slot_*.json");
-    }
-
-    private string GetLatestSavePath()
-    {
-        var paths = new List<string>();
-        if (HasSave())
-        {
-            paths.Add(SavePath);
-        }
-
-        paths.AddRange(GetSlotSavePaths());
-        return paths
-            .Where(File.Exists)
-            .OrderByDescending(File.GetLastWriteTimeUtc)
-            .FirstOrDefault();
-    }
-
-    private IEnumerator CapturePreviewEndOfFrame(string previewPath)
-    {
-        yield return new WaitForEndOfFrame();
-
-        try
-        {
-            Texture2D texture = ScreenCapture.CaptureScreenshotAsTexture();
-            if (texture == null)
-            {
-                yield break;
-            }
-
-            WritePreviewTexture(previewPath, texture);
-            Destroy(texture);
-        }
-        catch (Exception exception)
-        {
-            Debug.LogWarning($"SaveManager: preview capture failed. {exception.Message}");
-        }
-    }
-
-    private void WritePreviewTexture(string previewPath, Texture2D texture)
-    {
-        if (texture == null)
-        {
-            return;
-        }
-
-        string directory = Path.GetDirectoryName(previewPath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        File.WriteAllBytes(previewPath, texture.EncodeToPNG());
     }
 }
