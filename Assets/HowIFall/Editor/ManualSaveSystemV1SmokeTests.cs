@@ -698,6 +698,14 @@ public static class ManualSaveSystemV1SmokeTests
         WriteData(context, SaveSlotType.Quick, quick);
         latest = InvokeLatest(context);
         Require(latest != null && latest.SlotType == SaveSlotType.Manual, "Continue tie-break did not prefer Manual over Quick and Auto.");
+
+        Require(context.Manager.DeleteSlot(SaveSlotType.Manual, 1), "Could not remove Manual while testing Continue tie-break.");
+        latest = InvokeLatest(context);
+        Require(latest != null && latest.SlotType == SaveSlotType.Quick, "Continue tie-break did not prefer Quick over Auto.");
+
+        Require(context.Manager.DeleteSlot(SaveSlotType.Quick, 3), "Could not remove Quick while testing Continue tie-break.");
+        latest = InvokeLatest(context);
+        Require(latest != null && latest.SlotType == SaveSlotType.Auto, "Continue tie-break did not fall back to Auto.");
     }
 
     private static void TestContinueIgnoresNewerInvalidAcrossTypes(TestContext context)
