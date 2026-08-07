@@ -27,6 +27,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     public CanvasGroup contentCanvasGroup;
     public RectTransform windowRect;
     public TextMeshProUGUI titleText;
+    public TextMeshProUGUI subtitleText;
+    public TextMeshProUGUI slotTypeHintText;
+    public Button manualTabButton;
+    public Button autoTabButton;
+    public Button quickTabButton;
     public TextMeshProUGUI statusText;
     public CanvasGroup statusCanvasGroup;
     public float statusVisibleDuration = 1.75f;
@@ -40,7 +45,9 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     public Button confirmationNoButton;
 
     private PanelMode mode;
+    [SerializeField] private SaveSlotType currentSlotType = SaveSlotType.Manual;
     private ConfirmationAction pendingConfirmationAction;
+    private SaveSlotType? pendingConfirmationSlotType;
     private int pendingConfirmationSlot;
     private bool saveInProgress;
     private Coroutine panelAnimation;
@@ -49,6 +56,10 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public bool IsOpen => gameObject.activeSelf;
     public bool IsConfirmationOpen => confirmationRoot != null && confirmationRoot.activeSelf;
+    public SaveSlotType CurrentSlotType => currentSlotType;
+    public bool IsSaveMode => mode == PanelMode.Save;
+    public SaveSlotType? PendingConfirmationSlotType => pendingConfirmationSlotType;
+    public int PendingConfirmationSlot => pendingConfirmationSlot;
 
     private void Awake()
     {
@@ -62,6 +73,10 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             closeButton.onClick.RemoveListener(Close);
             closeButton.onClick.AddListener(Close);
         }
+
+        BindTabButton(manualTabButton, SelectManualTab);
+        BindTabButton(autoTabButton, SelectAutoTab);
+        BindTabButton(quickTabButton, SelectQuickTab);
 
         if (confirmationYesButton != null)
         {
@@ -84,6 +99,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         SetConfirmationVisible(false, true);
+        ApplySlotTypePresentation();
     }
 
     private void Update()
@@ -103,13 +119,30 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         mode = PanelMode.Save;
+        currentSlotType = SaveSlotType.Manual;
         Open();
     }
 
     public void OpenLoad()
     {
         mode = PanelMode.Load;
+        currentSlotType = SaveSlotType.Manual;
         Open();
+    }
+
+    public void SelectManualTab()
+    {
+        SelectSlotType(SaveSlotType.Manual);
+    }
+
+    public void SelectAutoTab()
+    {
+        SelectSlotType(SaveSlotType.Auto);
+    }
+
+    public void SelectQuickTab()
+    {
+        SelectSlotType(SaveSlotType.Quick);
     }
 
     public void Close()
@@ -157,21 +190,26 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         if (mode == PanelMode.Save)
         {
-            SaveSlotInfo slot = saveManager.GetSlot(slotIndex);
-            if (slot.IsOccupied)
+            if (currentSlotType != SaveSlotType.Manual)
             {
-                OpenConfirmation(ConfirmationAction.Overwrite, slotIndex);
                 return;
             }
 
-            StartCoroutine(CaptureAndSave(slotIndex));
+            SaveSlotInfo slot = saveManager.GetSlot(currentSlotType, slotIndex);
+            if (slot.IsOccupied)
+            {
+                OpenConfirmation(ConfirmationAction.Overwrite, currentSlotType, slotIndex);
+                return;
+            }
+
+            StartCoroutine(CaptureAndSave(currentSlotType, slotIndex));
             return;
         }
 
         bool loadInsideVn = VNDialogueController.Instance != null;
-        if (!saveManager.LoadSlot(slotIndex))
+        if (!saveManager.LoadSlot(currentSlotType, slotIndex))
         {
-            SaveSlotInfo slot = saveManager.GetSlot(slotIndex);
+            SaveSlotInfo slot = saveManager.GetSlot(currentSlotType, slotIndex);
             SetStatus(string.IsNullOrEmpty(slot.Error) ? "Не удалось загрузить слот" : slot.Error, true);
             Refresh();
             return;
@@ -197,13 +235,13 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             return;
         }
 
-        if (!saveManager.GetSlot(slotIndex).IsOccupied)
+        if (!saveManager.GetSlot(currentSlotType, slotIndex).IsOccupied)
         {
             Refresh();
             return;
         }
 
-        OpenConfirmation(ConfirmationAction.Delete, slotIndex);
+        OpenConfirmation(ConfirmationAction.Delete, currentSlotType, slotIndex);
     }
 
     private void Open()
@@ -219,6 +257,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             titleText.text = mode == PanelMode.Save ? "Сохранение" : "Загрузка";
         }
 
+        ApplySlotTypePresentation();
         Refresh();
         if (wasAlreadyOpen)
         {
@@ -330,25 +369,32 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private void ConfirmPendingAction()
     {
         ConfirmationAction action = pendingConfirmationAction;
+        SaveSlotType? slotType = pendingConfirmationSlotType;
         int slotIndex = pendingConfirmationSlot;
         ClearPendingConfirmation();
         SetConfirmationVisible(false, true);
 
-        if (slotIndex <= 0)
+        if (!slotType.HasValue || slotIndex <= 0)
         {
             return;
         }
 
         if (action == ConfirmationAction.Overwrite)
         {
-            StartCoroutine(CaptureAndSave(slotIndex));
+            if (slotType.Value != SaveSlotType.Manual)
+            {
+                SetStatus("Перезапись доступна только для ручных сохранений", true);
+                return;
+            }
+
+            StartCoroutine(CaptureAndSave(slotType.Value, slotIndex));
             return;
         }
 
         if (action == ConfirmationAction.Delete)
         {
             SaveManager saveManager = ResolveSaveManager();
-            bool deleted = saveManager != null && saveManager.DeleteSlot(slotIndex);
+            bool deleted = saveManager != null && saveManager.DeleteSlot(slotType.Value, slotIndex);
             SetStatus(deleted ? $"Слот {slotIndex} удалён" : $"Не удалось удалить слот {slotIndex}", !deleted);
             Refresh();
             RefreshContinueAvailability();
@@ -361,10 +407,16 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         SetConfirmationVisible(false, true);
     }
 
-    private void OpenConfirmation(ConfirmationAction action, int slotIndex)
+    private void OpenConfirmation(ConfirmationAction action, SaveSlotType slotType, int slotIndex)
     {
+        if (action == ConfirmationAction.Overwrite && slotType != SaveSlotType.Manual)
+        {
+            return;
+        }
+
         ClearPendingConfirmation();
         pendingConfirmationAction = action;
+        pendingConfirmationSlotType = slotType;
         pendingConfirmationSlot = slotIndex;
 
         if (confirmationText != null)
@@ -382,11 +434,17 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private void ClearPendingConfirmation()
     {
         pendingConfirmationAction = ConfirmationAction.None;
+        pendingConfirmationSlotType = null;
         pendingConfirmationSlot = 0;
     }
 
-    private IEnumerator CaptureAndSave(int slotIndex)
+    private IEnumerator CaptureAndSave(SaveSlotType slotType, int slotIndex)
     {
+        if (slotType != SaveSlotType.Manual)
+        {
+            yield break;
+        }
+
         saveInProgress = true;
         SetStatus("Создание сохранения...", false);
 
@@ -441,7 +499,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         SaveManager saveManager = ResolveSaveManager();
-        bool saved = saveManager != null && saveManager.SaveSlot(slotIndex, screenshot);
+        bool saved = saveManager != null && saveManager.SaveSlot(slotType, slotIndex, screenshot);
 
         if (screenshot != null)
         {
@@ -464,10 +522,53 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         for (int i = 0; i < slotViews.Length; i++)
         {
             SaveSlotInfo slot = saveManager != null
-                ? saveManager.GetSlot(i + 1)
-                : new SaveSlotInfo { SlotIndex = i + 1 };
+                ? saveManager.GetSlot(currentSlotType, i + 1)
+                : new SaveSlotInfo { SlotType = currentSlotType, SlotIndex = i + 1 };
             slotViews[i]?.Render(slot, mode == PanelMode.Save);
         }
+    }
+
+    private void SelectSlotType(SaveSlotType slotType)
+    {
+        if (saveInProgress || IsConfirmationOpen || currentSlotType == slotType)
+        {
+            return;
+        }
+
+        currentSlotType = slotType;
+        ApplySlotTypePresentation();
+        Refresh();
+    }
+
+    private void ApplySlotTypePresentation()
+    {
+        if (subtitleText != null)
+        {
+            subtitleText.text = currentSlotType switch
+            {
+                SaveSlotType.Auto => "АВТОСОХРАНЕНИЯ",
+                SaveSlotType.Quick => "БЫСТРЫЕ СОХРАНЕНИЯ",
+                _ => "РУЧНЫЕ СОХРАНЕНИЯ"
+            };
+        }
+
+        if (slotTypeHintText != null)
+        {
+            string hint = mode == PanelMode.Save
+                ? currentSlotType switch
+                {
+                    SaveSlotType.Auto => "Автосохранения создаются игрой автоматически",
+                    SaveSlotType.Quick => "Быстрые сохранения создаются отдельной командой",
+                    _ => string.Empty
+                }
+                : string.Empty;
+            slotTypeHintText.text = hint;
+            slotTypeHintText.gameObject.SetActive(!string.IsNullOrEmpty(hint));
+        }
+
+        SetTabVisual(manualTabButton, currentSlotType == SaveSlotType.Manual);
+        SetTabVisual(autoTabButton, currentSlotType == SaveSlotType.Auto);
+        SetTabVisual(quickTabButton, currentSlotType == SaveSlotType.Quick);
     }
 
     private SaveManager ResolveSaveManager()
@@ -597,6 +698,46 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         if (text != null)
         {
             text.text = label;
+        }
+    }
+
+    private static void BindTabButton(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
+    }
+
+    private static void SetTabVisual(Button button, bool active)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        if (button.targetGraphic is Image background)
+        {
+            background.color = active
+                ? new Color(0.075f, 0.145f, 0.22f, 0.96f)
+                : new Color(0.032f, 0.055f, 0.085f, 0.72f);
+        }
+
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.color = active
+                ? new Color(0.88f, 0.95f, 1f, 1f)
+                : new Color(0.48f, 0.59f, 0.7f, 0.82f);
+        }
+
+        Transform accent = button.transform.Find("Active Accent");
+        if (accent != null)
+        {
+            accent.gameObject.SetActive(active);
         }
     }
 

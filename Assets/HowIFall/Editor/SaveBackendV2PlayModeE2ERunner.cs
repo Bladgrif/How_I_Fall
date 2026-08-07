@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -23,6 +24,12 @@ public static class SaveBackendV2PlayModeE2ERunner
     private const string AutoNewestSnapshotKey = "HowIFall.SaveBackendV2E2E.AutoNewestSnapshot";
     private const string ResultPath = "save_backend_v2_playmode_result.txt";
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
+    private const string TabsScreenshotFolder = "docs/screenshots/save_load_ui";
+    private static readonly Vector2Int[] TabsUiResolutions =
+    {
+        new Vector2Int(1920, 1080),
+        new Vector2Int(1280, 720)
+    };
 
     static SaveBackendV2PlayModeE2ERunner()
     {
@@ -44,6 +51,7 @@ public static class SaveBackendV2PlayModeE2ERunner
 
         DeleteIfExists(Path.Combine(Directory.GetCurrentDirectory(), ResultPath));
         CleanupTestDirectory();
+        CleanTabsScreenshots();
 
         string directory = Path.Combine(
             Path.GetTempPath(),
@@ -250,15 +258,24 @@ public static class SaveBackendV2PlayModeE2ERunner
             SessionState.SetString(QuickSnapshotKey, JsonUtility.ToJson(quickSnapshot));
             Pass("SaveQuick created slots 1-6 and the seventh call overwrote oldest slot 1");
 
+            yield return RunSafely(VerifyTabbedUiAndCapture(controller, manager));
+
             yield return RunSafely(MutateDialogueAndState(controller, autoSnapshot));
-            Require(manager.LoadSlot(SaveSlotType.Auto, 1), "Public LoadSlot(Auto, 1) returned false.");
+            ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
+            panel.OpenLoad();
+            panel.SelectAutoTab();
+            panel.OnSlotSelected(1);
+            yield return new WaitForSecondsRealtime(0.2f);
             VerifyRestoredSnapshot(autoSnapshot, "public Auto LoadSlot");
-            Pass("Public LoadSlot restored Auto GameState, choice and VN position");
+            Pass("Load tab invoked public LoadSlot(Auto, 1) and restored GameState, choice and VN position");
 
             yield return RunSafely(MutateDialogueAndState(controller, quickSnapshot));
-            Require(manager.LoadSlot(SaveSlotType.Quick, 1), "Public LoadSlot(Quick, 1) returned false.");
+            panel.OpenLoad();
+            panel.SelectQuickTab();
+            panel.OnSlotSelected(1);
+            yield return new WaitForSecondsRealtime(0.2f);
             VerifyRestoredSnapshot(quickSnapshot, "public Quick LoadSlot");
-            Pass("Public LoadSlot restored Quick GameState, choice and VN position");
+            Pass("Load tab invoked public LoadSlot(Quick, 1) and restored GameState, choice and VN position");
 
             UnityEngine.Object.Destroy(screenshot);
             screenshot = null;
@@ -274,6 +291,245 @@ public static class SaveBackendV2PlayModeE2ERunner
                 UnityEngine.Object.Destroy(screenshot);
             }
         }
+    }
+
+    private static IEnumerator VerifyTabbedUiAndCapture(VNDialogueController controller, SaveManager manager)
+    {
+        ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
+        Require(panel != null, "VNPrototype has no shared ManualSaveLoadPanel.");
+        Require(panel.slotViews != null && panel.slotViews.Length == SaveManager.SlotCount, "Tabbed panel does not contain six slot views.");
+
+        panel.OpenLoad();
+        yield return new WaitForSecondsRealtime(0.2f);
+        VerifyTabPresentation(panel, manager, SaveSlotType.Manual, false);
+        Require(panel.CurrentSlotType == SaveSlotType.Manual, "OpenLoad did not reset the panel to Manual.");
+
+        foreach (Vector2Int resolution in TabsUiResolutions)
+        {
+            ConfigureGameViewResolution(resolution);
+            for (int frame = 0; frame < 40 && (Screen.width != resolution.x || Screen.height != resolution.y); frame++)
+            {
+                yield return null;
+            }
+
+            Require(Screen.width == resolution.x && Screen.height == resolution.y, $"Game View did not switch to {resolution.x}x{resolution.y}.");
+
+            foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
+            {
+                SelectTab(panel, type);
+                yield return new WaitForSecondsRealtime(0.12f);
+                VerifyTabPresentation(panel, manager, type, false);
+                VerifyTabsLayout(panel, resolution);
+                yield return new WaitForEndOfFrame();
+                CaptureTabsScreenshot(type, resolution);
+            }
+        }
+
+        panel.OpenSave();
+        yield return new WaitForSecondsRealtime(0.12f);
+        VerifyTabPresentation(panel, manager, SaveSlotType.Manual, true);
+        Require(panel.CurrentSlotType == SaveSlotType.Manual, "OpenSave did not reset the panel to Manual.");
+        Require(panel.slotViews.All(view => view.button.interactable), "Manual slots are not writable in Save mode.");
+
+        Dictionary<string, byte[]> autoFilesBeforeReadOnlyClick = CaptureTypeFiles(manager, SaveSlotType.Auto);
+        panel.SelectAutoTab();
+        VerifyTabPresentation(panel, manager, SaveSlotType.Auto, true);
+        Require(panel.slotViews.All(view => !view.button.interactable), "Auto cards have an active primary click in Save mode.");
+        panel.OnSlotSelected(2);
+        yield return null;
+        RequireFilesEqual(autoFilesBeforeReadOnlyClick, CaptureTypeFiles(manager, SaveSlotType.Auto), "Auto primary click changed files in Save mode.");
+        Require(!panel.IsConfirmationOpen, "Auto primary click opened overwrite confirmation in Save mode.");
+
+        Dictionary<string, byte[]> quickFilesBeforeReadOnlyClick = CaptureTypeFiles(manager, SaveSlotType.Quick);
+        panel.SelectQuickTab();
+        VerifyTabPresentation(panel, manager, SaveSlotType.Quick, true);
+        Require(panel.slotViews.All(view => !view.button.interactable), "Quick cards have an active primary click in Save mode.");
+        panel.OnSlotSelected(2);
+        yield return null;
+        RequireFilesEqual(quickFilesBeforeReadOnlyClick, CaptureTypeFiles(manager, SaveSlotType.Quick), "Quick primary click changed files in Save mode.");
+        Require(!panel.IsConfirmationOpen, "Quick primary click opened overwrite confirmation in Save mode.");
+        Pass("Save mode keeps Manual writable and makes Auto/Quick view-delete only");
+
+        panel.OpenLoad();
+        panel.SelectAutoTab();
+        Dictionary<string, byte[]> manualBeforeAutoDelete = CaptureTypeFiles(manager, SaveSlotType.Manual);
+        Dictionary<string, byte[]> quickBeforeAutoDelete = CaptureTypeFiles(manager, SaveSlotType.Quick);
+        panel.OnDeleteRequested(6);
+        Require(panel.IsConfirmationOpen, "Auto Delete did not open confirmation.");
+        Require(panel.PendingConfirmationSlotType == SaveSlotType.Auto && panel.PendingConfirmationSlot == 6, "Auto Delete confirmation lost type/index.");
+        panel.SelectQuickTab();
+        Require(panel.CurrentSlotType == SaveSlotType.Auto, "Tab switched while confirmation was open.");
+        Require(panel.HandleEscape(), "Escape did not handle Auto Delete confirmation.");
+        Require(!panel.IsConfirmationOpen && !panel.PendingConfirmationSlotType.HasValue && panel.PendingConfirmationSlot == 0, "Escape did not clear pending confirmation.");
+        Require(manager.GetSlot(SaveSlotType.Auto, 6).IsOccupied, "Escape deleted Auto slot 6.");
+        Require(panel.IsOpen, "Escape closed the panel instead of confirmation first.");
+        Require(panel.HandleEscape(), "Second Escape did not close the Save/Load panel.");
+        yield return new WaitForSecondsRealtime(0.25f);
+        Require(!panel.IsOpen, "Second Escape did not close the Save/Load panel.");
+
+        panel.OpenLoad();
+        panel.SelectAutoTab();
+        panel.OnDeleteRequested(6);
+        panel.confirmationYesButton.onClick.Invoke();
+        yield return null;
+        Require(!manager.GetSlot(SaveSlotType.Auto, 6).IsOccupied, "Confirmed Auto Delete left slot 6 occupied.");
+        RequireFilesEqual(manualBeforeAutoDelete, CaptureTypeFiles(manager, SaveSlotType.Manual), "Auto Delete changed Manual files.");
+        RequireFilesEqual(quickBeforeAutoDelete, CaptureTypeFiles(manager, SaveSlotType.Quick), "Auto Delete changed Quick files.");
+        Require(!panel.slotViews[5].button.interactable, "Deleted Auto slot is active in Load mode.");
+        RestoreCapturedFiles(manualBeforeAutoDelete);
+        RestoreCapturedFiles(quickBeforeAutoDelete);
+        RestoreCapturedFiles(autoFilesBeforeReadOnlyClick);
+        Require(manager.GetSlot(SaveSlotType.Auto, 6).IsLoadable, "Auto slot 6 test fixture was not restored after Delete verification.");
+
+        Dictionary<string, byte[]> manualBeforeQuickDelete = CaptureTypeFiles(manager, SaveSlotType.Manual);
+        Dictionary<string, byte[]> autoBeforeQuickDelete = CaptureTypeFiles(manager, SaveSlotType.Auto);
+        panel.SelectQuickTab();
+        panel.OnDeleteRequested(6);
+        Require(panel.PendingConfirmationSlotType == SaveSlotType.Quick && panel.PendingConfirmationSlot == 6, "Quick Delete confirmation lost type/index.");
+        panel.confirmationYesButton.onClick.Invoke();
+        yield return null;
+        Require(!manager.GetSlot(SaveSlotType.Quick, 6).IsOccupied, "Confirmed Quick Delete left slot 6 occupied.");
+        RequireFilesEqual(manualBeforeQuickDelete, CaptureTypeFiles(manager, SaveSlotType.Manual), "Quick Delete changed Manual files.");
+        RequireFilesEqual(autoBeforeQuickDelete, CaptureTypeFiles(manager, SaveSlotType.Auto), "Quick Delete changed Auto files.");
+        Require(!panel.slotViews[5].button.interactable, "Deleted Quick slot is active in Load mode.");
+        RestoreCapturedFiles(quickFilesBeforeReadOnlyClick);
+        Require(manager.GetSlot(SaveSlotType.Quick, 6).IsLoadable, "Quick slot 6 test fixture was not restored after Delete verification.");
+        Pass("Typed Delete confirmation is isolated and Escape clears pending state before closing panel");
+
+        panel.Close();
+        yield return new WaitForSecondsRealtime(0.2f);
+    }
+
+    private static void VerifyTabPresentation(ManualSaveLoadPanel panel, SaveManager manager, SaveSlotType type, bool saveMode)
+    {
+        Require(panel.CurrentSlotType == type, $"Panel current type is {panel.CurrentSlotType}; expected {type}.");
+        string expectedSubtitle = type switch
+        {
+            SaveSlotType.Auto => "АВТОСОХРАНЕНИЯ",
+            SaveSlotType.Quick => "БЫСТРЫЕ СОХРАНЕНИЯ",
+            _ => "РУЧНЫЕ СОХРАНЕНИЯ"
+        };
+        Require(panel.subtitleText != null && panel.subtitleText.text == expectedSubtitle, $"{type} subtitle is incorrect.");
+
+        string expectedHint = saveMode
+            ? type switch
+            {
+                SaveSlotType.Auto => "Автосохранения создаются игрой автоматически",
+                SaveSlotType.Quick => "Быстрые сохранения создаются отдельной командой",
+                _ => string.Empty
+            }
+            : string.Empty;
+        Require(panel.slotTypeHintText != null && panel.slotTypeHintText.text == expectedHint, $"{type} Save hint is incorrect.");
+        Require(panel.slotTypeHintText.gameObject.activeSelf == !string.IsNullOrEmpty(expectedHint), $"{type} Save hint visibility is incorrect.");
+
+        Require(IsTabActive(panel.manualTabButton) == (type == SaveSlotType.Manual), "Manual tab active state is incorrect.");
+        Require(IsTabActive(panel.autoTabButton) == (type == SaveSlotType.Auto), "Auto tab active state is incorrect.");
+        Require(IsTabActive(panel.quickTabButton) == (type == SaveSlotType.Quick), "Quick tab active state is incorrect.");
+
+        for (int i = 0; i < SaveManager.SlotCount; i++)
+        {
+            int slotIndex = i + 1;
+            ManualSaveSlotView view = panel.slotViews[i];
+            SaveSlotInfo slot = manager.GetSlot(type, slotIndex);
+            string expectedNumber = type switch
+            {
+                SaveSlotType.Auto => $"Авто {slotIndex}",
+                SaveSlotType.Quick => $"Быстрое {slotIndex}",
+                _ => $"Слот {slotIndex}"
+            };
+            Require(view.slotNumberText.text == expectedNumber, $"{type} card {slotIndex} number label is incorrect.");
+            bool expectedPrimary = saveMode ? type == SaveSlotType.Manual : slot.IsLoadable;
+            Require(view.button.interactable == expectedPrimary, $"{type} card {slotIndex} primary interaction is incorrect.");
+
+            if (!slot.IsOccupied)
+            {
+                string expectedEmpty = type switch
+                {
+                    SaveSlotType.Auto => "Нет автосохранения",
+                    SaveSlotType.Quick => "Нет быстрого сохранения",
+                    _ => "Пустой слот"
+                };
+                Require(view.emptyText.text == expectedEmpty, $"{type} card {slotIndex} empty label is incorrect.");
+            }
+        }
+    }
+
+    private static bool IsTabActive(UnityEngine.UI.Button button)
+    {
+        Transform accent = button != null ? button.transform.Find("Active Accent") : null;
+        return accent != null && accent.gameObject.activeSelf;
+    }
+
+    private static void SelectTab(ManualSaveLoadPanel panel, SaveSlotType type)
+    {
+        switch (type)
+        {
+            case SaveSlotType.Auto:
+                panel.SelectAutoTab();
+                break;
+            case SaveSlotType.Quick:
+                panel.SelectQuickTab();
+                break;
+            default:
+                panel.SelectManualTab();
+                break;
+        }
+    }
+
+    private static void VerifyTabsLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
+    {
+        Require(Screen.width == resolution.x && Screen.height == resolution.y, "Tabbed layout resolution does not match Game View.");
+        Rect window = GetScreenRect(panel.windowRect);
+        Require(window.xMin >= -2f && window.yMin >= -2f && window.xMax <= Screen.width + 2f && window.yMax <= Screen.height + 2f, $"Save window is clipped at {resolution.x}x{resolution.y}.");
+
+        Rect title = GetScreenRect(panel.titleText.rectTransform);
+        Rect tabs = GetScreenRect(panel.manualTabButton.transform.parent as RectTransform);
+        Require(tabs.yMax < title.yMin, $"Tabs overlap the title at {resolution.x}x{resolution.y}.");
+
+        Rect[] cards = panel.slotViews.Select(view => GetScreenRect(view.cardRect)).ToArray();
+        Require(cards.All(card => card.width > 200f && card.height > 140f), $"Cards became unreadable at {resolution.x}x{resolution.y}.");
+        Require(cards.All(card => card.xMin >= 0f && card.yMin >= 0f && card.xMax <= Screen.width && card.yMax <= Screen.height), $"A card is outside screen at {resolution.x}x{resolution.y}.");
+        Require(tabs.yMin > cards.Max(card => card.yMax), $"Tabs overlap cards at {resolution.x}x{resolution.y}.");
+        Require(GetScreenRect(panel.closeButton.transform as RectTransform).xMax <= Screen.width + 1f, $"Back button is clipped at {resolution.x}x{resolution.y}.");
+        Require(GetScreenRect(panel.statusText.rectTransform).yMax <= cards.Min(card => card.yMin) + 2f, $"Toast overlaps cards at {resolution.x}x{resolution.y}.");
+    }
+
+    private static Rect GetScreenRect(RectTransform rectTransform)
+    {
+        var corners = new Vector3[4];
+        rectTransform.GetWorldCorners(corners);
+        return Rect.MinMaxRect(
+            corners.Min(point => point.x),
+            corners.Min(point => point.y),
+            corners.Max(point => point.x),
+            corners.Max(point => point.y));
+    }
+
+    private static void CaptureTabsScreenshot(SaveSlotType type, Vector2Int resolution)
+    {
+        Texture2D screenshot = ScreenCapture.CaptureScreenshotAsTexture();
+        Require(screenshot != null, $"Could not capture {type} tab screenshot at {resolution.x}x{resolution.y}.");
+        try
+        {
+            Require(screenshot.width == resolution.x && screenshot.height == resolution.y, $"{type} screenshot size is {screenshot.width}x{screenshot.height}; expected {resolution.x}x{resolution.y}.");
+            string path = GetTabsScreenshotPath(type, resolution);
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllBytes(path, screenshot.EncodeToPNG());
+            Require(File.Exists(path), $"Tabbed screenshot was not written to '{path}'.");
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(screenshot);
+        }
+    }
+
+    private static string GetTabsScreenshotPath(SaveSlotType type, Vector2Int resolution)
+    {
+        string typeName = type.ToString().ToLowerInvariant();
+        return Path.GetFullPath(Path.Combine(
+            Directory.GetCurrentDirectory(),
+            TabsScreenshotFolder,
+            $"save_load_{typeName}_{resolution.x}x{resolution.y}.png"));
     }
 
     private static IEnumerator AdvanceToChoice(VNDialogueController controller)
@@ -571,6 +827,15 @@ public static class SaveBackendV2PlayModeE2ERunner
         }
     }
 
+    private static void RestoreCapturedFiles(IReadOnlyDictionary<string, byte[]> files)
+    {
+        foreach (KeyValuePair<string, byte[]> pair in files)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(pair.Key));
+            File.WriteAllBytes(pair.Key, pair.Value);
+        }
+    }
+
     private static bool AllTypesAreEmpty(SaveManager manager)
     {
         return new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick }
@@ -589,6 +854,100 @@ public static class SaveBackendV2PlayModeE2ERunner
         string directory = SessionState.GetString(DirectoryKey, string.Empty);
         manager.ConfigureSaveDirectoryForTests(directory);
         Require(manager.SaveDirectoryPath == directory, "SaveManager lost the temporary test directory after a scene transition.");
+    }
+
+    private static void ConfigureGameViewResolution(Vector2Int resolution)
+    {
+        try
+        {
+            Assembly editorAssembly = typeof(EditorWindow).Assembly;
+            Type gameViewType = editorAssembly.GetType("UnityEditor.GameView", true);
+            Type gameViewSizesType = editorAssembly.GetType("UnityEditor.GameViewSizes", true);
+            Type gameViewSizeType = editorAssembly.GetType("UnityEditor.GameViewSize", true);
+            Type gameViewSizeModeType = editorAssembly.GetType("UnityEditor.GameViewSizeType", true);
+
+            Type singletonType = typeof(ScriptableSingleton<>).MakeGenericType(gameViewSizesType);
+            PropertyInfo instanceProperty = singletonType.GetProperty(
+                "instance",
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            object sizesInstance = instanceProperty?.GetValue(null);
+            Require(sizesInstance != null, "Unity GameViewSizes singleton is unavailable.");
+
+            MethodInfo getGroup = gameViewSizesType.GetMethod(
+                "GetGroup",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Require(getGroup != null, "Unity GameViewSizes.GetGroup() is unavailable.");
+            Type groupTypeEnum = getGroup.GetParameters()[0].ParameterType;
+            object standaloneGroup = Enum.Parse(groupTypeEnum, "Standalone");
+            object group = getGroup.Invoke(sizesInstance, new[] { standaloneGroup });
+            Require(group != null, "Unity Standalone Game View size group is unavailable.");
+
+            MethodInfo getTotalCount = group.GetType().GetMethod(
+                "GetTotalCount",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            MethodInfo getGameViewSize = group.GetType().GetMethod(
+                "GetGameViewSize",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            MethodInfo addCustomSize = group.GetType().GetMethod(
+                "AddCustomSize",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Require(getTotalCount != null && getGameViewSize != null && addCustomSize != null, "Unity Game View size group API is incomplete.");
+
+            PropertyInfo widthProperty = gameViewSizeType.GetProperty(
+                "width",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            PropertyInfo heightProperty = gameViewSizeType.GetProperty(
+                "height",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Require(widthProperty != null && heightProperty != null, "Unity GameViewSize dimensions are unavailable.");
+
+            int selectedIndex = -1;
+            int count = (int)getTotalCount.Invoke(group, null);
+            for (int i = 0; i < count; i++)
+            {
+                object size = getGameViewSize.Invoke(group, new object[] { i });
+                if ((int)widthProperty.GetValue(size) == resolution.x
+                    && (int)heightProperty.GetValue(size) == resolution.y)
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+
+            if (selectedIndex < 0)
+            {
+                object fixedResolution = Enum.Parse(gameViewSizeModeType, "FixedResolution");
+                ConstructorInfo constructor = gameViewSizeType.GetConstructor(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    null,
+                    new[] { gameViewSizeModeType, typeof(int), typeof(int), typeof(string) },
+                    null);
+                Require(constructor != null, "Unity GameViewSize constructor is unavailable.");
+                object newSize = constructor.Invoke(new object[]
+                {
+                    fixedResolution,
+                    resolution.x,
+                    resolution.y,
+                    $"How I Fall tabs {resolution.x}x{resolution.y}"
+                });
+                addCustomSize.Invoke(group, new[] { newSize });
+                selectedIndex = (int)getTotalCount.Invoke(group, null) - 1;
+            }
+
+            EditorWindow gameView = EditorWindow.GetWindow(gameViewType);
+            PropertyInfo selectedSizeProperty = gameViewType.GetProperty(
+                "selectedSizeIndex",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Require(selectedSizeProperty != null && selectedSizeProperty.CanWrite, "Unity GameView.selectedSizeIndex is unavailable.");
+            selectedSizeProperty.SetValue(gameView, selectedIndex);
+            gameView.Repaint();
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException($"Could not configure Game View to {resolution.x}x{resolution.y}.", exception);
+        }
+
+        Screen.SetResolution(resolution.x, resolution.y, FullScreenMode.Windowed);
     }
 
     private static SaveData ReadSnapshot(string key)
@@ -714,6 +1073,17 @@ public static class SaveBackendV2PlayModeE2ERunner
 
         Directory.Delete(fullPath, true);
         Debug.Log($"[SAVE BACKEND E2E] Temporary save directory removed: '{fullPath}'.");
+    }
+
+    private static void CleanTabsScreenshots()
+    {
+        foreach (Vector2Int resolution in TabsUiResolutions)
+        {
+            foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
+            {
+                DeleteIfExists(GetTabsScreenshotPath(type, resolution));
+            }
+        }
     }
 
     private static void WriteResult(string status, string details)

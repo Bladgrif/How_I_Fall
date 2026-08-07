@@ -17,7 +17,7 @@ public static class ManualSaveSystemSceneInstaller
     private const string RegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
     private const string PrefabFolder = "Assets/HowIFall/Prefabs/UI";
     private const string PrefabPath = PrefabFolder + "/ManualSaveLoadPanel.prefab";
-    private const int PanelVisualVersion = 3;
+    private const int PanelVisualVersion = 4;
 
     private static readonly Color DimColor = new Color(0.008f, 0.014f, 0.03f, 0.72f);
     private static readonly Color CardColor = new Color(0.052f, 0.071f, 0.1f, 0.97f);
@@ -191,6 +191,11 @@ public static class ManualSaveSystemSceneInstaller
                 || panel.visualVersion != PanelVisualVersion
                 || panel.windowRect == null
                 || panel.contentCanvasGroup == null
+                || panel.subtitleText == null
+                || panel.slotTypeHintText == null
+                || panel.manualTabButton == null
+                || panel.autoTabButton == null
+                || panel.quickTabButton == null
                 || panel.statusCanvasGroup == null
                 || panel.confirmationCanvasGroup == null
                 || panel.confirmationWindow == null
@@ -286,7 +291,7 @@ public static class ManualSaveSystemSceneInstaller
         headerRect.anchorMin = new Vector2(0f, 1f);
         headerRect.anchorMax = Vector2.one;
         headerRect.pivot = new Vector2(0.5f, 1f);
-        headerRect.sizeDelta = new Vector2(0f, 138f);
+        headerRect.sizeDelta = new Vector2(0f, 180f);
         Image headerImage = header.AddComponent<Image>();
         headerImage.color = Color.white;
         headerImage.raycastTarget = false;
@@ -297,7 +302,7 @@ public static class ManualSaveSystemSceneInstaller
         GameObject headerSeparator = CreateUiObject("Header Separator", window.transform);
         RectTransform headerSeparatorRect = headerSeparator.GetComponent<RectTransform>();
         headerSeparatorRect.anchorMin = headerSeparatorRect.anchorMax = new Vector2(0.5f, 1f);
-        headerSeparatorRect.anchoredPosition = new Vector2(0f, -132f);
+        headerSeparatorRect.anchoredPosition = new Vector2(0f, -164f);
         headerSeparatorRect.sizeDelta = new Vector2(1420f, 1f);
         Image headerSeparatorImage = headerSeparator.AddComponent<Image>();
         headerSeparatorImage.color = new Color(0.28f, 0.46f, 0.62f, 0.2f);
@@ -337,7 +342,7 @@ public static class ManualSaveSystemSceneInstaller
         panel.titleText.fontStyle = FontStyles.Bold;
         panel.titleText.characterSpacing = 2f;
 
-        TextMeshProUGUI subtitle = CreateText(
+        panel.subtitleText = CreateText(
             "Subtitle",
             window.transform,
             "РУЧНЫЕ СОХРАНЕНИЯ",
@@ -347,8 +352,24 @@ public static class ManualSaveSystemSceneInstaller
             new Vector2(0.5f, 1f),
             new Vector2(0f, -82f),
             new Vector2(520f, 30f));
-        subtitle.color = new Color(0.46f, 0.62f, 0.78f, 0.78f);
-        subtitle.characterSpacing = 6f;
+        panel.subtitleText.color = new Color(0.46f, 0.62f, 0.78f, 0.78f);
+        panel.subtitleText.characterSpacing = 6f;
+
+        BuildSlotTypeTabs(window.transform, panel);
+
+        panel.slotTypeHintText = CreateText(
+            "Slot Type Hint",
+            window.transform,
+            string.Empty,
+            16,
+            TextAlignmentOptions.Center,
+            new Vector2(0.5f, 1f),
+            new Vector2(0.5f, 1f),
+            new Vector2(0f, -168f),
+            new Vector2(900f, 24f));
+        panel.slotTypeHintText.color = new Color(0.54f, 0.65f, 0.76f, 0.78f);
+        panel.slotTypeHintText.fontStyle = FontStyles.Italic;
+        panel.slotTypeHintText.gameObject.SetActive(false);
 
         panel.closeButton = CreateButton(
             "Close Button",
@@ -363,7 +384,7 @@ public static class ManualSaveSystemSceneInstaller
         GameObject gridObject = CreateUiObject("Slots Grid", window.transform);
         RectTransform gridRect = gridObject.GetComponent<RectTransform>();
         gridRect.anchorMin = gridRect.anchorMax = new Vector2(0.5f, 0.5f);
-        gridRect.anchoredPosition = new Vector2(0f, -12f);
+        gridRect.anchoredPosition = new Vector2(0f, -64f);
         gridRect.sizeDelta = new Vector2(1422f, 680f);
         GridLayoutGroup grid = gridObject.AddComponent<GridLayoutGroup>();
         grid.cellSize = new Vector2(458f, 330f);
@@ -412,6 +433,45 @@ public static class ManualSaveSystemSceneInstaller
         panel.statusVisibleDuration = 1.75f;
 
         BuildConfirmation(panel, root);
+    }
+
+    private static void BuildSlotTypeTabs(Transform parent, ManualSaveLoadPanel panel)
+    {
+        GameObject tabBar = CreateUiObject("Save Type Tabs", parent);
+        RectTransform tabBarRect = tabBar.GetComponent<RectTransform>();
+        tabBarRect.anchorMin = tabBarRect.anchorMax = new Vector2(0.5f, 1f);
+        tabBarRect.anchoredPosition = new Vector2(0f, -128f);
+        tabBarRect.sizeDelta = new Vector2(830f, 42f);
+
+        panel.manualTabButton = CreateSlotTypeTab(tabBar.transform, "Manual Tab Button", "РУЧНЫЕ", -278f, true);
+        panel.autoTabButton = CreateSlotTypeTab(tabBar.transform, "Auto Tab Button", "АВТО", 0f, false);
+        panel.quickTabButton = CreateSlotTypeTab(tabBar.transform, "Quick Tab Button", "БЫСТРЫЕ", 278f, false);
+    }
+
+    private static Button CreateSlotTypeTab(Transform parent, string name, string label, float x, bool active)
+    {
+        Button button = CreateButton(
+            name,
+            parent,
+            label,
+            new Vector2(0.5f, 0.5f),
+            new Vector2(0.5f, 0.5f),
+            new Vector2(x, 0f),
+            new Vector2(262f, 40f));
+        StyleSlotTypeTab(button, active);
+
+        GameObject accent = CreateUiObject("Active Accent", button.transform);
+        RectTransform accentRect = accent.GetComponent<RectTransform>();
+        accentRect.anchorMin = new Vector2(0f, 0f);
+        accentRect.anchorMax = new Vector2(1f, 0f);
+        accentRect.pivot = new Vector2(0.5f, 0f);
+        accentRect.anchoredPosition = Vector2.zero;
+        accentRect.sizeDelta = new Vector2(-22f, 2f);
+        Image accentImage = accent.AddComponent<Image>();
+        accentImage.color = new Color(0.33f, 0.65f, 0.9f, 0.9f);
+        accentImage.raycastTarget = false;
+        accent.SetActive(active);
+        return button;
     }
 
     private static ManualSaveSlotView CreateSlotView(Transform parent, int slotIndex)
@@ -850,9 +910,14 @@ public static class ManualSaveSystemSceneInstaller
 
         if (panel.canvasGroup == null
             || panel.contentCanvasGroup == null
-            || panel.windowRect == null
-            || panel.titleText == null
-            || panel.statusText == null
+             || panel.windowRect == null
+             || panel.titleText == null
+             || panel.subtitleText == null
+             || panel.slotTypeHintText == null
+             || panel.manualTabButton == null
+             || panel.autoTabButton == null
+             || panel.quickTabButton == null
+             || panel.statusText == null
             || panel.statusCanvasGroup == null
             || panel.closeButton == null
             || panel.confirmationRoot == null
@@ -1070,6 +1135,44 @@ public static class ManualSaveSystemSceneInstaller
         Outline outline = button.gameObject.AddComponent<Outline>();
         outline.effectColor = new Color(0.22f, 0.27f, 0.33f, 0.34f);
         outline.effectDistance = new Vector2(1f, -1f);
+    }
+
+    private static void StyleSlotTypeTab(Button button, bool active)
+    {
+        if (button == null || !(button.targetGraphic is Image image))
+        {
+            return;
+        }
+
+        image.color = active
+            ? new Color(0.075f, 0.145f, 0.22f, 0.96f)
+            : new Color(0.032f, 0.055f, 0.085f, 0.72f);
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1.16f, 1.16f, 1.16f, 1f);
+        colors.pressedColor = new Color(0.86f, 0.9f, 0.96f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.45f, 0.48f, 0.55f, 0.5f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.1f;
+        button.colors = colors;
+
+        Outline outline = button.gameObject.AddComponent<Outline>();
+        outline.effectColor = active
+            ? new Color(0.28f, 0.54f, 0.76f, 0.62f)
+            : new Color(0.16f, 0.25f, 0.34f, 0.34f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (text != null)
+        {
+            text.fontSize = 17f;
+            text.fontStyle = FontStyles.Bold;
+            text.characterSpacing = 3f;
+            text.color = active
+                ? new Color(0.88f, 0.95f, 1f, 1f)
+                : new Color(0.48f, 0.59f, 0.7f, 0.82f);
+        }
     }
 
     private static T GetOrAddComponent<T>(GameObject gameObject) where T : Component

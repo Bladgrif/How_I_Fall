@@ -113,6 +113,102 @@ public static class ManualSaveSystemV1SmokeTests
         TestContinueSelectsNewestAcrossAllTypes(context);
         TestContinueIgnoresNewerInvalidAcrossTypes(context);
         TestRollbackWorksForAutoAndQuick(context);
+        TestTabbedSaveLoadPrefab(context);
+    }
+
+    private static void TestTabbedSaveLoadPrefab(TestContext context)
+    {
+        const string prefabPath = "Assets/HowIFall/Prefabs/UI/ManualSaveLoadPanel.prefab";
+        ResetFiles(context);
+        WriteData(context, SaveSlotType.Manual, CreateValidData(1, SaveSlotType.Manual));
+        WriteData(context, SaveSlotType.Auto, CreateValidData(1, SaveSlotType.Auto));
+        WriteData(context, SaveSlotType.Quick, CreateValidData(1, SaveSlotType.Quick));
+        File.WriteAllText(context.Manager.GetSlotJsonPath(SaveSlotType.Auto, 2), "{ corrupt json");
+
+        GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
+        try
+        {
+            ManualSaveLoadPanel panel = root.GetComponent<ManualSaveLoadPanel>();
+            Require(panel != null, "Shared Save/Load prefab has no ManualSaveLoadPanel.");
+            Require(panel.visualVersion == 4, "Shared Save/Load prefab visual version was not upgraded for tabs.");
+            Require(panel.subtitleText != null && panel.slotTypeHintText != null, "Tabbed panel subtitle or hint reference is missing.");
+            Require(panel.manualTabButton != null && panel.autoTabButton != null && panel.quickTabButton != null, "One or more tab button references are missing.");
+            Require(panel.slotViews != null && panel.slotViews.Length == SaveManager.SlotCount, "Tabbed panel does not contain six slot views.");
+            Require(panel.CurrentSlotType == SaveSlotType.Manual, "Tabbed panel serialized default is not Manual.");
+            Require(
+                new[] { panel.manualTabButton, panel.autoTabButton, panel.quickTabButton }.Distinct().Count() == 3,
+                "Tabbed panel references duplicate tab buttons.");
+            Require(root.GetComponentsInChildren<UnityEngine.UI.Button>(true).Count(button =>
+                    button.name == "Manual Tab Button"
+                    || button.name == "Auto Tab Button"
+                    || button.name == "Quick Tab Button") == 3,
+                "Shared prefab contains duplicate or missing tab objects.");
+
+            for (int i = 0; i < panel.slotViews.Length; i++)
+            {
+                panel.slotViews[i].Initialize(panel, i + 1);
+            }
+
+            RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, false);
+            Require(panel.subtitleText.text == "РУЧНЫЕ СОХРАНЕНИЯ", "Manual subtitle is incorrect.");
+            Require(panel.slotViews[0].slotNumberText.text == "Слот 1", "Manual card label is incorrect.");
+            Require(panel.slotViews[1].emptyText.text == "Пустой слот", "Manual empty label is incorrect.");
+            Require(panel.slotViews[0].button.interactable && !panel.slotViews[1].button.interactable, "Manual Load interaction is incorrect.");
+
+            RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Auto, false);
+            Require(panel.subtitleText.text == "АВТОСОХРАНЕНИЯ", "Auto subtitle is incorrect.");
+            Require(panel.slotViews[0].slotNumberText.text == "Авто 1", "Auto card label is incorrect.");
+            Require(panel.slotViews[2].emptyText.text == "Нет автосохранения", "Auto empty label is incorrect.");
+            Require(panel.slotViews[1].emptyText.text == "Недоступное сохранение", "Corrupt Auto card label is incorrect.");
+            Require(!panel.slotViews[1].button.interactable && panel.slotViews[1].deleteButton.gameObject.activeSelf, "Corrupt Auto slot is not load-disabled/delete-enabled.");
+
+            RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Quick, false);
+            Require(panel.subtitleText.text == "БЫСТРЫЕ СОХРАНЕНИЯ", "Quick subtitle is incorrect.");
+            Require(panel.slotViews[0].slotNumberText.text == "Быстрое 1", "Quick card label is incorrect.");
+            Require(panel.slotViews[1].emptyText.text == "Нет быстрого сохранения", "Quick empty label is incorrect.");
+
+            RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, true);
+            Require(panel.slotViews.All(view => view.button.interactable), "Manual cards are not writable in Save mode.");
+            Require(!panel.slotTypeHintText.gameObject.activeSelf, "Manual Save unexpectedly shows a type hint.");
+
+            RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Auto, true);
+            Require(panel.slotViews.All(view => !view.button.interactable), "Auto cards are primary-clickable in Save mode.");
+            Require(panel.slotTypeHintText.text == "Автосохранения создаются игрой автоматически" && panel.slotTypeHintText.gameObject.activeSelf, "Auto Save hint is incorrect.");
+
+            RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Quick, true);
+            Require(panel.slotViews.All(view => !view.button.interactable), "Quick cards are primary-clickable in Save mode.");
+            Require(panel.slotTypeHintText.text == "Быстрые сохранения создаются отдельной командой" && panel.slotTypeHintText.gameObject.activeSelf, "Quick Save hint is incorrect.");
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
+    private static void RenderPanelForSmoke(
+        ManualSaveLoadPanel panel,
+        SaveManager manager,
+        SaveSlotType type,
+        bool saveMode)
+    {
+        FieldInfo typeField = typeof(ManualSaveLoadPanel).GetField(
+            "currentSlotType",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        FieldInfo modeField = typeof(ManualSaveLoadPanel).GetField(
+            "mode",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        MethodInfo presentationMethod = typeof(ManualSaveLoadPanel).GetMethod(
+            "ApplySlotTypePresentation",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Require(typeField != null && modeField != null && presentationMethod != null, "Tabbed panel smoke hooks are unavailable.");
+
+        typeField.SetValue(panel, type);
+        modeField.SetValue(panel, Enum.Parse(modeField.FieldType, saveMode ? "Save" : "Load"));
+        presentationMethod.Invoke(panel, null);
+        for (int i = 0; i < panel.slotViews.Length; i++)
+        {
+            panel.slotViews[i].Render(manager.GetSlot(type, i + 1), saveMode);
+        }
     }
 
     private static void TestCorruptJson(TestContext context)
