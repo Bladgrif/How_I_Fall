@@ -68,6 +68,8 @@ public class VNDialogueController : MonoBehaviour
     private string currentFullText = string.Empty;
     private bool isTyping;
     private bool quickSaveInProgress;
+    private bool autoSaveInProgress;
+    private bool pendingAutoSave;
     private readonly DialogueBacklog backlog = new DialogueBacklog(100);
     private VNSettingsPresenter settingsPresenter;
 
@@ -239,19 +241,13 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        if (Instance != this
-            || !isActiveAndEnabled
-            || !gameObject.activeInHierarchy
-            || gameObject.scene != UnityEngine.SceneManagement.SceneManager.GetActiveScene())
+        if (!IsActiveControllerInCurrentScene())
         {
             Debug.LogWarning("[QUICK SAVE] Request ignored because VNDialogueController is not active in the current scene.", this);
             return;
         }
 
-        if ((manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
-            || (backlogPanel != null && backlogPanel.activeSelf)
-            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
-            || (confirmExitPanel != null && confirmExitPanel.activeSelf))
+        if (IsSystemSaveBlockedByModal())
         {
             return;
         }
@@ -259,7 +255,10 @@ public class VNDialogueController : MonoBehaviour
         quickSaveInProgress = true;
         try
         {
-            StartCoroutine(CaptureAndQuickSave());
+            StartCoroutine(CaptureScreenshotAndSave(
+                (manager, screenshot) => manager.SaveQuick(screenshot),
+                "QUICK SAVE",
+                CompleteQuickSave));
         }
         catch (System.Exception exception)
         {
@@ -269,7 +268,45 @@ public class VNDialogueController : MonoBehaviour
         }
     }
 
-    private IEnumerator CaptureAndQuickSave()
+    public void RequestAutoSave()
+    {
+        if (!IsActiveControllerInCurrentScene())
+        {
+            Debug.LogWarning("[AUTO SAVE] Request ignored because VNDialogueController is not active in the current scene.", this);
+            return;
+        }
+
+        if (IsSystemSaveBlockedByModal())
+        {
+            return;
+        }
+
+        if (autoSaveInProgress)
+        {
+            pendingAutoSave = true;
+            return;
+        }
+
+        autoSaveInProgress = true;
+        try
+        {
+            StartCoroutine(CaptureScreenshotAndSave(
+                (manager, screenshot) => manager.SaveAuto(screenshot),
+                "AUTO SAVE",
+                CompleteAutoSave));
+        }
+        catch (System.Exception exception)
+        {
+            autoSaveInProgress = false;
+            Debug.LogError($"[AUTO SAVE] Could not start autosave coroutine. {exception.Message}", this);
+            RunPendingAutoSaveIfNeeded();
+        }
+    }
+
+    private IEnumerator CaptureScreenshotAndSave(
+        System.Func<SaveManager, Texture2D, bool> saveOperation,
+        string logPrefix,
+        System.Action<bool> onCompleted)
     {
         Texture2D screenshot = null;
         bool saved = false;
@@ -283,24 +320,24 @@ public class VNDialogueController : MonoBehaviour
                 screenshot = ScreenCapture.CaptureScreenshotAsTexture();
                 if (screenshot == null)
                 {
-                    Debug.LogError("[QUICK SAVE] ScreenCapture returned no screenshot.", this);
+                    Debug.LogError($"[{logPrefix}] ScreenCapture returned no screenshot.", this);
                 }
                 else if (SaveManager.Instance == null)
                 {
-                    Debug.LogError("[QUICK SAVE] SaveManager.Instance is missing.", this);
+                    Debug.LogError($"[{logPrefix}] SaveManager.Instance is missing.", this);
                 }
                 else
                 {
-                    saved = SaveManager.Instance.SaveQuick(screenshot);
+                    saved = saveOperation != null && saveOperation(SaveManager.Instance, screenshot);
                     if (!saved)
                     {
-                        Debug.LogError("[QUICK SAVE] SaveManager.SaveQuick returned false.", this);
+                        Debug.LogError($"[{logPrefix}] Save operation returned false.", this);
                     }
                 }
             }
             catch (System.Exception exception)
             {
-                Debug.LogError($"[QUICK SAVE] Quick save failed. {exception.Message}", this);
+                Debug.LogError($"[{logPrefix}] Save failed. {exception.Message}", this);
             }
         }
         finally
@@ -310,12 +347,49 @@ public class VNDialogueController : MonoBehaviour
                 Destroy(screenshot);
             }
 
-            quickSaveInProgress = false;
+            onCompleted?.Invoke(saved);
         }
+    }
 
+    private void CompleteQuickSave(bool saved)
+    {
+        quickSaveInProgress = false;
         ShowToast(saved
             ? "Быстрое сохранение создано"
             : "Не удалось создать быстрое сохранение");
+    }
+
+    private void CompleteAutoSave(bool saved)
+    {
+        autoSaveInProgress = false;
+        RunPendingAutoSaveIfNeeded();
+    }
+
+    private void RunPendingAutoSaveIfNeeded()
+    {
+        if (!pendingAutoSave)
+        {
+            return;
+        }
+
+        pendingAutoSave = false;
+        RequestAutoSave();
+    }
+
+    private bool IsActiveControllerInCurrentScene()
+    {
+        return Instance == this
+            && isActiveAndEnabled
+            && gameObject.activeInHierarchy
+            && gameObject.scene == UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+    }
+
+    private bool IsSystemSaveBlockedByModal()
+    {
+        return (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
+            || (backlogPanel != null && backlogPanel.activeSelf)
+            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || (confirmExitPanel != null && confirmExitPanel.activeSelf);
     }
 
     public void AdvanceDialogue()
@@ -400,7 +474,7 @@ public class VNDialogueController : MonoBehaviour
         ShowLine(activeLines[currentLineIndex]);
     }
 
-    private void ShowChoices()
+    private void ShowChoices(bool requestAutoSave = true)
     {
         if (activeChoices.Count == 0)
         {
@@ -417,6 +491,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         showingChoice = true;
+        ClearChoiceState();
         RememberChoicePosition();
         nextButton.interactable = false;
         SetChoiceOverlayActive(true);
@@ -437,6 +512,11 @@ public class VNDialogueController : MonoBehaviour
             {
                 SetButtonText(choiceButtons[i], activeChoices[i].text);
             }
+        }
+
+        if (requestAutoSave)
+        {
+            RequestAutoSave();
         }
     }
 
@@ -974,11 +1054,22 @@ public class VNDialogueController : MonoBehaviour
 
         Debug.Log($"[VN LOAD] Preflight passed. requestedLineId='{gameState.currentLineId}', resolvedIndex={restoredLineIndex}, resolvedLineId='{restoredScene.lines[restoredLineIndex].lineId}'.", this);
 
-        LoadDialogueScene(restoredScene, restoredLineIndex);
+        LoadDialogueScene(restoredScene, restoredLineIndex, false);
 
         if (restoreChoiceResult)
         {
             RestoreChoiceResult(restoredChoice, restoredChoiceIndex, restoredPendingNextScene);
+        }
+        else if (restoredScene.choices != null
+            && restoredScene.choices.Count > 0
+            && restoredLineIndex == restoredScene.lines.Count - 1)
+        {
+            if (isTyping)
+            {
+                CompleteTyping();
+            }
+
+            ShowChoices(false);
         }
 
         Debug.Log($"[VN LOAD] Restoration finished. activeSceneId='{sceneData.sceneId}', activeLineIndex={currentLineIndex}, activeLineId='{(activeLines != null && currentLineIndex >= 0 && currentLineIndex < activeLines.Count && activeLines[currentLineIndex] != null ? activeLines[currentLineIndex].lineId : "<invalid>")}', choiceResultActive={GameState.Instance.choiceResultActive}.", this);
@@ -1028,10 +1119,10 @@ public class VNDialogueController : MonoBehaviour
 
     private void LoadDialogueScene(DialogueSceneData data)
     {
-        LoadDialogueScene(data, 0);
+        LoadDialogueScene(data, 0, true);
     }
 
-    private void LoadDialogueScene(DialogueSceneData data, int startLineIndex)
+    private void LoadDialogueScene(DialogueSceneData data, int startLineIndex, bool requestAutoSave)
     {
         if (typingCoroutine != null)
         {
@@ -1100,6 +1191,11 @@ public class VNDialogueController : MonoBehaviour
         }
 
         ShowLine(activeLines[currentLineIndex]);
+
+        if (requestAutoSave)
+        {
+            RequestAutoSave();
+        }
     }
 
     private void UpdateSavedDialoguePosition()

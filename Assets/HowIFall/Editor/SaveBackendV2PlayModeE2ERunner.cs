@@ -25,6 +25,7 @@ public static class SaveBackendV2PlayModeE2ERunner
     private const string AutoSnapshotKey = "HowIFall.SaveBackendV2E2E.AutoSnapshot";
     private const string QuickSnapshotKey = "HowIFall.SaveBackendV2E2E.QuickSnapshot";
     private const string AutoNewestSnapshotKey = "HowIFall.SaveBackendV2E2E.AutoNewestSnapshot";
+    private const string AutoFilesSignatureKey = "HowIFall.SaveBackendV2E2E.AutoFilesSignature";
     private const string ResultPath = "save_backend_v2_playmode_result.txt";
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
     private const string TabsScreenshotFolder = "docs/screenshots/save_load_ui";
@@ -69,6 +70,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         SessionState.SetString(AutoSnapshotKey, string.Empty);
         SessionState.SetString(QuickSnapshotKey, string.Empty);
         SessionState.SetString(AutoNewestSnapshotKey, string.Empty);
+        SessionState.SetString(AutoFilesSignatureKey, string.Empty);
         SessionState.SetInt(CounterKey, 0);
         SetDelay(1d);
 
@@ -164,6 +166,13 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(UnityEngine.Object.FindObjectsByType<SaveManager>().Length == 1, "More than one SaveManager exists in VNPrototype.");
         Require(controller.sceneRegistry != null, "DialogueSceneRegistry is missing in VNPrototype.");
 
+        SaveSlotInfo newGameAuto = SaveManager.Instance.GetSlot(SaveSlotType.Auto, 1);
+        if (!newGameAuto.IsLoadable || string.IsNullOrEmpty(newGameAuto.PreviewPath))
+        {
+            Retry("New Game did not create Auto slot 1 with JSON and PNG.");
+            return;
+        }
+
         SessionState.SetString(StageKey, "WaitCoreScenario");
         SessionState.SetInt(CounterKey, 0);
         controller.StartCoroutine(RunSafely(RunCoreScenario(controller)));
@@ -176,11 +185,16 @@ public static class SaveBackendV2PlayModeE2ERunner
         {
             SaveManager manager = SaveManager.Instance;
             Require(manager != null, "SaveManager disappeared before quick-save command tests.");
+            VerifyNewGameAutoSave(controller, manager);
             yield return RunSafely(VerifyQuickSaveCommandBeforeChoice(controller, manager));
 
             yield return RunSafely(AdvanceToChoice(controller));
+            yield return RunSafely(VerifyChoiceAutoSave(controller, manager));
             yield return RunSafely(VerifyQuickSaveCommandOnChoice(controller, manager));
+            yield return RunSafely(VerifyNoAutoSaveOnRestore(controller, manager));
             CleanupQuickCommandSlots(manager);
+            CleanupSlots(manager, SaveSlotType.Manual);
+            CleanupSlots(manager, SaveSlotType.Auto);
             yield return new WaitForSecondsRealtime(controller.notificationDuration + 0.1f);
 
             Require(controller.choiceMashaButton != null, "The first real VN choice button is missing.");
@@ -301,6 +315,134 @@ public static class SaveBackendV2PlayModeE2ERunner
         }
     }
 
+    private static void VerifyNewGameAutoSave(
+        VNDialogueController controller,
+        SaveManager manager)
+    {
+        SaveSlotInfo slot = VerifySlot(manager, SaveSlotType.Auto, 1);
+        Require(
+            controller.TryGetSavePosition(out string sceneId, out string lineId, out int lineIndex, out string error),
+            $"VN position is unavailable while checking New Game autosave: {error}");
+        Require(slot.Data.sceneId == sceneId, "New Game autosave sceneId does not match the displayed scene.");
+        Require(slot.Data.lineId == lineId, "New Game autosave lineId does not match the displayed first line.");
+        Require(slot.Data.lineIndex == lineIndex && lineIndex == 0, "New Game autosave does not point to the first displayed line.");
+        Require(!slot.Data.choiceResultActive && slot.Data.selectedChoiceIndex == -1, "New Game autosave contains an unexpected choice result.");
+        Require(controller.notificationPanel == null || !controller.notificationPanel.activeSelf, "Successful autosave displayed a user toast.");
+        Pass("New Game automatically created loadable Auto slot 1 at the first displayed line");
+    }
+
+    private static IEnumerator VerifyChoiceAutoSave(
+        VNDialogueController controller,
+        SaveManager manager)
+    {
+        yield return WaitForOccupiedSlotCount(manager, SaveSlotType.Auto, 2, "choice checkpoint autosave");
+        SaveSlotInfo choiceSlot = VerifySlot(manager, SaveSlotType.Auto, 2);
+        SaveData checkpoint = Clone(choiceSlot.Data);
+
+        Require(controller.choicePanel != null && controller.choicePanel.activeSelf, "Choice screen closed before its autosave was verified.");
+        Require(!checkpoint.choiceResultActive, "Choice autosave was created after applying a choice result.");
+        Require(checkpoint.selectedChoiceIndex == -1, "Choice autosave contains a selected choice.");
+        Require(string.IsNullOrEmpty(checkpoint.pendingNextSceneId), "Choice autosave contains a pending next scene.");
+        VerifyRestoredSnapshot(checkpoint, "choice autosave checkpoint");
+
+        Dictionary<string, byte[]> autoFiles = CaptureTypeFiles(manager, SaveSlotType.Auto);
+        controller.choiceMashaButton.onClick.Invoke();
+        yield return new WaitForSecondsRealtime(0.1f);
+        Require(GameState.Instance.choiceResultActive, "Choice did not alter state before loading its autosave.");
+        Require(manager.LoadSlot(SaveSlotType.Auto, 2), "Public LoadSlot(Auto, 2) failed for the choice checkpoint.");
+        yield return new WaitForSecondsRealtime(0.2f);
+
+        VerifyChoiceCheckpoint(checkpoint, controller, "public Auto choice-checkpoint LoadSlot");
+        RequireFilesEqual(autoFiles, CaptureTypeFiles(manager, SaveSlotType.Auto), "Loading the choice autosave created or overwrote an Auto slot.");
+        Pass("Choice checkpoint autosave restored the real choice screen before selection");
+    }
+
+    private static IEnumerator VerifyNoAutoSaveOnRestore(
+        VNDialogueController controller,
+        SaveManager manager)
+    {
+        Require(controller.choicePanel != null && controller.choicePanel.activeSelf, "Choice screen is not active before restore suppression tests.");
+
+        Texture2D screenshot = null;
+        try
+        {
+            yield return new WaitForEndOfFrame();
+            screenshot = ScreenCapture.CaptureScreenshotAsTexture();
+            Require(screenshot != null, "Could not capture the real choice screen for Manual restore suppression.");
+            Require(manager.SaveSlot(1, screenshot), "Could not create Manual slot 1 for restore suppression.");
+        }
+        finally
+        {
+            if (screenshot != null)
+            {
+                UnityEngine.Object.Destroy(screenshot);
+            }
+        }
+
+        SaveData manualCheckpoint = Clone(VerifySlot(manager, SaveSlotType.Manual, 1).Data);
+        SaveSlotInfo newestQuick = manager.GetAllSlots(SaveSlotType.Quick)
+            .Where(slot => slot.IsLoadable)
+            .OrderByDescending(slot => slot.CreatedAtUtc)
+            .FirstOrDefault();
+        Require(newestQuick != null, "No Quick choice checkpoint exists for restore suppression.");
+        SaveData quickCheckpoint = Clone(newestQuick.Data);
+        Dictionary<string, byte[]> autoFiles = CaptureTypeFiles(manager, SaveSlotType.Auto);
+
+        controller.choiceMashaButton.onClick.Invoke();
+        Require(manager.LoadSlot(SaveSlotType.Manual, 1), "Public Manual LoadSlot failed during autosave suppression test.");
+        yield return new WaitForSecondsRealtime(0.2f);
+        VerifyChoiceCheckpoint(manualCheckpoint, controller, "Manual restore suppression");
+        RequireFilesEqual(autoFiles, CaptureTypeFiles(manager, SaveSlotType.Auto), "Manual Load created or overwrote an Auto slot.");
+
+        controller.choiceArtemButton.onClick.Invoke();
+        Require(manager.LoadSlot(SaveSlotType.Quick, newestQuick.SlotIndex), "Public Quick LoadSlot failed during autosave suppression test.");
+        yield return new WaitForSecondsRealtime(0.2f);
+        VerifyChoiceCheckpoint(quickCheckpoint, controller, "Quick restore suppression");
+        RequireFilesEqual(autoFiles, CaptureTypeFiles(manager, SaveSlotType.Auto), "Quick Load created or overwrote an Auto slot.");
+
+        controller.choiceMashaButton.onClick.Invoke();
+        SaveData continueCheckpoint = ParseUtc(manualCheckpoint.createdAtUtc) >= ParseUtc(quickCheckpoint.createdAtUtc)
+            ? manualCheckpoint
+            : quickCheckpoint;
+        Require(manager.LoadLatest(), "Public LoadLatest failed during autosave suppression test.");
+        yield return new WaitForSecondsRealtime(0.2f);
+        VerifyChoiceCheckpoint(continueCheckpoint, controller, "Continue restore suppression");
+        RequireFilesEqual(autoFiles, CaptureTypeFiles(manager, SaveSlotType.Auto), "Continue created or overwrote an Auto slot.");
+        Pass("Manual, Quick and Continue restoration did not trigger autosave");
+    }
+
+    private static void VerifyChoiceCheckpoint(
+        SaveData checkpoint,
+        VNDialogueController controller,
+        string context)
+    {
+        VerifyRestoredSnapshot(checkpoint, context);
+        Require(controller.choicePanel != null && controller.choicePanel.activeSelf, $"Choice screen was not restored during {context}.");
+        Require(GameState.Instance.selectedChoiceIndex == -1, $"A selected choice remained during {context}.");
+        Require(!GameState.Instance.choiceResultActive, $"Choice result remained active during {context}.");
+        Require(string.IsNullOrEmpty(GameState.Instance.pendingNextSceneId), $"Pending next scene remained during {context}.");
+    }
+
+    private static IEnumerator WaitForOccupiedSlotCount(
+        SaveManager manager,
+        SaveSlotType type,
+        int expectedCount,
+        string context)
+    {
+        for (int frame = 0; frame < 180; frame++)
+        {
+            int occupied = manager.GetAllSlots(type).Count(slot => slot.IsOccupied);
+            if (occupied == expectedCount)
+            {
+                yield break;
+            }
+
+            yield return null;
+        }
+
+        throw new InvalidOperationException($"Timed out waiting for {context}; expected {expectedCount} occupied {type} slots.");
+    }
+
     private static IEnumerator VerifyQuickSaveCommandBeforeChoice(
         VNDialogueController controller,
         SaveManager manager)
@@ -338,7 +480,11 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(panel.CurrentSlotType == selectedType, "RequestQuickSave changed the current Save/Load tab.");
 
         panel.Close();
-        yield return new WaitForSecondsRealtime(0.25f);
+        for (int frame = 0; frame < 180 && panel.IsOpen; frame++)
+        {
+            yield return null;
+        }
+
         Require(!panel.IsOpen, "Save/Load panel did not close before the post-modal quick-save test.");
         controller.RequestQuickSave();
         yield return WaitForQuickSlotCount(manager, 3, "quick save after closing modal UI");
@@ -384,15 +530,20 @@ public static class SaveBackendV2PlayModeE2ERunner
 
     private static void CleanupQuickCommandSlots(SaveManager manager)
     {
+        CleanupSlots(manager, SaveSlotType.Quick);
+    }
+
+    private static void CleanupSlots(SaveManager manager, SaveSlotType type)
+    {
         for (int index = 1; index <= SaveManager.SlotCount; index++)
         {
-            if (manager.GetSlot(SaveSlotType.Quick, index).IsOccupied)
+            if (manager.GetSlot(type, index).IsOccupied)
             {
-                Require(manager.DeleteSlot(SaveSlotType.Quick, index), $"Could not clean Quick command test slot {index}.");
+                Require(manager.DeleteSlot(type, index), $"Could not clean {type} test slot {index}.");
             }
         }
 
-        Require(manager.GetAllSlots(SaveSlotType.Quick).All(slot => !slot.IsOccupied), "Quick command test cleanup left occupied slots.");
+        Require(manager.GetAllSlots(type).All(slot => !slot.IsOccupied), $"{type} test cleanup left occupied slots.");
     }
 
     private static IEnumerator VerifyTabbedUiAndCapture(VNDialogueController controller, SaveManager manager)
@@ -668,18 +819,21 @@ public static class SaveBackendV2PlayModeE2ERunner
 
     private static IEnumerator MutateDialogueAndState(VNDialogueController controller, SaveData snapshot)
     {
-        for (int attempt = 0; attempt < 8; attempt++)
-        {
-            controller.AdvanceDialogue();
-            yield return new WaitForSecondsRealtime(0.05f);
-        }
-
         GameState state = GameState.Instance;
-        state.suspicion = snapshot.suspicion + 700;
-        state.trustMasha = snapshot.trustMasha + 700;
+        DialogueSceneData scene = controller.sceneRegistry.FindById(snapshot.sceneId);
+        Require(scene != null && scene.lines != null && scene.lines.Count > 1 && scene.lines[0] != null,
+            "Could not find an earlier valid line for LoadSlot mutation.");
+        state.currentSceneId = scene.sceneId;
+        state.currentLineIndex = 0;
+        state.currentLineId = scene.lines[0].lineId;
         state.selectedChoiceIndex = -1;
         state.choiceResultActive = false;
         state.pendingNextSceneId = string.Empty;
+        Require(controller.RestoreFromGameState(), "Could not move VN to an earlier real line before LoadSlot.");
+        yield return new WaitForSecondsRealtime(0.1f);
+
+        state.suspicion = snapshot.suspicion + 700;
+        state.trustMasha = snapshot.trustMasha + 700;
 
         bool positionChanged = state.currentSceneId != snapshot.sceneId
             || state.currentLineId != snapshot.lineId
@@ -701,6 +855,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         SaveData auto = ReadSnapshot(AutoSnapshotKey);
         Require(ParseUtc(quick.createdAtUtc) > ParseUtc(auto.createdAtUtc), "Quick is not the newest save before Continue.");
         Require(manager.HasAnyValidSave(), "Continue found no valid backend saves.");
+        SessionState.SetString(AutoFilesSignatureKey, GetTypeFilesSignature(manager, SaveSlotType.Auto));
 
         SessionState.SetString(StageKey, "WaitVnQuickContinue");
         SessionState.SetInt(CounterKey, 0);
@@ -718,6 +873,10 @@ public static class SaveBackendV2PlayModeE2ERunner
         }
 
         VerifyRestoredSnapshot(quick, "Quick Continue");
+        Require(
+            GetTypeFilesSignature(SaveManager.Instance, SaveSlotType.Auto)
+                == SessionState.GetString(AutoFilesSignatureKey, string.Empty),
+            "Quick Continue created or overwrote an Auto slot during restoration.");
         Pass("Continue selected the newest Quick save");
         SessionState.SetString(StageKey, "WaitAutoNewestCoroutine");
         SessionState.SetInt(CounterKey, 0);
@@ -814,6 +973,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         SaveData auto = ReadSnapshot(AutoNewestSnapshotKey);
         SaveData quick = ReadSnapshot(QuickSnapshotKey);
         Require(ParseUtc(auto.createdAtUtc) > ParseUtc(quick.createdAtUtc), "Auto is not the newest save before Continue.");
+        SessionState.SetString(AutoFilesSignatureKey, GetTypeFilesSignature(manager, SaveSlotType.Auto));
 
         SessionState.SetString(StageKey, "WaitVnAutoContinue");
         SessionState.SetInt(CounterKey, 0);
@@ -831,6 +991,10 @@ public static class SaveBackendV2PlayModeE2ERunner
         }
 
         VerifyRestoredSnapshot(auto, "Auto Continue");
+        Require(
+            GetTypeFilesSignature(SaveManager.Instance, SaveSlotType.Auto)
+                == SessionState.GetString(AutoFilesSignatureKey, string.Empty),
+            "Auto Continue created or overwrote an Auto slot during restoration.");
         Pass("Continue selected the newest Auto save");
         Success();
     }
@@ -997,6 +1161,30 @@ public static class SaveBackendV2PlayModeE2ERunner
         }
 
         return files;
+    }
+
+    private static string GetTypeFilesSignature(SaveManager manager, SaveSlotType type)
+    {
+        IReadOnlyDictionary<string, byte[]> files = CaptureTypeFiles(manager, type);
+        ulong hash = 14695981039346656037UL;
+
+        foreach (KeyValuePair<string, byte[]> pair in files.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            string fileName = Path.GetFileName(pair.Key);
+            foreach (char character in fileName)
+            {
+                hash ^= character;
+                hash *= 1099511628211UL;
+            }
+
+            foreach (byte value in pair.Value)
+            {
+                hash ^= value;
+                hash *= 1099511628211UL;
+            }
+        }
+
+        return $"{files.Count}:{hash:X16}";
     }
 
     private static void RequireFilesEqual(

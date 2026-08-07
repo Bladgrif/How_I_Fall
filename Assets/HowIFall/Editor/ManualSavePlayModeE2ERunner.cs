@@ -427,6 +427,7 @@ public static class ManualSavePlayModeE2ERunner
 
         VerifySnapshot("Main Menu slot load");
         Pass("Main Menu slot load restored line, choice and GameState");
+        DeleteAllAutoTestSlots();
         SessionState.SetString(StageKey, "WaitMainBeforeRestart");
         SetDelay(0.75d);
         SceneFlowManager.EnsureInstance().ReturnToMainMenu();
@@ -619,6 +620,8 @@ public static class ManualSavePlayModeE2ERunner
         Require(slotView.emptyText.gameObject.activeSelf && slotView.emptyText.text == "Пустой слот", "Deleted card did not become empty.");
         Require(!slotView.deleteButton.gameObject.activeSelf, "Empty slot still shows the delete button.");
 
+        DeleteAllAutoTestSlots();
+
         panel.OpenLoad();
         Require(!slotView.button.interactable, "Deleted slot is interactable in Load mode.");
         Require(!slotView.deleteButton.gameObject.activeSelf, "Deleted slot shows Delete in Load mode.");
@@ -653,6 +656,20 @@ public static class ManualSavePlayModeE2ERunner
         Require(!menu.manualSaveLoadPanel.slotViews[0].deleteButton.gameObject.activeSelf, "Deleted Main Menu slot still shows Delete.");
         Pass("Deleting the last valid slot disabled Continue in Main Menu");
         Success();
+    }
+
+    private static void DeleteAllAutoTestSlots()
+    {
+        SaveManager manager = SaveManager.Instance;
+        Require(manager != null, "SaveManager is missing while cleaning Auto slots from the Manual E2E environment.");
+
+        for (int index = 1; index <= SaveManager.SlotCount; index++)
+        {
+            if (manager.GetSlot(SaveSlotType.Auto, index).IsOccupied)
+            {
+                Require(manager.DeleteSlot(SaveSlotType.Auto, index), $"Could not remove Auto slot {index} from the Manual E2E environment.");
+            }
+        }
     }
 
     private static void VerifyOccupiedCard(ManualSaveLoadPanel panel, SaveSlotInfo slot)
