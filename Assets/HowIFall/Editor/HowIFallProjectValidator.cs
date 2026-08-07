@@ -141,6 +141,23 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.manualSaveLoadPanel", controller.manualSaveLoadPanel);
         issues += ValidateRequiredObject(sceneName, FindAny<SaveManager>(), nameof(SaveManager));
 
+        VNQuickMenu quickMenu = FindAny<VNQuickMenu>();
+        issues += ValidateRequiredObject(sceneName, quickMenu, nameof(VNQuickMenu));
+        if (quickMenu != null)
+        {
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.root", quickMenu.root);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.dialogueController", quickMenu.dialogueController);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.historyButton", quickMenu.historyButton);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.skipButton", quickMenu.skipButton);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.autoButton", quickMenu.autoButton);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.saveButton", quickMenu.saveButton);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.quickSaveButton", quickMenu.quickSaveButton);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.quickLoadButton", quickMenu.quickLoadButton);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.loadButton", quickMenu.loadButton);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.settingsButton", quickMenu.settingsButton);
+            issues += ValidateRequiredReference(sceneName, "VNQuickMenu.mainMenuButton", quickMenu.mainMenuButton);
+        }
+
         ManualSaveLoadPanel saveLoadPanel = FindAny<ManualSaveLoadPanel>();
         issues += ValidateRequiredObject(sceneName, saveLoadPanel, nameof(ManualSaveLoadPanel));
         if (saveLoadPanel != null && (saveLoadPanel.slotViews == null || saveLoadPanel.slotViews.Length != SaveManager.SlotCount))

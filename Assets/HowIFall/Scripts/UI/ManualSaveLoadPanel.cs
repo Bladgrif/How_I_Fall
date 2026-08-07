@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -133,6 +134,30 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         mode = PanelMode.Load;
         currentSlotType = SaveSlotType.Manual;
         Open();
+    }
+
+    /// <summary>Requests the newest valid quick slot through the normal load confirmation pipeline.</summary>
+    public bool RequestQuickLoad()
+    {
+        SaveManager saveManager = ResolveSaveManager();
+        SaveSlotInfo slot = saveManager == null
+            ? null
+            : saveManager.GetAllSlots(SaveSlotType.Quick)
+                .Where(candidate => candidate.IsLoadable)
+                .OrderByDescending(candidate => candidate.CreatedAtUtc)
+                .ThenBy(candidate => candidate.SlotIndex)
+                .FirstOrDefault();
+
+        if (slot == null)
+        {
+            return false;
+        }
+
+        mode = PanelMode.Load;
+        currentSlotType = SaveSlotType.Quick;
+        Open();
+        OpenConfirmation(ConfirmationAction.Load, SaveSlotType.Quick, slot.SlotIndex);
+        return true;
     }
 
     public void SelectManualTab()

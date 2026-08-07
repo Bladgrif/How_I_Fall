@@ -218,6 +218,11 @@ public class VNDialogueController : MonoBehaviour
             RequestQuickSave();
         }
 
+        if (Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
+        {
+            RequestQuickLoad();
+        }
+
         if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
         {
             manualSaveLoadPanel?.OpenLoad();
@@ -288,6 +293,25 @@ public class VNDialogueController : MonoBehaviour
             quickSaveInProgress = false;
             Debug.LogError($"[QUICK SAVE] Could not start quick-save coroutine. {exception.Message}", this);
             ShowToast("Не удалось создать быстрое сохранение");
+        }
+    }
+
+    public void RequestQuickLoad()
+    {
+        if (!IsActiveControllerInCurrentScene())
+        {
+            Debug.LogWarning("[QUICK LOAD] Request ignored because VNDialogueController is not active in the current scene.", this);
+            return;
+        }
+
+        if (IsSystemSaveBlockedByModal())
+        {
+            return;
+        }
+
+        if (manualSaveLoadPanel == null || !manualSaveLoadPanel.RequestQuickLoad())
+        {
+            ShowToast("\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u0431\u044b\u0441\u0442\u0440\u044b\u0445 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0439");
         }
     }
 
@@ -721,6 +745,10 @@ public class VNDialogueController : MonoBehaviour
             && SettingsManager.Instance.settings != null
             && SettingsManager.Instance.settings.skipAfterChoices;
     }
+
+    public bool IsSkipEnabled => skipEnabled;
+
+    public bool IsAutoForwardEnabledState => IsAutoForwardEnabled();
 
     private bool IsAutoForwardEnabled()
     {
