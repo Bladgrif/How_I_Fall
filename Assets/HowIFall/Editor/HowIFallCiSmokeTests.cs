@@ -11,6 +11,7 @@ public static class HowIFallCiSmokeTests
             Debug.Log("[CI] How I Fall smoke tests started.");
 
             Run("Dialogue backlog", DialogueBacklogSmokeTests.RunBatchMode);
+            Run("Auto dialogue", AutoDialogueSmokeTests.RunBatchMode);
             Run("VN settings presenter", VNSettingsPresenterSmokeTests.RunBatchMode);
             Run("Save backend v2", ManualSaveSystemV1SmokeTests.RunBatchMode);
 

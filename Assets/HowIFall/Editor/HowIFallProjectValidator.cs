@@ -133,6 +133,8 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnMusicVolumeSlider", controller.vnMusicVolumeSlider);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSfxVolumeSlider", controller.vnSfxVolumeSlider);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnTextSpeedSlider", controller.vnTextSpeedSlider);
+        issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnAutoForwardToggle", controller.vnAutoForwardToggle);
+        issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnAutoForwardDelaySlider", controller.vnAutoForwardDelaySlider);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnFullscreenToggle", controller.vnFullscreenToggle);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsCloseButton", controller.vnSettingsCloseButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsResetButton", controller.vnSettingsResetButton);

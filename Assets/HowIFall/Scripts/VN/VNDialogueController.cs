@@ -42,6 +42,8 @@ public class VNDialogueController : MonoBehaviour
     public Slider vnMusicVolumeSlider;
     public Slider vnSfxVolumeSlider;
     public Slider vnTextSpeedSlider;
+    public Toggle vnAutoForwardToggle;
+    public Slider vnAutoForwardDelaySlider;
     public Toggle vnFullscreenToggle;
     public Button vnSettingsCloseButton;
     public Button vnSettingsResetButton;
@@ -64,6 +66,7 @@ public class VNDialogueController : MonoBehaviour
     private Button[] choiceButtons;
     private DialogueSceneData pendingNextScene;
     private Coroutine typingCoroutine;
+    private Coroutine autoForwardCoroutine;
     private Coroutine notificationCoroutine;
     private string currentFullText = string.Empty;
     private bool isTyping;
@@ -74,6 +77,7 @@ public class VNDialogueController : MonoBehaviour
     private System.Action<bool> preLoadAutoSaveCompletion;
     private readonly DialogueBacklog backlog = new DialogueBacklog(100);
     private VNSettingsPresenter settingsPresenter;
+    private bool observedAutoForward;
 
     private void Awake()
     {
@@ -125,6 +129,8 @@ public class VNDialogueController : MonoBehaviour
             vnMusicVolumeSlider,
             vnSfxVolumeSlider,
             vnTextSpeedSlider,
+            vnAutoForwardToggle,
+            vnAutoForwardDelaySlider,
             vnFullscreenToggle,
             vnSettingsCloseButton,
             vnSettingsResetButton,
@@ -132,6 +138,7 @@ public class VNDialogueController : MonoBehaviour
             ShowToast,
             this);
         settingsPresenter.Initialize();
+        observedAutoForward = IsAutoForwardEnabled();
 
         if (backlogCloseButton != null)
         {
@@ -187,6 +194,8 @@ public class VNDialogueController : MonoBehaviour
 
     private void Update()
     {
+        RefreshAutoForwardState();
+
         if (Keyboard.current != null && Keyboard.current.f5Key.wasPressedThisFrame)
         {
             manualSaveLoadPanel?.OpenSave();
@@ -472,6 +481,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
+        StopAutoForwardTimer();
         ShowNextLine();
     }
 
@@ -482,6 +492,131 @@ public class VNDialogueController : MonoBehaviour
             || (confirmExitPanel != null && confirmExitPanel.activeSelf)
             || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
             || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen);
+    }
+
+    /// <summary>
+    /// Changes the player preference used by the single auto-forward timer.
+    /// The preference is owned and persisted by SettingsManager, never SaveData.
+    /// </summary>
+    public void SetAutoForward(bool enabled)
+    {
+        SettingsManager.Instance?.SetAutoForward(enabled);
+        observedAutoForward = enabled;
+
+        if (enabled)
+        {
+            StartAutoForwardDelayIfReady();
+        }
+        else
+        {
+            StopAutoForwardTimer();
+        }
+    }
+
+    public void ToggleAutoForward()
+    {
+        SetAutoForward(!IsAutoForwardEnabled());
+    }
+
+    private bool IsAutoForwardEnabled()
+    {
+        return SettingsManager.Instance != null
+            && SettingsManager.Instance.settings != null
+            && SettingsManager.Instance.settings.autoForward;
+    }
+
+    private void RefreshAutoForwardState()
+    {
+        bool enabled = IsAutoForwardEnabled();
+        if (enabled == observedAutoForward)
+        {
+            return;
+        }
+
+        observedAutoForward = enabled;
+        if (enabled)
+        {
+            StartAutoForwardDelayIfReady();
+        }
+        else
+        {
+            StopAutoForwardTimer();
+        }
+    }
+
+    private bool CanAutoAdvance()
+    {
+        return IsAutoForwardEnabled()
+            && !isTyping
+            && !showingChoice
+            && !showingEndLine
+            && activeLines != null
+            && !IsAdvanceBlockedByOpenPanel();
+    }
+
+    private void StartAutoForwardDelayIfReady()
+    {
+        StopAutoForwardTimer();
+
+        if (CanAutoAdvance())
+        {
+            autoForwardCoroutine = StartCoroutine(AutoForwardAfterDelay());
+        }
+    }
+
+    private void StopAutoForwardTimer()
+    {
+        if (autoForwardCoroutine != null)
+        {
+            StopCoroutine(autoForwardCoroutine);
+            autoForwardCoroutine = null;
+        }
+    }
+
+    private IEnumerator AutoForwardAfterDelay()
+    {
+        // The stored UI range (50..500) was historically displayed as percent.
+        // Treat it as tenths of a second: 50 = 0.5 s and 500 = 5.0 s.
+        // realtimeSinceStartup keeps Auto independent from Time.timeScale.
+        float delaySeconds = GetAutoForwardDelaySeconds(
+            SettingsManager.Instance != null ? SettingsManager.Instance.settings.autoForwardDelay : 250f);
+        float startedAt = Time.realtimeSinceStartup;
+
+        while (true)
+        {
+            if (!CanAutoAdvance())
+            {
+                // A modal or choice never consumes the previous wait. When it is
+                // dismissed, begin one full delay from the displayed line.
+                while (!CanAutoAdvance())
+                {
+                    if (!IsAutoForwardEnabled())
+                    {
+                        autoForwardCoroutine = null;
+                        yield break;
+                    }
+
+                    yield return null;
+                }
+
+                delaySeconds = GetAutoForwardDelaySeconds(SettingsManager.Instance.settings.autoForwardDelay);
+                startedAt = Time.realtimeSinceStartup;
+            }
+
+            if (Time.realtimeSinceStartup - startedAt >= delaySeconds)
+            {
+                autoForwardCoroutine = null;
+                AdvanceDialogue();
+                yield break;
+            }
+
+            yield return null;
+        }
+    }
+
+    public static float GetAutoForwardDelaySeconds(float storedDelay)
+    {
+        return Mathf.Clamp(storedDelay, 50f, 500f) / 100f;
     }
 
     private void ShowNextLine()
@@ -661,6 +796,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         backlogText.text = backlog.BuildRichText();
+        StopAutoForwardTimer();
         SetBacklogOverlayActive(true);
         backlogPanel.SetActive(true);
     }
@@ -673,6 +809,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         SetBacklogOverlayActive(false);
+        StartAutoForwardDelayIfReady();
     }
 
     private void SetBacklogOverlayActive(bool isActive)
@@ -730,12 +867,14 @@ public class VNDialogueController : MonoBehaviour
 
     public void OpenSettings()
     {
+        StopAutoForwardTimer();
         settingsPresenter?.Open();
     }
 
     public void HideSettings()
     {
         settingsPresenter?.Hide();
+        StartAutoForwardDelayIfReady();
     }
 
     public void ResetSettings()
@@ -803,6 +942,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         isTyping = false;
+        StopAutoForwardTimer();
 
         SceneFlowManager.EnsureInstance().ReturnToMainMenu();
     }
@@ -815,6 +955,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
+        StopAutoForwardTimer();
         confirmExitPanel.SetActive(true);
     }
 
@@ -824,6 +965,8 @@ public class VNDialogueController : MonoBehaviour
         {
             confirmExitPanel.SetActive(false);
         }
+
+        StartAutoForwardDelayIfReady();
     }
 
     private void ConfirmReturnToMainMenu()
@@ -896,12 +1039,13 @@ public class VNDialogueController : MonoBehaviour
         foreach (char character in text)
         {
             dialogueText.text += character;
-            yield return new WaitForSeconds(characterDelay);
+            yield return new WaitForSecondsRealtime(characterDelay);
         }
 
         dialogueText.text = text;
         isTyping = false;
         typingCoroutine = null;
+        StartAutoForwardDelayIfReady();
     }
 
     private void CompleteTyping()
@@ -914,6 +1058,7 @@ public class VNDialogueController : MonoBehaviour
         dialogueText.text = currentFullText;
         isTyping = false;
         typingCoroutine = null;
+        StartAutoForwardDelayIfReady();
     }
 
     private void SetButtonText(Button button, string text)
@@ -1197,6 +1342,8 @@ public class VNDialogueController : MonoBehaviour
 
     private void LoadDialogueScene(DialogueSceneData data, int startLineIndex, bool requestAutoSave)
     {
+        StopAutoForwardTimer();
+
         if (typingCoroutine != null)
         {
             StopCoroutine(typingCoroutine);

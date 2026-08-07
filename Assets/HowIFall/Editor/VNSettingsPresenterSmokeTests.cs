@@ -30,6 +30,11 @@ public static class VNSettingsPresenterSmokeTests
             Slider music = CreateComponent<Slider>(root, "Music");
             Slider sfx = CreateComponent<Slider>(root, "Sfx");
             Slider textSpeed = CreateComponent<Slider>(root, "TextSpeed");
+            Toggle autoForward = CreateComponent<Toggle>(root, "AutoForward");
+            Slider autoForwardDelay = CreateComponent<Slider>(root, "AutoForwardDelay");
+            autoForwardDelay.minValue = 50f;
+            autoForwardDelay.maxValue = 500f;
+            autoForwardDelay.wholeNumbers = true;
             Toggle fullscreen = CreateComponent<Toggle>(root, "Fullscreen");
             Button close = CreateComponent<Button>(root, "Close");
             Button reset = CreateComponent<Button>(root, "Reset");
@@ -43,6 +48,8 @@ public static class VNSettingsPresenterSmokeTests
                 music,
                 sfx,
                 textSpeed,
+                autoForward,
+                autoForwardDelay,
                 fullscreen,
                 close,
                 reset,
@@ -57,12 +64,18 @@ public static class VNSettingsPresenterSmokeTests
             Require(overlay.activeSelf && panel.activeSelf, "Open did not show the settings UI.");
             Require(Mathf.Approximately(master.value, service.Settings.masterVolume), "Master volume was not refreshed.");
             Require(Mathf.Approximately(textSpeed.value, service.Settings.textSpeed), "Text speed was not refreshed.");
+            Require(autoForward.isOn == service.Settings.autoForward, "Auto-forward state was not refreshed.");
+            Require(Mathf.Approximately(autoForwardDelay.value, service.Settings.autoForwardDelay), "Auto-forward delay was not refreshed.");
             Require(fullscreen.isOn == service.Settings.fullscreen, "Fullscreen toggle was not refreshed.");
 
             master.value = 0.35f;
+            autoForward.isOn = true;
+            autoForwardDelay.value = 400f;
             fullscreen.isOn = false;
             Require(Mathf.Approximately(service.LastMasterVolume, 0.35f), "Master volume change was not forwarded.");
             Require(!service.LastFullscreen, "Fullscreen change was not forwarded.");
+            Require(service.LastAutoForward, "Auto-forward change was not forwarded.");
+            Require(Mathf.Approximately(service.LastAutoForwardDelay, 400f), "Auto-forward delay change was not forwarded.");
 
             reset.onClick.Invoke();
             Require(service.ResetCount == 1, "Reset was not forwarded.");
@@ -106,6 +119,8 @@ public static class VNSettingsPresenterSmokeTests
             musicVolume = 0.6f,
             sfxVolume = 0.5f,
             textSpeed = 0.8f,
+            autoForward = false,
+            autoForwardDelay = 250f,
             fullscreen = true
         };
 
@@ -113,6 +128,8 @@ public static class VNSettingsPresenterSmokeTests
         public int ResetCount { get; private set; }
         public float LastMasterVolume { get; private set; }
         public bool LastFullscreen { get; private set; } = true;
+        public bool LastAutoForward { get; private set; }
+        public float LastAutoForwardDelay { get; private set; }
 
         public void Reset()
         {
@@ -134,6 +151,16 @@ public static class VNSettingsPresenterSmokeTests
 
         public void SetTextSpeed(float value)
         {
+        }
+
+        public void SetAutoForward(bool value)
+        {
+            LastAutoForward = value;
+        }
+
+        public void SetAutoForwardDelay(float value)
+        {
+            LastAutoForwardDelay = value;
         }
 
         public void SetFullscreen(bool value)
