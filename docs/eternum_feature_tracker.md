@@ -98,6 +98,8 @@
 
 ## Maintenance log
 
+- **2026-08-07 - VN Quick Menu layout fix:** `de2a2604afb16e5933af1d16325245cd0cc0acff` - siblingIndex=0 rendered the root below background UI; root now sits above background/dialogue and below modal roots. Graphical QA passed at 1280x720, 1920x1080, 2560x1440, and 3840x2160.
+
 - **2026-08-07 - Dialogue Skip lifecycle fix:** `e4f1fbd` - Manual Save graphical E2E exposed an uninitialized read-history field; `Awake` plus `EnsureReadHistory()` now guarantee the service, and synthetic narration is not marked as a `DialogueLine`. Targeted smoke and both graphical E2E passed.
 - **2026-08-07 - Dialogue Skip:** `5e54426e2806340bcfa21af3a5d5c731017bd39a` - safe seen-only Skip, persistent read-history outside `SaveData`, Ctrl and public API, choice/modal/Auto guards, smoke coverage.
 - **2026-08-07 - Auto Dialogue:** `28f84cda344140dabf6fe394df2268bc1743b3d9` - runtime Auto, VN Settings controls, `50..500 -> 0.5..5.0 sec` conversion and smoke coverage. Full regression suite, including graphical Save E2E, passed; graphical capture must run without `-batchmode` and `-nographics`.
