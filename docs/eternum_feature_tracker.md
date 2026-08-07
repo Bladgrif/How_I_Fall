@@ -31,7 +31,7 @@
 | Quick menu | History, Skip, Auto, Save, Quick Save, Quick Load, Load, Settings, Main Menu | ✅ DONE | Back сознательно отсутствует | — / Medium |
 | Auto | Таймер диалога, блокировка на choice/modal, согласование со Skip | ✅ DONE | QA задержки на длинных строках | Low / Low |
 | Skip | Seen-aware, не выбирает варианты, согласован с Auto | ✅ DONE | Ctrl сейчас переключает режим, а не работает удержанием как в Eternum | Low / Medium |
-| Backlog | До 100 реплик, автор, защита rich text, session-only | 🟡 PARTIAL | Решить, нужен ли backlog после Load/перезапуска | Medium / Medium |
+| Backlog | До 100 реплик, автор, защита rich text; policy выбрала save-scoped snapshot | 🟡 PARTIAL | Реализовать v3 snapshot и restore без дублей | Medium / High |
 | Rollback | Обратимого состояния исполнения нет | 🚫 NOT PLANNED | Нужна отдельная модель границ и обратимости | — / High |
 | Уведомления/confirm | Toast и модальные подтверждения применяются в save/load UX; тот же toast показывает feedback об изменении отношений после ручного выбора | ✅ DONE | Проверять читабельность сообщений при новом контенте | High / Low |
 | Relationships | После ручного выбора существующий toast показывает применённые изменения `trustMasha`, `trustArtem` и `leraInterest` без чисел; порядок Masha → Artem → Lera | ✅ DONE | Контентно проверять формулировки при добавлении новых персонажей/отношений | — / Low |
@@ -53,7 +53,7 @@
 - Quick menu, Auto и seen-aware Skip уже готовы; их нельзя повторно планировать как отсутствующие механики.
 - Continue — собственное улучшение How I Fall, а не функция для копирования из активного главного меню Eternum.
 - Настройки resolution, refresh rate, language, font size, game look/interface style и часть animation toggles сохраняются, но пока не меняют игру. Их нельзя отмечать `DONE`.
-- Backlog не сериализуется. Rollback, conditional choices, общий unlock registry, gallery/replay и special-mode coordinator отсутствуют; relationship feedback реализован как transient toast и не сохраняется.
+- Backlog пока не сериализуется; policy принята в [backlog_restoration_policy.md](backlog_restoration_policy.md): save-scoped snapshot в будущем SaveData v3, implementation TODO. Rollback, conditional choices, общий unlock registry, gallery/replay и special-mode coordinator отсутствуют; relationship feedback реализован как transient toast и не сохраняется.
 
 ## Рекомендуемые следующие механики
 
@@ -63,7 +63,7 @@
 |---:|---|---|---|---|---|---|
 | 1 | Settings truth pass | Removed false UI affordances and connected small runtime consumers | `SettingsManager`, both Settings panels | Small | Low | **DONE** |
 | 2 | Unified input map + Help | Canonical map drives runtime and Main Menu Help; no rebinding framework | VN actions, modal policy | Medium | Low | **DONE** |
-| 3 | Backlog restoration policy | Defines whether history survives Load before changing `SaveData` | backlog model, save migration decision | Medium | High | **NEXT: design note first** |
+| 3 | Backlog restoration | Policy выбрана: save-scoped snapshot без merge; старый save не показывает future history | v3 schema, scoped restore suppression, migration/tests | Medium | High | **NEXT: implement policy** |
 | 4 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | После design note |
 | 5 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
 | 6 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
@@ -73,9 +73,9 @@
 
 ## Единственный NEXT
 
-### Backlog restoration policy
+### Implement backlog restoration
 
-Решить в короткой design note, должна ли история реплик переживать Load и перезапуск. До решения не менять `SaveData`, не сериализовать backlog и не добавлять rollback.
+Policy зафиксирована в [backlog_restoration_policy.md](backlog_restoration_policy.md): каждый Manual/Auto/Quick slot получит bounded snapshot; Load/Continue заменят history без merge и без дубля current line/resultText. Реализация потребует SaveData v3, controlled legacy fallback, scoped restore suppression, tests и graphical E2E.
 
 **Out of NEXT:** Conditional Choices, relationship screen, rollback, gallery, QTE and mini-games.
 
