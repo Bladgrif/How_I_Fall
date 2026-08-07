@@ -8,9 +8,9 @@
 - Повторно просмотрены 25 исходных `.rpy` верхнего уровня в `game`, включая `screens.rpy`, `options.rpy`, `save_name.rpy`, `save_compatibility.rpy`, `gallery.rpy`, `chat.rpy`, `pax.rpy`, `look.rpy`, `lock_minigame.rpy`, `text.rpy` и `script.rpy`–`script9.rpy`.
 - Переводы в `game/tl` использовались только для подтверждения локализованных подписей; они не считаются отдельной реализацией механик.
 - Проверялось поведение и структура систем. Код, тексты, изображения, музыка, UI-assets, названия сюжетных элементов и Ren'Py-архитектура не переносятся.
-- Состояние How I Fall проверено по текущим C#-скриптам, Unity-сценам, ScriptableObject-данным и Editor/smoke-тестам на `HEAD 7e2f6bc` до этого docs-коммита. Старый tracker не считался источником истины.
+- Состояние How I Fall по backlog/save migration повторно проверено на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`; остальные строки сохраняют границы исходного source-only аудита.
 - Runtime Eternum не запускался: выводы о собственном коде подтверждены исходниками, а стандартные действия Ren'Py описаны только там, где они явно подключены. Неочевидные engine edge cases помечены как непроверенные запуском.
-- Unity runtime, сцены, `SaveData`, tests и assets в рамках задачи не менялись.
+- Backlog implementation изменила `SaveData`, runtime restore и tests; story assets, Unity scenes, rollback и `DialogueReadHistory` не менялись.
 
 ## Legend
 
@@ -24,8 +24,8 @@
 
 - Диалог: `VNDialogueController`, `DialogueSceneData`, `DialogueLine`, typewriter, complete-current-line, обычные выборы, переходы между сценами.
 - Состояние: `GameState`, типизированные stat-delta в `DialogueChoice`, восстановление scene/line/choice state.
-- Save/Load: `SaveManager`, `SaveData` v2, по 6 Manual/Auto/Quick слотов, PNG 384×216, Continue, подтверждения, pre-load autosave, controlled v1 read.
-- UX: `VNQuickMenu`, session backlog, Auto, seen-aware Skip, toast, VN settings, главное меню.
+- Save/Load: `SaveManager`, `SaveData` v3, по 6 Manual/Auto/Quick слотов, PNG 384×216, Continue, подтверждения, pre-load autosave, controlled v1/v2 read.
+- UX: `VNQuickMenu`, save-scoped backlog до 100 entries, Auto, seen-aware Skip, toast, VN settings, главное меню.
 - Ограничения: нет rollback, conditional choices, общего unlock registry, relationship feedback, hotspot/map/chat/gallery/QTE/mini-game runtime; значительная часть сохранённых `GameSettings` пока не влияет на игру.
 
 ---
@@ -75,7 +75,7 @@
 | C13 | Load loss confirmation | Loading from game uses Ren'Py confirm path; main-menu load does not need unsaved-progress warning. | REQUIRED. | DONE — confirmation in gameplay. | Save UI | — | Low | EXPANDED |
 | C14 | Pre-load safety checkpoint | Eternum source has no custom “save before load” flow. HIF creates a dedicated pre-load autosave before Manual/Quick load. | REQUIRED for HIF — stronger safety than reference. | DONE — `RequestPreLoadAutoSave`; Auto-slot loads avoid recursive checkpoint. | SaveManager | — | High | NEW |
 | C15 | Continue latest | Eternum main menu exposes New Game, Load, Preferences, Credits, Quit; no wired Continue. `screens.rpy:560-690`. | REQUIRED for HIF convenience. | DONE — newest valid Manual/Quick/Auto; disabled if none. | SaveManager/MainMenu | — | Low | COVERED |
-| C16 | Save compatibility migration | `after_load` patches older variables/looks then updates game version. `save_compatibility.rpy:2-24`. | REQUIRED once schema evolves. | DONE/PARTIAL — v2 + controlled v1 manual migration; future versions need explicit migrators. | Versioned SaveData | Medium | High | COVERED |
+| C16 | Save compatibility migration | `after_load` patches older variables/looks then updates game version. `save_compatibility.rpy:2-24`. | REQUIRED once schema evolves. | DONE/PARTIAL — v3 current; v1 Manual and v2 Manual/Auto/Quick migrate in-memory without rewriting legacy JSON. Future versions still need explicit migration. | Versioned SaveData | Medium | High | COVERED |
 | C17 | Corrupt/incompatible slot behavior | Ren'Py engine owns compatibility; custom `after_load` assumes valid load. | REQUIRED to fail safely. | DONE — HIF rejects invalid JSON/version/type/index/scene/line/preview metadata and preserves previous state. | Validator | — | High | EXPANDED |
 | C18 | Special-scene save policy | No explicit `quick_menu=False`, `block_rollback` or custom save guard found around QTE/mini-games; source-only audit cannot promise safe mid-game saves. | REQUIRED policy before HIF QTE. | TODO — generic special-mode save restriction contract absent; do not infer Eternum behavior as best practice. | Modal/game-mode state | Medium | High | NEW |
 
@@ -105,7 +105,7 @@
 
 | ID | Feature | Eternum / edge / input | HIF value / why | HIF / gap | Dep | Size | Risk | Old |
 |---|---|---|---|---|---|---|---|---|
-| F01 | Backlog list | History iterates `_history_list`, shows speaker/text and empty state, strips disallowed tags. `screens.rpy:1601-1641`. | REQUIRED readability. | DONE/PARTIAL — session list of 100 entries; not restored after load/restart. | Dialogue log | Medium | Medium | COVERED |
+| F01 | Backlog list | History iterates `_history_list`, shows speaker/text and empty state, strips disallowed tags. `screens.rpy:1601-1641`. | REQUIRED readability. | DONE — HIF stores up to 100 raw speaker/text entries per v3 slot; Load/Continue replace History without merge, while legacy fallback restores only the visible beat. | Dialogue log | Medium | High | COVERED |
 | F02 | History capacity | Ren'Py caps history at 250. `gui.rpy:398`. | USEFUL memory bound. | DONE with different cap 100; intentional for prototype. | — | — | Low | NEW |
 | F03 | History formatting safety | Engine filters tags and preserves character name color. | REQUIRED — prevent rich-text injection/layout break. | DONE/PARTIAL — HIF escapes TMP rich text; no color metadata. | Backlog model | Small | Low | NEW |
 | F04 | Back action | Quick menu Back invokes `Rollback()`. | LATER — исправление accidental advance. | TODO — absent by explicit design. | Reversible state model | Large | High | COVERED |
@@ -137,7 +137,7 @@
 | H05 | Persistent preferences/unlocks | `persistent` stores gallery override, quick menu/textbox/motion/save naming/page state, separate from rollback saves. | REQUIRED separation principle. | DONE for settings/read history; universal unlock state absent. | PlayerPrefs/profile | Medium | Medium | EXPANDED |
 | H06 | Seen state | `renpy.seen_image` unlocks replay thumbnails; engine seen text supports skip. | REQUIRED for Skip, LATER for gallery. | DONE for line seen-state; gallery scene seen-state absent. | Stable IDs | Medium | Medium | EXPANDED |
 | H07 | Saveable scene position | Ren'Py captures interpreter state; HIF must store stable scene/line identifiers. | REQUIRED. | DONE — sceneId/lineId + fallback index + choice state. | SaveData | — | High | EXPANDED |
-| H08 | State migration | `after_load` normalizes old fields/version. | REQUIRED as content evolves. | PARTIAL — v1→v2 only; migration registry/process should grow only with schema. | C16 | Medium | High | EXPANDED |
+| H08 | State migration | `after_load` normalizes old fields/version. | REQUIRED as content evolves. | PARTIAL — v1/v2→v3 is explicit and non-destructive; a general migration registry remains unnecessary until another schema change. | C16 | Medium | High | EXPANDED |
 
 ## I. Relationship UX
 
@@ -377,9 +377,8 @@
 1. Relationship changes have no player-facing feedback despite existing relationship fields.
 2. Main/VN settings store several options that do nothing: resolution, refresh rate, language, font size, look/style, animation toggles; ambience volume has no source.
 3. Input bindings are centralized in `VNInputMap` and Main Menu Help; rebinding and mouse/gamepad help variants remain absent.
-4. Backlog is session-only.
-5. There is no generic modal/special-scene coordinator for future QTE/map/chat/save restrictions.
-6. Conditional choices remain absent, but they are not automatically the best NEXT before smaller high-value UX cleanup.
+4. There is no generic modal/special-scene coordinator for future QTE/map/chat/save restrictions.
+5. Conditional choices remain absent and need a typed design policy before implementation.
 
 ## Audit conclusion
 

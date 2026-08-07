@@ -5,9 +5,9 @@
 Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
-- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на `23358b6ed856c7e3b1da379d78085c0b84557f2c`.
+- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
-- Runtime Eternum в этой задаче не запускался; Unity прошёл `HowIFallCiSmokeTests.RunAll` и `HowIFallProjectValidator.ValidateProject` на `23358b6ed856c7e3b1da379d78085c0b84557f2c`.
+- Runtime Eternum в этой задаче не запускался; Unity 6000.5.7f1 прошёл общий CI/validator/scene validation и оба graphical Save E2E на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
 
 ## Статусы
 
@@ -27,11 +27,11 @@
 | Ручные сохранения | 6 Manual-слотов, JSON + PNG 384×216, overwrite/delete/load confirmations | ✅ DONE | Поддерживать совместимость | — / High |
 | Auto/Quick saves | По 6 циклических Auto/Quick-слотов; quick save/load доступны из VN UI и hotkeys | ✅ DONE | Проверять точки autosave с новым контентом | — / Medium |
 | Continue | Загружает самое новое валидное Manual/Auto/Quick; в Eternum отдельной активной кнопки нет | ✅ DONE | — | — / Low |
-| Совместимость saves | `SaveData` v2 и контролируемое чтение v1 manual | ✅ DONE | Любое расширение формата требует миграции | — / High |
+| Совместимость saves | `SaveData` v3; v1 Manual и v2 Manual/Auto/Quick мигрируют только in-memory, следующий save пишет v3 | ✅ DONE | Любое расширение формата требует явной миграции | — / High |
 | Quick menu | History, Skip, Auto, Save, Quick Save, Quick Load, Load, Settings, Main Menu | ✅ DONE | Back сознательно отсутствует | — / Medium |
 | Auto | Таймер диалога, блокировка на choice/modal, согласование со Skip | ✅ DONE | QA задержки на длинных строках | Low / Low |
 | Skip | Seen-aware, не выбирает варианты, согласован с Auto | ✅ DONE | Ctrl сейчас переключает режим, а не работает удержанием как в Eternum | Low / Medium |
-| Backlog | До 100 реплик, автор, защита rich text; policy выбрала save-scoped snapshot | 🟡 PARTIAL | Реализовать v3 snapshot и restore без дублей | Medium / High |
+| Backlog | До 100 raw speaker/text entries; Manual/Auto/Quick сохраняют save-scoped snapshot, Load/Continue заменяют History без merge и дублей | ✅ DONE | Поддерживать v1/v2 fallback и проверять новые restore beats | — / High |
 | Rollback | Обратимого состояния исполнения нет | 🚫 NOT PLANNED | Нужна отдельная модель границ и обратимости | — / High |
 | Уведомления/confirm | Toast и модальные подтверждения применяются в save/load UX; тот же toast показывает feedback об изменении отношений после ручного выбора | ✅ DONE | Проверять читабельность сообщений при новом контенте | High / Low |
 | Relationships | После ручного выбора существующий toast показывает применённые изменения `trustMasha`, `trustArtem` и `leraInterest` без чисел; порядок Masha → Artem → Lera | ✅ DONE | Контентно проверять формулировки при добавлении новых персонажей/отношений | — / Low |
@@ -53,7 +53,7 @@
 - Quick menu, Auto и seen-aware Skip уже готовы; их нельзя повторно планировать как отсутствующие механики.
 - Continue — собственное улучшение How I Fall, а не функция для копирования из активного главного меню Eternum.
 - Настройки resolution, refresh rate, language, font size, game look/interface style и часть animation toggles сохраняются, но пока не меняют игру. Их нельзя отмечать `DONE`.
-- Backlog пока не сериализуется; policy принята в [backlog_restoration_policy.md](backlog_restoration_policy.md): save-scoped snapshot в будущем SaveData v3, implementation TODO. Rollback, conditional choices, общий unlock registry, gallery/replay и special-mode coordinator отсутствуют; relationship feedback реализован как transient toast и не сохраняется.
+- Backlog реализован по [backlog_restoration_policy.md](backlog_restoration_policy.md): `SaveData` v3 хранит save-scoped snapshot, Load/Continue заменяют runtime History, v1/v2 используют empty fallback с одной восстановленной visible line/resultText. Rollback, conditional choices, общий unlock registry, gallery/replay и special-mode coordinator отсутствуют; relationship feedback остаётся transient toast и не сохраняется.
 
 ## Рекомендуемые следующие механики
 
@@ -63,8 +63,8 @@
 |---:|---|---|---|---|---|---|
 | 1 | Settings truth pass | Removed false UI affordances and connected small runtime consumers | `SettingsManager`, both Settings panels | Small | Low | **DONE** |
 | 2 | Unified input map + Help | Canonical map drives runtime and Main Menu Help; no rebinding framework | VN actions, modal policy | Medium | Low | **DONE** |
-| 3 | Backlog restoration | Policy выбрана: save-scoped snapshot без merge; старый save не показывает future history | v3 schema, scoped restore suppression, migration/tests | Medium | High | **NEXT: implement policy** |
-| 4 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | После design note |
+| 3 | Backlog restoration | Save-scoped v3 snapshot без merge; legacy fallback и scoped suppression проверены | v3 schema, migration/tests, graphical E2E | Medium | High | **DONE** |
+| 4 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | **NEXT: design policy** |
 | 5 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
 | 6 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
 | 7 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
@@ -73,11 +73,11 @@
 
 ## Единственный NEXT
 
-### Implement backlog restoration
+### Define typed conditional choices
 
-Policy зафиксирована в [backlog_restoration_policy.md](backlog_restoration_policy.md): каждый Manual/Auto/Quick slot получит bounded snapshot; Load/Continue заменят history без merge и без дубля current line/resultText. Реализация потребует SaveData v3, controlled legacy fallback, scoped restore suppression, tests и graphical E2E.
+Сначала определить декларативную схему условий для `DialogueChoice`: поддерживаемые операции, missing-value semantics, скрытый/disabled UX и совместимость с будущими story flags. Не использовать `eval`, произвольный C# или строковые выражения.
 
-**Out of NEXT:** Conditional Choices, relationship screen, rollback, gallery, QTE and mini-games.
+**Out of NEXT:** implementation до design note, relationship screen, rollback, gallery, QTE and mini-games.
 
 ## Отложено или исключено
 
@@ -90,12 +90,13 @@ Policy зафиксирована в [backlog_restoration_policy.md](backlog_res
 
 ## Maintenance log
 
+- `9d7be27db11ffcdabc6bb2ec56845440c6647b2f` — Backlog restoration: `SaveData` v3 хранит до 100 raw entries на slot; Manual/Auto/Quick и pre-load Auto capture один runtime source. In-place Load и scene reload/Continue заменяют History, restore suppression исключает duplicate current line/resultText, а failure возвращает прежние GameState/backlog. V1 Manual и v2 Manual/Auto/Quick остаются loadable без переписывания JSON; malformed optional snapshot не блокирует core Load. Focused smoke, общий CI/validator/scene validation, Manual graphical E2E и Save Backend graphical E2E прошли в Unity 6000.5.7f1.
 - `b5b47a108366e70c329e8de9ed63bf8b5abe8af2` — Unified input map + Help: `VNInputMap` используется runtime и Main Menu Help. Player Help показывает Ctrl/F5/F6/F8/F9/B/Esc; F2/F3 остаются скрытыми debug bindings; rebinding и InputAction asset не добавлялись. CI, project validator и scene validation passed в Unity 6000.5.7f1; visual Help QA pending.
 - `b62435651f3a2af3606584724989eccb6108b461` — Settings mapping fix: canonical Unicode-escape option constants are shared by UI, runtime and smoke tests. Windowed, borderless fullscreen compatibility and fast skip cadence now map to their intended runtime values; no autosave/pre-load routing changed.
 - `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a` — Settings truth pass: `Screen.fullScreenMode` and `Screen.SetResolution` apply display values; autosave and skip cadence have runtime consumers; Main Menu hides controls that need absent subsystems. `SettingsTruthSmokeTests` is in CI; `SaveData` is unchanged.
 - `23358b6ed856c7e3b1da379d78085c0b84557f2c` — Relationship change feedback: после ручного `VNDialogueController.Choose()` применённые relationship delta собираются в один existing toast. Нулевые и неотношенческие delta не показываются, порядок Masha → Artem → Lera детерминирован, значения не выводятся; Save/Load и restore не создают событие.
 
-**Last reviewed functional commit:** `b5b47a108366e70c329e8de9ed63bf8b5abe8af2`
+**Last reviewed functional commit:** `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`
 
 ## Правило обновления
 
