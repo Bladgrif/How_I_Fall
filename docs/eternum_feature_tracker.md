@@ -5,7 +5,7 @@
 Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
-- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
+- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на `1aa2cdaf6814471492c3416871a45f887a813115`.
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
 - Runtime Eternum в этой задаче не запускался; Unity 6000.5.7f1 прошёл общий CI/validator/scene validation и оба graphical Save E2E на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
 
@@ -22,7 +22,7 @@
 |---|---|---:|---|---|
 | Диалог и typewriter | `VNDialogueController`, `DialogueSceneData`, завершение текущей печати, переходы между сценами | ✅ DONE | Контентная проверка темпа; диапазон `textSpeed` требует QA | Medium / Low |
 | Обычные выборы | Варианты, stat-delta, результат выбора и переход | ✅ DONE | Не смешивать с ещё не начатыми условиями | — / Low |
-| Условные выборы | Декларативных условий на вариантах нет | ⬜ TODO | Типизированные условия без `eval`/произвольного кода | High / Medium |
+| Условные выборы | Runtime-условий ещё нет; policy зафиксирована в [typed_conditional_choices_policy.md](typed_conditional_choices_policy.md) | ⬜ TODO | Реализовать typed numeric conditions, source-index mapping и fail-safe fallback | High / Medium |
 | Game state | Оси, доверие/интерес и состояние выбора сохраняются | 🟡 PARTIAL | Нет общего реестра флагов, ресурсов и unlock-state | Medium / Medium |
 | Ручные сохранения | 6 Manual-слотов, JSON + PNG 384×216, overwrite/delete/load confirmations | ✅ DONE | Поддерживать совместимость | — / High |
 | Auto/Quick saves | По 6 циклических Auto/Quick-слотов; quick save/load доступны из VN UI и hotkeys | ✅ DONE | Проверять точки autosave с новым контентом | — / Medium |
@@ -64,7 +64,7 @@
 | 1 | Settings truth pass | Removed false UI affordances and connected small runtime consumers | `SettingsManager`, both Settings panels | Small | Low | **DONE** |
 | 2 | Unified input map + Help | Canonical map drives runtime and Main Menu Help; no rebinding framework | VN actions, modal policy | Medium | Low | **DONE** |
 | 3 | Backlog restoration | Save-scoped v3 snapshot без merge; legacy fallback и scoped suppression проверены | v3 schema, migration/tests, graphical E2E | Medium | High | **DONE** |
-| 4 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | **NEXT: design policy** |
+| 4 | Typed conditional choices | Policy decided: typed numeric AND-conditions, hidden UX and source-index mapping | `typed_conditional_choices_policy.md`, focused tests | Medium | Medium | **NEXT: implement** |
 | 5 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
 | 6 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
 | 7 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
@@ -73,11 +73,11 @@
 
 ## Единственный NEXT
 
-### Define typed conditional choices
+### Implement typed conditional choices
 
-Сначала определить декларативную схему условий для `DialogueChoice`: поддерживаемые операции, missing-value semantics, скрытый/disabled UX и совместимость с будущими story flags. Не использовать `eval`, произвольный C# или строковые выражения.
+Реализовать утверждённую [policy](typed_conditional_choices_policy.md): typed numeric AND-conditions для `DialogueChoice`, hidden UX, transient source-index mapping, fail-safe zero/capacity handling и focused smoke coverage. Не использовать `eval`, произвольный C# или строковые выражения; `SaveData` остаётся v3.
 
-**Out of NEXT:** implementation до design note, relationship screen, rollback, gallery, QTE and mini-games.
+**Out of NEXT:** relationship screen, rollback, gallery, QTE and mini-games.
 
 ## Отложено или исключено
 
