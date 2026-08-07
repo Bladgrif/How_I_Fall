@@ -102,6 +102,12 @@ public static class SaveBackendV2PlayModeE2ERunner
                 case "WaitAutoNewestCoroutine":
                     SetDelay(0.25d);
                     break;
+                case "WaitMainDirectQuickLoad":
+                    WaitMainDirectQuickLoad();
+                    break;
+                case "WaitVnDirectQuickLoad":
+                    WaitVnDirectQuickLoad();
+                    break;
                 case "WaitMainQuickContinue":
                     WaitMainQuickContinue();
                     break;
@@ -309,7 +315,7 @@ public static class SaveBackendV2PlayModeE2ERunner
 
             UnityEngine.Object.Destroy(screenshot);
             screenshot = null;
-            SessionState.SetString(StageKey, "WaitMainQuickContinue");
+            SessionState.SetString(StageKey, "WaitMainDirectQuickLoad");
             SessionState.SetInt(CounterKey, 0);
             SetDelay(0.75d);
             SceneFlowManager.EnsureInstance().ReturnToMainMenu();
@@ -932,6 +938,57 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(state.suspicion != snapshot.suspicion && state.trustMasha != snapshot.trustMasha, "GameState was not changed before LoadSlot.");
     }
 
+    private static void WaitMainDirectQuickLoad()
+    {
+        if (!TryGetReadyMainMenu(out MainMenuController menu, out SaveManager manager))
+        {
+            Retry("MainMenu was not ready for direct Quick Load.");
+            return;
+        }
+
+        ConfigureTemporaryDirectory(manager);
+        SaveData quick = ReadSnapshot(QuickSnapshotKey);
+        SaveData auto = ReadSnapshot(AutoSnapshotKey);
+        Require(ParseUtc(quick.createdAtUtc) > ParseUtc(auto.createdAtUtc), "Quick is not the newest save before direct Load.");
+        Require(manager.HasAnyValidSave(), "Continue found no valid backend saves.");
+        SessionState.SetString(AutoFilesSignatureKey, GetTypeFilesSignature(manager, SaveSlotType.Auto));
+
+        ManualSaveLoadPanel panel = menu.manualSaveLoadPanel;
+        Require(panel != null, "MainMenu has no ManualSaveLoadPanel for immediate Load test.");
+        panel.OpenLoad();
+        panel.SelectQuickTab();
+        Require(panel.slotViews[0].button.interactable, "Quick slot 1 is disabled in Main Menu Load mode.");
+        panel.OnSlotSelected(1);
+        Require(!panel.IsConfirmationOpen, "Main Menu Load opened a confirmation modal.");
+        Pass("Main Menu Quick Load started immediately without confirmation");
+
+        SessionState.SetString(StageKey, "WaitVnDirectQuickLoad");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.75d);
+    }
+
+    private static void WaitVnDirectQuickLoad()
+    {
+        SaveData quick = ReadSnapshot(QuickSnapshotKey);
+        if (!IsVnReadyForSnapshot(quick))
+        {
+            Retry("VNPrototype was not ready after direct Quick Load.");
+            return;
+        }
+
+        VerifyRestoredSnapshot(quick, "Main Menu direct Quick Load");
+        Require(
+            GetTypeFilesSignature(SaveManager.Instance, SaveSlotType.Auto)
+                == SessionState.GetString(AutoFilesSignatureKey, string.Empty),
+            "Main Menu direct Quick Load created or overwrote an Auto slot during restoration.");
+        Pass("Main Menu Quick Load started immediately without confirmation and restored Quick");
+
+        SessionState.SetString(StageKey, "WaitMainQuickContinue");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.75d);
+        SceneFlowManager.EnsureInstance().ReturnToMainMenu();
+    }
+
     private static void WaitMainQuickContinue()
     {
         if (!TryGetReadyMainMenu(out MainMenuController menu, out SaveManager manager))
@@ -947,18 +1004,10 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(manager.HasAnyValidSave(), "Continue found no valid backend saves.");
         SessionState.SetString(AutoFilesSignatureKey, GetTypeFilesSignature(manager, SaveSlotType.Auto));
 
-        ManualSaveLoadPanel panel = menu.manualSaveLoadPanel;
-        Require(panel != null, "MainMenu has no ManualSaveLoadPanel for immediate Load test.");
-        panel.OpenLoad();
-        panel.SelectQuickTab();
-        Require(panel.slotViews[0].button.interactable, "Quick slot 1 is disabled in Main Menu Load mode.");
-        panel.OnSlotSelected(1);
-        Require(!panel.IsConfirmationOpen, "Main Menu Load opened a confirmation modal.");
-        Pass("Main Menu Quick Load started immediately without confirmation");
-
         SessionState.SetString(StageKey, "WaitVnQuickContinue");
         SessionState.SetInt(CounterKey, 0);
         SetDelay(0.75d);
+        menu.ContinueFromLatestSave();
     }
 
     private static void WaitVnQuickContinue()
