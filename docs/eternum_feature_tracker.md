@@ -5,7 +5,7 @@
 Это живой трекер UX-идей и механик, найденных в **Eternum 0.9.5**, и их фактического состояния в How I Fall. Он предназначен для планирования следующих задач, а не для описания желаемого состояния как уже готового.
 
 - **Eternum:** локальная русская сборка `0.9.5`; анализ повторно проверен 2026-08-07 по её `.rpy`-файлам.
-- **How I Fall:** last reviewed commit — `pending cleanup commit` (baseline до зачистки: `907abdb34fa32aa05c648f2c14af462b3052478c`).
+- **How I Fall:** cleanup baseline — `0ade24e765fd2479479fd9108f062ba7c836e513`; текущий scope — minimal classroom technical demo, старый сюжет удалён.
 - **Граница референса:** берём только наблюдаемое UX-поведение и структуру механик. Не переносим код, тексты, изображения, музыку, шрифты или другие assets Eternum.
 - **Связанные документы:** подробный исторический разбор сохранений — [save_system_eternum_reference.md](save_system_eternum_reference.md); архитектурный план — [technical_plan.md](technical_plan.md).
 
@@ -97,7 +97,7 @@
 
 ## Maintenance log
 
-- **2026-08-07 — project cleanup:** classroom demo зафиксирована как текущий baseline; старый сюжет и неиспользуемые prototype/template assets удалены; runtime-граф, Save/Load E2E, validators и smoke tests сохранены. Last reviewed commit будет заменён на hash локального cleanup commit после его создания.
+- **2026-08-07 — project cleanup:** `0ade24e765fd2479479fd9108f062ba7c836e513` зафиксирован как cleanup baseline minimal classroom technical demo; старый сюжет и неиспользуемые prototype/template assets удалены; runtime-граф, Save/Load E2E, validators и smoke tests сохранены.
 
 ## Что из Eternum сознательно не копируем
 
@@ -127,7 +127,7 @@
 
 1. обновить Feature Matrix и фактическое описание соответствующей строки;
 2. выставить проверенный статус DONE / PARTIAL / TODO;
-3. заменить `Last reviewed commit` в начале документа на проверенный commit;
+3. обновить последний проверенный functional commit в начале документа;
 4. обновить `Recommended Next Steps` и `NEXT`, не меняя их без подтверждённой причины;
 5. включить изменение tracker в тот же feature commit либо в непосредственно следующий docs commit;
 6. кратко отметить готовую часть и известные ограничения;

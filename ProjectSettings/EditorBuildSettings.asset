@@ -7,7 +7,7 @@ EditorBuildSettings:
   m_Scenes:
   - enabled: 1
     path: Assets/HowIFall/Scenes/MainMenu.unity
-    guid: e9c0930f6246da6418a08316898a237c
+    guid: 5cddddbc4dfd1fe4ebb0b5f815c3ee94
   - enabled: 1
     path: Assets/HowIFall/Scenes/VNPrototype.unity
     guid: 9094e1dff99d0ee41b1099672c7ffc0e

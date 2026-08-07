@@ -36,6 +36,10 @@ Baseline до зачистки: `907abdb34fa32aa05c648f2c14af462b3052478c`.
 
 Удалено 127 tracked-файлов, 2 untracked E2E result-файла и 168 ignored root logs (старые logs занимали 7 416 420 bytes). Для удалённых Unity assets проверено 37 GUID: оставшихся references на них нет. Каждый удалённый Unity asset удалён вместе с `.meta`.
 
+## Resolved findings
+
+- `ProjectSettings/EditorBuildSettings.asset`: после cleanup audit stored GUID сцены `MainMenu` исправлен с `e9c0930f6246da6418a08316898a237c` на `5cddddbc4dfd1fe4ebb0b5f815c3ee94` и теперь совпадает с `Assets/HowIFall/Scenes/MainMenu.unity.meta`. GUID `VNPrototype` не изменялся и уже совпадал.
+
 ## REVIEW / NOT DELETED
 
 | Path | Почему подозрительно | Почему пока оставлено |
@@ -47,7 +51,6 @@ Baseline до зачистки: `907abdb34fa32aa05c648f2c14af462b3052478c`.
 | `GameState` / `SaveData` / `DialogueChoice` story-like fields (`lust`, `romance`, `purity`, trust и т. п.) | Часть полей пришла из старого сюжета. | Поля участвуют в save schema, demo choice state и regression tests; удаление потребовало бы migration/runtime refactor. |
 | `docs/screenshots/save_load_ui/{manual_save,save_load_*}.png` | Generated graphical E2E output, не assertion baselines. | До задачи имели локальные изменения и перезаписываются обязательными graphical tests; не удалялись в high-risk cleanup. |
 | `ProjectSettings/Packages/com.unity.ai.assistant/Settings.json` | Настройки пакета, которого нет среди direct dependencies. | ProjectSettings не удалялись без проверки Unity import; риска для минимизации не создаёт. |
-| `ProjectSettings/EditorBuildSettings.asset` (`MainMenu` GUID) | Stored GUID `e9c093…` отличается от `MainMenu.unity.meta` GUID `5cdddd…`. | Unity открывает сцену по сохранённому path, project validator проходит; ручное редактирование ProjectSettings оставлено вне DELETE-only cleanup. |
 | `com.unity.collab-proxy` и широкий набор Unity modules | Возможно, часть пакетов не нужна маленькой demo. | Package removal меняет project resolution и выходит за безопасный DELETE-only scope. |
 
 ## Story cleanup
