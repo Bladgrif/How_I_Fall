@@ -54,6 +54,7 @@ public class SettingsPanelController : MonoBehaviour
     public Toggle autoSaveToggle;
     public Toggle showHintsToggle;
     public GameObject[] objectsToHideWhenOpen;
+    public GameObject[] controlsHiddenUntilImplemented;
 
     private void Awake()
     {
@@ -72,6 +73,7 @@ public class SettingsPanelController : MonoBehaviour
 
         SetHiddenObjectsActive(false);
         root.SetActive(true);
+        SetHiddenControlsActive(false);
         ShowAudioTab();
         RefreshUi();
     }
@@ -435,6 +437,22 @@ public class SettingsPanelController : MonoBehaviour
     {
         SetActiveTab(gameContent, gameTabImage, gameTabText);
         SetTitle("Настройки: игра");
+    }
+
+    private void SetHiddenControlsActive(bool isActive)
+    {
+        if (controlsHiddenUntilImplemented == null)
+        {
+            return;
+        }
+
+        foreach (GameObject control in controlsHiddenUntilImplemented)
+        {
+            if (control != null)
+            {
+                control.SetActive(isActive);
+            }
+        }
     }
 
     private void SetHiddenObjectsActive(bool isActive)

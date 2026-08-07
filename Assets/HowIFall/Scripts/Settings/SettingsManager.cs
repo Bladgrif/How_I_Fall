@@ -168,6 +168,7 @@ public class SettingsManager : MonoBehaviour
     public void SetResolution(string value)
     {
         settings.resolution = string.IsNullOrEmpty(value) ? "1920x1080" : value;
+        ApplySettings();
         SaveSettings();
     }
 
@@ -282,10 +283,55 @@ public class SettingsManager : MonoBehaviour
         SaveSettings();
     }
 
+    public static FullScreenMode GetFullScreenMode(string screenMode)
+    {
+        if (screenMode == "??? ?????")
+        {
+            return FullScreenMode.FullScreenWindow;
+        }
+
+        return screenMode == "????"
+            ? FullScreenMode.Windowed
+            : FullScreenMode.ExclusiveFullScreen;
+    }
+
+    public static bool TryParseResolution(string value, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        string[] dimensions = value.Split('x');
+        return dimensions.Length == 2
+            && int.TryParse(dimensions[0], out width)
+            && int.TryParse(dimensions[1], out height)
+            && width > 0
+            && height > 0;
+    }
+
+    private void ApplyResolution()
+    {
+        if (string.IsNullOrWhiteSpace(settings.resolution))
+        {
+            return;
+        }
+
+        if (!TryParseResolution(settings.resolution, out int width, out int height))
+        {
+            return;
+        }
+
+        Screen.SetResolution(width, height, GetFullScreenMode(settings.screenMode));
+    }
+
     private void ApplySettings()
     {
         AudioListener.volume = Mathf.Clamp01(settings.masterVolume);
-        Screen.fullScreen = settings.screenMode == "Полный экран";
+        Screen.fullScreenMode = GetFullScreenMode(settings.screenMode);
+        ApplyResolution();
         Application.runInBackground = settings.runInBackground;
     }
 }

@@ -323,7 +323,10 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        if (IsSystemSaveBlockedByModal())
+        if (IsSystemSaveBlockedByModal()
+            || (SettingsManager.Instance != null
+                && SettingsManager.Instance.settings != null
+                && !SettingsManager.Instance.settings.autoSave))
         {
             return;
         }
@@ -600,7 +603,11 @@ public class VNDialogueController : MonoBehaviour
 
     public static float GetSkipCadenceSeconds()
     {
-        return SkipCadenceSeconds;
+        return SettingsManager.Instance != null
+            && SettingsManager.Instance.settings != null
+            && string.Equals(SettingsManager.Instance.settings.skipBehavior, "???????", System.StringComparison.OrdinalIgnoreCase)
+            ? SkipCadenceSeconds * 0.5f
+            : SkipCadenceSeconds;
     }
 
     private DialogueReadHistory EnsureReadHistory()
@@ -651,7 +658,7 @@ public class VNDialogueController : MonoBehaviour
 
     private IEnumerator SkipAfterDelay()
     {
-        yield return new WaitForSecondsRealtime(SkipCadenceSeconds);
+        yield return new WaitForSecondsRealtime(GetSkipCadenceSeconds());
         skipCoroutine = null;
 
         if (!skipEnabled || IsAdvanceBlockedByOpenPanel() || showingChoice || showingEndLine)

@@ -8853,6 +8853,27 @@ MonoBehaviour:
   objectsToHideWhenOpen:
   - {fileID: 457039907}
   - {fileID: 88392627}
+  controlsHiddenUntilImplemented:
+  - {fileID: 81481808}
+  - {fileID: 1405135679}
+  - {fileID: 2085305566}
+  - {fileID: 669449155}
+  - {fileID: 946692761}
+  - {fileID: 467142084}
+  - {fileID: 840430856}
+  - {fileID: 17056324}
+  - {fileID: 447164012}
+  - {fileID: 1767595883}
+  - {fileID: 397400350}
+  - {fileID: 781342890}
+  - {fileID: 1512118671}
+  - {fileID: 537075958}
+  - {fileID: 751406118}
+  - {fileID: 43994152}
+  - {fileID: 125522347}
+  - {fileID: 1929085045}
+  - {fileID: 941419116}
+  - {fileID: 1427500861}
 --- !u!1 &746806881
 GameObject:
   m_ObjectHideFlags: 0
