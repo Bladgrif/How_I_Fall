@@ -282,22 +282,30 @@ public static class SaveBackendV2PlayModeE2ERunner
 
             yield return RunSafely(VerifyTabbedUiAndCapture(controller, manager));
 
-            yield return RunSafely(MutateDialogueAndState(controller, autoSnapshot));
-            ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
-            panel.OpenLoad();
-            panel.SelectAutoTab();
-            panel.OnSlotSelected(1);
-            yield return new WaitForSecondsRealtime(0.2f);
-            VerifyRestoredSnapshot(autoSnapshot, "public Auto LoadSlot");
-            Pass("Load tab invoked public LoadSlot(Auto, 1) and restored GameState, choice and VN position");
+            SaveData manualSnapshot = Clone(VerifySlot(manager, SaveSlotType.Manual, 1).Data);
+            yield return RunSafely(VerifyVnLoadConfirmation(
+                controller,
+                SaveSlotType.Manual,
+                1,
+                manualSnapshot,
+                verifyCancel: true,
+                verifyEscape: false));
 
-            yield return RunSafely(MutateDialogueAndState(controller, quickSnapshot));
-            panel.OpenLoad();
-            panel.SelectQuickTab();
-            panel.OnSlotSelected(1);
-            yield return new WaitForSecondsRealtime(0.2f);
-            VerifyRestoredSnapshot(quickSnapshot, "public Quick LoadSlot");
-            Pass("Load tab invoked public LoadSlot(Quick, 1) and restored GameState, choice and VN position");
+            yield return RunSafely(VerifyVnLoadConfirmation(
+                controller,
+                SaveSlotType.Auto,
+                1,
+                autoSnapshot,
+                verifyCancel: false,
+                verifyEscape: false));
+
+            yield return RunSafely(VerifyVnLoadConfirmation(
+                controller,
+                SaveSlotType.Quick,
+                1,
+                quickSnapshot,
+                verifyCancel: false,
+                verifyEscape: true));
 
             UnityEngine.Object.Destroy(screenshot);
             screenshot = null;
@@ -710,6 +718,14 @@ public static class SaveBackendV2PlayModeE2ERunner
         }
     }
 
+    private static string GetButtonLabel(UnityEngine.UI.Button button)
+    {
+        TMPro.TextMeshProUGUI label = button != null
+            ? button.GetComponentInChildren<TMPro.TextMeshProUGUI>(true)
+            : null;
+        return label != null ? label.text : string.Empty;
+    }
+
     private static bool IsTabActive(UnityEngine.UI.Button button)
     {
         Transform accent = button != null ? button.transform.Find("Active Accent") : null;
@@ -817,6 +833,80 @@ public static class SaveBackendV2PlayModeE2ERunner
         throw new InvalidOperationException("The real VN choice did not appear after 80 advance attempts.");
     }
 
+    private static IEnumerator VerifyVnLoadConfirmation(
+        VNDialogueController controller,
+        SaveSlotType slotType,
+        int slotIndex,
+        SaveData snapshot,
+        bool verifyCancel,
+        bool verifyEscape)
+    {
+        yield return MutateDialogueAndState(controller, snapshot);
+        SaveData mutatedState = CaptureRuntimeState(controller);
+        ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
+        Require(panel != null, "VNPrototype has no ManualSaveLoadPanel for Load confirmation.");
+
+        panel.OpenLoad();
+        SelectTab(panel, slotType);
+        panel.OnSlotSelected(slotIndex);
+
+        Require(panel.IsConfirmationOpen, $"{slotType} VN Load did not open confirmation.");
+        Require(panel.PendingConfirmationSlotType == slotType && panel.PendingConfirmationSlot == slotIndex,
+            $"{slotType} Load confirmation lost its pending type or index.");
+        Require(panel.confirmationText != null
+                && panel.confirmationText.text == "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u044d\u0442\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435? \u041d\u0435\u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u044b\u0439 \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441 \u0431\u0443\u0434\u0435\u0442 \u043f\u043e\u0442\u0435\u0440\u044f\u043d.",
+            $"{slotType} Load confirmation text is incorrect: '{panel.confirmationText?.text}'.");
+        Require(GetButtonLabel(panel.confirmationYesButton) == "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c", $"{slotType} Load confirmation button label is incorrect.");
+        Require(GetButtonLabel(panel.confirmationNoButton) == "\u041e\u0442\u043c\u0435\u043d\u0430", $"{slotType} Load confirmation cancel label is incorrect.");
+        VerifyRuntimeState(mutatedState, controller, $"{slotType} Load before confirmation");
+
+        SaveSlotType otherType = slotType == SaveSlotType.Quick ? SaveSlotType.Manual : SaveSlotType.Quick;
+        SelectTab(panel, otherType);
+        Require(panel.CurrentSlotType == slotType, $"{slotType} Load confirmation allowed a tab switch.");
+
+        if (verifyCancel)
+        {
+            panel.confirmationNoButton.onClick.Invoke();
+            Require(!panel.IsConfirmationOpen && panel.IsOpen, "Load Cancel did not return to the open panel.");
+            Require(!panel.PendingConfirmationSlotType.HasValue && panel.PendingConfirmationSlot == 0,
+                "Load Cancel did not clear pending confirmation.");
+            VerifyRuntimeState(mutatedState, controller, "Manual Load after Cancel");
+
+            panel.confirmationYesButton.onClick.Invoke();
+            VerifyRuntimeState(mutatedState, controller, "stale Load confirmation after Cancel");
+
+            panel.OnSlotSelected(slotIndex);
+            Require(panel.IsConfirmationOpen, "Manual Load did not reopen confirmation after Cancel.");
+        }
+
+        if (verifyEscape)
+        {
+            Require(panel.HandleEscape(), "Escape did not handle the VN Load confirmation.");
+            Require(!panel.IsConfirmationOpen && panel.IsOpen, "First Escape did not close only the Load confirmation.");
+            Require(!panel.PendingConfirmationSlotType.HasValue && panel.PendingConfirmationSlot == 0,
+                "Escape did not clear pending Load confirmation.");
+            VerifyRuntimeState(mutatedState, controller, "Quick Load after Escape");
+
+            Require(panel.HandleEscape(), "Second Escape did not close the Save/Load panel.");
+            for (int frame = 0; frame < 40 && panel.IsOpen; frame++)
+            {
+                yield return null;
+            }
+
+            Require(!panel.IsOpen, "Second Escape did not close the Save/Load panel.");
+            panel.OpenLoad();
+            SelectTab(panel, slotType);
+            panel.OnSlotSelected(slotIndex);
+            Require(panel.IsConfirmationOpen, "Quick Load did not reopen confirmation after Escape.");
+        }
+
+        panel.confirmationYesButton.onClick.Invoke();
+        yield return new WaitForSecondsRealtime(0.25f);
+        VerifyRestoredSnapshot(snapshot, $"confirmed {slotType} Load");
+        Require(!panel.IsOpen, $"Confirmed {slotType} Load did not close the Save/Load panel.");
+        Pass($"VN {slotType} Load required confirmation and restored only after confirmation");
+    }
+
     private static IEnumerator MutateDialogueAndState(VNDialogueController controller, SaveData snapshot)
     {
         GameState state = GameState.Instance;
@@ -857,10 +947,18 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(manager.HasAnyValidSave(), "Continue found no valid backend saves.");
         SessionState.SetString(AutoFilesSignatureKey, GetTypeFilesSignature(manager, SaveSlotType.Auto));
 
+        ManualSaveLoadPanel panel = menu.manualSaveLoadPanel;
+        Require(panel != null, "MainMenu has no ManualSaveLoadPanel for immediate Load test.");
+        panel.OpenLoad();
+        panel.SelectQuickTab();
+        Require(panel.slotViews[0].button.interactable, "Quick slot 1 is disabled in Main Menu Load mode.");
+        panel.OnSlotSelected(1);
+        Require(!panel.IsConfirmationOpen, "Main Menu Load opened a confirmation modal.");
+        Pass("Main Menu Quick Load started immediately without confirmation");
+
         SessionState.SetString(StageKey, "WaitVnQuickContinue");
         SessionState.SetInt(CounterKey, 0);
         SetDelay(0.75d);
-        menu.ContinueFromLatestSave();
     }
 
     private static void WaitVnQuickContinue()

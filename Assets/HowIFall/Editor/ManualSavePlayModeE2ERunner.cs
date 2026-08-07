@@ -387,6 +387,10 @@ public static class ManualSavePlayModeE2ERunner
         panel.OpenLoad();
         Require(panel.slotViews[0].button.interactable, "Occupied slot is not interactable in Load mode.");
         panel.slotViews[0].button.onClick.Invoke();
+        Require(panel.IsConfirmationOpen, "VN Load did not open confirmation.");
+        Require(panel.confirmationText.text == "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u044d\u0442\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435? \u041d\u0435\u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u044b\u0439 \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441 \u0431\u0443\u0434\u0435\u0442 \u043f\u043e\u0442\u0435\u0440\u044f\u043d.", "VN Load confirmation text is incorrect.");
+        Require(GetButtonLabel(panel.confirmationYesButton) == "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c", "VN Load confirmation action label is incorrect.");
+        panel.confirmationYesButton.onClick.Invoke();
         SessionState.SetString(StageKey, "VerifyInsideVn");
         SetDelay(0.3d);
     }

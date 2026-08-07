@@ -16,7 +16,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     {
         None,
         Overwrite,
-        Delete
+        Delete,
+        Load
     }
 
     private const float PanelFadeDuration = 0.16f;
@@ -208,18 +209,26 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             return;
         }
 
-        bool loadInsideVn = VNDialogueController.Instance != null;
+        SaveSlotInfo slotToLoad = saveManager.GetSlot(currentSlotType, slotIndex);
+        if (!slotToLoad.IsLoadable)
+        {
+            SetStatus(string.IsNullOrEmpty(slotToLoad.Error) ? "Не удалось загрузить слот" : slotToLoad.Error, true);
+            Refresh();
+            return;
+        }
+
+        if (VNDialogueController.Instance != null)
+        {
+            OpenConfirmation(ConfirmationAction.Load, currentSlotType, slotIndex);
+            return;
+        }
+
         if (!saveManager.LoadSlot(currentSlotType, slotIndex))
         {
             SaveSlotInfo slot = saveManager.GetSlot(currentSlotType, slotIndex);
             SetStatus(string.IsNullOrEmpty(slot.Error) ? "Не удалось загрузить слот" : slot.Error, true);
             Refresh();
             return;
-        }
-
-        if (loadInsideVn && this != null)
-        {
-            Close();
         }
     }
 
@@ -400,6 +409,27 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             SetStatus(deleted ? $"Слот {slotIndex} удалён" : $"Не удалось удалить слот {slotIndex}", !deleted);
             Refresh();
             RefreshContinueAvailability();
+            return;
+        }
+
+        if (action == ConfirmationAction.Load)
+        {
+            SaveManager saveManager = ResolveSaveManager();
+            if (saveManager == null || !saveManager.LoadSlot(slotType.Value, slotIndex))
+            {
+                SaveSlotInfo slot = saveManager != null
+                    ? saveManager.GetSlot(slotType.Value, slotIndex)
+                    : null;
+                SetStatus(
+                    slot == null || string.IsNullOrEmpty(slot.Error)
+                        ? "Не удалось загрузить слот"
+                        : slot.Error,
+                    true);
+                Refresh();
+                return;
+            }
+
+            Close();
         }
     }
 
@@ -423,12 +453,21 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         if (confirmationText != null)
         {
-            confirmationText.text = action == ConfirmationAction.Delete
-                ? $"Удалить сохранение из слота {slotIndex}?"
-                : $"Перезаписать слот {slotIndex}?";
+            confirmationText.text = action switch
+            {
+                ConfirmationAction.Delete => $"Удалить сохранение из слота {slotIndex}?",
+                ConfirmationAction.Load => "Загрузить это сохранение? Несохранённый прогресс будет потерян.",
+                _ => $"Перезаписать слот {slotIndex}?"
+            };
         }
 
-        SetButtonLabel(confirmationYesButton, action == ConfirmationAction.Delete ? "Удалить" : "Перезаписать");
+        SetButtonLabel(
+            confirmationYesButton,
+            action == ConfirmationAction.Delete
+                ? "Удалить"
+                : action == ConfirmationAction.Load
+                    ? "Загрузить"
+                    : "Перезаписать");
         SetButtonLabel(confirmationNoButton, "Отмена");
         SetConfirmationVisible(true, false);
     }
