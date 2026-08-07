@@ -10,6 +10,7 @@ public class VNDialogueController : MonoBehaviour
     public static VNDialogueController Instance { get; private set; }
 
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
+    private const float SkipCadenceSeconds = 0.12f;
     private const string EndPrototypeText = "Конец Unity-прототипа.";
 
     public DialogueSceneData sceneData;
@@ -67,6 +68,7 @@ public class VNDialogueController : MonoBehaviour
     private DialogueSceneData pendingNextScene;
     private Coroutine typingCoroutine;
     private Coroutine autoForwardCoroutine;
+    private Coroutine skipCoroutine;
     private Coroutine notificationCoroutine;
     private string currentFullText = string.Empty;
     private bool isTyping;
@@ -78,6 +80,8 @@ public class VNDialogueController : MonoBehaviour
     private readonly DialogueBacklog backlog = new DialogueBacklog(100);
     private VNSettingsPresenter settingsPresenter;
     private bool observedAutoForward;
+    private bool skipEnabled;
+    private readonly DialogueReadHistory readHistory = new DialogueReadHistory();
 
     private void Awake()
     {
@@ -195,6 +199,11 @@ public class VNDialogueController : MonoBehaviour
     private void Update()
     {
         RefreshAutoForwardState();
+
+        if (Keyboard.current != null && (Keyboard.current.leftCtrlKey.wasPressedThisFrame || Keyboard.current.rightCtrlKey.wasPressedThisFrame))
+        {
+            ToggleSkip();
+        }
 
         if (Keyboard.current != null && Keyboard.current.f5Key.wasPressedThisFrame)
         {
@@ -482,6 +491,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         StopAutoForwardTimer();
+        StopSkipTimer();
         ShowNextLine();
     }
 
@@ -518,6 +528,189 @@ public class VNDialogueController : MonoBehaviour
         SetAutoForward(!IsAutoForwardEnabled());
     }
 
+    /// <summary>
+    /// Enables or disables runtime dialogue skip. This state is intentionally not saved in SaveData.
+    /// Ctrl and the future Quick Menu use this entry point.
+    /// </summary>
+    public void SetSkip(bool enabled)
+    {
+        skipEnabled = enabled;
+        StopSkipTimer();
+
+        if (!skipEnabled)
+        {
+            StartAutoForwardDelayIfReady();
+            return;
+        }
+
+        StopAutoForwardTimer();
+        if (isTyping)
+        {
+            CompleteTyping();
+        }
+
+        StartSkipDelayIfReady();
+    }
+
+    public void ToggleSkip()
+    {
+        SetSkip(!skipEnabled);
+    }
+
+    private bool IsSeenOnlySkipMode()
+    {
+        string skipMode = SettingsManager.Instance != null && SettingsManager.Instance.settings != null
+            ? SettingsManager.Instance.settings.skipMode
+            : "????????";
+        return !IsAllTextSkipMode(skipMode);
+    }
+
+    public static bool IsAllTextSkipMode(string skipMode)
+    {
+        return string.Equals(skipMode, "???", System.StringComparison.OrdinalIgnoreCase)
+            || string.Equals(skipMode, "All", System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static float GetSkipCadenceSeconds()
+    {
+        return SkipCadenceSeconds;
+    }
+
+    private bool IsLineAllowedForSkip(DialogueSceneData data, DialogueLine line)
+    {
+        return !IsSeenOnlySkipMode()
+            || (data != null && line != null && readHistory.IsSeen(data.sceneId, line.lineId));
+    }
+
+    private void MarkCurrentLineSeen()
+    {
+        if (sceneData == null || activeLines == null || currentLineIndex < 0 || currentLineIndex >= activeLines.Count)
+        {
+            return;
+        }
+
+        DialogueLine line = activeLines[currentLineIndex];
+        if (line != null)
+        {
+            readHistory.MarkSeen(sceneData.sceneId, line.lineId);
+        }
+    }
+
+    private void StartSkipDelayIfReady()
+    {
+        StopSkipTimer();
+        if (skipEnabled && !IsAdvanceBlockedByOpenPanel() && !showingChoice && !showingEndLine)
+        {
+            skipCoroutine = StartCoroutine(SkipAfterDelay());
+        }
+    }
+
+    private void StopSkipTimer()
+    {
+        if (skipCoroutine != null)
+        {
+            StopCoroutine(skipCoroutine);
+            skipCoroutine = null;
+        }
+    }
+
+    private IEnumerator SkipAfterDelay()
+    {
+        yield return new WaitForSecondsRealtime(SkipCadenceSeconds);
+        skipCoroutine = null;
+
+        if (!skipEnabled || IsAdvanceBlockedByOpenPanel() || showingChoice || showingEndLine)
+        {
+            yield break;
+        }
+
+        AdvanceSkipOnce();
+    }
+
+    private void AdvanceSkipOnce()
+    {
+        if (isTyping)
+        {
+            CompleteTyping();
+            StartSkipDelayIfReady();
+            return;
+        }
+
+        if (showingFinalLine)
+        {
+            AdvanceDialogue();
+            StartSkipDelayIfReady();
+            return;
+        }
+
+        if (activeLines == null)
+        {
+            SetSkip(false);
+            return;
+        }
+
+        int nextLineIndex = currentLineIndex + 1;
+        if (nextLineIndex < activeLines.Count)
+        {
+            bool allowed = IsLineAllowedForSkip(sceneData, activeLines[nextLineIndex]);
+            AdvanceDialogue();
+            if (!allowed)
+            {
+                SetSkip(false);
+                return;
+            }
+
+            if (isTyping)
+            {
+                CompleteTyping();
+            }
+
+            StartSkipDelayIfReady();
+            return;
+        }
+
+        if (activeChoices != null && activeChoices.Count > 0)
+        {
+            AdvanceDialogue();
+            if (!ShouldResumeSkipAfterChoice())
+            {
+                SetSkip(false);
+            }
+
+            return;
+        }
+
+        if (sceneData != null && sceneData.defaultNextScene != null
+            && sceneData.defaultNextScene.lines != null && sceneData.defaultNextScene.lines.Count > 0)
+        {
+            bool allowed = IsLineAllowedForSkip(sceneData.defaultNextScene, sceneData.defaultNextScene.lines[0]);
+            AdvanceDialogue();
+            if (!allowed)
+            {
+                SetSkip(false);
+                return;
+            }
+
+            if (isTyping)
+            {
+                CompleteTyping();
+            }
+
+            StartSkipDelayIfReady();
+            return;
+        }
+
+        AdvanceDialogue();
+        SetSkip(false);
+    }
+
+    private bool ShouldResumeSkipAfterChoice()
+    {
+        return SettingsManager.Instance != null
+            && SettingsManager.Instance.settings != null
+            && SettingsManager.Instance.settings.skipAfterChoices;
+    }
+
     private bool IsAutoForwardEnabled()
     {
         return SettingsManager.Instance != null
@@ -547,6 +740,7 @@ public class VNDialogueController : MonoBehaviour
     private bool CanAutoAdvance()
     {
         return IsAutoForwardEnabled()
+            && !skipEnabled
             && !isTyping
             && !showingChoice
             && !showingEndLine
@@ -743,6 +937,15 @@ public class VNDialogueController : MonoBehaviour
         pendingNextScene = choice.nextScene != null ? choice.nextScene : sceneData.defaultNextScene;
         gameState.pendingNextSceneId = pendingNextScene != null ? pendingNextScene.sceneId : string.Empty;
         ShowFinalLine(choice.resultText);
+        if (skipEnabled && ShouldResumeSkipAfterChoice())
+        {
+            if (isTyping)
+            {
+                CompleteTyping();
+            }
+
+            StartSkipDelayIfReady();
+        }
     }
 
     private void ShowFinalLine(string text)
@@ -810,6 +1013,7 @@ public class VNDialogueController : MonoBehaviour
 
         SetBacklogOverlayActive(false);
         StartAutoForwardDelayIfReady();
+        StartSkipDelayIfReady();
     }
 
     private void SetBacklogOverlayActive(bool isActive)
@@ -875,6 +1079,7 @@ public class VNDialogueController : MonoBehaviour
     {
         settingsPresenter?.Hide();
         StartAutoForwardDelayIfReady();
+        StartSkipDelayIfReady();
     }
 
     public void ResetSettings()
@@ -1045,6 +1250,7 @@ public class VNDialogueController : MonoBehaviour
         dialogueText.text = text;
         isTyping = false;
         typingCoroutine = null;
+        MarkCurrentLineSeen();
         StartAutoForwardDelayIfReady();
     }
 
@@ -1058,6 +1264,7 @@ public class VNDialogueController : MonoBehaviour
         dialogueText.text = currentFullText;
         isTyping = false;
         typingCoroutine = null;
+        MarkCurrentLineSeen();
         StartAutoForwardDelayIfReady();
     }
 
@@ -1410,7 +1617,18 @@ public class VNDialogueController : MonoBehaviour
             backgroundImage.enabled = true;
         }
 
+        bool firstLineAllowedForSkip = IsLineAllowedForSkip(sceneData, activeLines[currentLineIndex]);
+        if (skipEnabled && !firstLineAllowedForSkip)
+        {
+            SetSkip(false);
+        }
+
         ShowLine(activeLines[currentLineIndex]);
+        if (skipEnabled && isTyping)
+        {
+            CompleteTyping();
+            StartSkipDelayIfReady();
+        }
 
         if (requestAutoSave)
         {
@@ -1451,6 +1669,9 @@ public class VNDialogueController : MonoBehaviour
 
     private void OnDestroy()
     {
+        StopSkipTimer();
+        StopAutoForwardTimer();
+
         if (Instance == this)
         {
             Instance = null;

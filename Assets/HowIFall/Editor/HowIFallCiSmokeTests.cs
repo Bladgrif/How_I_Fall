@@ -12,6 +12,7 @@ public static class HowIFallCiSmokeTests
 
             Run("Dialogue backlog", DialogueBacklogSmokeTests.RunBatchMode);
             Run("Auto dialogue", AutoDialogueSmokeTests.RunBatchMode);
+            Run("Skip dialogue", SkipDialogueSmokeTests.RunBatchMode);
             Run("VN settings presenter", VNSettingsPresenterSmokeTests.RunBatchMode);
             Run("Save backend v2", ManualSaveSystemV1SmokeTests.RunBatchMode);
 
