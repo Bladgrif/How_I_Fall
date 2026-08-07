@@ -5,9 +5,9 @@
 Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
-- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на `HEAD 7e2f6bc` до docs-коммита.
+- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на `23358b6ed856c7e3b1da379d78085c0b84557f2c`.
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
-- Runtime Eternum и Unity в этой задаче не запускались; документ отражает проверку исходников и существующей реализации.
+- Runtime Eternum в этой задаче не запускался; Unity прошёл `HowIFallCiSmokeTests.RunAll` и `HowIFallProjectValidator.ValidateProject` на `23358b6ed856c7e3b1da379d78085c0b84557f2c`.
 
 ## Статусы
 
@@ -33,8 +33,8 @@
 | Skip | Seen-aware, не выбирает варианты, согласован с Auto | ✅ DONE | Ctrl сейчас переключает режим, а не работает удержанием как в Eternum | Low / Medium |
 | Backlog | До 100 реплик, автор, защита rich text, session-only | 🟡 PARTIAL | Решить, нужен ли backlog после Load/перезапуска | Medium / Medium |
 | Rollback | Обратимого состояния исполнения нет | 🚫 NOT PLANNED | Нужна отдельная модель границ и обратимости | — / High |
-| Уведомления/confirm | Toast и модальные подтверждения уже применяются в save/load UX | ✅ DONE | Добавить отдельный relationship-event | High / Low |
-| Relationships | Данные отношений есть, player-facing реакции на изменение нет | 🟡 PARTIAL | Ненавязчивый toast/beat на фактический delta | **NEXT** / Low |
+| Уведомления/confirm | Toast и модальные подтверждения применяются в save/load UX; тот же toast показывает feedback об изменении отношений после ручного выбора | ✅ DONE | Проверять читабельность сообщений при новом контенте | High / Low |
+| Relationships | После ручного выбора существующий toast показывает применённые изменения `trustMasha`, `trustArtem` и `leraInterest` без чисел; порядок Masha → Artem → Lera | ✅ DONE | Контентно проверять формулировки при добавлении новых персонажей/отношений | — / Low |
 | Character hub / bios | Отдельного экрана отношений и биографий нет | ⬜ TODO | Только после появления контентной потребности | Low / Medium |
 | Settings | Сохраняются звук, текст, экран и другие значения; реально применена только часть | 🟡 PARTIAL | Убрать ложные affordances или подключить исполнители | High / Medium |
 | Input/help | Есть клавиши VN и quick menu, но нет единой карты и экрана справки | 🟡 PARTIAL | Формализовать команды и показывать только реальные bindings | Medium / Medium |
@@ -53,36 +53,34 @@
 - Quick menu, Auto и seen-aware Skip уже готовы; их нельзя повторно планировать как отсутствующие механики.
 - Continue — собственное улучшение How I Fall, а не функция для копирования из активного главного меню Eternum.
 - Настройки resolution, refresh rate, language, font size, game look/interface style и часть animation toggles сохраняются, но пока не меняют игру. Их нельзя отмечать `DONE`.
-- Backlog не сериализуется. Rollback, conditional choices, relationship feedback, общий unlock registry, gallery/replay и special-mode coordinator отсутствуют.
+- Backlog не сериализуется. Rollback, conditional choices, общий unlock registry, gallery/replay и special-mode coordinator отсутствуют; relationship feedback реализован как transient toast и не сохраняется.
 
-## Top 10 рекомендуемых следующих механик
+## Рекомендуемые следующие механики
 
 Порядок учитывает narrative value, существующие зависимости, размер, риск и полезность для будущих сцен.
 
 | # | Механика | Почему сейчас | Зависимости | Размер | Риск | Решение |
 |---:|---|---|---|---|---|---|
-| 1 | **Relationship change feedback** | Сразу делает уже применяемые stat-delta заметными и усиливает моральный выбор | `GameState`, существующий toast, точка применения delta | Small | Low | **NEXT** |
-| 2 | Settings truth pass | Убирает UI, который обещает несуществующее поведение | `SettingsManager`, обе панели Settings | Small | Low | После NEXT |
-| 3 | Единая input map + Help | Сводит реальные клавиши, controller-навигацию и подсказки без расхождений | VN actions, modal policy | Medium | Medium | После truth pass |
-| 4 | Backlog restoration policy | Определяет, должна ли история переживать Load, до расширения `SaveData` | backlog model, save migration decision | Medium | High | Сначала design note |
-| 5 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | Не начинать в этой задаче |
-| 6 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
-| 7 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
-| 8 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
-| 9 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
-| 10 | Gallery/replay foundation | Нужна для Extra только когда есть реальный replay-контент | unlock registry, scoped state, safe return | Large | High | Later |
+| 1 | Settings truth pass | Убирает UI, который обещает несуществующее поведение | `SettingsManager`, обе панели Settings | Small | Low | **NEXT** |
+| 2 | Единая input map + Help | Сводит реальные клавиши, controller-навигацию и подсказки без расхождений | VN actions, modal policy | Medium | Medium | После truth pass |
+| 3 | Backlog restoration policy | Определяет, должна ли история переживать Load, до расширения `SaveData` | backlog model, save migration decision | Medium | High | Сначала design note |
+| 4 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | После design note |
+| 5 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
+| 6 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
+| 7 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
+| 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
+| 9 | Gallery/replay foundation | Нужна для Extra только когда есть реальный replay-контент | unlock registry, scoped state, safe return | Large | High | Later |
 
 ## Единственный NEXT
 
-### Relationship change feedback
+### Settings truth pass
 
 Минимальный будущий scope:
 
-1. Реагировать только на реально применённый ненулевой relationship delta.
-2. Использовать существующую toast-инфраструктуру, не копировать hearts UI Eternum.
-3. Не показывать точное число, если story design должен сохранить неопределённость.
-4. Не менять `SaveData`: сохраняется итоговое значение, а уведомление остаётся кратким UI-событием.
-5. Проверить последовательность `choice result → delta feedback → next line/scene`, Auto/Skip и повторную загрузку.
+1. Сверить каждую настройку обеих Settings-панелей с фактическим runtime-эффектом.
+2. Для неработающих параметров либо подключить простой исполнитель, либо убрать ложный affordance.
+3. Не менять `SaveData` и не добавлять новые системы без необходимости.
+4. Добавить smoke-проверки только для реально применяемых настроек.
 
 **Вне NEXT:** Conditional Choices, новый экран отношений, rollback, gallery, QTE и любые mini-games.
 
@@ -94,6 +92,12 @@
 - Пользовательский resize textbox, economy HUD, unlockable looks и внешние community links.
 - Lock-picking, code lock, card/lyre/ball/reaction/score/slot loops без конкретной авторской сцены.
 - Любой `eval`/`exec` для условий диалога или чата.
+
+## Maintenance log
+
+- `23358b6ed856c7e3b1da379d78085c0b84557f2c` — Relationship change feedback: после ручного `VNDialogueController.Choose()` применённые relationship delta собираются в один existing toast. Нулевые и неотношенческие delta не показываются, порядок Masha → Artem → Lera детерминирован, значения не выводятся; Save/Load и restore не создают событие.
+
+**Last reviewed functional commit:** `23358b6ed856c7e3b1da379d78085c0b84557f2c`
 
 ## Правило обновления
 
