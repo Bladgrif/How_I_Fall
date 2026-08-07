@@ -603,9 +603,15 @@ public class VNDialogueController : MonoBehaviour
 
     public static float GetSkipCadenceSeconds()
     {
-        return SettingsManager.Instance != null
-            && SettingsManager.Instance.settings != null
-            && string.Equals(SettingsManager.Instance.settings.skipBehavior, "???????", System.StringComparison.OrdinalIgnoreCase)
+        string skipBehavior = SettingsManager.Instance != null && SettingsManager.Instance.settings != null
+            ? SettingsManager.Instance.settings.skipBehavior
+            : SettingsOptionValues.ClassicSkip;
+        return GetSkipCadenceSeconds(skipBehavior);
+    }
+
+    public static float GetSkipCadenceSeconds(string skipBehavior)
+    {
+        return string.Equals(skipBehavior, SettingsOptionValues.FastSkip, System.StringComparison.Ordinal)
             ? SkipCadenceSeconds * 0.5f
             : SkipCadenceSeconds;
     }

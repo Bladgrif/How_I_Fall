@@ -60,7 +60,7 @@ public class SettingsManager : MonoBehaviour
         settings.sfxVolume = PlayerPrefs.GetFloat(SfxVolumeKey, 0.8f);
         settings.ambientVolume = PlayerPrefs.GetFloat(AmbientVolumeKey, 0.8f);
         settings.musicDuringPause = PlayerPrefs.GetInt(MusicDuringPauseKey, 0) == 1;
-        settings.screenMode = PlayerPrefs.GetString(ScreenModeKey, "Полный экран");
+        settings.screenMode = PlayerPrefs.GetString(ScreenModeKey, SettingsOptionValues.Fullscreen);
         settings.resolution = PlayerPrefs.GetString(ResolutionKey, "1920x1080");
         settings.refreshRate = PlayerPrefs.GetString(RefreshRateKey, "60");
         settings.gameLook = PlayerPrefs.GetString(GameLookKey, "Чистый");
@@ -72,14 +72,14 @@ public class SettingsManager : MonoBehaviour
         settings.language = PlayerPrefs.GetString(LanguageKey, "Русский");
         settings.fontSizeMode = PlayerPrefs.GetString(FontSizeModeKey, "Мелкий");
         settings.skipMode = PlayerPrefs.GetString(SkipModeKey, "Виденное");
-        settings.skipBehavior = PlayerPrefs.GetString(SkipBehaviorKey, "Классический");
+        settings.skipBehavior = PlayerPrefs.GetString(SkipBehaviorKey, SettingsOptionValues.ClassicSkip);
         settings.textSpeed = Mathf.Clamp(PlayerPrefs.GetFloat(TextSpeedKey, 50f), 20f, 100f);
         settings.autoForwardDelay = Mathf.Clamp(PlayerPrefs.GetFloat(AutoForwardDelayKey, 250f), 50f, 500f);
         settings.skipAfterChoices = PlayerPrefs.GetInt(SkipAfterChoicesKey, 0) == 1;
         settings.autoForward = PlayerPrefs.GetInt(AutoForwardKey, 0) == 1;
         settings.autoSave = PlayerPrefs.GetInt(AutoSaveKey, 1) == 1;
         settings.showHints = PlayerPrefs.GetInt(ShowHintsKey, 1) == 1;
-        settings.fullscreen = PlayerPrefs.GetInt(FullscreenKey, 1) == 1;
+        settings.fullscreen = IsFullscreenScreenMode(settings.screenMode);
         ApplySettings();
         AudioManager.Instance?.ApplySettingsVolume();
     }
@@ -159,8 +159,8 @@ public class SettingsManager : MonoBehaviour
 
     public void SetScreenMode(string value)
     {
-        settings.screenMode = string.IsNullOrEmpty(value) ? "Полный экран" : value;
-        settings.fullscreen = settings.screenMode == "Полный экран";
+        settings.screenMode = string.IsNullOrEmpty(value) ? SettingsOptionValues.Fullscreen : value;
+        settings.fullscreen = IsFullscreenScreenMode(settings.screenMode);
         ApplySettings();
         SaveSettings();
     }
@@ -235,7 +235,7 @@ public class SettingsManager : MonoBehaviour
 
     public void SetSkipBehavior(string value)
     {
-        settings.skipBehavior = string.IsNullOrEmpty(value) ? "Классический" : value;
+        settings.skipBehavior = string.IsNullOrEmpty(value) ? SettingsOptionValues.ClassicSkip : value;
         SaveSettings();
     }
 
@@ -278,19 +278,24 @@ public class SettingsManager : MonoBehaviour
     public void SetFullscreen(bool value)
     {
         settings.fullscreen = value;
-        settings.screenMode = value ? "Полный экран" : "Окно";
+        settings.screenMode = value ? SettingsOptionValues.Fullscreen : SettingsOptionValues.Windowed;
         ApplySettings();
         SaveSettings();
     }
 
+    public static bool IsFullscreenScreenMode(string screenMode)
+    {
+        return GetFullScreenMode(screenMode) != FullScreenMode.Windowed;
+    }
+
     public static FullScreenMode GetFullScreenMode(string screenMode)
     {
-        if (screenMode == "??? ?????")
+        if (screenMode == SettingsOptionValues.Borderless)
         {
             return FullScreenMode.FullScreenWindow;
         }
 
-        return screenMode == "????"
+        return screenMode == SettingsOptionValues.Windowed
             ? FullScreenMode.Windowed
             : FullScreenMode.ExclusiveFullScreen;
     }

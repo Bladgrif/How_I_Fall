@@ -4,7 +4,7 @@ using TMPro;
 
 public class SettingsPanelController : MonoBehaviour
 {
-    private static readonly string[] ScreenModeOptions = { "Полный экран", "Окно", "Без рамки" };
+    private static readonly string[] ScreenModeOptions = { SettingsOptionValues.Fullscreen, SettingsOptionValues.Windowed, SettingsOptionValues.Borderless };
     private static readonly string[] ResolutionOptions = { "1920x1080", "1600x900", "1280x720" };
     private static readonly string[] RefreshRateOptions = { "60", "120", "144" };
     private static readonly string[] GameLookOptions = { "Чистый", "VHS", "Кинематографичный" };
@@ -12,7 +12,7 @@ public class SettingsPanelController : MonoBehaviour
     private static readonly string[] LanguageOptions = { "Русский", "English" };
     private static readonly string[] FontSizeModeOptions = { "Мелкий", "Средний", "Крупный" };
     private static readonly string[] SkipModeOptions = { "Виденное", "Всё", "Ничего" };
-    private static readonly string[] SkipBehaviorOptions = { "Классический", "Быстрый" };
+    private static readonly string[] SkipBehaviorOptions = { SettingsOptionValues.ClassicSkip, SettingsOptionValues.FastSkip };
 
     public GameObject root;
     public TextMeshProUGUI settingsTitleText;
