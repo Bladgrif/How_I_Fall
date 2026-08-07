@@ -174,7 +174,15 @@ public static class SaveBackendV2PlayModeE2ERunner
         Texture2D screenshot = null;
         try
         {
+            SaveManager manager = SaveManager.Instance;
+            Require(manager != null, "SaveManager disappeared before quick-save command tests.");
+            yield return RunSafely(VerifyQuickSaveCommandBeforeChoice(controller, manager));
+
             yield return RunSafely(AdvanceToChoice(controller));
+            yield return RunSafely(VerifyQuickSaveCommandOnChoice(controller, manager));
+            CleanupQuickCommandSlots(manager);
+            yield return new WaitForSecondsRealtime(controller.notificationDuration + 0.1f);
+
             Require(controller.choiceMashaButton != null, "The first real VN choice button is missing.");
             controller.choiceMashaButton.onClick.Invoke();
             yield return new WaitForSecondsRealtime(0.15f);
@@ -185,9 +193,6 @@ public static class SaveBackendV2PlayModeE2ERunner
             yield return new WaitForEndOfFrame();
             screenshot = ScreenCapture.CaptureScreenshotAsTexture();
             Require(screenshot != null && screenshot.width > 0 && screenshot.height > 0, "ScreenCapture returned no real VN screenshot.");
-
-            SaveManager manager = SaveManager.Instance;
-            Require(manager != null, "SaveManager disappeared before backend saves.");
 
             Require(manager.SaveSlot(1, screenshot), "Public Manual SaveSlot failed while preparing isolation and Continue data.");
             VerifySlot(manager, SaveSlotType.Manual, 1);
@@ -294,6 +299,100 @@ public static class SaveBackendV2PlayModeE2ERunner
                 UnityEngine.Object.Destroy(screenshot);
             }
         }
+    }
+
+    private static IEnumerator VerifyQuickSaveCommandBeforeChoice(
+        VNDialogueController controller,
+        SaveManager manager)
+    {
+        Require(manager.GetAllSlots(SaveSlotType.Quick).All(slot => !slot.IsOccupied), "Quick slots are not empty before command-flow tests.");
+        SaveData initialState = CaptureRuntimeState(controller);
+
+        controller.RequestQuickSave();
+        yield return WaitForQuickSlotCount(manager, 1, "single quick-save request");
+        SaveSlotInfo first = VerifySlot(manager, SaveSlotType.Quick, 1);
+        Require(first.Data.version == SaveData.CurrentVersion, "RequestQuickSave wrote an unexpected save version.");
+        VerifyRuntimeState(initialState, controller, "single RequestQuickSave");
+        VerifyQuickSaveToast(controller);
+        Pass("RequestQuickSave created Quick slot 1 without changing VN position or GameState");
+
+        controller.RequestQuickSave();
+        controller.RequestQuickSave();
+        yield return WaitForQuickSlotCount(manager, 2, "double quick-save request");
+        yield return new WaitForSecondsRealtime(0.2f);
+        Require(manager.GetAllSlots(SaveSlotType.Quick).Count(slot => slot.IsOccupied) == 2, "Double RequestQuickSave created more than one new slot.");
+        Require(!manager.GetSlot(SaveSlotType.Quick, 3).IsOccupied, "Double RequestQuickSave unexpectedly created Quick slot 3.");
+        VerifySlot(manager, SaveSlotType.Quick, 2);
+        Pass("Concurrent RequestQuickSave calls created only one new Quick save");
+
+        ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
+        Require(panel != null, "VNPrototype has no ManualSaveLoadPanel for modal blocking test.");
+        panel.OpenLoad();
+        panel.SelectAutoTab();
+        SaveSlotType selectedType = panel.CurrentSlotType;
+        int occupiedBeforeBlockedRequest = manager.GetAllSlots(SaveSlotType.Quick).Count(slot => slot.IsOccupied);
+        controller.RequestQuickSave();
+        yield return new WaitForSecondsRealtime(0.2f);
+        Require(manager.GetAllSlots(SaveSlotType.Quick).Count(slot => slot.IsOccupied) == occupiedBeforeBlockedRequest, "Quick save ran while Save/Load panel was open.");
+        Require(panel.IsOpen, "RequestQuickSave closed the Save/Load panel.");
+        Require(panel.CurrentSlotType == selectedType, "RequestQuickSave changed the current Save/Load tab.");
+
+        panel.Close();
+        yield return new WaitForSecondsRealtime(0.25f);
+        Require(!panel.IsOpen, "Save/Load panel did not close before the post-modal quick-save test.");
+        controller.RequestQuickSave();
+        yield return WaitForQuickSlotCount(manager, 3, "quick save after closing modal UI");
+        VerifySlot(manager, SaveSlotType.Quick, 3);
+        VerifyQuickSaveToast(controller);
+        Pass("Save/Load modal blocked RequestQuickSave without changing its tab, and quick save resumed after close");
+    }
+
+    private static IEnumerator VerifyQuickSaveCommandOnChoice(
+        VNDialogueController controller,
+        SaveManager manager)
+    {
+        Require(controller.choicePanel != null && controller.choicePanel.activeSelf, "Real choice screen is not active before quick-save test.");
+        int occupiedBefore = manager.GetAllSlots(SaveSlotType.Quick).Count(slot => slot.IsOccupied);
+        controller.RequestQuickSave();
+        yield return WaitForQuickSlotCount(manager, occupiedBefore + 1, "quick save on choice screen");
+
+        SaveSlotInfo choiceSlot = VerifySlot(manager, SaveSlotType.Quick, occupiedBefore + 1);
+        Require(choiceSlot.IsLoadable, "Quick save created on the choice screen is not loadable.");
+        Require(controller.choicePanel.activeSelf, "RequestQuickSave closed the real choice screen.");
+        VerifyQuickSaveToast(controller);
+        Pass("RequestQuickSave created a loadable save on the real choice screen");
+    }
+
+    private static IEnumerator WaitForQuickSlotCount(
+        SaveManager manager,
+        int expectedCount,
+        string context)
+    {
+        for (int frame = 0; frame < 180; frame++)
+        {
+            int occupied = manager.GetAllSlots(SaveSlotType.Quick).Count(slot => slot.IsOccupied);
+            if (occupied == expectedCount)
+            {
+                yield break;
+            }
+
+            yield return null;
+        }
+
+        throw new InvalidOperationException($"Timed out waiting for {context}; expected {expectedCount} occupied Quick slots.");
+    }
+
+    private static void CleanupQuickCommandSlots(SaveManager manager)
+    {
+        for (int index = 1; index <= SaveManager.SlotCount; index++)
+        {
+            if (manager.GetSlot(SaveSlotType.Quick, index).IsOccupied)
+            {
+                Require(manager.DeleteSlot(SaveSlotType.Quick, index), $"Could not clean Quick command test slot {index}.");
+            }
+        }
+
+        Require(manager.GetAllSlots(SaveSlotType.Quick).All(slot => !slot.IsOccupied), "Quick command test cleanup left occupied slots.");
     }
 
     private static IEnumerator VerifyTabbedUiAndCapture(VNDialogueController controller, SaveManager manager)
@@ -793,6 +892,73 @@ public static class SaveBackendV2PlayModeE2ERunner
             $"VN position is unavailable during {context}: {error}");
         Require(sceneId == snapshot.sceneId && lineId == snapshot.lineId && lineIndex == snapshot.lineIndex,
             $"VNDialogueController position mismatch during {context}.");
+    }
+
+    private static SaveData CaptureRuntimeState(VNDialogueController controller)
+    {
+        GameState state = GameState.Instance;
+        Require(state != null, "GameState is missing while capturing quick-save command state.");
+        Require(
+            controller.TryGetSavePosition(out string sceneId, out string lineId, out int lineIndex, out string error),
+            $"VN position is unavailable before quick save: {error}");
+
+        return new SaveData
+        {
+            sceneId = sceneId,
+            lineId = lineId,
+            lineIndex = lineIndex,
+            selectedChoiceIndex = state.selectedChoiceIndex,
+            choiceResultActive = state.choiceResultActive,
+            pendingNextSceneId = state.pendingNextSceneId,
+            lust = state.lust,
+            romance = state.romance,
+            purity = state.purity,
+            corruptionLevel = state.corruptionLevel,
+            selfControl = state.selfControl,
+            suspicion = state.suspicion,
+            trustMasha = state.trustMasha,
+            trustArtem = state.trustArtem,
+            leraInterest = state.leraInterest
+        };
+    }
+
+    private static void VerifyRuntimeState(
+        SaveData expected,
+        VNDialogueController controller,
+        string context)
+    {
+        GameState state = GameState.Instance;
+        Require(state != null, $"GameState is missing during {context}.");
+        Require(state.currentSceneId == expected.sceneId, $"sceneId changed during {context}.");
+        Require(state.currentLineId == expected.lineId, $"lineId changed during {context}.");
+        Require(state.currentLineIndex == expected.lineIndex, $"lineIndex changed during {context}.");
+        Require(state.selectedChoiceIndex == expected.selectedChoiceIndex, $"selectedChoiceIndex changed during {context}.");
+        Require(state.choiceResultActive == expected.choiceResultActive, $"choiceResultActive changed during {context}.");
+        Require(state.pendingNextSceneId == expected.pendingNextSceneId, $"pendingNextSceneId changed during {context}.");
+        Require(state.lust == expected.lust, $"lust changed during {context}.");
+        Require(state.romance == expected.romance, $"romance changed during {context}.");
+        Require(state.purity == expected.purity, $"purity changed during {context}.");
+        Require(state.corruptionLevel == expected.corruptionLevel, $"corruptionLevel changed during {context}.");
+        Require(state.selfControl == expected.selfControl, $"selfControl changed during {context}.");
+        Require(state.suspicion == expected.suspicion, $"suspicion changed during {context}.");
+        Require(state.trustMasha == expected.trustMasha, $"trustMasha changed during {context}.");
+        Require(state.trustArtem == expected.trustArtem, $"trustArtem changed during {context}.");
+        Require(state.leraInterest == expected.leraInterest, $"leraInterest changed during {context}.");
+        Require(
+            controller.TryGetSavePosition(out string sceneId, out string lineId, out int lineIndex, out string error),
+            $"VN position is unavailable during {context}: {error}");
+        Require(
+            sceneId == expected.sceneId && lineId == expected.lineId && lineIndex == expected.lineIndex,
+            $"VNDialogueController position changed during {context}.");
+    }
+
+    private static void VerifyQuickSaveToast(VNDialogueController controller)
+    {
+        Require(controller.notificationPanel != null && controller.notificationPanel.activeSelf, "Quick-save success toast is not visible.");
+        Require(
+            controller.notificationText != null
+                && controller.notificationText.text == "Быстрое сохранение создано",
+            "Quick-save success toast text is incorrect.");
     }
 
     private static bool IsVnReadyForSnapshot(SaveData snapshot)

@@ -67,6 +67,7 @@ public class VNDialogueController : MonoBehaviour
     private Coroutine notificationCoroutine;
     private string currentFullText = string.Empty;
     private bool isTyping;
+    private bool quickSaveInProgress;
     private readonly DialogueBacklog backlog = new DialogueBacklog(100);
     private VNSettingsPresenter settingsPresenter;
 
@@ -187,6 +188,11 @@ public class VNDialogueController : MonoBehaviour
             manualSaveLoadPanel?.OpenSave();
         }
 
+        if (Keyboard.current != null && Keyboard.current.f6Key.wasPressedThisFrame)
+        {
+            RequestQuickSave();
+        }
+
         if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
         {
             manualSaveLoadPanel?.OpenLoad();
@@ -224,6 +230,92 @@ public class VNDialogueController : MonoBehaviour
                 return;
             }
         }
+    }
+
+    public void RequestQuickSave()
+    {
+        if (quickSaveInProgress)
+        {
+            return;
+        }
+
+        if (Instance != this
+            || !isActiveAndEnabled
+            || !gameObject.activeInHierarchy
+            || gameObject.scene != UnityEngine.SceneManagement.SceneManager.GetActiveScene())
+        {
+            Debug.LogWarning("[QUICK SAVE] Request ignored because VNDialogueController is not active in the current scene.", this);
+            return;
+        }
+
+        if ((manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
+            || (backlogPanel != null && backlogPanel.activeSelf)
+            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || (confirmExitPanel != null && confirmExitPanel.activeSelf))
+        {
+            return;
+        }
+
+        quickSaveInProgress = true;
+        try
+        {
+            StartCoroutine(CaptureAndQuickSave());
+        }
+        catch (System.Exception exception)
+        {
+            quickSaveInProgress = false;
+            Debug.LogError($"[QUICK SAVE] Could not start quick-save coroutine. {exception.Message}", this);
+            ShowToast("Не удалось создать быстрое сохранение");
+        }
+    }
+
+    private IEnumerator CaptureAndQuickSave()
+    {
+        Texture2D screenshot = null;
+        bool saved = false;
+
+        try
+        {
+            yield return new WaitForEndOfFrame();
+
+            try
+            {
+                screenshot = ScreenCapture.CaptureScreenshotAsTexture();
+                if (screenshot == null)
+                {
+                    Debug.LogError("[QUICK SAVE] ScreenCapture returned no screenshot.", this);
+                }
+                else if (SaveManager.Instance == null)
+                {
+                    Debug.LogError("[QUICK SAVE] SaveManager.Instance is missing.", this);
+                }
+                else
+                {
+                    saved = SaveManager.Instance.SaveQuick(screenshot);
+                    if (!saved)
+                    {
+                        Debug.LogError("[QUICK SAVE] SaveManager.SaveQuick returned false.", this);
+                    }
+                }
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError($"[QUICK SAVE] Quick save failed. {exception.Message}", this);
+            }
+        }
+        finally
+        {
+            if (screenshot != null)
+            {
+                Destroy(screenshot);
+            }
+
+            quickSaveInProgress = false;
+        }
+
+        ShowToast(saved
+            ? "Быстрое сохранение создано"
+            : "Не удалось создать быстрое сохранение");
     }
 
     public void AdvanceDialogue()
