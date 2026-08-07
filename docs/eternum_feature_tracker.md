@@ -6,7 +6,7 @@
 
 - **Eternum:** локальная русская сборка `0.9.5`; анализ повторно проверен 2026-08-07 по её `.rpy`-файлам.
 - **How I Fall:** cleanup baseline — `0ade24e765fd2479479fd9108f062ba7c836e513`; текущий scope — minimal classroom technical demo, старый сюжет удалён.
-- **Last reviewed functional commit:** `5e54426e2806340bcfa21af3a5d5c731017bd39a` - Dialogue Skip.
+- **Last reviewed functional commit:** `e4f1fbd` - Dialogue read-history lifecycle fix.
 - **Граница референса:** берём только наблюдаемое UX-поведение и структуру механик. Не переносим код, тексты, изображения, музыку, шрифты или другие assets Eternum.
 - **Связанные документы:** подробный исторический разбор сохранений — [save_system_eternum_reference.md](save_system_eternum_reference.md); архитектурный план — [technical_plan.md](technical_plan.md).
 
@@ -98,6 +98,7 @@
 
 ## Maintenance log
 
+- **2026-08-07 - Dialogue Skip lifecycle fix:** `e4f1fbd` - Manual Save graphical E2E exposed an uninitialized read-history field; `Awake` plus `EnsureReadHistory()` now guarantee the service, and synthetic narration is not marked as a `DialogueLine`. Targeted smoke and both graphical E2E passed.
 - **2026-08-07 - Dialogue Skip:** `5e54426e2806340bcfa21af3a5d5c731017bd39a` - safe seen-only Skip, persistent read-history outside `SaveData`, Ctrl and public API, choice/modal/Auto guards, smoke coverage.
 - **2026-08-07 - Auto Dialogue:** `28f84cda344140dabf6fe394df2268bc1743b3d9` - runtime Auto, VN Settings controls, `50..500 -> 0.5..5.0 sec` conversion and smoke coverage. Full regression suite, including graphical Save E2E, passed; graphical capture must run without `-batchmode` and `-nographics`.
 - **2026-08-07 — project cleanup:** `0ade24e765fd2479479fd9108f062ba7c836e513` зафиксирован как cleanup baseline minimal classroom technical demo; старый сюжет и неиспользуемые prototype/template assets удалены; runtime-граф, Save/Load E2E, validators и smoke tests сохранены.
