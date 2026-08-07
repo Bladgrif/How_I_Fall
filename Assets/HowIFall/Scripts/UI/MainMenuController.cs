@@ -14,14 +14,18 @@ public sealed class MainMenuController : MonoBehaviour
 
     [SerializeField] private GameObject aboutPanel;
     [SerializeField] private GameObject helpPanel;
+    [SerializeField] private TextMeshProUGUI helpText;
     [SerializeField] private GameObject exitConfirmPanel;
     [SerializeField] private TextMeshProUGUI notificationText;
     [SerializeField] private GameObject notificationPanel;
 
     private Coroutine notificationCoroutine;
 
+    public TextMeshProUGUI HelpText => helpText;
+
     private void Start()
     {
+        RefreshHelpText();
         SaveManager.EnsureInstance(dialogueRegistry);
         RefreshContinueAvailability();
     }
@@ -86,9 +90,19 @@ public sealed class MainMenuController : MonoBehaviour
 
     public void OpenHelp()
     {
+        RefreshHelpText();
+
         if (helpPanel != null)
         {
             helpPanel.SetActive(true);
+        }
+    }
+
+    private void RefreshHelpText()
+    {
+        if (helpText != null)
+        {
+            helpText.text = VNInputMap.BuildHelpText();
         }
     }
 

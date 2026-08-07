@@ -2,7 +2,6 @@ using System.Collections;
 using System.Linq;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public sealed class ManualSaveLoadPanel : MonoBehaviour
@@ -110,7 +109,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void Update()
     {
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
         {
             HandleEscape();
         }

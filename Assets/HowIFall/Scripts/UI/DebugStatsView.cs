@@ -1,6 +1,5 @@
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class DebugStatsView : MonoBehaviour
 {
@@ -18,7 +17,7 @@ public class DebugStatsView : MonoBehaviour
 
     private void Update()
     {
-        if (Keyboard.current != null && Keyboard.current.f2Key.wasPressedThisFrame)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleDebugStatsView))
         {
             root.SetActive(!root.activeSelf);
         }

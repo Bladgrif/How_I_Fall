@@ -6246,6 +6246,7 @@ MonoBehaviour:
   continueButton: {fileID: 1753602767}
   aboutPanel: {fileID: 1462554315}
   helpPanel: {fileID: 1317621676}
+  helpText: {fileID: 2065528805}
   exitConfirmPanel: {fileID: 254473934}
   notificationText: {fileID: 923338737}
   notificationPanel: {fileID: 2109763165}

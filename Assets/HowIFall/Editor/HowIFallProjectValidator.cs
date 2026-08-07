@@ -73,6 +73,7 @@ public static class HowIFallProjectValidator
             issues += ValidateRequiredReference(sceneName, "MainMenuController.manualSaveLoadPanel", mainMenuController.manualSaveLoadPanel);
             issues += ValidateRequiredReference(sceneName, "MainMenuController.dialogueRegistry", mainMenuController.dialogueRegistry);
             issues += ValidateRequiredReference(sceneName, "MainMenuController.continueButton", mainMenuController.continueButton);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.helpText", mainMenuController.HelpText);
         }
 
         issues += ValidateRequiredObject(sceneName, FindAny<SettingsPanelController>(), nameof(SettingsPanelController));

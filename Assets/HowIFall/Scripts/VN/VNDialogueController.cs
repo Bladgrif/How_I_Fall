@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class VNDialogueController : MonoBehaviour
@@ -203,37 +202,37 @@ public class VNDialogueController : MonoBehaviour
     {
         RefreshAutoForwardState();
 
-        if (Keyboard.current != null && (Keyboard.current.leftCtrlKey.wasPressedThisFrame || Keyboard.current.rightCtrlKey.wasPressedThisFrame))
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleSkip))
         {
             ToggleSkip();
         }
 
-        if (Keyboard.current != null && Keyboard.current.f5Key.wasPressedThisFrame)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.OpenSave))
         {
             manualSaveLoadPanel?.OpenSave();
         }
 
-        if (Keyboard.current != null && Keyboard.current.f6Key.wasPressedThisFrame)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.QuickSave))
         {
             RequestQuickSave();
         }
 
-        if (Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.QuickLoad))
         {
             RequestQuickLoad();
         }
 
-        if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.OpenLoad))
         {
             manualSaveLoadPanel?.OpenLoad();
         }
 
-        if (Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.ShowBacklog))
         {
             ShowBacklog();
         }
 
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
         {
             if (backlogPanel != null && backlogPanel.activeSelf)
             {

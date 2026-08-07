@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class DebugStatsPanelController : MonoBehaviour
 {
@@ -18,7 +17,7 @@ public class DebugStatsPanelController : MonoBehaviour
 
     private void Update()
     {
-        if (Keyboard.current != null && Keyboard.current.f3Key.wasPressedThisFrame && root != null)
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleDebugStatsPanel) && root != null)
         {
             root.SetActive(!root.activeSelf);
         }
