@@ -167,8 +167,8 @@
 | J10 | Textbox opacity | Persistent 0–100%. | USEFUL. | TODO. | UI theme | Small | Low | NEW |
 | J11 | Textbox width | Player-resizable dialogue width. | NOT NEEDED now; responsive layout should own width. | NOT PLANNED. | Layout | Medium | Medium | NEW |
 | J12 | Textbox height | Player-resizable dialogue height. | NOT NEEDED now. | NOT PLANNED. | Layout | Medium | Medium | NEW |
-| J13 | Window/fullscreen | PC radio choice between window/fullscreen. | REQUIRED. | DONE ? `Screen.fullScreenMode` applies fullscreen, windowed and borderless modes. | Screen API | Medium | Medium | EXPANDED |
-| J14 | Resolution | Ren'Py relies on virtual resolution/display mode; no explicit resolution list in this Preferences screen. | USEFUL for Unity. | DONE ? validated dimensions reach `Screen.SetResolution` immediately and after restart. | Screen API | Small | Medium | NEW |
+| J13 | Window/fullscreen | PC radio choice between window/fullscreen. | REQUIRED. | DONE ? canonical option mapping; `Screen.fullScreenMode` applies fullscreen, windowed and borderless modes. | Screen API | Medium | Medium | EXPANDED |
+| J14 | Resolution | Ren'Py relies on virtual resolution/display mode; no explicit resolution list in this Preferences screen. | USEFUL for Unity. | DONE ? canonical option mapping; validated dimensions reach `Screen.SetResolution` immediately and after restart. | Screen API | Small | Medium | NEW |
 | J15 | Refresh rate | Not an Eternum player-facing setting. | NOT NEEDED until verified demand. | DEFERRED ? control hidden; no refresh-rate subsystem was added. | Screen API | Medium | Medium | NEW |
 | J16 | Language | Known languages are listed dynamically; selected language swaps translated strings. `screens.rpy:1446-1461`. | LATER when translation exists. | DEFERRED ? control hidden; localization system absent. | Localization | Large | High | NEW |
 | J17 | Skip unseen | Toggle described in E03. | REQUIRED. | DONE runtime; full settings UI exposes it. | Skip | — | Medium | EXPANDED |

@@ -95,10 +95,11 @@ Next scope: document the actual VN bindings and show them in Help without adding
 
 ## Maintenance log
 
+- `b62435651f3a2af3606584724989eccb6108b461` ? Settings mapping fix: canonical Unicode-escape option constants are shared by UI, runtime and smoke tests. Windowed, borderless fullscreen compatibility and fast skip cadence now map to their intended runtime values; no autosave/pre-load routing changed.
 - `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a` - Settings truth pass: `Screen.fullScreenMode` and `Screen.SetResolution` apply display values; autosave and skip cadence have runtime consumers; Main Menu hides controls that need absent subsystems. `SettingsTruthSmokeTests` is in CI; `SaveData` is unchanged.
 - `23358b6ed856c7e3b1da379d78085c0b84557f2c` — Relationship change feedback: после ручного `VNDialogueController.Choose()` применённые relationship delta собираются в один existing toast. Нулевые и неотношенческие delta не показываются, порядок Masha → Artem → Lera детерминирован, значения не выводятся; Save/Load и restore не создают событие.
 
-**Last reviewed functional commit:** `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a`
+**Last reviewed functional commit:** `b62435651f3a2af3606584724989eccb6108b461`
 
 ## Правило обновления
 
