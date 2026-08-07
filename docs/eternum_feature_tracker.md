@@ -6,7 +6,7 @@
 
 - **Eternum:** локальная русская сборка `0.9.5`; анализ повторно проверен 2026-08-07 по её `.rpy`-файлам.
 - **How I Fall:** cleanup baseline — `0ade24e765fd2479479fd9108f062ba7c836e513`; текущий scope — minimal classroom technical demo, старый сюжет удалён.
-- **Last reviewed functional commit:** `e4f1fbd` - Dialogue read-history lifecycle fix.
+- **Last reviewed functional commit:** `6c1f8600e72640258a90554de1e50939cc8e3c52` - VN Quick Menu.
 - **Граница референса:** берём только наблюдаемое UX-поведение и структуру механик. Не переносим код, тексты, изображения, музыку, шрифты или другие assets Eternum.
 - **Связанные документы:** подробный исторический разбор сохранений — [save_system_eternum_reference.md](save_system_eternum_reference.md); архитектурный план — [technical_plan.md](technical_plan.md).
 
@@ -37,11 +37,11 @@
 | Feature | Как работает в Eternum | Зачем нам | How I Fall сейчас | Статус | Что осталось | Приоритет | Риск |
 |---|---|---|---|---|---|---|---|
 | Печатание реплик | Диалог отображается в отдельном say-screen; игрок может ускорять чтение. | Управляемый темп VN. | Typewriter-эффект и завершение текущей печати повторным advance. | ✅ DONE | — | — | Low |
-| Quick menu | Во время диалога: Back, History, Skip, Auto, Save, Q.Save, Q.Load, Prefs. | Основные действия доступны без ухода из сцены. | Отдельные действия Save/Load/History/Settings существуют, но единой панели и Skip/Auto нет. | 🟡 PARTIAL | Собрать компактное меню и не дублировать логику. | High | Medium |
+| Quick menu | Dialogue actions are available during dialogue. | Player access without leaving the scene. | Bottom compact facade: History, Skip, Auto, Save, Quick Save, Quick Load, Load, Settings, Main Menu. It calls existing APIs only; Back is intentionally absent. Auto and Skip reflect runtime state; modal overlays remain above the panel. | DONE | - | - | Medium |
 | History / backlog | Экран History выводит уже показанные реплики. | Вернуться к пропущенной фразе. | Backlog собирает реплики с автором, отображается и имеет smoke-тесты; хранится только в сессии. | 🟡 PARTIAL | Решить, нужна ли история после загрузки/перезапуска, затем сериализовать при необходимости. | Medium | Medium |
 | Back / rollback | Ren'Py откатывает историю исполнения с отдельным действием Back. | Исправить случайный advance/выбор в пределах сцены. | Нет. | ⬜ TODO | Сперва определить границы: только непройденные реплики или полноценные обратимые выборы. | Medium | High |
-| Skip | Ctrl toggles Skip; Ren'Py limits unread text by preference and never selects a menu item automatically. | Fast replay without losing new text. | One 0.12 s realtime timer in `VNDialogueController`, `SetSkip(bool)`/`ToggleSkip()`, and persistent `sceneId + lineId` history outside `SaveData`. Default seen-only mode stops at the first unread line; `All` permits normal unread lines. Choices remain manual; `skipAfterChoices` only resumes after a manual choice. Modals pause progression; Skip suppresses Auto, which receives a fresh full delay afterwards. | DONE | Quick Menu should call the API without duplicating logic. | - | Medium |
-| Auto dialogue | Auto-forward переключается отдельным действием; задержка настраивается в Preferences. | Hands-free чтение и доступность. | Один realtime-таймер в `VNDialogueController`: typewriter → 0,5–5,0 с → advance. Ручной advance сохраняет Auto; Choice и Save/Load, History, Settings, Confirm Exit блокируют его и после закрытия получают новую полную задержку. Переходы сцен продолжают Auto, restore не делает мгновенный advance, terminal state останавливает loop. `SettingsManager` сохраняет Auto вне `SaveData`; toggle и slider доступны в VN Settings. | ✅ DONE | Quick-menu вход можно добавить отдельно через `SetAutoForward`/`ToggleAutoForward`; Skip не реализован. | — | Medium |
+| Skip | Ctrl toggles Skip and does not select choices. | Fast replay. | VNDialogueController owns the timer and seen-text rules; Quick Menu calls ToggleSkip without duplicate logic. | DONE | - | - | Medium |
+| Auto dialogue | Auto-forward advances after a settings delay. | Hands-free reading. | VNDialogueController owns one runtime timer; Quick Menu calls ToggleAutoForward. Skip is implemented through ToggleSkip. | DONE | - | - | Medium |
 
 ### Settings, choices and state
 
@@ -115,14 +115,13 @@
 
 | Order | Feature | Player value | Dependencies | Scope | Risk |
 |---:|---|---|---|---|---|
-| 1 | Quick Menu | Adds player access to existing actions without leaving dialogue. | Save/Load/History/Settings and Auto/Skip public APIs. | Medium | Medium |
-| 2 | Conditional choices | Makes earlier decisions visible in new scenes. | `GameState`, `DialogueChoice`, validator. | Medium | Medium |
-| 3 | Relationship feedback | Shows consequences without exposing the full scoring model. | `GameState`, toast/UI decision. | Small | Low |
-| 4 | Backlog after Load | Keeps displayed lines after a restore. | `SaveData` format, migration, cap. | Medium | Medium |
+| 1 | Conditional choices | Makes earlier decisions visible in new scenes. | `GameState`, `DialogueChoice`, validator. | Medium | Medium |
+| 2 | Relationship feedback | Shows consequences without exposing the full scoring model. | `GameState`, toast/UI decision. | Small | Low |
+| 3 | Backlog after Load | Keeps displayed lines after a restore. | `SaveData` format, migration, cap. | Medium | Medium |
 
 ### NEXT
 
-**Quick Menu.** Skip and Auto have runtime APIs; next, connect a compact UI panel without duplicating their logic.
+**Conditional Choices.** Quick Menu is complete; next, add conditions without changing established save semantics.
 
 ## Maintenance protocol
 
