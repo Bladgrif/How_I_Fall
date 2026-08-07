@@ -6,7 +6,7 @@
 
 - **Eternum:** локальная русская сборка `0.9.5`; анализ повторно проверен 2026-08-07 по её `.rpy`-файлам.
 - **How I Fall:** cleanup baseline — `0ade24e765fd2479479fd9108f062ba7c836e513`; текущий scope — minimal classroom technical demo, старый сюжет удалён.
-- **Last reviewed functional commit:** `6c1f8600e72640258a90554de1e50939cc8e3c52` - VN Quick Menu.
+- **Last reviewed functional commit:** `de2a2604afb16e5933af1d16325245cd0cc0acff` - VN Quick Menu responsive layout fix.
 - **Граница референса:** берём только наблюдаемое UX-поведение и структуру механик. Не переносим код, тексты, изображения, музыку, шрифты или другие assets Eternum.
 - **Связанные документы:** подробный исторический разбор сохранений — [save_system_eternum_reference.md](save_system_eternum_reference.md); архитектурный план — [technical_plan.md](technical_plan.md).
 
