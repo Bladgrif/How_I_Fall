@@ -37,7 +37,7 @@
 | Relationships | После ручного выбора существующий toast показывает применённые изменения `trustMasha`, `trustArtem` и `leraInterest` без чисел; порядок Masha → Artem → Lera | ✅ DONE | Контентно проверять формулировки при добавлении новых персонажей/отношений | — / Low |
 | Character hub / bios | Отдельного экрана отношений и биографий нет | ⬜ TODO | Только после появления контентной потребности | Low / Medium |
 | Settings | Main Menu and VN Settings share `SettingsManager`: audio, text speed, auto, skip, autosave, display mode, resolution and background mode apply immediately; unsupported controls are hidden | DONE | Verify runtime Screen API and UI when future display/localization/theme systems are added | Medium / Low |
-| Input/help | Есть клавиши VN и quick menu, но нет единой карты и экрана справки | 🟡 PARTIAL | Формализовать команды и показывать только реальные bindings | Medium / Medium |
+| Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX работают; отдельного ambience-исполнителя нет | 🟡 PARTIAL | Не показывать неработающий ambience либо добавить канал под сцену | Medium / Medium |
 | Gallery/replay | Кнопка Gallery пока сообщает `not implemented`; unlock/replay scope отсутствуют | ⬜ TODO | Делать только вместе с первым реальным extra | Low / High |
 | Chat/phone | Отдельного формата сцены нет | ⬜ TODO | Typed conditions/effects, медиа и возврат в VN | Low / Medium |
@@ -48,8 +48,8 @@
 ## Проверенные различия с прежним tracker
 
 - Quick Save и Quick Load больше не `PARTIAL`: обе команды подключены в `VNQuickMenu`; `F6` — quick save, `F8` — quick load.
-- `F5`/`F9` вызывают ручные Save/Load; `B` открывает backlog; `Esc` закрывает известные модальные панели.
-- Ctrl в How I Fall **переключает** Skip. Это осознанно не совпадает с удержанием Ctrl в Eternum и должно быть явно показано в help.
+- Реальные player bindings: `Ctrl` — Toggle Skip, `F5` — Save, `F6` — Quick Save, `F8` — Quick Load, `F9` — Load, `B` — Backlog, `Esc` — Back/Close. `F2`/`F3` остаются internal debug bindings и не показываются в Help.
+- Ctrl в How I Fall **переключает** Skip. Это осознанно не совпадает с удержанием Ctrl в Eternum и явно показано в Help.
 - Quick menu, Auto и seen-aware Skip уже готовы; их нельзя повторно планировать как отсутствующие механики.
 - Continue — собственное улучшение How I Fall, а не функция для копирования из активного главного меню Eternum.
 - Настройки resolution, refresh rate, language, font size, game look/interface style и часть animation toggles сохраняются, но пока не меняют игру. Их нельзя отмечать `DONE`.
@@ -62,8 +62,8 @@
 | # | Механика | Почему сейчас | Зависимости | Размер | Риск | Решение |
 |---:|---|---|---|---|---|---|
 | 1 | Settings truth pass | Removed false UI affordances and connected small runtime consumers | `SettingsManager`, both Settings panels | Small | Low | **DONE** |
-| 2 | Unified input map + Help | Document and expose only real VN bindings without a rebinding framework | VN actions, modal policy | Medium | Medium | **NEXT** |
-| 3 | Backlog restoration policy | Определяет, должна ли история переживать Load, до расширения `SaveData` | backlog model, save migration decision | Medium | High | Сначала design note |
+| 2 | Unified input map + Help | Canonical map drives runtime and Main Menu Help; no rebinding framework | VN actions, modal policy | Medium | Low | **DONE** |
+| 3 | Backlog restoration policy | Defines whether history survives Load before changing `SaveData` | backlog model, save migration decision | Medium | High | **NEXT: design note first** |
 | 4 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | После design note |
 | 5 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
 | 6 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
@@ -73,17 +73,12 @@
 
 ## Единственный NEXT
 
-### Unified input map + Help
+### Backlog restoration policy
 
-Settings truth pass completed in `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a`.
-
-Working player-facing settings: master/music/SFX volume, music during pause, fullscreen/window/borderless, resolution, run in background, text speed, auto-forward delay, skip mode/cadence, skip after choices and autosave. Main Menu and VN Settings share `SettingsManager`; `SaveData` is unchanged.
-
-Hidden until their subsystems exist: ambience volume, refresh rate, game/interface look, VHS filter, character/background animation, language, font size and hints.
-
-Next scope: document the actual VN bindings and show them in Help without adding rebinding.
+Решить в короткой design note, должна ли история реплик переживать Load и перезапуск. До решения не менять `SaveData`, не сериализовать backlog и не добавлять rollback.
 
 **Out of NEXT:** Conditional Choices, relationship screen, rollback, gallery, QTE and mini-games.
+
 ## Отложено или исключено
 
 - Прямой перенос rollback Ren'Py и жеста rollback со стороны экрана.
@@ -95,11 +90,12 @@ Next scope: document the actual VN bindings and show them in Help without adding
 
 ## Maintenance log
 
+- `b5b47a108366e70c329e8de9ed63bf8b5abe8af2` — Unified input map + Help: `VNInputMap` используется runtime и Main Menu Help. Player Help показывает Ctrl/F5/F6/F8/F9/B/Esc; F2/F3 остаются скрытыми debug bindings; rebinding и InputAction asset не добавлялись. CI, project validator и scene validation passed в Unity 6000.5.7f1; visual Help QA pending.
 - `b62435651f3a2af3606584724989eccb6108b461` ? Settings mapping fix: canonical Unicode-escape option constants are shared by UI, runtime and smoke tests. Windowed, borderless fullscreen compatibility and fast skip cadence now map to their intended runtime values; no autosave/pre-load routing changed.
-- `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a` - Settings truth pass: `Screen.fullScreenMode` and `Screen.SetResolution` apply display values; autosave and skip cadence have runtime consumers; Main Menu hides controls that need absent subsystems. `SettingsTruthSmokeTests` is in CI; `SaveData` is unchanged.
+- `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a` ? Settings truth pass: `Screen.fullScreenMode` and `Screen.SetResolution` apply display values; autosave and skip cadence have runtime consumers; Main Menu hides controls that need absent subsystems. `SettingsTruthSmokeTests` is in CI; `SaveData` is unchanged.
 - `23358b6ed856c7e3b1da379d78085c0b84557f2c` — Relationship change feedback: после ручного `VNDialogueController.Choose()` применённые relationship delta собираются в один existing toast. Нулевые и неотношенческие delta не показываются, порядок Masha → Artem → Lera детерминирован, значения не выводятся; Save/Load и restore не создают событие.
 
-**Last reviewed functional commit:** `b62435651f3a2af3606584724989eccb6108b461`
+**Last reviewed functional commit:** `b5b47a108366e70c329e8de9ed63bf8b5abe8af2`
 
 ## Правило обновления
 

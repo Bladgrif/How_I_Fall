@@ -333,7 +333,7 @@
 | V01 | Nickname editing | In-game Preferences can edit nickname only when unlocked and outside replay; Enter/dismiss closes input. `screens.rpy:1414-1423`. | LATER if protagonist naming exists. | TODO/NOT PLANNED now. | Persistent/player identity | Medium | Medium | NEW |
 | V02 | Currency HUD | `eternals` overlay shows current currency; relationship hub also shows money with negative-state color. | NOT NEEDED until economy exists. | NOT PLANNED. | Economy | Medium | Low | NEW |
 | V03 | Counter/score overlays | Contest/round/attack overlays expose temporary state without leaving dialogue. | LATER under concrete mini-game. | TODO only with its feature. | Overlay system | Small | Low | NEW |
-| V04 | Dynamic help page | Help switches keyboard/mouse/gamepad and hides gamepad tab if unavailable. | USEFUL before public build. | PARTIAL — main-menu Help hook exists; current bindings are not generated/documented. | Input map | Medium | Low | NEW |
+| V04 | Dynamic help page | Help switches keyboard/mouse/gamepad and hides gamepad tab if unavailable. | USEFUL before public build. | DONE ? Main Menu Help is generated from `VNInputMap` for real keyboard bindings; no mouse/gamepad variant or rebinding. | Input map | Medium | Low | NEW |
 | V05 | Responsive touch variant | Ren'Py supplies small/touch styles and changes quick menu. | LATER mobile. | NOT PLANNED current PC target. | Platform UI | Large | Medium | NEW |
 | V06 | Screenshot notification | Screenshot action is documented and uses notify feedback. | LATER. | TODO/NOT PLANNED now. | K10/M01 | Small | Low | NEW |
 | V07 | Replay-aware navigation | Save actions disappear in replay and End Replay replaces them. | REQUIRED only with replay. | TODO. | S04 | Medium | High | NEW |
@@ -376,7 +376,7 @@
 
 1. Relationship changes have no player-facing feedback despite existing relationship fields.
 2. Main/VN settings store several options that do nothing: resolution, refresh rate, language, font size, look/style, animation toggles; ambience volume has no source.
-3. Input works but is not a single documented/rebindable map; HIF bindings intentionally differ from Eternum.
+3. Input bindings are centralized in `VNInputMap` and Main Menu Help; rebinding and mouse/gamepad help variants remain absent.
 4. Backlog is session-only.
 5. There is no generic modal/special-scene coordinator for future QTE/map/chat/save restrictions.
 6. Conditional choices remain absent, but they are not automatically the best NEXT before smaller high-value UX cleanup.
