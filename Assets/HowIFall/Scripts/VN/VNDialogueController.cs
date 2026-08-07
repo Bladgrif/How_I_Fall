@@ -70,6 +70,8 @@ public class VNDialogueController : MonoBehaviour
     private bool quickSaveInProgress;
     private bool autoSaveInProgress;
     private bool pendingAutoSave;
+    private bool preLoadAutoSavePending;
+    private System.Action<bool> preLoadAutoSaveCompletion;
     private readonly DialogueBacklog backlog = new DialogueBacklog(100);
     private VNSettingsPresenter settingsPresenter;
 
@@ -303,6 +305,56 @@ public class VNDialogueController : MonoBehaviour
         }
     }
 
+    public void RequestPreLoadAutoSave(System.Action<bool> onCompleted)
+    {
+        if (!IsActiveControllerInCurrentScene())
+        {
+            Debug.LogWarning("[PRE-LOAD AUTO SAVE] Request ignored because VNDialogueController is not active in the current scene.", this);
+            onCompleted?.Invoke(false);
+            return;
+        }
+
+        if (preLoadAutoSavePending)
+        {
+            Debug.LogWarning("[PRE-LOAD AUTO SAVE] Request ignored because another pre-load checkpoint is already pending.", this);
+            onCompleted?.Invoke(false);
+            return;
+        }
+
+        // A confirmed load takes priority over a deferred ordinary checkpoint: it must
+        // be preceded by exactly its own capture, not an unbounded autosave queue.
+        pendingAutoSave = false;
+        preLoadAutoSavePending = true;
+        preLoadAutoSaveCompletion = onCompleted;
+
+        if (!autoSaveInProgress)
+        {
+            StartPreLoadAutoSave();
+        }
+    }
+
+    private void StartPreLoadAutoSave()
+    {
+        if (!preLoadAutoSavePending || autoSaveInProgress)
+        {
+            return;
+        }
+
+        autoSaveInProgress = true;
+        try
+        {
+            StartCoroutine(CaptureScreenshotAndSave(
+                (manager, screenshot) => manager.SaveAuto(screenshot),
+                "PRE-LOAD AUTO SAVE",
+                CompletePreLoadAutoSave));
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogError($"[PRE-LOAD AUTO SAVE] Could not start autosave coroutine. {exception.Message}", this);
+            CompletePreLoadAutoSave(false);
+        }
+    }
+
     private IEnumerator CaptureScreenshotAndSave(
         System.Func<SaveManager, Texture2D, bool> saveOperation,
         string logPrefix,
@@ -362,11 +414,32 @@ public class VNDialogueController : MonoBehaviour
     private void CompleteAutoSave(bool saved)
     {
         autoSaveInProgress = false;
+        if (preLoadAutoSavePending)
+        {
+            StartPreLoadAutoSave();
+            return;
+        }
+
         RunPendingAutoSaveIfNeeded();
+    }
+
+    private void CompletePreLoadAutoSave(bool saved)
+    {
+        autoSaveInProgress = false;
+        preLoadAutoSavePending = false;
+        System.Action<bool> onCompleted = preLoadAutoSaveCompletion;
+        preLoadAutoSaveCompletion = null;
+        onCompleted?.Invoke(saved);
     }
 
     private void RunPendingAutoSaveIfNeeded()
     {
+        if (preLoadAutoSavePending)
+        {
+            StartPreLoadAutoSave();
+            return;
+        }
+
         if (!pendingAutoSave)
         {
             return;
@@ -448,10 +521,8 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        currentLineIndex++;
-        UpdateSavedDialoguePosition();
-
-        if (currentLineIndex >= activeLines.Count)
+        int nextLineIndex = currentLineIndex + 1;
+        if (nextLineIndex >= activeLines.Count)
         {
             if (activeChoices.Count > 0)
             {
@@ -471,6 +542,8 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
+        currentLineIndex = nextLineIndex;
+        UpdateSavedDialoguePosition();
         ShowLine(activeLines[currentLineIndex]);
     }
 

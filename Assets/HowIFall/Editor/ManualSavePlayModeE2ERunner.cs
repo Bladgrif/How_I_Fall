@@ -383,7 +383,18 @@ public static class ManualSavePlayModeE2ERunner
 
     private static void LoadInsideVn()
     {
-        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        VNDialogueController controller = VNDialogueController.Instance;
+        Require(controller.TryGetSavePosition(out string sceneId, out string lineId, out int lineIndex, out string positionError),
+            $"Terminal VN position is unavailable before Manual Load: {positionError}");
+        Require(sceneId == "classroom_choice_investigate", "Terminal VN scene is not classroom_choice_investigate before Manual Load.");
+        DialogueSceneData terminalScene = controller.sceneRegistry.FindById(sceneId);
+        Require(terminalScene != null && terminalScene.lines != null && terminalScene.lines.Count > 0,
+            "Terminal VN scene has no real dialogue lines before Manual Load.");
+        int lastValidLineIndex = terminalScene.lines.Count - 1;
+        Require(lineIndex == lastValidLineIndex && lineId == terminalScene.lines[lastValidLineIndex].lineId,
+            "Terminal VN save position does not remain on the last real dialogue line before Manual Load.");
+
+        ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
         panel.OpenLoad();
         Require(panel.slotViews[0].button.interactable, "Occupied slot is not interactable in Load mode.");
         panel.slotViews[0].button.onClick.Invoke();

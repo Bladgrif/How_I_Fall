@@ -24,6 +24,7 @@ public static class SaveBackendV2PlayModeE2ERunner
     private const string DirectoryKey = "HowIFall.SaveBackendV2E2E.Directory";
     private const string AutoSnapshotKey = "HowIFall.SaveBackendV2E2E.AutoSnapshot";
     private const string QuickSnapshotKey = "HowIFall.SaveBackendV2E2E.QuickSnapshot";
+    private const string QuickSlotIndexKey = "HowIFall.SaveBackendV2E2E.QuickSlotIndex";
     private const string AutoNewestSnapshotKey = "HowIFall.SaveBackendV2E2E.AutoNewestSnapshot";
     private const string AutoFilesSignatureKey = "HowIFall.SaveBackendV2E2E.AutoFilesSignature";
     private const string ResultPath = "save_backend_v2_playmode_result.txt";
@@ -69,6 +70,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         SessionState.SetString(DirectoryKey, directory);
         SessionState.SetString(AutoSnapshotKey, string.Empty);
         SessionState.SetString(QuickSnapshotKey, string.Empty);
+        SessionState.SetInt(QuickSlotIndexKey, 0);
         SessionState.SetString(AutoNewestSnapshotKey, string.Empty);
         SessionState.SetString(AutoFilesSignatureKey, string.Empty);
         SessionState.SetInt(CounterKey, 0);
@@ -315,10 +317,49 @@ public static class SaveBackendV2PlayModeE2ERunner
 
             UnityEngine.Object.Destroy(screenshot);
             screenshot = null;
+            yield return RunSafely(CreateNewestQuickForContinue(controller, manager));
             SessionState.SetString(StageKey, "WaitMainDirectQuickLoad");
             SessionState.SetInt(CounterKey, 0);
             SetDelay(0.75d);
             SceneFlowManager.EnsureInstance().ReturnToMainMenu();
+        }
+        finally
+        {
+            if (screenshot != null)
+            {
+                UnityEngine.Object.Destroy(screenshot);
+            }
+        }
+    }
+
+    private static IEnumerator CreateNewestQuickForContinue(VNDialogueController controller, SaveManager manager)
+    {
+        Texture2D screenshot = null;
+        try
+        {
+            Dictionary<string, byte[]> autoFiles = CaptureTypeFiles(manager, SaveSlotType.Auto);
+            yield return new WaitForEndOfFrame();
+            screenshot = ScreenCapture.CaptureScreenshotAsTexture();
+            Require(screenshot != null, "ScreenCapture failed while preparing newest Quick for Continue.");
+            Require(manager.SaveQuick(screenshot), "Public SaveQuick failed while making Quick newest for Continue.");
+
+            SaveSlotInfo newestQuick = manager.GetAllSlots(SaveSlotType.Quick)
+                .Where(slot => slot.IsLoadable)
+                .OrderByDescending(slot => slot.CreatedAtUtc)
+                .FirstOrDefault();
+            SaveSlotInfo newestAuto = manager.GetAllSlots(SaveSlotType.Auto)
+                .Where(slot => slot.IsLoadable)
+                .OrderByDescending(slot => slot.CreatedAtUtc)
+                .FirstOrDefault();
+            Require(newestQuick != null && newestAuto != null, "Could not resolve newest Quick and Auto saves for Continue.");
+            VerifySlot(manager, SaveSlotType.Quick, newestQuick.SlotIndex);
+            Require(ParseUtc(newestQuick.Data.createdAtUtc) > ParseUtc(newestAuto.Data.createdAtUtc),
+                "The fresh Quick save did not become newer than every Auto save before Continue.");
+            RequireFilesEqual(autoFiles, CaptureTypeFiles(manager, SaveSlotType.Auto),
+                "Preparing newest Quick changed Auto files.");
+            SessionState.SetString(QuickSnapshotKey, JsonUtility.ToJson(newestQuick.Data));
+            SessionState.SetInt(QuickSlotIndexKey, newestQuick.SlotIndex);
+            Pass("Fresh Quick save became newest after pre-load autosaves");
         }
         finally
         {
@@ -851,6 +892,12 @@ public static class SaveBackendV2PlayModeE2ERunner
         SaveData mutatedState = CaptureRuntimeState(controller);
         ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
         Require(panel != null, "VNPrototype has no ManualSaveLoadPanel for Load confirmation.");
+        SaveManager manager = SaveManager.Instance;
+        Require(manager != null, "SaveManager is missing before VN Load confirmation.");
+        string autoSignatureBeforeConfirmation = GetTypeFilesSignature(manager, SaveSlotType.Auto);
+        Dictionary<string, byte[]> autoFilesBeforeConfirmation = CaptureTypeFiles(manager, SaveSlotType.Auto);
+        Dictionary<int, string> autoTimesBeforeConfirmation = manager.GetAllSlots(SaveSlotType.Auto)
+            .ToDictionary(slot => slot.SlotIndex, slot => slot.Data != null ? slot.Data.createdAtUtc : string.Empty);
 
         panel.OpenLoad();
         SelectTab(panel, slotType);
@@ -876,6 +923,8 @@ public static class SaveBackendV2PlayModeE2ERunner
             Require(!panel.IsConfirmationOpen && panel.IsOpen, "Load Cancel did not return to the open panel.");
             Require(!panel.PendingConfirmationSlotType.HasValue && panel.PendingConfirmationSlot == 0,
                 "Load Cancel did not clear pending confirmation.");
+            Require(GetTypeFilesSignature(manager, SaveSlotType.Auto) == autoSignatureBeforeConfirmation,
+                "Load Cancel created or overwrote an Auto slot.");
             VerifyRuntimeState(mutatedState, controller, "Manual Load after Cancel");
 
             panel.confirmationYesButton.onClick.Invoke();
@@ -891,6 +940,8 @@ public static class SaveBackendV2PlayModeE2ERunner
             Require(!panel.IsConfirmationOpen && panel.IsOpen, "First Escape did not close only the Load confirmation.");
             Require(!panel.PendingConfirmationSlotType.HasValue && panel.PendingConfirmationSlot == 0,
                 "Escape did not clear pending Load confirmation.");
+            Require(GetTypeFilesSignature(manager, SaveSlotType.Auto) == autoSignatureBeforeConfirmation,
+                "Load Escape created or overwrote an Auto slot.");
             VerifyRuntimeState(mutatedState, controller, "Quick Load after Escape");
 
             Require(panel.HandleEscape(), "Second Escape did not close the Save/Load panel.");
@@ -907,10 +958,65 @@ public static class SaveBackendV2PlayModeE2ERunner
         }
 
         panel.confirmationYesButton.onClick.Invoke();
-        yield return new WaitForSecondsRealtime(0.25f);
+        bool requiresPreLoadAutoSave = slotType == SaveSlotType.Manual || slotType == SaveSlotType.Quick;
+        if (requiresPreLoadAutoSave)
+        {
+            Require(panel.LoadInProgress, $"{slotType} Load did not block the panel during its pre-load autosave.");
+            Require(panel.canvasGroup == null || panel.canvasGroup.alpha < 0.01f,
+                $"{slotType} pre-load autosave did not hide Save/Load UI before screenshot capture.");
+            Require(!panel.HandleEscape(), $"{slotType} Load allowed Escape to interrupt its pre-load autosave.");
+            SelectTab(panel, otherType);
+            Require(panel.CurrentSlotType == slotType, $"{slotType} Load allowed a tab switch during its pre-load autosave.");
+        }
+
+        yield return new WaitForSecondsRealtime(0.35f);
         VerifyRestoredSnapshot(snapshot, $"confirmed {slotType} Load");
         Require(!panel.IsOpen, $"Confirmed {slotType} Load did not close the Save/Load panel.");
+
+        if (requiresPreLoadAutoSave)
+        {
+            Require(CountChangedAutoSlots(manager, autoTimesBeforeConfirmation) == 1,
+                $"{slotType} Load did not create exactly one rotating Auto checkpoint.");
+            SaveSlotInfo preLoadCheckpoint = manager.GetAllSlots(SaveSlotType.Auto)
+                .Where(slot => slot.IsLoadable)
+                .OrderByDescending(slot => slot.CreatedAtUtc)
+                .FirstOrDefault();
+            Require(preLoadCheckpoint != null, $"{slotType} pre-load checkpoint is missing.");
+            VerifySlot(manager, SaveSlotType.Auto, preLoadCheckpoint.SlotIndex);
+            VerifySaveDataMatchesRuntime(mutatedState, preLoadCheckpoint.Data, $"{slotType} pre-load checkpoint");
+        }
+        else
+        {
+            RequireFilesEqual(autoFilesBeforeConfirmation, CaptureTypeFiles(manager, SaveSlotType.Auto),
+                "Auto Load created or overwrote an Auto slot.");
+        }
+
         Pass($"VN {slotType} Load required confirmation and restored only after confirmation");
+    }
+
+    private static int CountChangedAutoSlots(SaveManager manager, IReadOnlyDictionary<int, string> before)
+    {
+        return manager.GetAllSlots(SaveSlotType.Auto)
+            .Count(slot => !before.TryGetValue(slot.SlotIndex, out string previousCreatedAt)
+                || !string.Equals(previousCreatedAt, slot.Data != null ? slot.Data.createdAtUtc : string.Empty, StringComparison.Ordinal));
+    }
+
+    private static void VerifySaveDataMatchesRuntime(SaveData expected, SaveData actual, string context)
+    {
+        Require(actual != null, $"SaveData is missing during {context}.");
+        Require(actual.sceneId == expected.sceneId, $"sceneId mismatch during {context}.");
+        Require(actual.lineId == expected.lineId, $"lineId mismatch during {context}.");
+        Require(actual.lineIndex == expected.lineIndex, $"lineIndex mismatch during {context}.");
+        Require(actual.selectedChoiceIndex == expected.selectedChoiceIndex, $"choice index mismatch during {context}.");
+        Require(actual.choiceResultActive == expected.choiceResultActive, $"choice result mismatch during {context}.");
+        Require(actual.pendingNextSceneId == expected.pendingNextSceneId, $"pending scene mismatch during {context}.");
+        Require(actual.lust == expected.lust && actual.romance == expected.romance && actual.purity == expected.purity,
+            $"core relation values mismatch during {context}.");
+        Require(actual.corruptionLevel == expected.corruptionLevel && actual.selfControl == expected.selfControl,
+            $"progress values mismatch during {context}.");
+        Require(actual.suspicion == expected.suspicion && actual.trustMasha == expected.trustMasha
+                && actual.trustArtem == expected.trustArtem && actual.leraInterest == expected.leraInterest,
+            $"character relation values mismatch during {context}.");
     }
 
     private static IEnumerator MutateDialogueAndState(VNDialogueController controller, SaveData snapshot)
@@ -948,8 +1054,10 @@ public static class SaveBackendV2PlayModeE2ERunner
 
         ConfigureTemporaryDirectory(manager);
         SaveData quick = ReadSnapshot(QuickSnapshotKey);
-        SaveData auto = ReadSnapshot(AutoSnapshotKey);
-        Require(ParseUtc(quick.createdAtUtc) > ParseUtc(auto.createdAtUtc), "Quick is not the newest save before direct Load.");
+        SaveSlotInfo newestAuto = manager.GetAllSlots(SaveSlotType.Auto).Where(slot => slot.IsLoadable).OrderByDescending(slot => slot.CreatedAtUtc).FirstOrDefault();
+        int quickSlotIndex = SessionState.GetInt(QuickSlotIndexKey, 0);
+        Require(quickSlotIndex > 0, "Fresh Quick slot index is unavailable before direct Load.");
+        Require(newestAuto != null && ParseUtc(quick.createdAtUtc) > ParseUtc(newestAuto.Data.createdAtUtc), "Quick is not the newest save before direct Load.");
         Require(manager.HasAnyValidSave(), "Continue found no valid backend saves.");
         SessionState.SetString(AutoFilesSignatureKey, GetTypeFilesSignature(manager, SaveSlotType.Auto));
 
@@ -957,8 +1065,8 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(panel != null, "MainMenu has no ManualSaveLoadPanel for immediate Load test.");
         panel.OpenLoad();
         panel.SelectQuickTab();
-        Require(panel.slotViews[0].button.interactable, "Quick slot 1 is disabled in Main Menu Load mode.");
-        panel.OnSlotSelected(1);
+        Require(panel.slotViews[quickSlotIndex - 1].button.interactable, $"Quick slot {quickSlotIndex} is disabled in Main Menu Load mode.");
+        panel.OnSlotSelected(quickSlotIndex);
         Require(!panel.IsConfirmationOpen, "Main Menu Load opened a confirmation modal.");
         Pass("Main Menu Quick Load started immediately without confirmation");
 
@@ -999,8 +1107,8 @@ public static class SaveBackendV2PlayModeE2ERunner
 
         ConfigureTemporaryDirectory(manager);
         SaveData quick = ReadSnapshot(QuickSnapshotKey);
-        SaveData auto = ReadSnapshot(AutoSnapshotKey);
-        Require(ParseUtc(quick.createdAtUtc) > ParseUtc(auto.createdAtUtc), "Quick is not the newest save before Continue.");
+        SaveSlotInfo newestAuto = manager.GetAllSlots(SaveSlotType.Auto).Where(slot => slot.IsLoadable).OrderByDescending(slot => slot.CreatedAtUtc).FirstOrDefault();
+        Require(newestAuto != null && ParseUtc(quick.createdAtUtc) > ParseUtc(newestAuto.Data.createdAtUtc), "Quick is not the newest save before Continue.");
         Require(manager.HasAnyValidSave(), "Continue found no valid backend saves.");
         SessionState.SetString(AutoFilesSignatureKey, GetTypeFilesSignature(manager, SaveSlotType.Auto));
 
@@ -1042,11 +1150,18 @@ public static class SaveBackendV2PlayModeE2ERunner
 
             SaveManager manager = SaveManager.Instance;
             Dictionary<string, byte[]> quickFiles = CaptureTypeFiles(manager, SaveSlotType.Quick);
+            Dictionary<int, string> autoTimesBefore = manager.GetAllSlots(SaveSlotType.Auto)
+                .ToDictionary(slot => slot.SlotIndex, slot => slot.Data != null ? slot.Data.createdAtUtc : string.Empty);
             GameState.Instance.suspicion = 501;
             GameState.Instance.trustMasha = 601;
             Require(manager.SaveAuto(screenshot), "Public SaveAuto failed while making Auto newest for Continue.");
+            Require(CountChangedAutoSlots(manager, autoTimesBefore) == 1,
+                "SaveAuto did not create or overwrite exactly one logical Auto slot while preparing Continue.");
 
-            SaveSlotInfo newestAuto = VerifySlot(manager, SaveSlotType.Auto, 2);
+            SaveSlotInfo newestAuto = manager.GetAllSlots(SaveSlotType.Auto)
+                .Single(slot => !autoTimesBefore.TryGetValue(slot.SlotIndex, out string previousCreatedAt)
+                    || !string.Equals(previousCreatedAt, slot.Data != null ? slot.Data.createdAtUtc : string.Empty, StringComparison.Ordinal));
+            VerifySlot(manager, SaveSlotType.Auto, newestAuto.SlotIndex);
             SaveData quick = ReadSnapshot(QuickSnapshotKey);
             Require(ParseUtc(newestAuto.Data.createdAtUtc) > ParseUtc(quick.createdAtUtc), "The additional SaveAuto did not become newest.");
             RequireFilesEqual(quickFiles, CaptureTypeFiles(manager, SaveSlotType.Quick), "SaveAuto changed Quick files while preparing Continue.");

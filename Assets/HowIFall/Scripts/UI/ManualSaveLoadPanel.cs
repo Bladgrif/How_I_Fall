@@ -53,6 +53,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private SaveSlotType? pendingConfirmationSlotType;
     private int pendingConfirmationSlot;
     private bool saveInProgress;
+    private bool loadInProgress;
     private Coroutine panelAnimation;
     private Coroutine confirmationAnimation;
     private Coroutine statusAnimation;
@@ -61,6 +62,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     public bool IsConfirmationOpen => confirmationRoot != null && confirmationRoot.activeSelf;
     public SaveSlotType CurrentSlotType => currentSlotType;
     public bool IsSaveMode => mode == PanelMode.Save;
+    public bool LoadInProgress => loadInProgress;
     public SaveSlotType? PendingConfirmationSlotType => pendingConfirmationSlotType;
     public int PendingConfirmationSlot => pendingConfirmationSlot;
 
@@ -150,7 +152,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void Close()
     {
-        if (saveInProgress || !gameObject.activeSelf)
+        if (IsOperationInProgress() || !gameObject.activeSelf)
         {
             return;
         }
@@ -162,7 +164,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public bool HandleEscape()
     {
-        if (!gameObject.activeSelf || saveInProgress)
+        if (!gameObject.activeSelf || IsOperationInProgress())
         {
             return false;
         }
@@ -179,7 +181,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void OnSlotSelected(int slotIndex)
     {
-        if (saveInProgress || IsConfirmationOpen)
+        if (IsOperationInProgress() || IsConfirmationOpen)
         {
             return;
         }
@@ -234,7 +236,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void OnDeleteRequested(int slotIndex)
     {
-        if (saveInProgress || IsConfirmationOpen)
+        if (IsOperationInProgress() || IsConfirmationOpen)
         {
             return;
         }
@@ -414,23 +416,86 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         if (action == ConfirmationAction.Load)
         {
-            SaveManager saveManager = ResolveSaveManager();
-            if (saveManager == null || !saveManager.LoadSlot(slotType.Value, slotIndex))
+            if (VNDialogueController.Instance == null || slotType.Value == SaveSlotType.Auto)
             {
-                SaveSlotInfo slot = saveManager != null
-                    ? saveManager.GetSlot(slotType.Value, slotIndex)
-                    : null;
-                SetStatus(
-                    slot == null || string.IsNullOrEmpty(slot.Error)
-                        ? "Не удалось загрузить слот"
-                        : slot.Error,
-                    true);
-                Refresh();
+                CompleteLoad(slotType.Value, slotIndex);
                 return;
             }
 
-            Close();
+            BeginPreLoadAutoSave(slotType.Value, slotIndex);
         }
+    }
+
+    private void BeginPreLoadAutoSave(SaveSlotType slotType, int slotIndex)
+    {
+        loadInProgress = true;
+        HidePanelForPreLoadCapture();
+        VNDialogueController.Instance.RequestPreLoadAutoSave(saved =>
+        {
+            if (!saved)
+            {
+                RestorePanelAfterFailedPreLoad();
+                SetStatus("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c \u0430\u0432\u0442\u043e\u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u043f\u0435\u0440\u0435\u0434 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u043e\u0439", true);
+                return;
+            }
+
+            CompleteLoad(slotType, slotIndex);
+        });
+    }
+
+    private void CompleteLoad(SaveSlotType slotType, int slotIndex)
+    {
+        SaveManager saveManager = ResolveSaveManager();
+        bool loaded = saveManager != null && saveManager.LoadSlot(slotType, slotIndex);
+        loadInProgress = false;
+
+        if (!loaded)
+        {
+            RestorePanelAfterFailedPreLoad();
+            SaveSlotInfo slot = saveManager != null
+                ? saveManager.GetSlot(slotType, slotIndex)
+                : null;
+            SetStatus(
+                slot == null || string.IsNullOrEmpty(slot.Error)
+                    ? "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0441\u043b\u043e\u0442"
+                    : slot.Error,
+                true);
+            Refresh();
+            return;
+        }
+
+        Close();
+    }
+
+    private void HidePanelForPreLoadCapture()
+    {
+        if (panelAnimation != null)
+        {
+            StopCoroutine(panelAnimation);
+            panelAnimation = null;
+        }
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+        }
+
+        SetContentInteractive(false);
+    }
+
+    private void RestorePanelAfterFailedPreLoad()
+    {
+        loadInProgress = false;
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+        }
+
+        SetContentInteractive(true);
     }
 
     private void CancelConfirmation()
@@ -571,7 +636,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void SelectSlotType(SaveSlotType slotType)
     {
-        if (saveInProgress || IsConfirmationOpen || currentSlotType == slotType)
+        if (IsOperationInProgress() || IsConfirmationOpen || currentSlotType == slotType)
         {
             return;
         }
@@ -706,6 +771,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         confirmationAnimation = null;
+    }
+
+    private bool IsOperationInProgress()
+    {
+        return saveInProgress || loadInProgress;
     }
 
     private void SetContentInteractive(bool interactive)
