@@ -1,138 +1,100 @@
-﻿# How I Fall — Eternum Feature Tracker
+# How I Fall — Eternum Feature Tracker
 
-## Назначение документа
+## Назначение
 
-Это живой трекер UX-идей и механик, найденных в **Eternum 0.9.5**, и их фактического состояния в How I Fall. Он предназначен для планирования следующих задач, а не для описания желаемого состояния как уже готового.
+Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
-- **Eternum:** локальная русская сборка `0.9.5`; анализ повторно проверен 2026-08-07 по её `.rpy`-файлам.
-- **How I Fall:** cleanup baseline — `0ade24e765fd2479479fd9108f062ba7c836e513`; текущий scope — minimal classroom technical demo, старый сюжет удалён.
-- **Last reviewed functional commit:** `de2a2604afb16e5933af1d16325245cd0cc0acff` - VN Quick Menu responsive layout fix.
-- **Граница референса:** берём только наблюдаемое UX-поведение и структуру механик. Не переносим код, тексты, изображения, музыку, шрифты или другие assets Eternum.
-- **Связанные документы:** подробный исторический разбор сохранений — [save_system_eternum_reference.md](save_system_eternum_reference.md); архитектурный план — [technical_plan.md](technical_plan.md).
+- Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
+- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на `HEAD 7e2f6bc` до docs-коммита.
+- Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
+- Runtime Eternum и Unity в этой задаче не запускались; документ отражает проверку исходников и существующей реализации.
 
-## Легенда статусов
+## Статусы
 
-- ✅ **DONE** — реализовано в текущем коде и покрыто проверкой/реальным UI там, где это применимо.
-- 🟡 **PARTIAL** — есть рабочая часть, но игрок не получает полный ожидаемый сценарий.
-- ⬜ **TODO** — полезно, но ещё не реализовано.
-- 🚫 **NOT PLANNED** — сознательно не входит в текущий план.
+- ✅ **DONE** — рабочий контур уже есть.
+- 🟡 **PARTIAL** — основа есть, но сценарий неполон или часть UI не действует.
+- ⬜ **TODO** — отсутствует; начинать только по roadmap/сцене.
+- 🚫 **NOT PLANNED** — сознательно не брать в ближайший план.
 
-## Feature Matrix
+## Актуальный срез
 
-### Save / Load
+| Система | How I Fall сейчас | Статус | Следующий пробел | Приоритет / риск |
+|---|---|---:|---|---|
+| Диалог и typewriter | `VNDialogueController`, `DialogueSceneData`, завершение текущей печати, переходы между сценами | ✅ DONE | Контентная проверка темпа; диапазон `textSpeed` требует QA | Medium / Low |
+| Обычные выборы | Варианты, stat-delta, результат выбора и переход | ✅ DONE | Не смешивать с ещё не начатыми условиями | — / Low |
+| Условные выборы | Декларативных условий на вариантах нет | ⬜ TODO | Типизированные условия без `eval`/произвольного кода | High / Medium |
+| Game state | Оси, доверие/интерес и состояние выбора сохраняются | 🟡 PARTIAL | Нет общего реестра флагов, ресурсов и unlock-state | Medium / Medium |
+| Ручные сохранения | 6 Manual-слотов, JSON + PNG 384×216, overwrite/delete/load confirmations | ✅ DONE | Поддерживать совместимость | — / High |
+| Auto/Quick saves | По 6 циклических Auto/Quick-слотов; quick save/load доступны из VN UI и hotkeys | ✅ DONE | Проверять точки autosave с новым контентом | — / Medium |
+| Continue | Загружает самое новое валидное Manual/Auto/Quick; в Eternum отдельной активной кнопки нет | ✅ DONE | — | — / Low |
+| Совместимость saves | `SaveData` v2 и контролируемое чтение v1 manual | ✅ DONE | Любое расширение формата требует миграции | — / High |
+| Quick menu | History, Skip, Auto, Save, Quick Save, Quick Load, Load, Settings, Main Menu | ✅ DONE | Back сознательно отсутствует | — / Medium |
+| Auto | Таймер диалога, блокировка на choice/modal, согласование со Skip | ✅ DONE | QA задержки на длинных строках | Low / Low |
+| Skip | Seen-aware, не выбирает варианты, согласован с Auto | ✅ DONE | Ctrl сейчас переключает режим, а не работает удержанием как в Eternum | Low / Medium |
+| Backlog | До 100 реплик, автор, защита rich text, session-only | 🟡 PARTIAL | Решить, нужен ли backlog после Load/перезапуска | Medium / Medium |
+| Rollback | Обратимого состояния исполнения нет | 🚫 NOT PLANNED | Нужна отдельная модель границ и обратимости | — / High |
+| Уведомления/confirm | Toast и модальные подтверждения уже применяются в save/load UX | ✅ DONE | Добавить отдельный relationship-event | High / Low |
+| Relationships | Данные отношений есть, player-facing реакции на изменение нет | 🟡 PARTIAL | Ненавязчивый toast/beat на фактический delta | **NEXT** / Low |
+| Character hub / bios | Отдельного экрана отношений и биографий нет | ⬜ TODO | Только после появления контентной потребности | Low / Medium |
+| Settings | Сохраняются звук, текст, экран и другие значения; реально применена только часть | 🟡 PARTIAL | Убрать ложные affordances или подключить исполнители | High / Medium |
+| Input/help | Есть клавиши VN и quick menu, но нет единой карты и экрана справки | 🟡 PARTIAL | Формализовать команды и показывать только реальные bindings | Medium / Medium |
+| Audio | Music/SFX работают; отдельного ambience-исполнителя нет | 🟡 PARTIAL | Не показывать неработающий ambience либо добавить канал под сцену | Medium / Medium |
+| Gallery/replay | Кнопка Gallery пока сообщает `not implemented`; unlock/replay scope отсутствуют | ⬜ TODO | Делать только вместе с первым реальным extra | Low / High |
+| Chat/phone | Отдельного формата сцены нет | ⬜ TODO | Typed conditions/effects, медиа и возврат в VN | Low / Medium |
+| Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
+| QTE/special mode | Общего контракта таймер/success/fail/retry/save-policy нет | ⬜ TODO | Сначала определить coordinator на одной авторской сцене | Low / High |
+| Mini-games | Отсутствуют | 🚫 NOT PLANNED | Не строить без утверждённой сюжетной функции | — / High |
 
-| Feature | Как работает в Eternum | Зачем нам | How I Fall сейчас | Статус | Что осталось | Приоритет | Риск |
-|---|---|---|---|---|---|---|---|
-| Ручные сохранения | Экран Save с карточками, страницами и именем сохранения. | Контроль игрока над прогрессом. | 6 ручных слотов, JSON + PNG-превью 384×216. | ✅ DONE | Имена и страницы не нужны до роста объёма контента. | — | Low |
-| Автосохранения | Отдельная вкладка/страница `A`; движок создаёт их в ключевых точках. | Защита от потери прогресса. | 6 циклических Auto-слотов; запросы на старте сцены и перед выбором. | ✅ DONE | Проверять новые точки автосохранения при добавлении сцен. | — | Medium |
-| Быстрые сохранения | Отдельная вкладка `Q`, QuickSave/QuickLoad в quick menu и hotkeys. | Быстрое прерывание/возврат к сцене. | 6 циклических Quick-слотов и метод quick save; UI-вызывающая команда ещё не подключена к quick menu/hotkey. | 🟡 PARTIAL | Добавить пользовательский вход в quick save/load. | High | Medium |
-| Загрузка из игры | Подтверждение перед потерей текущего прогресса. | Защита от ошибочного Load. | Есть подтверждение; перед загрузкой создаётся autosave. | ✅ DONE | Поддерживать при расширении UI. | — | Medium |
-| Continue | Загружает последнее допустимое сохранение; в Eternum кнопка не подключена. | Сокращает путь в игру. | Ищет самое новое валидное Manual/Auto/Quick сохранение; кнопка отключается без валидных слотов. | ✅ DONE | — | — | Low |
-| Карточки и вкладки Save/Load | Общая сетка слотов, Auto/Quick/Manual, thumbnail, дата. | Понятная навигация по сохранениям. | 6 карточек, вкладки «Ручные/Авто/Быстрые», дата, название сцены, превью и обработка повреждённых слотов. | ✅ DONE | — | — | Low |
-| Перезапись и удаление | Подтверждения; удаление через клавишу Delete. | Предотвращает потерю сохранений. | Есть отдельные подтверждения overwrite/delete и кнопка удаления. | ✅ DONE | Горячую клавишу Delete добавлять только при UX-проверке. | Low | Low |
-| Совместимость сохранений | `after_load` обновляет старые переменные. | Не ломать прогресс после изменений. | Формат `SaveData` v2 и контролируемое чтение v1 ручных слотов. | ✅ DONE | Миграции новых версий добавлять вместе с изменением формата. | Medium | High |
+## Проверенные различия с прежним tracker
 
-### Dialogue UX, Quick Menu, History
+- Quick Save и Quick Load больше не `PARTIAL`: обе команды подключены в `VNQuickMenu`; `F6` — quick save, `F8` — quick load.
+- `F5`/`F9` вызывают ручные Save/Load; `B` открывает backlog; `Esc` закрывает известные модальные панели.
+- Ctrl в How I Fall **переключает** Skip. Это осознанно не совпадает с удержанием Ctrl в Eternum и должно быть явно показано в help.
+- Quick menu, Auto и seen-aware Skip уже готовы; их нельзя повторно планировать как отсутствующие механики.
+- Continue — собственное улучшение How I Fall, а не функция для копирования из активного главного меню Eternum.
+- Настройки resolution, refresh rate, language, font size, game look/interface style и часть animation toggles сохраняются, но пока не меняют игру. Их нельзя отмечать `DONE`.
+- Backlog не сериализуется. Rollback, conditional choices, relationship feedback, общий unlock registry, gallery/replay и special-mode coordinator отсутствуют.
 
-| Feature | Как работает в Eternum | Зачем нам | How I Fall сейчас | Статус | Что осталось | Приоритет | Риск |
-|---|---|---|---|---|---|---|---|
-| Печатание реплик | Диалог отображается в отдельном say-screen; игрок может ускорять чтение. | Управляемый темп VN. | Typewriter-эффект и завершение текущей печати повторным advance. | ✅ DONE | — | — | Low |
-| Quick menu | Dialogue actions are available during dialogue. | Player access without leaving the scene. | Bottom compact facade: History, Skip, Auto, Save, Quick Save, Quick Load, Load, Settings, Main Menu. It calls existing APIs only; Back is intentionally absent. Auto and Skip reflect runtime state; modal overlays remain above the panel. | DONE | - | - | Medium |
-| History / backlog | Экран History выводит уже показанные реплики. | Вернуться к пропущенной фразе. | Backlog собирает реплики с автором, отображается и имеет smoke-тесты; хранится только в сессии. | 🟡 PARTIAL | Решить, нужна ли история после загрузки/перезапуска, затем сериализовать при необходимости. | Medium | Medium |
-| Back / rollback | Ren'Py откатывает историю исполнения с отдельным действием Back. | Исправить случайный advance/выбор в пределах сцены. | Нет. | ⬜ TODO | Сперва определить границы: только непройденные реплики или полноценные обратимые выборы. | Medium | High |
-| Skip | Ctrl toggles Skip and does not select choices. | Fast replay. | VNDialogueController owns the timer and seen-text rules; Quick Menu calls ToggleSkip without duplicate logic. | DONE | - | - | Medium |
-| Auto dialogue | Auto-forward advances after a settings delay. | Hands-free reading. | VNDialogueController owns one runtime timer; Quick Menu calls ToggleAutoForward. Skip is implemented through ToggleSkip. | DONE | - | - | Medium |
+## Top 10 рекомендуемых следующих механик
 
-### Settings, choices and state
+Порядок учитывает narrative value, существующие зависимости, размер, риск и полезность для будущих сцен.
 
-| Feature | Как работает в Eternum | Зачем нам | How I Fall сейчас | Статус | Что осталось | Приоритет | Риск |
-|---|---|---|---|---|---|---|---|
-| Настройки звука/экрана/текста | Preferences: скорость текста и auto, звук, fullscreen, skip-настройки. | Комфорт на разных устройствах и темпе чтения. | `SettingsManager` сохраняет широкий набор значений; VN-панель реально даёт master/music/SFX, text speed и fullscreen. | 🟡 PARTIAL | Либо подключить остальные сохранённые параметры к UI/исполнителям, либо убрать ложные настройки из плана. | Medium | Medium |
-| Обычные выборы | Меню вариантов продолжает соответствующую ветку. | Агентность игрока. | Выборы, результат, stat-delta и переход к следующей `DialogueSceneData`. | ✅ DONE | — | — | Low |
-| Условные выборы | В Eternum варианты и сообщения могут появляться только при выполнении флагов/очков. | Реальные последствия прошлых решений. | Нет декларативных условий на `DialogueChoice`. | ⬜ TODO | Добавить минимальный типизированный набор условий для нужной сцены, не исполнять произвольный код. | High | Medium |
-| Сюжетные флаги и stat-delta | В Eternum много флагов и счётчиков, управляющих доступом к сценам. | Сохранять последствия выбора. | `GameState` хранит оси, доверие/интерес и состояние выбора; `DialogueChoice` применяет delta. | ✅ DONE | Добавлять новые поля только под конкретную сцену. | — | Medium |
-| Relationship / points UI | Eternum использует очки отношений и биографии/сердца с порогами открытия. | Понятная обратная связь без раскрытия скрытых правил. | Данные отношений существуют, отдельного UI-индикатора нет. | 🟡 PARTIAL | Спроектировать ненавязчивый toast/индикатор изменения, не копируя hearts UI. | Medium | Low |
-| Unlock conditions | Галерея/контент Eternum открываются по увиденным сценам, флагам и persistent-state. | Управление доступом к extras и будущему контенту. | Универсального unlock-реестра нет. | ⬜ TODO | Нужен только вместе с конкретной галереей или extra-разделом. | Low | Medium |
+| # | Механика | Почему сейчас | Зависимости | Размер | Риск | Решение |
+|---:|---|---|---|---|---|---|
+| 1 | **Relationship change feedback** | Сразу делает уже применяемые stat-delta заметными и усиливает моральный выбор | `GameState`, существующий toast, точка применения delta | Small | Low | **NEXT** |
+| 2 | Settings truth pass | Убирает UI, который обещает несуществующее поведение | `SettingsManager`, обе панели Settings | Small | Low | После NEXT |
+| 3 | Единая input map + Help | Сводит реальные клавиши, controller-навигацию и подсказки без расхождений | VN actions, modal policy | Medium | Medium | После truth pass |
+| 4 | Backlog restoration policy | Определяет, должна ли история переживать Load, до расширения `SaveData` | backlog model, save migration decision | Medium | High | Сначала design note |
+| 5 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | Не начинать в этой задаче |
+| 6 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
+| 7 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
+| 8 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
+| 9 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
+| 10 | Gallery/replay foundation | Нужна для Extra только когда есть реальный replay-контент | unlock registry, scoped state, safe return | Large | High | Later |
 
-### Interactive scenes and locations
+## Единственный NEXT
 
-| Feature | Как работает в Eternum | Зачем нам | How I Fall сейчас | Статус | Что осталось | Приоритет | Риск |
-|---|---|---|---|---|---|---|---|
-| Interactive image hotspots | Сцены используют координатные hotspot-области на изображении для переходов/предметов. | Исследование без отдельного 3D-геймплея. | Нет. | ⬜ TODO | Сначала завершить устойчивый граф сцен; затем сделать доступный hotspot-компонент. | Low | Medium |
-| Карта / выбор локаций | В Eternum есть экраны с набором кликабельных помещений/точек. | Выбор следующей сцены и ощущение свободы. | Нет. | ⬜ TODO | Связать доступность с флагами и scene IDs; не делать до появления нескольких маршрутов. | Low | High |
-| Чат-интерфейс | Отдельная переписка с ответами, условиями, медиа и побочными действиями. | Разнообразить подачу подростковой драмы. | Нет. | ⬜ TODO | Рассматривать как отдельный формат сцены после условий выбора. | Low | Medium |
+### Relationship change feedback
 
-### QTE and mini-games
+Минимальный будущий scope:
 
-| Feature | Как работает в Eternum | Зачем нам | How I Fall сейчас | Статус | Что осталось | Приоритет | Риск |
-|---|---|---|---|---|---|---|---|
-| QTE с таймером | На экране задано время; успех/таймаут ведут в разные labels. | Подчеркнуть опасный или эмоциональный момент. | Нет. | ⬜ TODO | Общий контракт: запуск, таймер, success/fail, пауза сохранений и возврат в сцену. | Medium | Medium |
-| Таймерные success/fail-ветки | Несколько QTE имеют короткий таймер и отдельные ветки проигрыша. | Прозрачные последствия реакции игрока. | Нет. | ⬜ TODO | Реализовать вместе с первым QTE, не как отдельную подсистему. | Medium | Medium |
-| Lock mini-game | Механика взлома: поиск допустимого угла, попытки, поломка и результат. | Подходит только для редких сюжетных препятствий. | Нет. | ⬜ TODO | Не начинать без конкретной сцены и UX-макета. | Low | High |
-| Code-lock mini-game | В Eternum есть комбинационный замок с вводом кода и подтверждением результата. | Лёгкая загадка для мистической линии. | Нет. | ⬜ TODO | Выбрать авторский вариант кода и доступную альтернативу. | Low | Medium |
-| Card-choice mini-game | Игрок выбирает карту из подготовленного набора; сюжет обрабатывает результат. | Вариативная подача решения/гадания. | Нет. | ⬜ TODO | Нужен лишь при конкретной сцене; данные карт не брать из Eternum. | Low | Medium |
-| Sequence / notes mini-game | Аудиозаписи и последовательные заметки открывают следующую точку после прослушивания/условия. | Расследование через улики, а не экспозицию. | Нет. | ⬜ TODO | Сначала сделать реестр улик и условия доступа. | Low | High |
-| Reaction mini-game | Серии быстрых нажатий/QTE с разными короткими таймерами. | Редкий пик напряжения. | Нет. | 🚫 NOT PLANNED | Не нужен для первого сюжетного вертикального среза. | — | High |
+1. Реагировать только на реально применённый ненулевой relationship delta.
+2. Использовать существующую toast-инфраструктуру, не копировать hearts UI Eternum.
+3. Не показывать точное число, если story design должен сохранить неопределённость.
+4. Не менять `SaveData`: сохраняется итоговое значение, а уведомление остаётся кратким UI-событием.
+5. Проверить последовательность `choice result → delta feedback → next line/scene`, Auto/Skip и повторную загрузку.
 
-### Notifications, confirmations and input
+**Вне NEXT:** Conditional Choices, новый экран отношений, rollback, gallery, QTE и любые mini-games.
 
-| Feature | Как работает в Eternum | Зачем нам | How I Fall сейчас | Статус | Что осталось | Приоритет | Риск |
-|---|---|---|---|---|---|---|---|
-| Notifications / toast | Короткое `notify`-сообщение автоматически скрывается по таймеру. | Сообщать о сохранении и изменении состояния без остановки сцены. | Toast применяется к autosave/quicksave и сбросу настроек. | ✅ DONE | Добавлять сообщения об отношениях только после UX-решения. | — | Low |
-| Confirmations | Общий Yes/No экран для опасных действий. | Не терять прогресс/слоты случайно. | Есть модальные подтверждения Save/Load/Delete и выхода в меню. | ✅ DONE | — | — | Low |
-| Keyboard shortcuts | Eternum использует горячие клавиши quick save/load, Delete, menu и стандартные действия Ren'Py. | Быстрый доступ на ПК. | Проверен Escape для Save/Load; явных F5/F9/Delete shortcuts нет. | 🟡 PARTIAL | Добавлять только после общей схемы ввода и подсказки в UI. | Low | Low |
+## Отложено или исключено
 
-## Что уже реально готово в How I Fall
+- Прямой перенос rollback Ren'Py и жеста rollback со стороны экрана.
+- Voice controls без voice pipeline; мобильный quick menu при текущей PC-цели.
+- Имена saves и безлимитные страницы при понятной текущей модели 6×3.
+- Пользовательский resize textbox, economy HUD, unlockable looks и внешние community links.
+- Lock-picking, code lock, card/lyre/ball/reaction/score/slot loops без конкретной авторской сцены.
+- Любой `eval`/`exec` для условий диалога или чата.
 
-Проверено по текущему коду на commit `d20e753` и имеющимся smoke/Play Mode тестам:
+## Правило обновления
 
-- Manual / Auto / Quick сохранения: по 6 слотов каждого типа, отдельные каталоги, PNG-превью, валидация и циклическая запись Auto/Quick.
-- Экран Save/Load с вкладками, карточками, удалением, overwrite/load confirmations, защитой от повреждённых слотов и закрытием через Escape.
-- Pre-load autosave при загрузке во время игры.
-- Continue по самому новому валидному сохранению любого типа.
-- Восстановление `sceneId`, `lineId`, fallback-индекса, GameState, выбора и перехода между сценами.
-- Базовый диалог: typewriter, обычные выборы, stat-delta, scene transition.
-- Backlog текущей сессии.
-- Настройки: хранение параметров; в VN доступны master/music/SFX, text speed и fullscreen.
-- Toast-уведомления и подтверждение возврата в главное меню.
-
-## Maintenance log
-
-- **2026-08-07 - VN Quick Menu layout fix:** `de2a2604afb16e5933af1d16325245cd0cc0acff` - siblingIndex=0 rendered the root below background UI; root now sits above background/dialogue and below modal roots. Graphical QA passed at 1280x720, 1920x1080, 2560x1440, and 3840x2160.
-
-- **2026-08-07 - Dialogue Skip lifecycle fix:** `e4f1fbd` - Manual Save graphical E2E exposed an uninitialized read-history field; `Awake` plus `EnsureReadHistory()` now guarantee the service, and synthetic narration is not marked as a `DialogueLine`. Targeted smoke and both graphical E2E passed.
-- **2026-08-07 - Dialogue Skip:** `5e54426e2806340bcfa21af3a5d5c731017bd39a` - safe seen-only Skip, persistent read-history outside `SaveData`, Ctrl and public API, choice/modal/Auto guards, smoke coverage.
-- **2026-08-07 - Auto Dialogue:** `28f84cda344140dabf6fe394df2268bc1743b3d9` - runtime Auto, VN Settings controls, `50..500 -> 0.5..5.0 sec` conversion and smoke coverage. Full regression suite, including graphical Save E2E, passed; graphical capture must run without `-batchmode` and `-nographics`.
-- **2026-08-07 — project cleanup:** `0ade24e765fd2479479fd9108f062ba7c836e513` зафиксирован как cleanup baseline minimal classroom technical demo; старый сюжет и неиспользуемые prototype/template assets удалены; runtime-граф, Save/Load E2E, validators и smoke tests сохранены.
-
-## Что из Eternum сознательно не копируем
-
-- Любой Ren'Py/Python-код, структура labels/screens, тексты, оформление, изображения, звук, шрифты и игровые данные.
-- Несоответствие Eternum: движок хранит 10 auto/quick файлов, но его экран показывает только 6 карточек.
-- Зависимость от rollback-стека Ren'Py как техническое решение: Unity-версия должна иметь явное, ограниченное правило отката.
-- Произвольное выполнение строкового кода для условий/действий чата: для Unity нужны типизированные данные и безопасные проверки.
-- Реакционные мини-игры ради механики: они не помогают ближайшему вертикальному срезу How I Fall.
-
-## Recommended Next Steps
-
-| Order | Feature | Player value | Dependencies | Scope | Risk |
-|---:|---|---|---|---|---|
-| 1 | Conditional choices | Makes earlier decisions visible in new scenes. | `GameState`, `DialogueChoice`, validator. | Medium | Medium |
-| 2 | Relationship feedback | Shows consequences without exposing the full scoring model. | `GameState`, toast/UI decision. | Small | Low |
-| 3 | Backlog after Load | Keeps displayed lines after a restore. | `SaveData` format, migration, cap. | Medium | Medium |
-
-### NEXT
-
-**Conditional Choices.** Quick Menu is complete; next, add conditions without changing established save semantics.
-
-## Maintenance protocol
-
-После завершения крупной feature-задачи Codex должен:
-
-1. обновить Feature Matrix и фактическое описание соответствующей строки;
-2. выставить проверенный статус DONE / PARTIAL / TODO;
-3. обновить последний проверенный functional commit в начале документа;
-4. обновить `Recommended Next Steps` и `NEXT`, не меняя их без подтверждённой причины;
-5. включить изменение tracker в тот же feature commit либо в непосредственно следующий docs commit;
-6. кратко отметить готовую часть и известные ограничения;
-7. ставить ✅ только после проверки кода и, если есть UI, её доступности игроку.
+После каждой реализованной механики обновлять фактический статус здесь, а подробные edge cases добавлять в полный audit только при появлении нового подтверждённого поведения. Не считать сохранённую настройку реализованной, пока её эффект не виден в runtime.
