@@ -15,6 +15,7 @@ public static class HowIFallCiSmokeTests
             Run("Save backend v2", ManualSaveSystemV1SmokeTests.RunBatchMode);
 
             Debug.Log("[CI] How I Fall smoke tests passed.");
+            EditorApplication.Exit(0);
         }
         catch (Exception exception)
         {
