@@ -6,6 +6,7 @@
 
 - **Eternum:** локальная русская сборка `0.9.5`; анализ повторно проверен 2026-08-07 по её `.rpy`-файлам.
 - **How I Fall:** cleanup baseline — `0ade24e765fd2479479fd9108f062ba7c836e513`; текущий scope — minimal classroom technical demo, старый сюжет удалён.
+- **Last reviewed functional commit:** `28f84cda344140dabf6fe394df2268bc1743b3d9` - Auto Dialogue.
 - **Граница референса:** берём только наблюдаемое UX-поведение и структуру механик. Не переносим код, тексты, изображения, музыку, шрифты или другие assets Eternum.
 - **Связанные документы:** подробный исторический разбор сохранений — [save_system_eternum_reference.md](save_system_eternum_reference.md); архитектурный план — [technical_plan.md](technical_plan.md).
 
@@ -40,7 +41,7 @@
 | History / backlog | Экран History выводит уже показанные реплики. | Вернуться к пропущенной фразе. | Backlog собирает реплики с автором, отображается и имеет smoke-тесты; хранится только в сессии. | 🟡 PARTIAL | Решить, нужна ли история после загрузки/перезапуска, затем сериализовать при необходимости. | Medium | Medium |
 | Back / rollback | Ren'Py откатывает историю исполнения с отдельным действием Back. | Исправить случайный advance/выбор в пределах сцены. | Нет. | ⬜ TODO | Сперва определить границы: только непройденные реплики или полноценные обратимые выборы. | Medium | High |
 | Skip | Skip непрочитанного/прочитанного текста с настройками после выборов. | Быстро проходить повторные сцены. | Настройки хранят `skipMode`, `skipBehavior`, `skipAfterChoices`, но исполнитель skip отсутствует. | 🟡 PARTIAL | Реализовать безопасный режим только прочитанного текста и явные остановки на выборе. | High | High |
-| Auto dialogue | Auto-forward переключается в quick menu; задержка настраивается. | Hands-free чтение и доступность. | Хранятся `autoForward` и `autoForwardDelay`, но автоматического advance нет. | 🟡 PARTIAL | Связать настройку с исполнителем диалога и отменой при модальном UI. | High | Medium |
+| Auto dialogue | Auto-forward переключается отдельным действием; задержка настраивается в Preferences. | Hands-free чтение и доступность. | Один realtime-таймер в `VNDialogueController`: typewriter → 0,5–5,0 с → advance. Ручной advance сохраняет Auto; Choice и Save/Load, History, Settings, Confirm Exit блокируют его и после закрытия получают новую полную задержку. Переходы сцен продолжают Auto, restore не делает мгновенный advance, terminal state останавливает loop. `SettingsManager` сохраняет Auto вне `SaveData`; toggle и slider доступны в VN Settings. | ✅ DONE | Quick-menu вход можно добавить отдельно через `SetAutoForward`/`ToggleAutoForward`; Skip не реализован. | — | Medium |
 
 ### Settings, choices and state
 
@@ -97,6 +98,7 @@
 
 ## Maintenance log
 
+- **2026-08-07 - Auto Dialogue:** `28f84cda344140dabf6fe394df2268bc1743b3d9` - runtime Auto, VN Settings controls, `50..500 -> 0.5..5.0 sec` conversion and smoke coverage. Full regression suite, including graphical Save E2E, passed; graphical capture must run without `-batchmode` and `-nographics`.
 - **2026-08-07 — project cleanup:** `0ade24e765fd2479479fd9108f062ba7c836e513` зафиксирован как cleanup baseline minimal classroom technical demo; старый сюжет и неиспользуемые prototype/template assets удалены; runtime-граф, Save/Load E2E, validators и smoke tests сохранены.
 
 ## Что из Eternum сознательно не копируем
@@ -111,15 +113,15 @@
 
 | Порядок | Функция | Зачем игроку | Зависимости | Объём | Риск |
 |---:|---|---|---|---|---|
-| 1 | Skip / Auto dialogue | Удобно читать повторные сцены и выбирать собственный темп. | `VNDialogueController`, `GameSettings`, блокировка при modal/choice. | Medium | High |
-| 2 | Единое quick menu | Открывает основные действия без разрыва сцены. | Существующие Save/Load/History/Settings, Skip/Auto. | Medium | Medium |
+| 1 | Skip | Ускоряет повторное чтение с безопасной остановкой на выборе и modal UI. | `VNDialogueController`, история прочитанного. | Medium | High |
+| 2 | Единое quick menu | Открывает основные действия без разрыва сцены и вызывает готовый Auto API. | Существующие Save/Load/History/Settings, `SetAutoForward`/`ToggleAutoForward`. | Medium | Medium |
 | 3 | Условные выборы | Делает прошлые решения видимыми в новых сценах. | `GameState`, `DialogueChoice`, validator. | Medium | Medium |
 | 4 | Ненавязчивый feedback отношений | Показывает последствия выбора, не раскрывая всю математику. | `GameState`, toast/UI-решение. | Small | Low |
 | 5 | Backlog после Load | Не терять прочитанное при восстановлении сохранения. | Формат `SaveData`, миграция, лимит записей. | Medium | Medium |
 
 ### NEXT
 
-**Skip / Auto dialogue.** Это наибольшее улучшение ощущения полноценной VN без требования нового сюжетного контента; оно опирается на уже существующие настройки и диалоговый контроллер. Перед реализацией нужно зафиксировать правила остановки на выборе, непрочитанных репликах, модальных окнах и QTE.
+**Skip.** Auto Dialogue завершён и проверен. Следующий кандидат — безопасный Skip с остановкой на выборе и modal UI без изменений `SaveData`.
 
 ## Maintenance protocol
 
