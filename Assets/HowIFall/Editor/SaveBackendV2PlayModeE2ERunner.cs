@@ -13,6 +13,9 @@ using UnityEngine.SceneManagement;
 [InitializeOnLoad]
 public static class SaveBackendV2PlayModeE2ERunner
 {
+    private static readonly Color ActiveTabOutlineColor = new Color(0.28f, 0.54f, 0.76f, 0.62f);
+    private static readonly Color InactiveTabOutlineColor = new Color(0.16f, 0.25f, 0.34f, 0.34f);
+
     private const string ActiveKey = "HowIFall.SaveBackendV2E2E.Active";
     private const string StageKey = "HowIFall.SaveBackendV2E2E.Stage";
     private const string NextTimeKey = "HowIFall.SaveBackendV2E2E.NextTime";
@@ -425,6 +428,9 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(IsTabActive(panel.manualTabButton) == (type == SaveSlotType.Manual), "Manual tab active state is incorrect.");
         Require(IsTabActive(panel.autoTabButton) == (type == SaveSlotType.Auto), "Auto tab active state is incorrect.");
         Require(IsTabActive(panel.quickTabButton) == (type == SaveSlotType.Quick), "Quick tab active state is incorrect.");
+        VerifyTabOutline(panel.manualTabButton, type == SaveSlotType.Manual, "Manual");
+        VerifyTabOutline(panel.autoTabButton, type == SaveSlotType.Auto, "Auto");
+        VerifyTabOutline(panel.quickTabButton, type == SaveSlotType.Quick, "Quick");
 
         for (int i = 0; i < SaveManager.SlotCount; i++)
         {
@@ -458,6 +464,19 @@ public static class SaveBackendV2PlayModeE2ERunner
     {
         Transform accent = button != null ? button.transform.Find("Active Accent") : null;
         return accent != null && accent.gameObject.activeSelf;
+    }
+
+    private static void VerifyTabOutline(UnityEngine.UI.Button button, bool active, string label)
+    {
+        UnityEngine.UI.Outline outline = button != null ? button.GetComponent<UnityEngine.UI.Outline>() : null;
+        Require(outline != null, $"{label} tab has no Outline.");
+        Color expected = active ? ActiveTabOutlineColor : InactiveTabOutlineColor;
+        Require(
+            Mathf.Abs(outline.effectColor.r - expected.r) < 0.001f
+                && Mathf.Abs(outline.effectColor.g - expected.g) < 0.001f
+                && Mathf.Abs(outline.effectColor.b - expected.b) < 0.001f
+                && Mathf.Abs(outline.effectColor.a - expected.a) < 0.001f,
+            $"{label} tab Outline color is incorrect for active={active}.");
     }
 
     private static void SelectTab(ManualSaveLoadPanel panel, SaveSlotType type)

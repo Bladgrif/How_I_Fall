@@ -8,6 +8,9 @@ using UnityEngine;
 
 public static class ManualSaveSystemV1SmokeTests
 {
+    private static readonly Color ActiveTabOutlineColor = new Color(0.28f, 0.54f, 0.76f, 0.62f);
+    private static readonly Color InactiveTabOutlineColor = new Color(0.16f, 0.25f, 0.34f, 0.34f);
+
     private sealed class TestContext : IDisposable
     {
         public readonly string DirectoryPath;
@@ -150,12 +153,14 @@ public static class ManualSaveSystemV1SmokeTests
             }
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, false);
+            VerifyTabVisualState(panel, SaveSlotType.Manual);
             Require(panel.subtitleText.text == "РУЧНЫЕ СОХРАНЕНИЯ", "Manual subtitle is incorrect.");
             Require(panel.slotViews[0].slotNumberText.text == "Слот 1", "Manual card label is incorrect.");
             Require(panel.slotViews[1].emptyText.text == "Пустой слот", "Manual empty label is incorrect.");
             Require(panel.slotViews[0].button.interactable && !panel.slotViews[1].button.interactable, "Manual Load interaction is incorrect.");
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Auto, false);
+            VerifyTabVisualState(panel, SaveSlotType.Auto);
             Require(panel.subtitleText.text == "АВТОСОХРАНЕНИЯ", "Auto subtitle is incorrect.");
             Require(panel.slotViews[0].slotNumberText.text == "Авто 1", "Auto card label is incorrect.");
             Require(panel.slotViews[2].emptyText.text == "Нет автосохранения", "Auto empty label is incorrect.");
@@ -163,6 +168,7 @@ public static class ManualSaveSystemV1SmokeTests
             Require(!panel.slotViews[1].button.interactable && panel.slotViews[1].deleteButton.gameObject.activeSelf, "Corrupt Auto slot is not load-disabled/delete-enabled.");
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Quick, false);
+            VerifyTabVisualState(panel, SaveSlotType.Quick);
             Require(panel.subtitleText.text == "БЫСТРЫЕ СОХРАНЕНИЯ", "Quick subtitle is incorrect.");
             Require(panel.slotViews[0].slotNumberText.text == "Быстрое 1", "Quick card label is incorrect.");
             Require(panel.slotViews[1].emptyText.text == "Нет быстрого сохранения", "Quick empty label is incorrect.");
@@ -183,6 +189,32 @@ public static class ManualSaveSystemV1SmokeTests
         {
             PrefabUtility.UnloadPrefabContents(root);
         }
+    }
+
+    private static void VerifyTabVisualState(ManualSaveLoadPanel panel, SaveSlotType activeType)
+    {
+        VerifyTabVisual(panel.manualTabButton, activeType == SaveSlotType.Manual, "Manual");
+        VerifyTabVisual(panel.autoTabButton, activeType == SaveSlotType.Auto, "Auto");
+        VerifyTabVisual(panel.quickTabButton, activeType == SaveSlotType.Quick, "Quick");
+    }
+
+    private static void VerifyTabVisual(UnityEngine.UI.Button button, bool active, string label)
+    {
+        Transform accent = button != null ? button.transform.Find("Active Accent") : null;
+        Require(accent != null && accent.gameObject.activeSelf == active, $"{label} Active Accent state is incorrect.");
+
+        UnityEngine.UI.Outline outline = button != null ? button.GetComponent<UnityEngine.UI.Outline>() : null;
+        Require(outline != null, $"{label} tab has no Outline.");
+        Color expected = active ? ActiveTabOutlineColor : InactiveTabOutlineColor;
+        Require(ColorsApproximatelyEqual(outline.effectColor, expected), $"{label} tab Outline color is incorrect.");
+    }
+
+    private static bool ColorsApproximatelyEqual(Color left, Color right)
+    {
+        return Mathf.Abs(left.r - right.r) < 0.001f
+            && Mathf.Abs(left.g - right.g) < 0.001f
+            && Mathf.Abs(left.b - right.b) < 0.001f
+            && Mathf.Abs(left.a - right.a) < 0.001f;
     }
 
     private static void RenderPanelForSmoke(

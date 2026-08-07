@@ -21,6 +21,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private const float PanelFadeDuration = 0.16f;
     private const float ConfirmationDuration = 0.12f;
+    private static readonly Color ActiveTabOutlineColor = new Color(0.28f, 0.54f, 0.76f, 0.62f);
+    private static readonly Color InactiveTabOutlineColor = new Color(0.16f, 0.25f, 0.34f, 0.34f);
 
     public int visualVersion;
     public CanvasGroup canvasGroup;
@@ -732,6 +734,14 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             label.color = active
                 ? new Color(0.88f, 0.95f, 1f, 1f)
                 : new Color(0.48f, 0.59f, 0.7f, 0.82f);
+        }
+
+        Outline outline = button.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.effectColor = active
+                ? ActiveTabOutlineColor
+                : InactiveTabOutlineColor;
         }
 
         Transform accent = button.transform.Find("Active Accent");
