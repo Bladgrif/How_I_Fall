@@ -19,11 +19,13 @@ public static class ManualSavePlayModeE2ERunner
     private const string NextTimeKey = "HowIFall.SaveE2E.NextTime";
     private const string CounterKey = "HowIFall.SaveE2E.Counter";
     private const string SnapshotKey = "HowIFall.SaveE2E.Snapshot";
+    private const string FutureSnapshotKey = "HowIFall.SaveE2E.FutureSnapshot";
     private const string InitialCreatedAtKey = "HowIFall.SaveE2E.InitialCreatedAt";
     private const string ErrorsKey = "HowIFall.SaveE2E.Errors";
+    private const string DirectoryKey = "HowIFall.SaveE2E.Directory";
     private const string UiResolutionIndexKey = "HowIFall.SaveE2E.UiResolutionIndex";
     private const string ResultPath = "manual_save_playmode_result.txt";
-    private const string ScreenshotFolder = "docs/screenshots/save_load_ui";
+    private const string ScreenshotFolder = "GraphicalScreenshots";
 
     private static readonly Vector2Int[] UiResolutions =
     {
@@ -56,15 +58,20 @@ public static class ManualSavePlayModeE2ERunner
             File.Delete(resultPath);
         }
 
-        CleanNewSaveFiles();
-        CleanUiScreenshots();
+        CleanupTestDirectory();
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            "HowIFall_ManualSaveE2E_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
         ManualSaveSystemSceneInstaller.ValidateInstalledScenes();
         SessionState.SetBool(ActiveKey, true);
         SessionState.SetString(StageKey, "WaitMainNewGame");
         SessionState.SetInt(CounterKey, 0);
         SessionState.SetString(SnapshotKey, string.Empty);
+        SessionState.SetString(FutureSnapshotKey, string.Empty);
         SessionState.SetString(InitialCreatedAtKey, string.Empty);
         SessionState.SetString(ErrorsKey, string.Empty);
+        SessionState.SetString(DirectoryKey, directory);
         SessionState.SetInt(UiResolutionIndexKey, 0);
         SetDelay(1.0d);
 
@@ -186,6 +193,7 @@ public static class ManualSavePlayModeE2ERunner
         SaveManager manager = SaveManager.Instance;
         Require(menu != null, "MainMenuController was not created in Play Mode.");
         Require(manager != null, "SaveManager was not created in MainMenu.");
+        manager.ConfigureSaveDirectoryForTests(SessionState.GetString(DirectoryKey, string.Empty));
         Require(UnityEngine.Object.FindObjectsByType<SaveManager>(FindObjectsSortMode.None).Length == 1, "MainMenu contains more than one runtime SaveManager.");
         Require(!manager.GetSlot(1).IsOccupied, "Slot 1 is not empty at clean test start.");
 
@@ -214,6 +222,7 @@ public static class ManualSavePlayModeE2ERunner
 
         Require(UnityEngine.Object.FindObjectsByType<SaveManager>(FindObjectsSortMode.None).Length == 1, "VNPrototype contains more than one runtime SaveManager.");
         Require(GameState.Instance.selectedChoiceIndex == -1, "New Game inherited a previous choice.");
+        Require(controller.CaptureBacklogSnapshot().Count == 1, "New Game did not begin with only its first displayed line in History.");
         Pass("New Game opened VNPrototype with one SaveManager");
         SessionState.SetString(StageKey, "AdvanceToChoice");
         SessionState.SetInt(CounterKey, 0);
@@ -276,6 +285,11 @@ public static class ManualSavePlayModeE2ERunner
         Require(Path.GetFileName(slot.PreviewPath) == "slot_01.png", "Unexpected preview file name.");
         VerifyPreviewDimensions(slot.PreviewPath);
         VerifyOccupiedCard(VNDialogueController.Instance.manualSaveLoadPanel, slot);
+        Require(slot.Data.version == 3 && slot.Data.backlogSnapshotAvailable, "Manual save did not persist a v3 backlog snapshot.");
+        Require(slot.Data.backlogEntries != null && slot.Data.backlogEntries.Count > 0, "Manual save backlog snapshot is empty.");
+        string savedResultText = slot.Data.backlogEntries[slot.Data.backlogEntries.Count - 1].text;
+        Require(slot.Data.backlogEntries.Count(entry => entry != null && entry.text == savedResultText) == 1,
+            "Choice result was duplicated before the Manual save was written.");
         SessionState.SetString(SnapshotKey, JsonUtility.ToJson(slot.Data));
         SessionState.SetString(InitialCreatedAtKey, slot.Data.createdAtUtc);
         Pass("Slot 1 JSON and screenshot written");
@@ -377,6 +391,7 @@ public static class ManualSavePlayModeE2ERunner
             || GameState.Instance.currentLineId != snapshot.lineId
             || !GameState.Instance.choiceResultActive;
         Require(changed, "Dialogue did not move beyond the saved position.");
+        SessionState.SetString(FutureSnapshotKey, JsonUtility.ToJson(CaptureCurrentSnapshot()));
         SessionState.SetString(StageKey, "LoadInsideVn");
         SetDelay(0.1d);
     }
@@ -409,7 +424,35 @@ public static class ManualSavePlayModeE2ERunner
     private static void VerifyInsideVn()
     {
         VerifySnapshot("in-place VN load");
-        Pass("In-place VN load restored line, choice and GameState");
+        SaveManager manager = SaveManager.Instance;
+        SaveData futureSnapshot = ReadSnapshot(FutureSnapshotKey);
+        SaveSlotInfo preLoadCheckpoint = manager.GetAllSlots(SaveSlotType.Auto)
+            .Where(slot => slot.IsLoadable)
+            .OrderByDescending(slot => slot.CreatedAtUtc)
+            .FirstOrDefault();
+        Require(preLoadCheckpoint != null, "Manual Load did not create a pre-load Auto checkpoint.");
+        VerifySnapshotData(futureSnapshot, preLoadCheckpoint.Data, "Manual pre-load Auto checkpoint");
+
+        SaveData savedSnapshot = ReadSnapshot();
+        string expectedNextSceneId = savedSnapshot.pendingNextSceneId;
+        VNDialogueController.Instance.AdvanceDialogue();
+        if (GameState.Instance.choiceResultActive)
+        {
+            // The first click may only finish resultText typewriting.
+            VNDialogueController.Instance.AdvanceDialogue();
+        }
+        Require(!string.IsNullOrEmpty(expectedNextSceneId)
+                && GameState.Instance.currentSceneId == expectedNextSceneId
+                && !GameState.Instance.choiceResultActive,
+            "Advance after restored choice result did not enter the saved pending scene.");
+        Require(GameState.Instance.suspicion == savedSnapshot.suspicion
+                && GameState.Instance.trustMasha == savedSnapshot.trustMasha,
+            "Advance after restored choice result reapplied choice effects.");
+
+        Require(manager.LoadSlot(SaveSlotType.Auto, preLoadCheckpoint.SlotIndex),
+            "Loading the Manual pre-load Auto checkpoint failed.");
+        VerifyRuntimeSnapshot(futureSnapshot, "Manual pre-load Auto checkpoint restore");
+        Pass("In-place Manual Load restored choice History without duplicates, advanced correctly, and restored pre-load History");
         SessionState.SetString(StageKey, "WaitMainForSlotLoad");
         SetDelay(0.75d);
         SceneFlowManager.EnsureInstance().ReturnToMainMenu();
@@ -476,6 +519,7 @@ public static class ManualSavePlayModeE2ERunner
             return;
         }
 
+        SaveManager.Instance.ConfigureSaveDirectoryForTests(SessionState.GetString(DirectoryKey, string.Empty));
         Require(SaveManager.Instance.HasAnyValidSave(), "Continue found no valid save after Play Mode restart.");
         Require(menu.continueButton != null && menu.continueButton.interactable, "Continue button is disabled despite valid slot 1.");
         menu.continueButton.onClick.Invoke();
@@ -663,6 +707,9 @@ public static class ManualSavePlayModeE2ERunner
             return;
         }
 
+        // The explicit post-choice advance used by backlog E2E requests a normal
+        // scene-transition autosave. Remove that test artifact after it settles.
+        DeleteAllAutoTestSlots();
         Require(!SaveManager.Instance.HasAnyValidSave(), "Continue still finds a save after deleting the last valid slot.");
         menu.RefreshContinueAvailability();
         Require(menu.continueButton != null && !menu.continueButton.interactable, "Continue is enabled after deleting the last valid slot.");
@@ -745,7 +792,10 @@ public static class ManualSavePlayModeE2ERunner
     private static string GetUiScreenshotPath(Vector2Int resolution)
     {
         string fileName = $"manual_save_{resolution.x}x{resolution.y}.png";
-        return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), ScreenshotFolder, fileName));
+        return Path.GetFullPath(Path.Combine(
+            SessionState.GetString(DirectoryKey, string.Empty),
+            ScreenshotFolder,
+            fileName));
     }
 
     private static void ConfigureGameViewResolution(Vector2Int resolution)
@@ -917,13 +967,117 @@ public static class ManualSavePlayModeE2ERunner
         Require(controller != null, $"VNDialogueController missing during {context}.");
         Require(controller.TryGetSavePosition(out string sceneId, out string lineId, out int lineIndex, out string error), $"Position unavailable during {context}: {error}");
         Require(sceneId == snapshot.sceneId && lineId == snapshot.lineId && lineIndex == snapshot.lineIndex, $"VN controller position mismatch during {context}.");
+        VerifyBacklog(snapshot, controller, context);
     }
 
     private static SaveData ReadSnapshot()
     {
-        SaveData snapshot = JsonUtility.FromJson<SaveData>(SessionState.GetString(SnapshotKey, string.Empty));
+        return ReadSnapshot(SnapshotKey);
+    }
+
+    private static SaveData ReadSnapshot(string key)
+    {
+        SaveData snapshot = JsonUtility.FromJson<SaveData>(SessionState.GetString(key, string.Empty));
         Require(snapshot != null, "Saved test snapshot is unavailable.");
         return snapshot;
+    }
+
+    private static SaveData CaptureCurrentSnapshot()
+    {
+        VNDialogueController controller = VNDialogueController.Instance;
+        GameState state = GameState.Instance;
+        Require(controller != null && state != null, "Runtime state is unavailable for backlog capture.");
+        Require(controller.TryGetSavePosition(out string sceneId, out string lineId, out int lineIndex, out string error),
+            $"Runtime position is unavailable for backlog capture: {error}");
+
+        return new SaveData
+        {
+            sceneId = sceneId,
+            lineId = lineId,
+            lineIndex = lineIndex,
+            selectedChoiceIndex = state.selectedChoiceIndex,
+            choiceResultActive = state.choiceResultActive,
+            pendingNextSceneId = state.pendingNextSceneId,
+            lust = state.lust,
+            romance = state.romance,
+            purity = state.purity,
+            corruptionLevel = state.corruptionLevel,
+            selfControl = state.selfControl,
+            suspicion = state.suspicion,
+            trustMasha = state.trustMasha,
+            trustArtem = state.trustArtem,
+            leraInterest = state.leraInterest,
+            backlogEntries = controller.CaptureBacklogSnapshot().Select(entry => new BacklogEntryData
+            {
+                speaker = entry.speaker,
+                text = entry.text
+            }).ToList()
+        };
+    }
+
+    private static void VerifyRuntimeSnapshot(SaveData expected, string context)
+    {
+        GameState state = GameState.Instance;
+        VNDialogueController controller = VNDialogueController.Instance;
+        Require(state != null && controller != null, $"Runtime state is missing during {context}.");
+        Require(state.currentSceneId == expected.sceneId
+                && state.currentLineId == expected.lineId
+                && state.currentLineIndex == expected.lineIndex,
+            $"Dialogue position mismatch during {context}.");
+        Require(state.selectedChoiceIndex == expected.selectedChoiceIndex
+                && state.choiceResultActive == expected.choiceResultActive
+                && state.pendingNextSceneId == expected.pendingNextSceneId,
+            $"Choice state mismatch during {context}.");
+        Require(state.suspicion == expected.suspicion && state.trustMasha == expected.trustMasha,
+            $"Relationship state mismatch during {context}.");
+        VerifyBacklog(expected, controller, context);
+    }
+
+    private static void VerifySnapshotData(SaveData expected, SaveData actual, string context)
+    {
+        Require(actual != null, $"SaveData is missing during {context}.");
+        Require(actual.sceneId == expected.sceneId
+                && actual.lineId == expected.lineId
+                && actual.lineIndex == expected.lineIndex,
+            $"Saved dialogue position mismatch during {context}.");
+        Require(actual.selectedChoiceIndex == expected.selectedChoiceIndex
+                && actual.choiceResultActive == expected.choiceResultActive
+                && actual.pendingNextSceneId == expected.pendingNextSceneId,
+            $"Saved choice state mismatch during {context}.");
+        Require(actual.suspicion == expected.suspicion && actual.trustMasha == expected.trustMasha,
+            $"Saved relationship state mismatch during {context}.");
+        Require(BacklogSignatures(actual).SequenceEqual(BacklogSignatures(expected)),
+            $"Saved backlog mismatch during {context}.");
+    }
+
+    private static void VerifyBacklog(SaveData expected, VNDialogueController controller, string context)
+    {
+        Require(expected.backlogEntries != null, $"Expected backlog is missing during {context}.");
+        var actual = controller.CaptureBacklogSnapshot();
+        Require(actual.Count == expected.backlogEntries.Count,
+            $"History count mismatch during {context}: actual {actual.Count}, expected {expected.backlogEntries.Count}.");
+        for (int index = 0; index < actual.Count; index++)
+        {
+            BacklogEntryData entry = expected.backlogEntries[index];
+            Require(entry != null
+                    && actual[index].speaker == (entry.speaker ?? string.Empty)
+                    && actual[index].text == entry.text,
+                $"History entry {index} mismatch during {context}.");
+        }
+
+        if (expected.choiceResultActive)
+        {
+            string resultText = expected.backlogEntries[expected.backlogEntries.Count - 1].text;
+            Require(actual.Count(entry => entry.text == resultText) == 1,
+                $"Choice result was duplicated in History during {context}.");
+        }
+    }
+
+    private static System.Collections.Generic.IEnumerable<string> BacklogSignatures(SaveData data)
+    {
+        return data?.backlogEntries == null
+            ? Enumerable.Empty<string>()
+            : data.backlogEntries.Where(entry => entry != null).Select(entry => $"{entry.speaker ?? string.Empty}\u001f{entry.text}");
     }
 
     private static void OnPlayModeStateChanged(PlayModeStateChange state)
@@ -960,6 +1114,7 @@ public static class ManualSavePlayModeE2ERunner
         string errors = SessionState.GetString(ErrorsKey, string.Empty);
         Require(string.IsNullOrEmpty(errors), "Unity Console contained errors:\n" + errors);
         WriteResult("PASS", string.Empty);
+        CleanupTestDirectory();
         Debug.Log("[PLAY E2E] COMPLETE PASS: all manual Save/Load scenarios succeeded.");
         SessionState.SetString(StageKey, "ExitSuccess");
         EditorApplication.isPlaying = false;
@@ -968,6 +1123,7 @@ public static class ManualSavePlayModeE2ERunner
     private static void Fail(string message)
     {
         WriteResult("FAIL", message);
+        CleanupTestDirectory();
         Debug.LogError("[PLAY E2E] FAILURE: " + message);
         SessionState.SetString(StageKey, "ExitFailure");
 
@@ -988,6 +1144,14 @@ public static class ManualSavePlayModeE2ERunner
             || (type != LogType.Error && type != LogType.Exception && type != LogType.Assert)
             || condition.StartsWith("[PLAY E2E] FAILURE", StringComparison.Ordinal))
         {
+            return;
+        }
+
+        if (condition.StartsWith("ArgumentOutOfRangeException", StringComparison.Ordinal)
+            && stackTrace.Contains("UnityEditor.Search.SearchDatabase"))
+        {
+            // Unity Search can race startup indexing in a freshly imported
+            // graphical test copy. It is editor-only and unrelated to Save/Load.
             return;
         }
 
@@ -1021,6 +1185,15 @@ public static class ManualSavePlayModeE2ERunner
             DeleteIfExists(stem + ".png");
             DeleteIfExists(stem + ".json.tmp");
             DeleteIfExists(stem + ".png.tmp");
+        }
+    }
+
+    private static void CleanupTestDirectory()
+    {
+        string directory = SessionState.GetString(DirectoryKey, string.Empty);
+        if (!string.IsNullOrEmpty(directory) && Directory.Exists(directory))
+        {
+            Directory.Delete(directory, true);
         }
     }
 

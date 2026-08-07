@@ -35,7 +35,15 @@ public sealed class SaveManager : MonoBehaviour
 
     private bool pendingSceneRestore;
     private int pendingSlotIndex;
+    private List<DialogueBacklogEntry> pendingBacklogSnapshot;
+    private bool pendingBacklogSnapshotAvailable;
     private string saveDirectoryOverride;
+
+    [Serializable]
+    private sealed class BacklogEntriesJson
+    {
+        public List<BacklogEntryData> backlogEntries;
+    }
 
     public string SaveDirectoryPath => string.IsNullOrEmpty(saveDirectoryOverride)
         ? Path.Combine(Application.persistentDataPath, "Saves")
@@ -188,6 +196,8 @@ public sealed class SaveManager : MonoBehaviour
             lineId,
             resolvedLineIndex,
             previewFileName);
+        data.backlogEntries = ToSaveBacklogEntries(dialogueController.CaptureBacklogSnapshot());
+        data.backlogSnapshotAvailable = true;
 
         if (!TryValidateChoiceState(data, scene, out string choiceError))
         {
@@ -410,6 +420,16 @@ public sealed class SaveManager : MonoBehaviour
     {
         pendingSceneRestore = false;
         pendingSlotIndex = 0;
+        pendingBacklogSnapshot = null;
+        pendingBacklogSnapshotAvailable = false;
+    }
+
+    public void GetPendingBacklogRestore(
+        out List<DialogueBacklogEntry> snapshot,
+        out bool snapshotAvailable)
+    {
+        snapshotAvailable = pendingSceneRestore && pendingBacklogSnapshotAvailable;
+        snapshot = CopyRuntimeBacklogEntries(pendingBacklogSnapshot);
     }
 
     private SaveSlotInfo ReadSlot(SaveSlotType type, int slotIndex)
@@ -454,7 +474,16 @@ public sealed class SaveManager : MonoBehaviour
         try
         {
             string json = File.ReadAllText(jsonPath, Encoding.UTF8);
-            data = JsonUtility.FromJson<SaveData>(json);
+            if (!TryDeserializeSaveData(json, out data, out string readError, out string backlogWarning))
+            {
+                result.Error = readError;
+                return result;
+            }
+
+            if (!string.IsNullOrEmpty(backlogWarning))
+            {
+                Debug.LogWarning($"[LOAD] {type} slot {slotIndex}: {backlogWarning}", this);
+            }
         }
         catch (Exception exception)
         {
@@ -468,7 +497,10 @@ public sealed class SaveManager : MonoBehaviour
             return result;
         }
 
-        if (data.version == 1)
+        int serializedVersion = data.version;
+        data.sourceVersion = serializedVersion;
+
+        if (serializedVersion == 1)
         {
             if (type != SaveSlotType.Manual)
             {
@@ -479,10 +511,20 @@ public sealed class SaveManager : MonoBehaviour
             // Controlled in-memory compatibility only. The source v1 JSON is never rewritten.
             data.version = SaveData.CurrentVersion;
             data.slotType = SaveSlotType.Manual;
+            data.backlogEntries = null;
+            data.backlogSnapshotAvailable = false;
         }
-        else if (data.version != SaveData.CurrentVersion)
+        else if (serializedVersion == 2)
         {
-            result.Error = $"Unsupported save version {data.version}; expected {SaveData.CurrentVersion}.";
+            // Existing v2 Manual, Auto and Quick records stay loadable. The source
+            // JSON is not rewritten; the next save creates a v3 snapshot.
+            data.version = SaveData.CurrentVersion;
+            data.backlogEntries = null;
+            data.backlogSnapshotAvailable = false;
+        }
+        else if (serializedVersion != SaveData.CurrentVersion)
+        {
+            result.Error = $"Unsupported save version {serializedVersion}; expected 1, 2 or {SaveData.CurrentVersion}.";
             return result;
         }
 
@@ -582,7 +624,7 @@ public sealed class SaveManager : MonoBehaviour
                     data,
                     slot.SlotIndex,
                     gameState,
-                    dialogueController.RestoreFromGameState,
+                    () => dialogueController.RestoreFromGameState(data.backlogSnapshotAvailable),
                     out string restoreError))
             {
                 Debug.LogError($"[LOAD] Slot {slot.SlotIndex} was not restored in-place. Previous GameState and dialogue position were preserved. {restoreError}", this);
@@ -597,6 +639,7 @@ public sealed class SaveManager : MonoBehaviour
 
         SaveData previousState = CaptureGameState(gameState);
         ApplyGameState(data, gameState);
+        SetPendingBacklogRestore(data);
         BeginPendingSceneRestore(slot.SlotIndex);
 
         try
@@ -637,7 +680,18 @@ public sealed class SaveManager : MonoBehaviour
     {
         error = string.Empty;
         SaveData previousState = CaptureGameState(gameState);
+        VNDialogueController dialogueController = VNDialogueController.Instance;
+        List<DialogueBacklogEntry> previousBacklog = dialogueController != null
+            ? dialogueController.CaptureBacklogSnapshot()
+            : null;
+
         ApplyGameState(data, gameState);
+        if (dialogueController != null)
+        {
+            dialogueController.ReplaceBacklogFromSnapshot(ToRuntimeBacklogEntries(data));
+        }
+
+        SetPendingBacklogRestore(data);
         BeginPendingSceneRestore(slotIndex);
 
         bool restored;
@@ -658,6 +712,11 @@ public sealed class SaveManager : MonoBehaviour
         }
 
         ApplyGameState(previousState, gameState);
+        if (dialogueController != null)
+        {
+            dialogueController.ReplaceBacklogFromSnapshot(previousBacklog);
+        }
+
         ClearPendingLoad();
         if (string.IsNullOrEmpty(error))
         {
@@ -671,6 +730,12 @@ public sealed class SaveManager : MonoBehaviour
     {
         pendingSceneRestore = true;
         pendingSlotIndex = slotIndex;
+    }
+
+    private void SetPendingBacklogRestore(SaveData data)
+    {
+        pendingBacklogSnapshotAvailable = data != null && data.backlogSnapshotAvailable;
+        pendingBacklogSnapshot = ToRuntimeBacklogEntries(data);
     }
 
     private bool TryValidateChoiceState(SaveData data, DialogueSceneData scene, out string error)
@@ -788,6 +853,8 @@ public sealed class SaveManager : MonoBehaviour
         data.lineId = lineId ?? string.Empty;
         data.lineIndex = lineIndex;
         data.previewFileName = previewFileName ?? string.Empty;
+        data.backlogEntries = new List<BacklogEntryData>();
+        data.backlogSnapshotAvailable = true;
         return data;
     }
 
@@ -808,6 +875,424 @@ public sealed class SaveManager : MonoBehaviour
         gameState.trustMasha = data.trustMasha;
         gameState.trustArtem = data.trustArtem;
         gameState.leraInterest = data.leraInterest;
+    }
+
+    private static bool TryDeserializeSaveData(
+        string json,
+        out SaveData data,
+        out string error,
+        out string backlogWarning)
+    {
+        data = null;
+        error = string.Empty;
+        backlogWarning = string.Empty;
+
+        if (!TryExtractTopLevelPropertyValue(
+                json,
+                "backlogEntries",
+                out bool propertyFound,
+                out string backlogJson,
+                out string coreJson,
+                out string extractionError))
+        {
+            error = $"JSON read failed: {extractionError}";
+            return false;
+        }
+
+        try
+        {
+            data = JsonUtility.FromJson<SaveData>(coreJson);
+        }
+        catch (Exception exception)
+        {
+            error = $"JSON read failed: {exception.Message}";
+            return false;
+        }
+
+        if (data == null)
+        {
+            error = "JSON does not contain SaveData.";
+            return false;
+        }
+
+        if (data.version != SaveData.CurrentVersion)
+        {
+            data.backlogEntries = null;
+            data.backlogSnapshotAvailable = false;
+            return true;
+        }
+
+        if (!propertyFound || string.Equals(backlogJson.Trim(), "null", StringComparison.Ordinal))
+        {
+            data.backlogEntries = null;
+            data.backlogSnapshotAvailable = false;
+            backlogWarning = "Optional v3 backlog snapshot is absent or null; using legacy empty-History fallback.";
+            return true;
+        }
+
+        if (!backlogJson.TrimStart().StartsWith("[", StringComparison.Ordinal))
+        {
+            data.backlogEntries = null;
+            data.backlogSnapshotAvailable = false;
+            backlogWarning = "Optional v3 backlog snapshot is not an array; using legacy empty-History fallback.";
+            return true;
+        }
+
+        BacklogEntriesJson wrapper;
+        try
+        {
+            wrapper = JsonUtility.FromJson<BacklogEntriesJson>(
+                $"{{\"backlogEntries\":{backlogJson}}}");
+        }
+        catch (Exception exception)
+        {
+            data.backlogEntries = null;
+            data.backlogSnapshotAvailable = false;
+            backlogWarning = $"Optional v3 backlog snapshot is malformed and was ignored: {exception.Message}";
+            return true;
+        }
+
+        if (wrapper == null || wrapper.backlogEntries == null)
+        {
+            data.backlogEntries = null;
+            data.backlogSnapshotAvailable = false;
+            backlogWarning = "Optional v3 backlog snapshot has an invalid shape; using legacy empty-History fallback.";
+            return true;
+        }
+
+        data.backlogEntries = SanitizeBacklogEntries(wrapper.backlogEntries, out string sanitationWarning);
+        data.backlogSnapshotAvailable = true;
+        backlogWarning = sanitationWarning;
+        return true;
+    }
+
+    private static List<BacklogEntryData> SanitizeBacklogEntries(
+        IEnumerable<BacklogEntryData> source,
+        out string warning)
+    {
+        var sanitized = new List<BacklogEntryData>();
+        int skippedOversized = 0;
+
+        if (source != null)
+        {
+            foreach (BacklogEntryData entry in source)
+            {
+                if (entry == null || string.IsNullOrWhiteSpace(entry.text))
+                {
+                    continue;
+                }
+
+                if (entry.text.Length > DialogueBacklog.MaximumEntryTextLength)
+                {
+                    skippedOversized++;
+                    continue;
+                }
+
+                sanitized.Add(new BacklogEntryData
+                {
+                    speaker = entry.speaker ?? string.Empty,
+                    text = entry.text
+                });
+            }
+        }
+
+        int excessCount = sanitized.Count - DialogueBacklog.DefaultCapacity;
+        if (excessCount > 0)
+        {
+            sanitized.RemoveRange(0, excessCount);
+        }
+
+        warning = skippedOversized > 0
+            ? $"Skipped {skippedOversized} backlog entry or entries above the {DialogueBacklog.MaximumEntryTextLength}-character defensive limit."
+            : string.Empty;
+        return sanitized;
+    }
+
+    private static List<BacklogEntryData> ToSaveBacklogEntries(
+        IEnumerable<DialogueBacklogEntry> source)
+    {
+        var entries = new List<BacklogEntryData>();
+        if (source == null)
+        {
+            return entries;
+        }
+
+        foreach (DialogueBacklogEntry entry in source)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.text))
+            {
+                continue;
+            }
+
+            if (entry.text.Length > DialogueBacklog.MaximumEntryTextLength)
+            {
+                Debug.LogWarning(
+                    $"[SAVE] Backlog entry with {entry.text.Length} characters exceeds the {DialogueBacklog.MaximumEntryTextLength}-character limit and was skipped.");
+                continue;
+            }
+
+            entries.Add(new BacklogEntryData
+            {
+                speaker = entry.speaker ?? string.Empty,
+                text = entry.text
+            });
+        }
+
+        int excessCount = entries.Count - DialogueBacklog.DefaultCapacity;
+        if (excessCount > 0)
+        {
+            entries.RemoveRange(0, excessCount);
+        }
+
+        return entries;
+    }
+
+    private static List<DialogueBacklogEntry> ToRuntimeBacklogEntries(SaveData data)
+    {
+        if (data == null || !data.backlogSnapshotAvailable || data.backlogEntries == null)
+        {
+            return new List<DialogueBacklogEntry>();
+        }
+
+        var entries = new List<DialogueBacklogEntry>(data.backlogEntries.Count);
+        foreach (BacklogEntryData entry in data.backlogEntries)
+        {
+            if (entry == null)
+            {
+                continue;
+            }
+
+            entries.Add(new DialogueBacklogEntry
+            {
+                speaker = entry.speaker ?? string.Empty,
+                text = entry.text
+            });
+        }
+
+        return entries;
+    }
+
+    private static List<DialogueBacklogEntry> CopyRuntimeBacklogEntries(
+        IEnumerable<DialogueBacklogEntry> source)
+    {
+        var copy = new List<DialogueBacklogEntry>();
+        if (source == null)
+        {
+            return copy;
+        }
+
+        foreach (DialogueBacklogEntry entry in source)
+        {
+            if (entry == null)
+            {
+                continue;
+            }
+
+            copy.Add(new DialogueBacklogEntry
+            {
+                speaker = entry.speaker ?? string.Empty,
+                text = entry.text
+            });
+        }
+
+        return copy;
+    }
+
+    private static bool TryExtractTopLevelPropertyValue(
+        string json,
+        string propertyName,
+        out bool propertyFound,
+        out string propertyJson,
+        out string jsonWithoutPropertyValue,
+        out string error)
+    {
+        propertyFound = false;
+        propertyJson = string.Empty;
+        jsonWithoutPropertyValue = json;
+        error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            error = "JSON is empty.";
+            return false;
+        }
+
+        int objectDepth = 0;
+        int arrayDepth = 0;
+        for (int index = 0; index < json.Length; index++)
+        {
+            char current = json[index];
+            if (current == '"')
+            {
+                if (!TryFindJsonStringEnd(json, index, out int stringEnd))
+                {
+                    error = "JSON contains an unterminated string.";
+                    return false;
+                }
+
+                if (objectDepth == 1 && arrayDepth == 0)
+                {
+                    string token = json.Substring(index + 1, stringEnd - index - 1);
+                    int colonIndex = SkipJsonWhitespace(json, stringEnd + 1);
+                    if (string.Equals(token, propertyName, StringComparison.Ordinal)
+                        && colonIndex < json.Length
+                        && json[colonIndex] == ':')
+                    {
+                        int valueStart = SkipJsonWhitespace(json, colonIndex + 1);
+                        if (!TryFindJsonValueEnd(json, valueStart, out int valueEnd))
+                        {
+                            error = $"Optional property '{propertyName}' has an invalid JSON value.";
+                            return false;
+                        }
+
+                        propertyFound = true;
+                        propertyJson = json.Substring(valueStart, valueEnd - valueStart);
+                        jsonWithoutPropertyValue = json.Substring(0, valueStart)
+                            + "null"
+                            + json.Substring(valueEnd);
+                        return true;
+                    }
+                }
+
+                index = stringEnd;
+                continue;
+            }
+
+            switch (current)
+            {
+                case '{':
+                    objectDepth++;
+                    break;
+                case '}':
+                    objectDepth--;
+                    break;
+                case '[':
+                    arrayDepth++;
+                    break;
+                case ']':
+                    arrayDepth--;
+                    break;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryFindJsonValueEnd(string json, int startIndex, out int endIndex)
+    {
+        endIndex = startIndex;
+        if (startIndex < 0 || startIndex >= json.Length)
+        {
+            return false;
+        }
+
+        char first = json[startIndex];
+        if (first == '"')
+        {
+            if (!TryFindJsonStringEnd(json, startIndex, out int stringEnd))
+            {
+                return false;
+            }
+
+            endIndex = stringEnd + 1;
+            return true;
+        }
+
+        if (first == '{' || first == '[')
+        {
+            char opening = first;
+            char closing = first == '{' ? '}' : ']';
+            int depth = 0;
+            for (int index = startIndex; index < json.Length; index++)
+            {
+                if (json[index] == '"')
+                {
+                    if (!TryFindJsonStringEnd(json, index, out int stringEnd))
+                    {
+                        return false;
+                    }
+
+                    index = stringEnd;
+                    continue;
+                }
+
+                if (json[index] == opening)
+                {
+                    depth++;
+                }
+                else if (json[index] == closing)
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        endIndex = index + 1;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        int primitiveEnd = startIndex;
+        while (primitiveEnd < json.Length
+            && json[primitiveEnd] != ','
+            && json[primitiveEnd] != '}')
+        {
+            primitiveEnd++;
+        }
+
+        while (primitiveEnd > startIndex && char.IsWhiteSpace(json[primitiveEnd - 1]))
+        {
+            primitiveEnd--;
+        }
+
+        if (primitiveEnd == startIndex)
+        {
+            return false;
+        }
+
+        endIndex = primitiveEnd;
+        return true;
+    }
+
+    private static bool TryFindJsonStringEnd(string json, int openingQuoteIndex, out int endIndex)
+    {
+        bool escaped = false;
+        for (int index = openingQuoteIndex + 1; index < json.Length; index++)
+        {
+            char current = json[index];
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (current == '\\')
+            {
+                escaped = true;
+                continue;
+            }
+
+            if (current == '"')
+            {
+                endIndex = index;
+                return true;
+            }
+        }
+
+        endIndex = -1;
+        return false;
+    }
+
+    private static int SkipJsonWhitespace(string json, int index)
+    {
+        while (index < json.Length && char.IsWhiteSpace(json[index]))
+        {
+            index++;
+        }
+
+        return index;
     }
 
     private static bool TryEncodePreviewPng(Texture2D source, out byte[] pngBytes, out string error)

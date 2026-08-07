@@ -61,17 +61,17 @@ public static class ManualSaveSystemV1SmokeTests
         }
     }
 
-    [MenuItem("How I Fall/Tests/Run Save Backend v2 Smoke Tests")]
+    [MenuItem("How I Fall/Tests/Run Save Backend v3 Smoke Tests")]
     public static void RunFromMenu()
     {
         Run();
-        Debug.Log("How I Fall Save backend v2 smoke tests passed.");
+        Debug.Log("How I Fall Save backend v3 smoke tests passed.");
     }
 
     public static void RunBatchMode()
     {
         Run();
-        Debug.Log("How I Fall Save backend v2 smoke tests passed.");
+        Debug.Log("How I Fall Save backend v3 smoke tests passed.");
     }
 
     private static void Run()
@@ -102,7 +102,7 @@ public static class ManualSaveSystemV1SmokeTests
         TestDeleteKeepsNeighbourSlot(context);
         TestExistingV1ManualRemainsLoadable(context);
         TestV1RejectedOutsideManual(context);
-        TestNewRecordsUseV2AndCorrectType(context);
+        TestNewRecordsUseV3AndCorrectType(context);
         TestTypeMismatchIsRejected(context);
         TestSlotTypePathsDoNotIntersect(context);
         TestManualWrappersRemainManual(context);
@@ -650,12 +650,12 @@ public static class ManualSaveSystemV1SmokeTests
         Require(!context.Manager.GetSlot(SaveSlotType.Quick, 1).IsLoadable, "v1 save in Quick was accepted.");
     }
 
-    private static void TestNewRecordsUseV2AndCorrectType(TestContext context)
+    private static void TestNewRecordsUseV3AndCorrectType(TestContext context)
     {
         MethodInfo method = typeof(SaveManager).GetMethod("CreateSaveData", BindingFlags.Static | BindingFlags.NonPublic);
         Require(method != null, "CreateSaveData test hook was not found.");
 
-        GameObject gameStateObject = new GameObject("SaveData v2 capture");
+        GameObject gameStateObject = new GameObject("SaveData v3 capture");
         GameState gameState = gameStateObject.AddComponent<GameState>();
         try
         {
@@ -666,7 +666,8 @@ public static class ManualSaveSystemV1SmokeTests
                     null,
                     new object[] { gameState, type, 2, "scene_main", "line_0", 0, previewName }) as SaveData;
                 Require(data != null, $"CreateSaveData returned null for {type}.");
-                Require(data.version == 2, $"New {type} record was not created as v2.");
+                Require(data.version == 3, $"New {type} record was not created as v3.");
+                Require(data.backlogEntries != null && data.backlogEntries.Count == 0, $"New {type} record did not initialize an empty backlog snapshot.");
                 Require(data.slotType == type, $"New {type} record contains slotType {data.slotType}.");
                 Require(data.previewFileName == previewName, $"New {type} record contains an incorrect previewFileName.");
             }
@@ -922,6 +923,7 @@ public static class ManualSaveSystemV1SmokeTests
             choiceResultActive = false,
             pendingNextSceneId = string.Empty,
             previewFileName = GetExpectedPreviewFileName(type, slotIndex),
+            backlogEntries = new System.Collections.Generic.List<BacklogEntryData>(),
             selfControl = 5
         };
     }

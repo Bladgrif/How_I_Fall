@@ -11,6 +11,7 @@ public static class HowIFallCiSmokeTests
             Debug.Log("[CI] How I Fall smoke tests started.");
 
             Run("Dialogue backlog", DialogueBacklogSmokeTests.RunBatchMode);
+            Run("Backlog restoration", BacklogRestorationSmokeTests.RunBatchMode);
             Run("Auto dialogue", AutoDialogueSmokeTests.RunBatchMode);
             Run("Skip dialogue", SkipDialogueSmokeTests.RunBatchMode);
             Run("VN settings presenter", VNSettingsPresenterSmokeTests.RunBatchMode);
@@ -18,7 +19,9 @@ public static class HowIFallCiSmokeTests
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
             Run("VN input map", VNInputMapSmokeTests.RunBatchMode);
             Run("Relationship feedback", RelationshipFeedbackSmokeTests.RunBatchMode);
-            Run("Save backend v2", ManualSaveSystemV1SmokeTests.RunBatchMode);
+            Run("Save backend v3", ManualSaveSystemV1SmokeTests.RunBatchMode);
+            Run("Project validator", () => RunWithoutLoggedErrors(HowIFallProjectValidator.ValidateProject));
+            Run("Scene validation", ManualSaveSystemSceneInstaller.ValidateInstalledScenes);
 
             Debug.Log("[CI] How I Fall smoke tests passed.");
             EditorApplication.Exit(0);
@@ -36,5 +39,32 @@ public static class HowIFallCiSmokeTests
         Debug.Log($"[CI] Running: {name}");
         test();
         Debug.Log($"[CI] Passed: {name}");
+    }
+
+    private static void RunWithoutLoggedErrors(Action action)
+    {
+        string loggedErrors = string.Empty;
+        void CaptureError(string condition, string stackTrace, LogType type)
+        {
+            if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
+            {
+                loggedErrors += condition + "\n";
+            }
+        }
+
+        Application.logMessageReceived += CaptureError;
+        try
+        {
+            action();
+        }
+        finally
+        {
+            Application.logMessageReceived -= CaptureError;
+        }
+
+        if (!string.IsNullOrEmpty(loggedErrors))
+        {
+            throw new InvalidOperationException("Validation logged errors:\n" + loggedErrors);
+        }
     }
 }

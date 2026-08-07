@@ -1,7 +1,11 @@
+using System;
 using System.Collections.Generic;
 
 public sealed class DialogueBacklog
 {
+    public const int DefaultCapacity = 100;
+    public const int MaximumEntryTextLength = 16384;
+
     private const string EmptyHistoryText = "История пока пуста.";
 
     private readonly int capacity;
@@ -32,6 +36,65 @@ public sealed class DialogueBacklog
         {
             entries.RemoveRange(0, excessCount);
         }
+    }
+
+    public List<DialogueBacklogEntry> CaptureSnapshot()
+    {
+        var snapshot = new List<DialogueBacklogEntry>(entries.Count);
+        for (int i = 0; i < entries.Count; i++)
+        {
+            DialogueBacklogEntry entry = entries[i];
+            snapshot.Add(new DialogueBacklogEntry
+            {
+                speaker = entry.speaker ?? string.Empty,
+                text = entry.text
+            });
+        }
+
+        return snapshot;
+    }
+
+    public void ReplaceFromSnapshot(
+        IEnumerable<DialogueBacklogEntry> snapshot,
+        Action<string> warningSink = null)
+    {
+        entries.Clear();
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        foreach (DialogueBacklogEntry entry in snapshot)
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.text))
+            {
+                continue;
+            }
+
+            if (entry.text.Length > MaximumEntryTextLength)
+            {
+                warningSink?.Invoke(
+                    $"Backlog entry with {entry.text.Length} characters exceeds the {MaximumEntryTextLength}-character limit and was skipped.");
+                continue;
+            }
+
+            entries.Add(new DialogueBacklogEntry
+            {
+                speaker = entry.speaker ?? string.Empty,
+                text = entry.text
+            });
+
+            int excessCount = entries.Count - capacity;
+            if (excessCount > 0)
+            {
+                entries.RemoveRange(0, excessCount);
+            }
+        }
+    }
+
+    public void Clear()
+    {
+        entries.Clear();
     }
 
     public string BuildRichText()

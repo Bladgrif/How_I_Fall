@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 public enum SaveSlotType
 {
@@ -8,9 +9,16 @@ public enum SaveSlotType
 }
 
 [Serializable]
+public sealed class BacklogEntryData
+{
+    public string speaker;
+    public string text;
+}
+
+[Serializable]
 public sealed class SaveData
 {
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     public int version = CurrentVersion;
     public SaveSlotType slotType = SaveSlotType.Manual;
@@ -23,6 +31,10 @@ public sealed class SaveData
     public bool choiceResultActive;
     public string pendingNextSceneId;
     public string previewFileName;
+    public List<BacklogEntryData> backlogEntries;
+
+    [NonSerialized] public int sourceVersion = CurrentVersion;
+    [NonSerialized] public bool backlogSnapshotAvailable;
 
     public int lust;
     public int romance;

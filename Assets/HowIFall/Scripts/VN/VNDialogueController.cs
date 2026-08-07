@@ -76,7 +76,8 @@ public class VNDialogueController : MonoBehaviour
     private bool pendingAutoSave;
     private bool preLoadAutoSavePending;
     private System.Action<bool> preLoadAutoSaveCompletion;
-    private readonly DialogueBacklog backlog = new DialogueBacklog(100);
+    private readonly DialogueBacklog backlog = new DialogueBacklog(DialogueBacklog.DefaultCapacity);
+    private int backlogCaptureSuppressionDepth;
     private VNSettingsPresenter settingsPresenter;
     private bool observedAutoForward;
     private bool skipEnabled;
@@ -181,12 +182,30 @@ public class VNDialogueController : MonoBehaviour
         if (saveManager.HasPendingSceneRestore)
         {
             int pendingSlotIndex = saveManager.PendingSlotIndex;
-            if (RestoreFromGameState())
+            saveManager.GetPendingBacklogRestore(
+                out List<DialogueBacklogEntry> pendingBacklogSnapshot,
+                out bool hasBacklogSnapshot);
+            ReplaceBacklogFromSnapshot(pendingBacklogSnapshot);
+
+            bool restored = false;
+            try
+            {
+                restored = RestoreFromGameState(hasBacklogSnapshot);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogError(
+                    $"[LOAD] Pending restore for slot {pendingSlotIndex} threw {exception.GetType().Name}: {exception.Message}",
+                    this);
+            }
+
+            if (restored)
             {
                 saveManager.CompletePendingSceneRestore();
                 return;
             }
 
+            ClearBacklog();
             saveManager.FailPendingSceneRestoreAndReset();
             Debug.LogError(
                 $"[LOAD] Pending restore for slot {pendingSlotIndex} failed in VNDialogueController.Start(). Loaded GameState was discarded, ResetState() was applied, and configured start scene '{(sceneData != null ? sceneData.sceneId : "<null>")}' will be started.",
@@ -1048,7 +1067,27 @@ public class VNDialogueController : MonoBehaviour
 
     private void AddToBacklog(string speaker, string text)
     {
+        if (backlogCaptureSuppressionDepth > 0)
+        {
+            return;
+        }
+
         backlog.Add(speaker, text);
+    }
+
+    public List<DialogueBacklogEntry> CaptureBacklogSnapshot()
+    {
+        return backlog.CaptureSnapshot();
+    }
+
+    public void ReplaceBacklogFromSnapshot(IEnumerable<DialogueBacklogEntry> snapshot)
+    {
+        backlog.ReplaceFromSnapshot(snapshot, warning => Debug.LogWarning($"[BACKLOG] {warning}", this));
+    }
+
+    public void ClearBacklog()
+    {
+        backlog.Clear();
     }
 
     public void ShowBacklog()
@@ -1438,6 +1477,11 @@ public class VNDialogueController : MonoBehaviour
 
     public bool RestoreFromGameState()
     {
+        return RestoreFromGameState(false);
+    }
+
+    public bool RestoreFromGameState(bool snapshotContainsVisibleEntry)
+    {
         GameState gameState = GameState.Instance;
 
         if (gameState == null)
@@ -1540,6 +1584,54 @@ public class VNDialogueController : MonoBehaviour
 
         Debug.Log($"[VN LOAD] Preflight passed. requestedLineId='{gameState.currentLineId}', resolvedIndex={restoredLineIndex}, resolvedLineId='{restoredScene.lines[restoredLineIndex].lineId}'.", this);
 
+        if (snapshotContainsVisibleEntry)
+        {
+            RunWithoutBacklogCapture(() =>
+            {
+                RestoreDialogueDisplay(
+                    restoredScene,
+                    restoredLineIndex,
+                    restoreChoiceResult,
+                    restoredChoice,
+                    restoredChoiceIndex,
+                    restoredPendingNextScene);
+                return true;
+            });
+        }
+        else if (restoreChoiceResult)
+        {
+            // Legacy saves have no snapshot. Hide the underlying saved line from
+            // History, then capture the visible result beat exactly once.
+            RunWithoutBacklogCapture(() =>
+            {
+                LoadDialogueScene(restoredScene, restoredLineIndex, false);
+                return true;
+            });
+            RestoreChoiceResult(restoredChoice, restoredChoiceIndex, restoredPendingNextScene);
+        }
+        else
+        {
+            RestoreDialogueDisplay(
+                restoredScene,
+                restoredLineIndex,
+                false,
+                restoredChoice,
+                restoredChoiceIndex,
+                restoredPendingNextScene);
+        }
+
+        Debug.Log($"[VN LOAD] Restoration finished. activeSceneId='{sceneData.sceneId}', activeLineIndex={currentLineIndex}, activeLineId='{(activeLines != null && currentLineIndex >= 0 && currentLineIndex < activeLines.Count && activeLines[currentLineIndex] != null ? activeLines[currentLineIndex].lineId : "<invalid>")}', choiceResultActive={GameState.Instance.choiceResultActive}.", this);
+        return true;
+    }
+
+    private void RestoreDialogueDisplay(
+        DialogueSceneData restoredScene,
+        int restoredLineIndex,
+        bool restoreChoiceResult,
+        DialogueChoice restoredChoice,
+        int restoredChoiceIndex,
+        DialogueSceneData restoredPendingNextScene)
+    {
         LoadDialogueScene(restoredScene, restoredLineIndex, false);
 
         if (restoreChoiceResult)
@@ -1557,9 +1649,19 @@ public class VNDialogueController : MonoBehaviour
 
             ShowChoices(false);
         }
+    }
 
-        Debug.Log($"[VN LOAD] Restoration finished. activeSceneId='{sceneData.sceneId}', activeLineIndex={currentLineIndex}, activeLineId='{(activeLines != null && currentLineIndex >= 0 && currentLineIndex < activeLines.Count && activeLines[currentLineIndex] != null ? activeLines[currentLineIndex].lineId : "<invalid>")}', choiceResultActive={GameState.Instance.choiceResultActive}.", this);
-        return true;
+    private bool RunWithoutBacklogCapture(System.Func<bool> action)
+    {
+        backlogCaptureSuppressionDepth++;
+        try
+        {
+            return action != null && action();
+        }
+        finally
+        {
+            backlogCaptureSuppressionDepth--;
+        }
     }
 
     private void RestoreChoiceResult(

@@ -29,7 +29,7 @@ public static class SaveBackendV2PlayModeE2ERunner
     private const string AutoFilesSignatureKey = "HowIFall.SaveBackendV2E2E.AutoFilesSignature";
     private const string ResultPath = "save_backend_v2_playmode_result.txt";
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
-    private const string TabsScreenshotFolder = "docs/screenshots/save_load_ui";
+    private const string TabsScreenshotFolder = "GraphicalScreenshots";
     private static readonly Vector2Int[] TabsUiResolutions =
     {
         new Vector2Int(1920, 1080),
@@ -46,7 +46,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         Application.logMessageReceived += CaptureLog;
     }
 
-    [MenuItem("How I Fall/Tests/Run Save Backend v2 Play Mode E2E")]
+    [MenuItem("How I Fall/Tests/Run Save Backend v3 Play Mode E2E")]
     public static void StartAutomatedPlayMode()
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode)
@@ -56,8 +56,6 @@ public static class SaveBackendV2PlayModeE2ERunner
 
         DeleteIfExists(Path.Combine(Directory.GetCurrentDirectory(), ResultPath));
         CleanupTestDirectory();
-        CleanTabsScreenshots();
-
         string directory = Path.Combine(
             Path.GetTempPath(),
             "HowIFall_SaveBackendV2E2E_" + Guid.NewGuid().ToString("N"));
@@ -382,6 +380,8 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(slot.Data.lineId == lineId, "New Game autosave lineId does not match the displayed first line.");
         Require(slot.Data.lineIndex == lineIndex && lineIndex == 0, "New Game autosave does not point to the first displayed line.");
         Require(!slot.Data.choiceResultActive && slot.Data.selectedChoiceIndex == -1, "New Game autosave contains an unexpected choice result.");
+        VerifyBacklogMatches(slot.Data, controller, "New Game autosave");
+        Require(controller.CaptureBacklogSnapshot().Count == 1, "New Game did not begin with only its first displayed line in History.");
         Require(controller.notificationPanel == null || !controller.notificationPanel.activeSelf, "Successful autosave displayed a user toast.");
         Pass("New Game automatically created loadable Auto slot 1 at the first displayed line");
     }
@@ -859,7 +859,7 @@ public static class SaveBackendV2PlayModeE2ERunner
     {
         string typeName = type.ToString().ToLowerInvariant();
         return Path.GetFullPath(Path.Combine(
-            Directory.GetCurrentDirectory(),
+            SessionState.GetString(DirectoryKey, string.Empty),
             TabsScreenshotFolder,
             $"save_load_{typeName}_{resolution.x}x{resolution.y}.png"));
     }
@@ -984,6 +984,17 @@ public static class SaveBackendV2PlayModeE2ERunner
             Require(preLoadCheckpoint != null, $"{slotType} pre-load checkpoint is missing.");
             VerifySlot(manager, SaveSlotType.Auto, preLoadCheckpoint.SlotIndex);
             VerifySaveDataMatchesRuntime(mutatedState, preLoadCheckpoint.Data, $"{slotType} pre-load checkpoint");
+
+            SaveData preLoadSnapshot = Clone(preLoadCheckpoint.Data);
+            Require(manager.LoadSlot(SaveSlotType.Auto, preLoadCheckpoint.SlotIndex),
+                $"Could not load the {slotType} pre-load Auto checkpoint.");
+            yield return new WaitForSecondsRealtime(0.2f);
+            VerifyRestoredSnapshot(preLoadSnapshot, $"{slotType} pre-load Auto checkpoint restore");
+
+            Require(manager.LoadSlot(slotType, slotIndex),
+                $"Could not return from the {slotType} pre-load checkpoint to the target save.");
+            yield return new WaitForSecondsRealtime(0.2f);
+            VerifyRestoredSnapshot(snapshot, $"{slotType} target restore after pre-load checkpoint");
         }
         else
         {
@@ -1017,6 +1028,8 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(actual.suspicion == expected.suspicion && actual.trustMasha == expected.trustMasha
                 && actual.trustArtem == expected.trustArtem && actual.leraInterest == expected.leraInterest,
             $"character relation values mismatch during {context}.");
+        Require(BacklogTexts(actual).SequenceEqual(BacklogTexts(expected)),
+            $"backlog snapshot mismatch during {context}.");
     }
 
     private static IEnumerator MutateDialogueAndState(VNDialogueController controller, SaveData snapshot)
@@ -1267,7 +1280,8 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(slot.IsLoadable && slot.Data != null, $"{type} slot {index} is not loadable: {slot.Error}");
         Require(File.Exists(slot.JsonPath), $"{type} slot {index} JSON is missing: '{slot.JsonPath}'.");
         Require(File.Exists(slot.PreviewPath), $"{type} slot {index} PNG is missing: '{slot.PreviewPath}'.");
-        Require(slot.Data.version == 2, $"{type} slot {index} version is {slot.Data.version}; expected 2.");
+        Require(slot.Data.version == SaveData.CurrentVersion,
+            $"{type} slot {index} version is {slot.Data.version}; expected {SaveData.CurrentVersion}.");
         Require(slot.Data.slotType == type, $"{type} slot {index} JSON contains slotType {slot.Data.slotType}.");
         Require(slot.Data.slotIndex == index, $"{type} slot {index} JSON contains slotIndex {slot.Data.slotIndex}.");
 
@@ -1318,6 +1332,7 @@ public static class SaveBackendV2PlayModeE2ERunner
             $"VN position is unavailable during {context}: {error}");
         Require(sceneId == snapshot.sceneId && lineId == snapshot.lineId && lineIndex == snapshot.lineIndex,
             $"VNDialogueController position mismatch during {context}.");
+        VerifyBacklogMatches(snapshot, controller, context);
     }
 
     private static SaveData CaptureRuntimeState(VNDialogueController controller)
@@ -1336,6 +1351,11 @@ public static class SaveBackendV2PlayModeE2ERunner
             selectedChoiceIndex = state.selectedChoiceIndex,
             choiceResultActive = state.choiceResultActive,
             pendingNextSceneId = state.pendingNextSceneId,
+            backlogEntries = controller.CaptureBacklogSnapshot().Select(entry => new BacklogEntryData
+            {
+                speaker = entry.speaker,
+                text = entry.text
+            }).ToList(),
             lust = state.lust,
             romance = state.romance,
             purity = state.purity,
@@ -1376,6 +1396,43 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(
             sceneId == expected.sceneId && lineId == expected.lineId && lineIndex == expected.lineIndex,
             $"VNDialogueController position changed during {context}.");
+        VerifyBacklogMatches(expected, controller, context);
+    }
+
+    private static void VerifyBacklogMatches(
+        SaveData expected,
+        VNDialogueController controller,
+        string context)
+    {
+        Require(expected != null && expected.backlogEntries != null,
+            $"Expected backlog snapshot is missing during {context}.");
+        List<DialogueBacklogEntry> actual = controller.CaptureBacklogSnapshot();
+        Require(actual.Count == expected.backlogEntries.Count,
+            $"History count mismatch during {context}: actual {actual.Count}, expected {expected.backlogEntries.Count}.");
+
+        for (int index = 0; index < actual.Count; index++)
+        {
+            BacklogEntryData expectedEntry = expected.backlogEntries[index];
+            Require(expectedEntry != null, $"Expected History entry {index} is null during {context}.");
+            Require(actual[index].speaker == (expectedEntry.speaker ?? string.Empty)
+                    && actual[index].text == expectedEntry.text,
+                $"History entry {index} mismatch during {context}.");
+        }
+
+        if (expected.choiceResultActive)
+        {
+            Require(expected.backlogEntries.Count > 0, $"Choice result snapshot is empty during {context}.");
+            string resultText = expected.backlogEntries[expected.backlogEntries.Count - 1].text;
+            Require(actual.Count(entry => entry.text == resultText) == 1,
+                $"Choice result was duplicated in History during {context}.");
+        }
+    }
+
+    private static IEnumerable<string> BacklogTexts(SaveData data)
+    {
+        return data?.backlogEntries == null
+            ? Enumerable.Empty<string>()
+            : data.backlogEntries.Where(entry => entry != null).Select(entry => $"{entry.speaker ?? string.Empty}\u001f{entry.text}");
     }
 
     private static void VerifyQuickSaveToast(VNDialogueController controller)
@@ -1635,7 +1692,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         string errors = SessionState.GetString(ErrorsKey, string.Empty);
         Require(string.IsNullOrEmpty(errors), "Unity Console contained errors:\n" + errors);
         WriteResult("PASS", string.Empty);
-        Debug.Log("[SAVE BACKEND E2E] COMPLETE PASS: public Auto/Quick save, load, rotation and Continue succeeded.");
+        Debug.Log("[SAVE BACKEND E2E] COMPLETE PASS: v3 backlog plus public Auto/Quick save, load, rotation and Continue succeeded.");
         SessionState.SetString(StageKey, "ExitSuccess");
         EditorApplication.isPlaying = false;
     }
@@ -1661,6 +1718,14 @@ public static class SaveBackendV2PlayModeE2ERunner
             || (type != LogType.Error && type != LogType.Exception && type != LogType.Assert)
             || condition.StartsWith("[SAVE BACKEND E2E] FAILURE", StringComparison.Ordinal))
         {
+            return;
+        }
+
+        if (condition.StartsWith("ArgumentOutOfRangeException", StringComparison.Ordinal)
+            && stackTrace.Contains("UnityEditor.Search.SearchDatabase"))
+        {
+            // Unity Search can race its startup index in a freshly imported
+            // graphical test copy. It is editor-only and unrelated to Save/Load.
             return;
         }
 
