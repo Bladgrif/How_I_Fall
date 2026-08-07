@@ -76,11 +76,30 @@ public static class VNQuickMenuSceneInstaller
         menu.settingsButton = CreateButton(root.transform, "Settings Button", "Настройки", 112f);
         menu.mainMenuButton = CreateButton(root.transform, "Main Menu Button", "Меню", 72f);
 
-        // Keep every existing modal above the facade; it cannot receive clicks through its overlays.
-        root.transform.SetSiblingIndex(0);
+        // Keep the facade above the dialogue/background but below every existing modal overlay.
+        root.transform.SetSiblingIndex(GetModalSiblingIndex(canvas.transform, controller));
         EditorUtility.SetDirty(menu);
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
+    }
+
+    private static int GetModalSiblingIndex(Transform canvasTransform, VNDialogueController controller)
+    {
+        int firstModalSibling = canvasTransform.childCount;
+        RegisterModalSibling(controller.choiceDimOverlay, canvasTransform, ref firstModalSibling);
+        RegisterModalSibling(controller.backlogDimOverlay, canvasTransform, ref firstModalSibling);
+        RegisterModalSibling(controller.vnSettingsDimOverlay, canvasTransform, ref firstModalSibling);
+        RegisterModalSibling(controller.confirmExitPanel, canvasTransform, ref firstModalSibling);
+        RegisterModalSibling(controller.manualSaveLoadPanel != null ? controller.manualSaveLoadPanel.gameObject : null, canvasTransform, ref firstModalSibling);
+        return firstModalSibling;
+    }
+
+    private static void RegisterModalSibling(GameObject modal, Transform canvasTransform, ref int firstModalSibling)
+    {
+        if (modal != null && modal.transform.parent == canvasTransform)
+        {
+            firstModalSibling = Mathf.Min(firstModalSibling, modal.transform.GetSiblingIndex());
+        }
     }
 
     private static Button CreateButton(Transform parent, string name, string label, float width)
