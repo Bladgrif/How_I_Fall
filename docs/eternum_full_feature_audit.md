@@ -159,22 +159,22 @@
 | J02 | Music volume | Separate music mixer. | REQUIRED. | DONE and applied. | AudioManager | — | Low | EXPANDED |
 | J03 | SFX volume | Separate sound mixer. | REQUIRED. | DONE and applied. | AudioManager | — | Low | EXPANDED |
 | J04 | Voice volume | `config.has_voice=True`, but voice slider is commented out and no dedicated player-facing voice control is active. | NOT NEEDED until voice exists. | NOT PLANNED. | Voice pipeline | Medium | Low | NEW |
-| J05 | Ambience volume | Eternum routes ambience-like loops through SFX channels; no separate ambience preference. | USEFUL for HIF atmosphere. | PARTIAL — setting is stored/UI field exists, but `AudioManager` has no ambience source. | AudioManager | Medium | Medium | NEW |
+| J05 | Ambience volume | Eternum routes ambience-like loops through SFX channels; no separate ambience preference. | USEFUL for HIF atmosphere. | DEFERRED ? control hidden; `AudioManager` has no ambience source. | AudioManager | Medium | Medium | NEW |
 | J06 | Text speed | Slider controls `text_cps`. | REQUIRED. | DONE functionally; scale semantics need QA. | A02 | Small | Medium | EXPANDED |
 | J07 | Auto-forward delay | Slider controls AFM delay. | REQUIRED. | DONE. | D02 | — | Low | EXPANDED |
-| J08 | Text size | Persistent 20–50 range. | USEFUL accessibility. | PARTIAL — HIF stores font size mode in main settings but runtime dialogue ignores it. | Typography | Medium | Medium | NEW |
+| J08 | Text size | Persistent 20?50 range. | USEFUL accessibility. | DEFERRED ? control hidden until TMP typography scaling can be applied safely. | Typography | Medium | Medium | NEW |
 | J09 | Text outline | Persistent 0–4. | USEFUL on bright backgrounds. | TODO. | TMP material/style | Medium | Medium | NEW |
 | J10 | Textbox opacity | Persistent 0–100%. | USEFUL. | TODO. | UI theme | Small | Low | NEW |
 | J11 | Textbox width | Player-resizable dialogue width. | NOT NEEDED now; responsive layout should own width. | NOT PLANNED. | Layout | Medium | Medium | NEW |
 | J12 | Textbox height | Player-resizable dialogue height. | NOT NEEDED now. | NOT PLANNED. | Layout | Medium | Medium | NEW |
-| J13 | Window/fullscreen | PC radio choice between window/fullscreen. | REQUIRED. | DONE for fullscreen bool; borderless option is stored in main settings but not actually applied. | Screen API | Medium | Medium | EXPANDED |
-| J14 | Resolution | Ren'Py relies on virtual resolution/display mode; no explicit resolution list in this Preferences screen. | USEFUL for Unity. | PARTIAL — HIF cycles/stores values but never calls `Screen.SetResolution`. | Screen API | Small | Medium | NEW |
-| J15 | Refresh rate | Not an Eternum player-facing setting. | NOT NEEDED until verified demand. | PARTIAL false affordance — HIF stores/cycles but does not apply. Prefer remove from roadmap or implement later. | Screen API | Medium | Medium | NEW |
-| J16 | Language | Known languages are listed dynamically; selected language swaps translated strings. `screens.rpy:1446-1461`. | LATER when translation exists. | PARTIAL false affordance — value is stored, localization system absent. | Localization | Large | High | NEW |
+| J13 | Window/fullscreen | PC radio choice between window/fullscreen. | REQUIRED. | DONE ? `Screen.fullScreenMode` applies fullscreen, windowed and borderless modes. | Screen API | Medium | Medium | EXPANDED |
+| J14 | Resolution | Ren'Py relies on virtual resolution/display mode; no explicit resolution list in this Preferences screen. | USEFUL for Unity. | DONE ? validated dimensions reach `Screen.SetResolution` immediately and after restart. | Screen API | Small | Medium | NEW |
+| J15 | Refresh rate | Not an Eternum player-facing setting. | NOT NEEDED until verified demand. | DEFERRED ? control hidden; no refresh-rate subsystem was added. | Screen API | Medium | Medium | NEW |
+| J16 | Language | Known languages are listed dynamically; selected language swaps translated strings. `screens.rpy:1446-1461`. | LATER when translation exists. | DEFERRED ? control hidden; localization system absent. | Localization | Large | High | NEW |
 | J17 | Skip unseen | Toggle described in E03. | REQUIRED. | DONE runtime; full settings UI exposes it. | Skip | — | Medium | EXPANDED |
 | J18 | Skip after choices | Toggle described in E06. | USEFUL. | DONE. | Skip | — | Medium | EXPANDED |
 | J19 | Quick menu enabled | Persistent toggle. | USEFUL. | TODO. | B03 | Small | Low | NEW |
-| J20 | Interface motion | Persistent on/off scales UI animation durations; mobile defaults off. `options.rpy:341`, `screens.rpy:1483-1487`, `transform.rpy`. | USEFUL accessibility/reduced motion. | PARTIAL — HIF stores character/background animation toggles but runtime does not consistently consume them; no global reduced-motion mode. | Animation policy | Medium | Medium | NEW |
+| J20 | Interface motion | Persistent on/off scales UI animation durations; mobile defaults off. `options.rpy:341`, `screens.rpy:1483-1487`, `transform.rpy`. | USEFUL accessibility/reduced motion. | DEFERRED ? character/background animation controls hidden until a global motion policy exists. | Animation policy | Medium | Medium | NEW |
 | J21 | Rollback side | Left/right/disable, only relevant with rollback. | NOT NEEDED now. | NOT PLANNED. | F04 | Medium | Medium | NEW |
 | J22 | Save naming toggle | Persistent toggle described in C09. | NOT NEEDED now. | NOT PLANNED. | Save UI | Medium | Low | NEW |
 

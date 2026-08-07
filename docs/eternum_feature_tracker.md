@@ -36,7 +36,7 @@
 | Уведомления/confirm | Toast и модальные подтверждения применяются в save/load UX; тот же toast показывает feedback об изменении отношений после ручного выбора | ✅ DONE | Проверять читабельность сообщений при новом контенте | High / Low |
 | Relationships | После ручного выбора существующий toast показывает применённые изменения `trustMasha`, `trustArtem` и `leraInterest` без чисел; порядок Masha → Artem → Lera | ✅ DONE | Контентно проверять формулировки при добавлении новых персонажей/отношений | — / Low |
 | Character hub / bios | Отдельного экрана отношений и биографий нет | ⬜ TODO | Только после появления контентной потребности | Low / Medium |
-| Settings | Сохраняются звук, текст, экран и другие значения; реально применена только часть | 🟡 PARTIAL | Убрать ложные affordances или подключить исполнители | High / Medium |
+| Settings | Main Menu and VN Settings share `SettingsManager`: audio, text speed, auto, skip, autosave, display mode, resolution and background mode apply immediately; unsupported controls are hidden | DONE | Verify runtime Screen API and UI when future display/localization/theme systems are added | Medium / Low |
 | Input/help | Есть клавиши VN и quick menu, но нет единой карты и экрана справки | 🟡 PARTIAL | Формализовать команды и показывать только реальные bindings | Medium / Medium |
 | Audio | Music/SFX работают; отдельного ambience-исполнителя нет | 🟡 PARTIAL | Не показывать неработающий ambience либо добавить канал под сцену | Medium / Medium |
 | Gallery/replay | Кнопка Gallery пока сообщает `not implemented`; unlock/replay scope отсутствуют | ⬜ TODO | Делать только вместе с первым реальным extra | Low / High |
@@ -61,8 +61,8 @@
 
 | # | Механика | Почему сейчас | Зависимости | Размер | Риск | Решение |
 |---:|---|---|---|---|---|---|
-| 1 | Settings truth pass | Убирает UI, который обещает несуществующее поведение | `SettingsManager`, обе панели Settings | Small | Low | **NEXT** |
-| 2 | Единая input map + Help | Сводит реальные клавиши, controller-навигацию и подсказки без расхождений | VN actions, modal policy | Medium | Medium | После truth pass |
+| 1 | Settings truth pass | Removed false UI affordances and connected small runtime consumers | `SettingsManager`, both Settings panels | Small | Low | **DONE** |
+| 2 | Unified input map + Help | Document and expose only real VN bindings without a rebinding framework | VN actions, modal policy | Medium | Medium | **NEXT** |
 | 3 | Backlog restoration policy | Определяет, должна ли история переживать Load, до расширения `SaveData` | backlog model, save migration decision | Medium | High | Сначала design note |
 | 4 | Typed conditional choices | Даёт прошлым решениям менять доступные варианты без произвольного кода | story requirement, condition schema, tests | Medium | Medium | После design note |
 | 5 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
@@ -73,17 +73,17 @@
 
 ## Единственный NEXT
 
-### Settings truth pass
+### Unified input map + Help
 
-Минимальный будущий scope:
+Settings truth pass completed in `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a`.
 
-1. Сверить каждую настройку обеих Settings-панелей с фактическим runtime-эффектом.
-2. Для неработающих параметров либо подключить простой исполнитель, либо убрать ложный affordance.
-3. Не менять `SaveData` и не добавлять новые системы без необходимости.
-4. Добавить smoke-проверки только для реально применяемых настроек.
+Working player-facing settings: master/music/SFX volume, music during pause, fullscreen/window/borderless, resolution, run in background, text speed, auto-forward delay, skip mode/cadence, skip after choices and autosave. Main Menu and VN Settings share `SettingsManager`; `SaveData` is unchanged.
 
-**Вне NEXT:** Conditional Choices, новый экран отношений, rollback, gallery, QTE и любые mini-games.
+Hidden until their subsystems exist: ambience volume, refresh rate, game/interface look, VHS filter, character/background animation, language, font size and hints.
 
+Next scope: document the actual VN bindings and show them in Help without adding rebinding.
+
+**Out of NEXT:** Conditional Choices, relationship screen, rollback, gallery, QTE and mini-games.
 ## Отложено или исключено
 
 - Прямой перенос rollback Ren'Py и жеста rollback со стороны экрана.
@@ -95,9 +95,10 @@
 
 ## Maintenance log
 
+- `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a` - Settings truth pass: `Screen.fullScreenMode` and `Screen.SetResolution` apply display values; autosave and skip cadence have runtime consumers; Main Menu hides controls that need absent subsystems. `SettingsTruthSmokeTests` is in CI; `SaveData` is unchanged.
 - `23358b6ed856c7e3b1da379d78085c0b84557f2c` — Relationship change feedback: после ручного `VNDialogueController.Choose()` применённые relationship delta собираются в один existing toast. Нулевые и неотношенческие delta не показываются, порядок Masha → Artem → Lera детерминирован, значения не выводятся; Save/Load и restore не создают событие.
 
-**Last reviewed functional commit:** `23358b6ed856c7e3b1da379d78085c0b84557f2c`
+**Last reviewed functional commit:** `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a`
 
 ## Правило обновления
 
