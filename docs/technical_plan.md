@@ -1,14 +1,14 @@
 # How I Fall — технический план Unity-основы
 
-Статус: план реализации, без изменения игровой логики.
+Статус: технический план развития текущей classroom demo, без изменения рабочего baseline.
 
 ## 0. Ограничения и решение по текущему проекту
 
 - Проект уже работает как Unity-прототип. Основная сцена для VN — `Assets/HowIFall/Scenes/VNPrototype.unity`.
 - Существующие `GameState`, `SaveManager`, `SettingsManager`, `VNDialogueController` и ScriptableObject-данные не переименовывать и не заменять.
 - План рассчитан на постепенное расширение: сначала сохраняются текущие типизированные поля и ссылки на ассеты, затем при необходимости добавляется более универсальная модель состояния.
-- `docs/story/` остаётся источником сценарного канона. Unity хранит исполняемое представление сцены.
-- На MVP не нужен отдельный парсер Markdown/JSON. Сценарий фиксируется в Markdown, а небольшая демо-сцена собирается через существующие ScriptableObject вручную.
+- Старый сюжет удалён. `docs/story/` будет создан заново только после утверждения нового канона; текущая classroom demo не считается сюжетным источником.
+- На техническом baseline не нужен отдельный парсер Markdown/JSON. Небольшая demo-сцена хранится в существующих ScriptableObject.
 
 ## 1. Архитектура проекта
 
@@ -46,11 +46,7 @@ Assets/HowIFall/
 Сценарная часть вне `Assets`:
 
 ```text
-docs/story/
-  scenes/            # сцены в Markdown
-  characters/        # персонажи и их ограничения
-  mechanics/         # переменные и правила механик
-  routes/            # ветки и условия маршрутов
+docs/story/           # отсутствует до начала работы над новым каноном
 ```
 
 ### 1.2. Слои
@@ -64,7 +60,7 @@ docs/story/
 Поток данных:
 
 ```text
-Markdown-сцена -> DialogueSceneData -> VNDialogueController
+Новый сценарный документ -> DialogueSceneData -> VNDialogueController
                                          |
                                          v
                               GameState / StoryState
@@ -87,7 +83,7 @@ Markdown-сцена -> DialogueSceneData -> VNDialogueController
 | Отношения | Хранит очки/статусы отношений по стабильному ID персонажа | сначала существующие поля `GameState`; позже `RelationshipState` |
 | Сохранения | Save/load, слоты, autosave/quicksave, метаданные, миграции | `SaveData`, `SaveManager` (уже есть) |
 | Настройки | Громкость, экран, скорость текста, skip/auto и прочие пользовательские параметры | `GameSettings`, `SettingsManager` (уже есть) |
-| Быстрое меню | Save, Load, History, Settings, Skip/Auto, возврат в меню | текущие панели `VNDialogueController`, `SaveLoadPanelController`, `SettingsPanelController`; отдельный контроллер добавлять только при росте UI |
+| Быстрое меню | Save, Load, History, Settings, Skip/Auto, возврат в меню | текущие панели `VNDialogueController`, `ManualSaveLoadPanel`, `SettingsPanelController`; отдельный контроллер добавлять только при росте UI |
 | Аудио | Музыка, SFX, применение громкости | `AudioManager` (уже есть) |
 | Валидация контента | Проверяет дубли ID, пустые тексты, отсутствующие переходы и ссылки | существующие Editor-валидаторы; расширять тестами, а не runtime-логикой |
 
@@ -221,7 +217,7 @@ Backlog, полноценное quick menu, autosave, настройки, skip/a
 
 ### Этап 1 — базовый вертикальный срез
 
-- Зафиксировать IDs сцены и строк в `docs/story/scenes/` и в `DialogueSceneData`.
+- После утверждения нового канона зафиксировать IDs сцены и строк в новых сценарных документах и в `DialogueSceneData`.
 - Проверить одну сцену на существующих фоне, персонаже и UI.
 - Довести до стабильного состояния диалог, выбор, применение текущих stat-delta и переход.
 - Проверить ручное сохранение/загрузку и восстановление по `sceneId` + `lineId`.

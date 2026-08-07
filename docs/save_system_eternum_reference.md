@@ -1,5 +1,7 @@
 # How I Fall — референс системы сохранений Eternum
 
+> Исторический документ: разделы о текущем состоянии How I Fall и план реализации фиксируют состояние до Save Backend v2. Актуальные статусы функций находятся в `eternum_feature_tracker.md`; этот файл сохраняется как технический референс и журнал принятых решений.
+
 Статус: аналитический документ, реализация не начата.  
 Дата анализа: 2026-08-06.  
 Eternum: распакованная русская сборка `0.9.5`.  
@@ -325,7 +327,7 @@ Application.persistentDataPath/
 
 `C:\Users\roman\AppData\LocalLow\Bladgrif\How I Fall`
 
-Найден существующий legacy-файл `save_01.json` без явного `version`, с `currentSceneId = ui_test_scene`. Он мигрируется как v0, но `ui_test_scene` сейчас отсутствует в `DialogueSceneRegistry.asset`. Поэтому `HasAnySave()` считает Continue доступным, а последующее восстановление не может найти сцену в registry. Файл не изменялся.
+На момент первоначального аудита был найден legacy-файл `save_01.json` без явного `version`, с `currentSceneId = ui_test_scene`. Сейчас `ui_test_scene` присутствует в `DialogueSceneRegistry.asset`, но loadability любого legacy-файла всё равно должна определяться полной валидацией версии, сцены, строки и состояния, а не одним фактом существования файла.
 
 ### 4.4. Текущие сильные стороны
 
@@ -716,7 +718,7 @@ Load должен быть транзакционным:
 10. Невалидный legacy оставить в backup и показать как incompatible, но не выбирать для Continue.
 11. После успешного импорта записать небольшой migration marker с version/result; исходники не удалять в первом релизе миграции.
 
-Конкретно найденный локальный `save_01.json` с `ui_test_scene` должен попасть в backup и не считаться loadable, пока `ui_test_scene` не добавлен обратно в registry или не задана явная таблица перенаправления ID.
+Конкретный legacy `save_01.json` с `ui_test_scene` следует считать loadable только после успешной миграции и полной проверки через текущий registry. Само наличие `ui_test_scene` в registry не отменяет backup и validation-first подход.
 
 ### 6.17. Файлы How I Fall, которые потребуется менять при реализации
 

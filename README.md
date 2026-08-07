@@ -1,104 +1,48 @@
 # How I Fall
 
-`How I Fall` — мистическая визуальная новелла / интерактивная история на Unity.
+Unity-проект минимальной технической визуальной новеллы. Текущий baseline — короткая classroom demo для проверки VN-механик; сюжет и персонажи старой версии удалены и позже будут спроектированы заново.
 
-Жанры: мистика, подростковая драма, эротическое напряжение, романтика, детектив.
+## Текущий игровой контур
 
-История о старшекласснике, который после мистического ритуала получает связь с суккубой и оказывается между желанием,
-человечностью и сопротивлением.
+- `MainMenu` → New Game / Continue / Load / Settings.
+- `VNPrototype` → диалог, typewriter, выбор, короткие ветки, History, Save/Load и возврат в меню.
+- Manual / Auto / Quick: по 6 слотов, JSON + PNG preview, восстановление сцены, строки, выбора и `GameState`.
+- Текущий граф диалогов: `classroom_first_lesson` → `classroom_choice_investigate` или `classroom_choice_ignore`.
+- `ui_test_scene` остаётся зарегистрированной технической сценой для UI/legacy-save совместимости и не является новым сюжетным каноном.
 
-## Текущий статус проекта
-
-Проект находится на этапе pre-production / Unity prototype.
-
-Unity-проект находится в корне репозитория.
-
-Сюжетная документация находится в `docs/story/`.
-
-Ren'Py-прототип удалён из рабочей структуры после перехода на Unity.
-
-## Структура проекта
+## Основные файлы
 
 ```text
-How I Fall/
-  Assets/              # Unity assets, scenes, scripts, art
-  Packages/            # Unity package manifest
-  ProjectSettings/     # Unity project settings
-  docs/story/           # сюжетная документация
-  README.md
-  .gitignore
+Assets/HowIFall/
+  Art/                 # только используемые demo/UI assets и один review-placeholder
+  Data/Dialogues/      # DialogueSceneData и DialogueSceneRegistry
+  Editor/              # validators, smoke tests и Play Mode E2E
+  Prefabs/UI/          # ManualSaveLoadPanel
+  Scenes/              # MainMenu, VNPrototype
+  Scripts/             # runtime VN, Save, Settings, UI, Audio
+
+docs/
+  technical_plan.md
+  save_system_eternum_reference.md
+  eternum_feature_tracker.md
+  project_cleanup_audit.md
 ```
 
-## Текущий технический вектор
+`docs/story/` сейчас намеренно отсутствует. Новую сюжетную документацию следует создавать с чистого листа, когда будет утверждён новый канон.
 
-- Основной движок: Unity.
-- Целевые платформы: PC и Android.
-- Причина выбора Unity:
-    - поддержка PC и Android из одного проекта
-    - живые фоны
-    - 2.5D-композиция
-    - анимированный свет
-    - кастомный UI
-    - мини-игры и интерактивные сцены
+## Техническая документация
 
-## Unity project
+- [Технический план](docs/technical_plan.md)
+- [Eternum Feature Tracker](docs/eternum_feature_tracker.md)
+- [Исторический референс Save/Load](docs/save_system_eternum_reference.md)
+- [Аудит зачистки](docs/project_cleanup_audit.md)
 
-Unity-проект открыт из корня репозитория.
+## Проверки
 
-Текущая сцена:
+- `HowIFallCiSmokeTests.RunAll`
+- `HowIFallProjectValidator.ValidateProject`
+- `ManualSaveSystemSceneInstaller.RunValidationBatchMode`
+- graphical `ManualSavePlayModeE2ERunner.StartAutomatedPlayMode`
+- graphical `SaveBackendV2PlayModeE2ERunner.StartAutomatedPlayMode`
 
-`Assets/HowIFall/Scenes/VNPrototype.unity`
-
-Что уже есть:
-
-- главное меню (`MainMenu`)
-- переход `MainMenu -> VNPrototype`
-- ScriptableObject-данные диалогов (`DialogueSceneData`)
-- управление фоном и персонажем через `DialogueLine`
-- управление выборами и stat-deltas через `DialogueChoice`
-
-## Где читать сюжет
-
-Начинать лучше с:
-
-1. `docs/story/README.md`
-2. `docs/story/workflow.md`
-3. `docs/story/flow.md`
-4. `docs/story/core/world.md`
-5. `docs/story/core/characters.md`
-6. `docs/story/core/variables.md`
-
-`workflow.md` описывает рекомендуемый порядок чтения и работы со сценами.
-
-## Ранний блок сцен
-
-Текущая последовательность:
-
-1. `docs/story/scenes/day_00_prologue/prologue_party.md`
-2. `docs/story/scenes/day_00_prologue/scene_succubus_first_contact.md`
-
-После первого контакта идут альтернативные ранние route-сцены:
-
-- `docs/story/scenes/day_00_prologue/route_lust_intro.md`
-- `docs/story/scenes/day_00_prologue/route_romance_intro.md`
-- `docs/story/scenes/day_00_prologue/route_purity_intro.md`
-
-Общий поток после первой ночи:
-
-- `docs/story/scenes/day_01_afterparty/first_morning_after.md`
-- `docs/story/scenes/day_01_afterparty/first_whispers.md`
-- `docs/story/scenes/day_01_afterparty/school_tension.md`
-- `docs/story/scenes/day_01_afterparty/summer_free_days.md`
-- `docs/story/scenes/day_01_afterparty/investigation_intro.md`
-- `docs/story/scenes/day_01_afterparty/artem_private_talk.md`
-- `docs/story/scenes/day_01_afterparty/lera_followup.md`
-
-## Основные маршруты
-
-- `lust` — похоть, падение, искушение и потеря контроля.
-- `romance` — человечность, близость, честность и сложное сопротивление искушению.
-- `purity` — самоконтроль, страх, сопротивление и борьба с демоническим влиянием.
-
-## Рабочий принцип
-
-Сначала фиксируется сюжетная основа в `docs/story`, затем игровые сцены и механики реализуются в Unity-проекте.
+Screenshot-dependent Play Mode E2E нельзя запускать с `-nographics`.
