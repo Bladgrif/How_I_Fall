@@ -6,7 +6,7 @@
 
 - **Eternum:** локальная русская сборка `0.9.5`; анализ повторно проверен 2026-08-07 по её `.rpy`-файлам.
 - **How I Fall:** cleanup baseline — `0ade24e765fd2479479fd9108f062ba7c836e513`; текущий scope — minimal classroom technical demo, старый сюжет удалён.
-- **Last reviewed functional commit:** `28f84cda344140dabf6fe394df2268bc1743b3d9` - Auto Dialogue.
+- **Last reviewed functional commit:** `5e54426e2806340bcfa21af3a5d5c731017bd39a` - Dialogue Skip.
 - **Граница референса:** берём только наблюдаемое UX-поведение и структуру механик. Не переносим код, тексты, изображения, музыку, шрифты или другие assets Eternum.
 - **Связанные документы:** подробный исторический разбор сохранений — [save_system_eternum_reference.md](save_system_eternum_reference.md); архитектурный план — [technical_plan.md](technical_plan.md).
 
@@ -40,7 +40,7 @@
 | Quick menu | Во время диалога: Back, History, Skip, Auto, Save, Q.Save, Q.Load, Prefs. | Основные действия доступны без ухода из сцены. | Отдельные действия Save/Load/History/Settings существуют, но единой панели и Skip/Auto нет. | 🟡 PARTIAL | Собрать компактное меню и не дублировать логику. | High | Medium |
 | History / backlog | Экран History выводит уже показанные реплики. | Вернуться к пропущенной фразе. | Backlog собирает реплики с автором, отображается и имеет smoke-тесты; хранится только в сессии. | 🟡 PARTIAL | Решить, нужна ли история после загрузки/перезапуска, затем сериализовать при необходимости. | Medium | Medium |
 | Back / rollback | Ren'Py откатывает историю исполнения с отдельным действием Back. | Исправить случайный advance/выбор в пределах сцены. | Нет. | ⬜ TODO | Сперва определить границы: только непройденные реплики или полноценные обратимые выборы. | Medium | High |
-| Skip | Skip непрочитанного/прочитанного текста с настройками после выборов. | Быстро проходить повторные сцены. | Настройки хранят `skipMode`, `skipBehavior`, `skipAfterChoices`, но исполнитель skip отсутствует. | 🟡 PARTIAL | Реализовать безопасный режим только прочитанного текста и явные остановки на выборе. | High | High |
+| Skip | Ctrl toggles Skip; Ren'Py limits unread text by preference and never selects a menu item automatically. | Fast replay without losing new text. | One 0.12 s realtime timer in `VNDialogueController`, `SetSkip(bool)`/`ToggleSkip()`, and persistent `sceneId + lineId` history outside `SaveData`. Default seen-only mode stops at the first unread line; `All` permits normal unread lines. Choices remain manual; `skipAfterChoices` only resumes after a manual choice. Modals pause progression; Skip suppresses Auto, which receives a fresh full delay afterwards. | DONE | Quick Menu should call the API without duplicating logic. | - | Medium |
 | Auto dialogue | Auto-forward переключается отдельным действием; задержка настраивается в Preferences. | Hands-free чтение и доступность. | Один realtime-таймер в `VNDialogueController`: typewriter → 0,5–5,0 с → advance. Ручной advance сохраняет Auto; Choice и Save/Load, History, Settings, Confirm Exit блокируют его и после закрытия получают новую полную задержку. Переходы сцен продолжают Auto, restore не делает мгновенный advance, terminal state останавливает loop. `SettingsManager` сохраняет Auto вне `SaveData`; toggle и slider доступны в VN Settings. | ✅ DONE | Quick-menu вход можно добавить отдельно через `SetAutoForward`/`ToggleAutoForward`; Skip не реализован. | — | Medium |
 
 ### Settings, choices and state
@@ -98,6 +98,7 @@
 
 ## Maintenance log
 
+- **2026-08-07 - Dialogue Skip:** `5e54426e2806340bcfa21af3a5d5c731017bd39a` - safe seen-only Skip, persistent read-history outside `SaveData`, Ctrl and public API, choice/modal/Auto guards, smoke coverage.
 - **2026-08-07 - Auto Dialogue:** `28f84cda344140dabf6fe394df2268bc1743b3d9` - runtime Auto, VN Settings controls, `50..500 -> 0.5..5.0 sec` conversion and smoke coverage. Full regression suite, including graphical Save E2E, passed; graphical capture must run without `-batchmode` and `-nographics`.
 - **2026-08-07 — project cleanup:** `0ade24e765fd2479479fd9108f062ba7c836e513` зафиксирован как cleanup baseline minimal classroom technical demo; старый сюжет и неиспользуемые prototype/template assets удалены; runtime-граф, Save/Load E2E, validators и smoke tests сохранены.
 
@@ -111,17 +112,16 @@
 
 ## Recommended Next Steps
 
-| Порядок | Функция | Зачем игроку | Зависимости | Объём | Риск |
+| Order | Feature | Player value | Dependencies | Scope | Risk |
 |---:|---|---|---|---|---|
-| 1 | Skip | Ускоряет повторное чтение с безопасной остановкой на выборе и modal UI. | `VNDialogueController`, история прочитанного. | Medium | High |
-| 2 | Единое quick menu | Открывает основные действия без разрыва сцены и вызывает готовый Auto API. | Существующие Save/Load/History/Settings, `SetAutoForward`/`ToggleAutoForward`. | Medium | Medium |
-| 3 | Условные выборы | Делает прошлые решения видимыми в новых сценах. | `GameState`, `DialogueChoice`, validator. | Medium | Medium |
-| 4 | Ненавязчивый feedback отношений | Показывает последствия выбора, не раскрывая всю математику. | `GameState`, toast/UI-решение. | Small | Low |
-| 5 | Backlog после Load | Не терять прочитанное при восстановлении сохранения. | Формат `SaveData`, миграция, лимит записей. | Medium | Medium |
+| 1 | Quick Menu | Adds player access to existing actions without leaving dialogue. | Save/Load/History/Settings and Auto/Skip public APIs. | Medium | Medium |
+| 2 | Conditional choices | Makes earlier decisions visible in new scenes. | `GameState`, `DialogueChoice`, validator. | Medium | Medium |
+| 3 | Relationship feedback | Shows consequences without exposing the full scoring model. | `GameState`, toast/UI decision. | Small | Low |
+| 4 | Backlog after Load | Keeps displayed lines after a restore. | `SaveData` format, migration, cap. | Medium | Medium |
 
 ### NEXT
 
-**Skip.** Auto Dialogue завершён и проверен. Следующий кандидат — безопасный Skip с остановкой на выборе и modal UI без изменений `SaveData`.
+**Quick Menu.** Skip and Auto have runtime APIs; next, connect a compact UI panel without duplicating their logic.
 
 ## Maintenance protocol
 
