@@ -976,6 +976,12 @@ public class VNDialogueController : MonoBehaviour
         pendingNextScene = choice.nextScene != null ? choice.nextScene : sceneData.defaultNextScene;
         gameState.pendingNextSceneId = pendingNextScene != null ? pendingNextScene.sceneId : string.Empty;
         ShowFinalLine(choice.resultText);
+        string relationshipFeedback = RelationshipFeedback.Build(choice);
+        if (!string.IsNullOrEmpty(relationshipFeedback))
+        {
+            ShowToast(relationshipFeedback);
+        }
+
         if (skipEnabled && ShouldResumeSkipAfterChoice())
         {
             if (isTyping)

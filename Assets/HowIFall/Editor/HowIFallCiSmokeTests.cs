@@ -15,6 +15,7 @@ public static class HowIFallCiSmokeTests
             Run("Skip dialogue", SkipDialogueSmokeTests.RunBatchMode);
             Run("VN settings presenter", VNSettingsPresenterSmokeTests.RunBatchMode);
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
+            Run("Relationship feedback", RelationshipFeedbackSmokeTests.RunBatchMode);
             Run("Save backend v2", ManualSaveSystemV1SmokeTests.RunBatchMode);
 
             Debug.Log("[CI] How I Fall smoke tests passed.");
