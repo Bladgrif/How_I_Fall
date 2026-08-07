@@ -568,17 +568,26 @@ public static class ManualSaveSystemV1SmokeTests
         string lockedJsonPath = context.Manager.GetSlotJsonPath(1);
         string neighbourJsonPath = context.Manager.GetSlotJsonPath(2);
         string neighbourPreviewPath = context.Manager.GetSlotPreviewPath(2);
-        WriteData(context, CreateValidData(1));
         WriteData(context, CreateValidData(2));
         File.WriteAllBytes(neighbourPreviewPath, new byte[] { 10, 11, 12 });
         string neighbourJson = File.ReadAllText(neighbourJsonPath);
 
-        using (new FileStream(lockedJsonPath, FileMode.Open, FileAccess.Read, FileShare.None))
+        // File.Delete on a directory throws on both Windows and Linux. Unlike an
+        // open file, this does not depend on the platform's file-sharing semantics.
+        Directory.CreateDirectory(lockedJsonPath);
+        try
         {
             Require(!context.Manager.DeleteSlot(1), "DeleteSlot reported success despite a filesystem deletion error.");
             Require(File.Exists(neighbourJsonPath), "Failed deletion removed the neighbouring JSON.");
             Require(File.Exists(neighbourPreviewPath), "Failed deletion removed the neighbouring PNG.");
             Require(File.ReadAllText(neighbourJsonPath) == neighbourJson, "Failed deletion changed the neighbouring JSON.");
+        }
+        finally
+        {
+            if (Directory.Exists(lockedJsonPath))
+            {
+                Directory.Delete(lockedJsonPath);
+            }
         }
     }
 
