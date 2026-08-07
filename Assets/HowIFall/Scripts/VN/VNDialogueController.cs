@@ -81,7 +81,9 @@ public class VNDialogueController : MonoBehaviour
     private VNSettingsPresenter settingsPresenter;
     private bool observedAutoForward;
     private bool skipEnabled;
-    private readonly DialogueReadHistory readHistory = new DialogueReadHistory();
+    private DialogueReadHistory readHistory;
+    private DialogueSceneData displayedLineScene;
+    private DialogueLine displayedLine;
 
     private void Awake()
     {
@@ -93,6 +95,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         Instance = this;
+        EnsureReadHistory();
     }
 
     private void Start()
@@ -561,13 +564,13 @@ public class VNDialogueController : MonoBehaviour
     {
         string skipMode = SettingsManager.Instance != null && SettingsManager.Instance.settings != null
             ? SettingsManager.Instance.settings.skipMode
-            : "????????";
+            : "\u0412\u0438\u0434\u0435\u043d\u043d\u043e\u0435";
         return !IsAllTextSkipMode(skipMode);
     }
 
     public static bool IsAllTextSkipMode(string skipMode)
     {
-        return string.Equals(skipMode, "???", System.StringComparison.OrdinalIgnoreCase)
+        return string.Equals(skipMode, "\u0412\u0441\u0435", System.StringComparison.OrdinalIgnoreCase)
             || string.Equals(skipMode, "All", System.StringComparison.OrdinalIgnoreCase);
     }
 
@@ -576,24 +579,32 @@ public class VNDialogueController : MonoBehaviour
         return SkipCadenceSeconds;
     }
 
+    private DialogueReadHistory EnsureReadHistory()
+    {
+        if (readHistory == null)
+        {
+            readHistory = new DialogueReadHistory();
+        }
+
+        return readHistory;
+    }
+
     private bool IsLineAllowedForSkip(DialogueSceneData data, DialogueLine line)
     {
         return !IsSeenOnlySkipMode()
-            || (data != null && line != null && readHistory.IsSeen(data.sceneId, line.lineId));
+            || (data != null && line != null && EnsureReadHistory().IsSeen(data.sceneId, line.lineId));
     }
 
-    private void MarkCurrentLineSeen()
+    private void MarkDisplayedLineSeen()
     {
-        if (sceneData == null || activeLines == null || currentLineIndex < 0 || currentLineIndex >= activeLines.Count)
+        if (displayedLineScene == null || displayedLine == null
+            || string.IsNullOrWhiteSpace(displayedLineScene.sceneId)
+            || string.IsNullOrWhiteSpace(displayedLine.lineId))
         {
             return;
         }
 
-        DialogueLine line = activeLines[currentLineIndex];
-        if (line != null)
-        {
-            readHistory.MarkSeen(sceneData.sceneId, line.lineId);
-        }
+        EnsureReadHistory().MarkSeen(displayedLineScene.sceneId, displayedLine.lineId);
     }
 
     private void StartSkipDelayIfReady()
@@ -969,6 +980,8 @@ public class VNDialogueController : MonoBehaviour
 
     private void ShowLine(DialogueLine line)
     {
+        displayedLineScene = sceneData;
+        displayedLine = line;
         bool hasSpeaker = !string.IsNullOrWhiteSpace(line.speaker);
         nameBox.SetActive(hasSpeaker);
         speakerText.text = hasSpeaker ? line.speaker : string.Empty;
@@ -979,6 +992,8 @@ public class VNDialogueController : MonoBehaviour
 
     private void ShowNarration(string text)
     {
+        displayedLineScene = null;
+        displayedLine = null;
         nameBox.SetActive(false);
         speakerText.text = string.Empty;
         AddToBacklog(string.Empty, text);
@@ -1250,7 +1265,7 @@ public class VNDialogueController : MonoBehaviour
         dialogueText.text = text;
         isTyping = false;
         typingCoroutine = null;
-        MarkCurrentLineSeen();
+        MarkDisplayedLineSeen();
         StartAutoForwardDelayIfReady();
     }
 
@@ -1264,7 +1279,7 @@ public class VNDialogueController : MonoBehaviour
         dialogueText.text = currentFullText;
         isTyping = false;
         typingCoroutine = null;
-        MarkCurrentLineSeen();
+        MarkDisplayedLineSeen();
         StartAutoForwardDelayIfReady();
     }
 
