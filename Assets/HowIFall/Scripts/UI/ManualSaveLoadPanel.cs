@@ -123,6 +123,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             return;
         }
 
+        if (!VNDialogueController.Instance.CanSave)
+        {
+            return;
+        }
+
         mode = PanelMode.Save;
         currentSlotType = SaveSlotType.Manual;
         Open();
@@ -130,6 +135,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void OpenLoad()
     {
+        if (VNDialogueController.Instance != null && !VNDialogueController.Instance.CanLoad)
+        {
+            return;
+        }
+
         mode = PanelMode.Load;
         currentSlotType = SaveSlotType.Manual;
         Open();
@@ -138,6 +148,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     /// <summary>Requests the newest valid quick slot through the normal load confirmation pipeline.</summary>
     public bool RequestQuickLoad()
     {
+        if (VNDialogueController.Instance != null && !VNDialogueController.Instance.CanLoad)
+        {
+            return false;
+        }
+
         SaveManager saveManager = ResolveSaveManager();
         SaveSlotInfo slot = saveManager == null
             ? null

@@ -23,21 +23,49 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private void Awake()
     {
-        Bind(historyButton, () => dialogueController.ShowBacklog());
-        Bind(skipButton, () => dialogueController.ToggleSkip());
-        Bind(autoButton, () => dialogueController.ToggleAutoForward());
-        Bind(saveButton, () => dialogueController.manualSaveLoadPanel.OpenSave());
-        Bind(quickSaveButton, () => dialogueController.RequestQuickSave());
-        Bind(quickLoadButton, () => dialogueController.RequestQuickLoad());
-        Bind(loadButton, () => dialogueController.manualSaveLoadPanel.OpenLoad());
-        Bind(settingsButton, () => dialogueController.OpenSettings());
-        Bind(mainMenuButton, () => dialogueController.ShowConfirmExit());
+        Bind(historyButton, () => TryInvokeQuickMenuAction(() => dialogueController.ShowBacklog()));
+        Bind(skipButton, () => TryInvokeQuickMenuAction(() => dialogueController.ToggleSkip()));
+        Bind(autoButton, () => TryInvokeQuickMenuAction(() => dialogueController.ToggleAutoForward()));
+        Bind(saveButton, () => TryInvokeQuickMenuAction(() => dialogueController.manualSaveLoadPanel?.OpenSave()));
+        Bind(quickSaveButton, () => TryInvokeQuickMenuAction(() => dialogueController.RequestQuickSave()));
+        Bind(quickLoadButton, () => TryInvokeQuickMenuAction(() => dialogueController.RequestQuickLoad()));
+        Bind(loadButton, () => TryInvokeQuickMenuAction(() => dialogueController.manualSaveLoadPanel?.OpenLoad()));
+        Bind(settingsButton, () => TryInvokeQuickMenuAction(() => dialogueController.OpenSettings()));
+        Bind(mainMenuButton, () => TryInvokeQuickMenuAction(() => dialogueController.ShowConfirmExit()));
     }
+
+    private bool hiddenBySpecialMode;
 
     private void Update()
     {
+        RefreshSpecialModeVisibility();
         UpdateActiveState(skipButton, dialogueController != null && dialogueController.IsSkipEnabled);
         UpdateActiveState(autoButton, dialogueController != null && dialogueController.IsAutoForwardEnabledState);
+    }
+
+    public void RefreshSpecialModeVisibility()
+    {
+        bool canOpenQuickMenu = dialogueController == null || dialogueController.CanOpenQuickMenu;
+        if (!canOpenQuickMenu && root != null && root.activeSelf)
+        {
+            root.SetActive(false);
+            hiddenBySpecialMode = true;
+        }
+        else if (canOpenQuickMenu && hiddenBySpecialMode && root != null)
+        {
+            root.SetActive(true);
+            hiddenBySpecialMode = false;
+        }
+    }
+
+    private void TryInvokeQuickMenuAction(UnityEngine.Events.UnityAction action)
+    {
+        if (dialogueController == null || !dialogueController.CanOpenQuickMenu)
+        {
+            return;
+        }
+
+        action?.Invoke();
     }
 
     private static void Bind(Button button, UnityEngine.Events.UnityAction action)

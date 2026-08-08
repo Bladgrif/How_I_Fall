@@ -87,6 +87,17 @@ public class VNDialogueController : MonoBehaviour
     private DialogueReadHistory readHistory;
     private DialogueSceneData displayedLineScene;
     private DialogueLine displayedLine;
+    private SpecialModeCoordinator specialModeCoordinator;
+    private bool specialModeWasActive;
+
+    public bool HasActiveSpecialMode => specialModeCoordinator != null && specialModeCoordinator.HasActiveOwner;
+    public bool CanAdvanceDialogue => specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked;
+    public bool CanSave => specialModeCoordinator == null || specialModeCoordinator.CanSave;
+    public bool CanLoad => specialModeCoordinator == null || specialModeCoordinator.CanLoad;
+    public bool CanOpenQuickMenu => specialModeCoordinator == null || specialModeCoordinator.CanOpenQuickMenu;
+    public bool CanOpenBacklog => specialModeCoordinator == null || specialModeCoordinator.CanOpenBacklog;
+    public bool CanOpenSettings => specialModeCoordinator == null || specialModeCoordinator.CanOpenSettings;
+    public bool CanReturnToMainMenu => specialModeCoordinator == null || specialModeCoordinator.CanReturnToMainMenu;
 
     private void Awake()
     {
@@ -98,6 +109,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         Instance = this;
+        specialModeCoordinator = new SpecialModeCoordinator(GetSpecialModeEntryBlockerReason, message => Debug.LogWarning(message, this));
         EnsureReadHistory();
     }
 
@@ -222,6 +234,7 @@ public class VNDialogueController : MonoBehaviour
 
     private void Update()
     {
+        RefreshSpecialModeOwnerLifecycle();
         RefreshAutoForwardState();
 
         if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleSkip))
@@ -256,6 +269,12 @@ public class VNDialogueController : MonoBehaviour
 
         if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
         {
+            if (HasActiveSpecialMode)
+            {
+                specialModeCoordinator.TryRequestEscapeCancel();
+                return;
+            }
+
             if (backlogPanel != null && backlogPanel.activeSelf)
             {
                 HideBacklog();
@@ -281,6 +300,90 @@ public class VNDialogueController : MonoBehaviour
                 return;
             }
         }
+    }
+
+    public bool TryEnterSpecialMode(UnityEngine.Object owner, SpecialModePolicy policy, out SpecialModeLease lease)
+    {
+        if (specialModeCoordinator == null)
+        {
+            specialModeCoordinator = new SpecialModeCoordinator(GetSpecialModeEntryBlockerReason, message => Debug.LogWarning(message, this));
+        }
+
+        if (!specialModeCoordinator.TryEnter(owner, policy, out lease))
+        {
+            return false;
+        }
+
+        if (policy.BlocksAuto)
+        {
+            StopAutoForwardTimer();
+        }
+
+        if (policy.BlocksSkip)
+        {
+            StopSkipTimer();
+        }
+
+        specialModeWasActive = true;
+        RefreshQuickMenuSpecialModeVisibility();
+        return true;
+    }
+
+    public bool ExitSpecialMode(SpecialModeLease lease)
+    {
+        if (specialModeCoordinator == null || !specialModeCoordinator.Exit(lease))
+        {
+            return false;
+        }
+
+        specialModeWasActive = false;
+        StartAutoForwardDelayIfReady();
+        StartSkipDelayIfReady();
+        RefreshQuickMenuSpecialModeVisibility();
+        return true;
+    }
+
+    private void RefreshSpecialModeOwnerLifecycle()
+    {
+        if (!specialModeWasActive || HasActiveSpecialMode)
+        {
+            return;
+        }
+
+        specialModeWasActive = false;
+        StartAutoForwardDelayIfReady();
+        StartSkipDelayIfReady();
+        RefreshQuickMenuSpecialModeVisibility();
+    }
+
+    private void RefreshQuickMenuSpecialModeVisibility()
+    {
+        FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.RefreshSpecialModeVisibility();
+    }
+
+    private string GetSpecialModeEntryBlockerReason()
+    {
+        if (showingChoice || (choicePanel != null && choicePanel.activeSelf))
+        {
+            return "ordinary choice";
+        }
+
+        if (backlogPanel != null && backlogPanel.activeSelf)
+        {
+            return "backlog";
+        }
+
+        if (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+        {
+            return "VN settings";
+        }
+
+        if (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
+        {
+            return "manual save/load";
+        }
+
+        return confirmExitPanel != null && confirmExitPanel.activeSelf ? "main menu confirmation" : null;
     }
 
     public void RequestQuickSave()
@@ -325,7 +428,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        if (IsSystemSaveBlockedByModal())
+        if (IsSystemLoadBlockedByModal())
         {
             return;
         }
@@ -528,7 +631,17 @@ public class VNDialogueController : MonoBehaviour
 
     private bool IsSystemSaveBlockedByModal()
     {
-        return (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
+        return !CanSave
+            || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
+            || (backlogPanel != null && backlogPanel.activeSelf)
+            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || (confirmExitPanel != null && confirmExitPanel.activeSelf);
+    }
+
+    private bool IsSystemLoadBlockedByModal()
+    {
+        return !CanLoad
+            || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             || (backlogPanel != null && backlogPanel.activeSelf)
             || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf);
@@ -536,7 +649,7 @@ public class VNDialogueController : MonoBehaviour
 
     public void AdvanceDialogue()
     {
-        if (IsAdvanceBlockedByOpenPanel())
+        if (!CanAdvanceDialogue || IsAdvanceBlockedByOpenPanel())
         {
             return;
         }
@@ -585,6 +698,11 @@ public class VNDialogueController : MonoBehaviour
     /// </summary>
     public void SetSkip(bool enabled)
     {
+        if (specialModeCoordinator != null && specialModeCoordinator.IsSkipBlocked)
+        {
+            return;
+        }
+
         skipEnabled = enabled;
         StopSkipTimer();
 
@@ -668,7 +786,11 @@ public class VNDialogueController : MonoBehaviour
     private void StartSkipDelayIfReady()
     {
         StopSkipTimer();
-        if (skipEnabled && !IsAdvanceBlockedByOpenPanel() && !showingChoice && !showingEndLine)
+        if (skipEnabled
+            && (specialModeCoordinator == null || !specialModeCoordinator.IsSkipBlocked)
+            && !IsAdvanceBlockedByOpenPanel()
+            && !showingChoice
+            && !showingEndLine)
         {
             skipCoroutine = StartCoroutine(SkipAfterDelay());
         }
@@ -688,7 +810,11 @@ public class VNDialogueController : MonoBehaviour
         yield return new WaitForSecondsRealtime(GetSkipCadenceSeconds());
         skipCoroutine = null;
 
-        if (!skipEnabled || IsAdvanceBlockedByOpenPanel() || showingChoice || showingEndLine)
+        if (!skipEnabled
+            || (specialModeCoordinator != null && specialModeCoordinator.IsSkipBlocked)
+            || IsAdvanceBlockedByOpenPanel()
+            || showingChoice
+            || showingEndLine)
         {
             yield break;
         }
@@ -818,6 +944,7 @@ public class VNDialogueController : MonoBehaviour
             && !showingChoice
             && !showingEndLine
             && activeLines != null
+            && (specialModeCoordinator == null || !specialModeCoordinator.IsAutoBlocked)
             && !IsAdvanceBlockedByOpenPanel();
     }
 
@@ -1160,6 +1287,11 @@ public class VNDialogueController : MonoBehaviour
 
     public void ShowBacklog()
     {
+        if (!CanOpenBacklog)
+        {
+            return;
+        }
+
         if (backlogPanel == null || backlogText == null)
         {
             Debug.LogWarning("VNDialogueController: backlogPanel or backlogText is not assigned.", this);
@@ -1239,6 +1371,11 @@ public class VNDialogueController : MonoBehaviour
 
     public void OpenSettings()
     {
+        if (!CanOpenSettings)
+        {
+            return;
+        }
+
         StopAutoForwardTimer();
         settingsPresenter?.Open();
     }
@@ -1282,6 +1419,13 @@ public class VNDialogueController : MonoBehaviour
 
     public void ReturnToMainMenu()
     {
+        if (!CanReturnToMainMenu)
+        {
+            return;
+        }
+
+        specialModeCoordinator?.ForceClearForHostLifecycle("Return to Main Menu");
+
         if (backlogPanel != null)
         {
             backlogPanel.SetActive(false);
@@ -1322,6 +1466,11 @@ public class VNDialogueController : MonoBehaviour
 
     public void ShowConfirmExit()
     {
+        if (!CanReturnToMainMenu)
+        {
+            return;
+        }
+
         if (confirmExitPanel == null)
         {
             ReturnToMainMenu();
@@ -1901,6 +2050,7 @@ public class VNDialogueController : MonoBehaviour
 
     private void OnDestroy()
     {
+        specialModeCoordinator?.ForceClearForHostLifecycle("VNDialogueController destroyed");
         StopSkipTimer();
         StopAutoForwardTimer();
 
