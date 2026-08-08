@@ -122,6 +122,7 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.choiceMashaButton", controller.choiceMashaButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.choiceArtemButton", controller.choiceArtemButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.choiceLeraButton", controller.choiceLeraButton);
+        issues += ValidateChoiceButtonCapacity(sceneName, controller);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.backlogPanel", controller.backlogPanel);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.backlogText", controller.backlogText);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.backlogCloseButton", controller.backlogCloseButton);
@@ -167,6 +168,33 @@ public static class HowIFallProjectValidator
         }
 
         return issues;
+    }
+
+    private static int ValidateChoiceButtonCapacity(string sceneName, VNDialogueController controller)
+    {
+        var assignedButtons = new HashSet<Button>();
+        if (controller.choiceMashaButton != null)
+        {
+            assignedButtons.Add(controller.choiceMashaButton);
+        }
+
+        if (controller.choiceArtemButton != null)
+        {
+            assignedButtons.Add(controller.choiceArtemButton);
+        }
+
+        if (controller.choiceLeraButton != null)
+        {
+            assignedButtons.Add(controller.choiceLeraButton);
+        }
+
+        if (assignedButtons.Count == VNDialogueController.SupportedChoiceButtonCapacity)
+        {
+            return 0;
+        }
+
+        return LogError(
+            $"{sceneName}: VNDialogueController must have {VNDialogueController.SupportedChoiceButtonCapacity} distinct assigned choice buttons; found {assignedButtons.Count}.");
     }
 
     private static int ValidateCommonSceneRequirements(string sceneName)

@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 [Serializable]
 public class DialogueChoice
 {
     public string text;
+
+    public List<ChoiceCondition> conditions = new List<ChoiceCondition>();
 
     [TextArea(2, 5)]
     public string resultText;

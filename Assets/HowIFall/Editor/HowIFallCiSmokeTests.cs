@@ -19,6 +19,7 @@ public static class HowIFallCiSmokeTests
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
             Run("VN input map", VNInputMapSmokeTests.RunBatchMode);
             Run("Relationship feedback", RelationshipFeedbackSmokeTests.RunBatchMode);
+            Run("Conditional choices", ConditionalChoicesSmokeTests.RunBatchMode);
             Run("Save backend v3", ManualSaveSystemV1SmokeTests.RunBatchMode);
             Run("Project validator", () => RunWithoutLoggedErrors(HowIFallProjectValidator.ValidateProject));
             Run("Scene validation", ManualSaveSystemSceneInstaller.ValidateInstalledScenes);

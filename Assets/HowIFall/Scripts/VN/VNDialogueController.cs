@@ -11,6 +11,8 @@ public class VNDialogueController : MonoBehaviour
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
     private const float SkipCadenceSeconds = 0.12f;
     private const string EndPrototypeText = "Конец Unity-прототипа.";
+    private const string ChoiceConfigurationErrorText = "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0430.";
+    public const int SupportedChoiceButtonCapacity = 3;
 
     public DialogueSceneData sceneData;
     public DialogueSceneRegistry sceneRegistry;
@@ -63,6 +65,7 @@ public class VNDialogueController : MonoBehaviour
     private string finalLineText;
     private List<DialogueLine> activeLines;
     private List<DialogueChoice> activeChoices;
+    private readonly List<VisibleChoice> visibleChoices = new List<VisibleChoice>();
     private Button[] choiceButtons;
     private DialogueSceneData pendingNextScene;
     private Coroutine typingCoroutine;
@@ -948,7 +951,7 @@ public class VNDialogueController : MonoBehaviour
 
     private void ShowChoices(bool requestAutoSave = true)
     {
-        if (activeChoices.Count == 0)
+        if (activeChoices == null || activeChoices.Count == 0)
         {
             if (sceneData != null && sceneData.defaultNextScene != null)
             {
@@ -959,6 +962,31 @@ public class VNDialogueController : MonoBehaviour
 
             showingEndLine = true;
             ShowNarration(EndPrototypeText);
+            return;
+        }
+
+        visibleChoices.Clear();
+        visibleChoices.AddRange(ConditionalChoiceEvaluator.BuildVisibleChoices(activeChoices, GameState.EnsureInstance()));
+
+        int usableCapacity = GetUsableChoiceButtonCapacity();
+        if (IsChoiceCapacityExceeded(visibleChoices.Count, usableCapacity))
+        {
+            ShowControlledChoiceError(
+                $"[CHOICE CONDITIONS] Scene '{sceneData.sceneId}' has {visibleChoices.Count} visible choices but only {usableCapacity} usable choice buttons.");
+            return;
+        }
+
+        if (visibleChoices.Count == 0)
+        {
+            if (sceneData != null && sceneData.defaultNextScene != null)
+            {
+                ClearChoiceState();
+                LoadDialogueScene(sceneData.defaultNextScene);
+                return;
+            }
+
+            ShowControlledChoiceError(
+                $"[CHOICE CONDITIONS] Scene '{sceneData.sceneId}' has source choices but none are available and no defaultNextScene.");
             return;
         }
 
@@ -977,12 +1005,12 @@ public class VNDialogueController : MonoBehaviour
                 continue;
             }
 
-            bool hasChoice = i < activeChoices.Count;
+            bool hasChoice = i < visibleChoices.Count;
             choiceButtons[i].gameObject.SetActive(hasChoice);
 
             if (hasChoice)
             {
-                SetButtonText(choiceButtons[i], activeChoices[i].text);
+                SetButtonText(choiceButtons[i], visibleChoices[i].choice.text);
             }
         }
 
@@ -992,17 +1020,18 @@ public class VNDialogueController : MonoBehaviour
         }
     }
 
-    private void Choose(int choiceIndex)
+    private void Choose(int displaySlot)
     {
-        if (choiceIndex < 0 || choiceIndex >= activeChoices.Count)
+        if (!ConditionalChoiceEvaluator.TryGetVisibleChoice(visibleChoices, displaySlot, out VisibleChoice visibleChoice))
         {
             return;
         }
 
-        DialogueChoice choice = activeChoices[choiceIndex];
+        DialogueChoice choice = visibleChoice.choice;
+
         GameState gameState = GameState.EnsureInstance();
         gameState.ApplyChoice(choice);
-        gameState.selectedChoiceIndex = choiceIndex;
+        gameState.selectedChoiceIndex = visibleChoice.sourceChoiceIndex;
         gameState.choiceResultActive = true;
         pendingNextScene = choice.nextScene != null ? choice.nextScene : sceneData.defaultNextScene;
         gameState.pendingNextSceneId = pendingNextScene != null ? pendingNextScene.sceneId : string.Empty;
@@ -1022,6 +1051,45 @@ public class VNDialogueController : MonoBehaviour
 
             StartSkipDelayIfReady();
         }
+    }
+
+    public int GetUsableChoiceButtonCapacity()
+    {
+        if (choiceButtons == null)
+        {
+            return 0;
+        }
+
+        int capacity = 0;
+        for (int i = 0; i < choiceButtons.Length; i++)
+        {
+            if (choiceButtons[i] != null)
+            {
+                capacity++;
+            }
+        }
+
+        return capacity;
+    }
+
+    public static bool IsChoiceCapacityExceeded(int visibleChoiceCount, int usableCapacity)
+    {
+        return visibleChoiceCount > usableCapacity;
+    }
+
+    private void ShowControlledChoiceError(string diagnostic)
+    {
+        Debug.LogError(diagnostic, this);
+        visibleChoices.Clear();
+        ClearChoiceState();
+        pendingNextScene = null;
+        showingChoice = false;
+        showingFinalLine = false;
+        showingEndLine = true;
+        choicePanel.SetActive(false);
+        SetChoiceOverlayActive(false);
+        nextButton.interactable = true;
+        ShowNarration(ChoiceConfigurationErrorText);
     }
 
     private void ShowFinalLine(string text)
@@ -1722,6 +1790,7 @@ public class VNDialogueController : MonoBehaviour
 
         currentFullText = string.Empty;
         isTyping = false;
+        visibleChoices.Clear();
 
         if (data == null)
         {

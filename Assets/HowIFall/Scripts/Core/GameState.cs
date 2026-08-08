@@ -62,6 +62,43 @@ public class GameState : MonoBehaviour
         }
     }
 
+    public bool TryGetChoiceStateValue(ChoiceStateValue stateValue, out int value)
+    {
+        switch (stateValue)
+        {
+            case ChoiceStateValue.Lust:
+                value = lust;
+                return true;
+            case ChoiceStateValue.Romance:
+                value = romance;
+                return true;
+            case ChoiceStateValue.Purity:
+                value = purity;
+                return true;
+            case ChoiceStateValue.Corruption:
+                value = corruptionLevel;
+                return true;
+            case ChoiceStateValue.SelfControl:
+                value = selfControl;
+                return true;
+            case ChoiceStateValue.Suspicion:
+                value = suspicion;
+                return true;
+            case ChoiceStateValue.TrustMasha:
+                value = trustMasha;
+                return true;
+            case ChoiceStateValue.TrustArtem:
+                value = trustArtem;
+                return true;
+            case ChoiceStateValue.LeraInterest:
+                value = leraInterest;
+                return true;
+            default:
+                value = 0;
+                return false;
+        }
+    }
+
     public void ApplyChoice(DialogueChoice choice)
     {
         if (choice == null)

@@ -123,6 +123,13 @@ public static class DialogueContentValidator
             return issues + LogError($"Dialogue scene '{scene.name}': choices list is missing.");
         }
 
+        if (scene.choices.Count > VNDialogueController.SupportedChoiceButtonCapacity)
+        {
+            issues += LogError(
+                $"Dialogue scene '{scene.name}' has {scene.choices.Count} source choices but the VN UI supports only {VNDialogueController.SupportedChoiceButtonCapacity}.");
+        }
+
+        bool hasConditionalChoices = false;
         for (int i = 0; i < scene.choices.Count; i++)
         {
             DialogueChoice choice = scene.choices[i];
@@ -141,6 +148,40 @@ public static class DialogueContentValidator
             {
                 issues += LogWarning($"Dialogue scene '{scene.name}', choice {i}: result text is empty.");
             }
+
+            if (choice.conditions == null || choice.conditions.Count == 0)
+            {
+                continue;
+            }
+
+            hasConditionalChoices = true;
+            for (int conditionIndex = 0; conditionIndex < choice.conditions.Count; conditionIndex++)
+            {
+                ChoiceCondition condition = choice.conditions[conditionIndex];
+                if (condition == null)
+                {
+                    issues += LogError($"Dialogue scene '{scene.name}', choice {i}, condition {conditionIndex}: condition data is missing.");
+                    continue;
+                }
+
+                if (!Enum.IsDefined(typeof(ChoiceStateValue), condition.stateValue))
+                {
+                    issues += LogError(
+                        $"Dialogue scene '{scene.name}', choice {i}, condition {conditionIndex}: state value '{condition.stateValue}' is unsupported.");
+                }
+
+                if (!Enum.IsDefined(typeof(ChoiceComparisonOperator), condition.comparison))
+                {
+                    issues += LogError(
+                        $"Dialogue scene '{scene.name}', choice {i}, condition {conditionIndex}: comparison '{condition.comparison}' is unsupported.");
+                }
+            }
+        }
+
+        if (hasConditionalChoices && scene.defaultNextScene == null)
+        {
+            issues += LogWarning(
+                $"Dialogue scene '{scene.name}' has conditional choices without a defaultNextScene; runtime relies on at least one choice being available.");
         }
 
         return issues;
