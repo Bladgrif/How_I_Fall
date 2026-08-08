@@ -5,7 +5,7 @@
 Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
-- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на functional `e15003f28ee1029d3aa6fe712438c63c1d786b15` и docs `ab64517f2b66915028c0942895c1c83c8b726033`.
+- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на functional `1d1d7dabf927dd764c6272877d038da9927b1bb0` и docs `ab64517f2b66915028c0942895c1c83c8b726033`.
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
 - Runtime Eternum в этой задаче не запускался; Unity 6000.5.7f1 прошёл общий CI/validator/scene validation и оба graphical Save E2E на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
 
@@ -66,18 +66,18 @@
 | 3 | Backlog restoration | Save-scoped v3 snapshot без merge; legacy fallback и scoped suppression проверены | v3 schema, migration/tests, graphical E2E | Medium | High | **DONE** |
 | 4 | Typed conditional choices | Typed numeric AND conditions, source-index mapping and fail-safe fallback are implemented and covered by CI. | `ChoiceCondition`, `GameState`, dialogue validator | Medium | Low | **DONE** |
 | 5 | Unified modal/special-mode coordinator | Scene-local exclusive owner, opaque lease, fail-closed permissions and normal-modal entry gates are implemented; map/QTE/chat remain deferred. | [special_mode_coordinator_policy.md](special_mode_coordinator_policy.md), input/modal entry gates | Medium | High | **DONE** |
-| 6 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
+| 6 | Hide UI + screenshot UX | `H` enters transient clean view; H/Esc restore without dialogue advance. Dialogue shell and Quick Menu hide; authored background/character remain. System/Steam capture stays player-owned. | `VNInputMap`, `VNDialogueController`, `VNQuickMenu` | Small | Low | **DONE** |
 | 7 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
 | 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
 | 9 | Gallery/replay foundation | Нужна для Extra только когда есть реальный replay-контент | unlock registry, scoped state, safe return | Large | High | Later |
 
 ## Единственный NEXT
 
-### Hide UI + screenshot UX
+### Ambience channel/crossfade
 
-Add a safe, separately owned Hide UI + screenshot workflow that does not change dialogue or save state. Confirm runtime bindings and Quick Menu visibility ownership first; do not extend map/QTE/chat.
+Implement a separate ambience channel and a small scene command only when an authored scene needs it. Keep music and SFX stable; do not start it automatically from this tracker update.
 
-**Out of NEXT:** relationship screen, rollback, gallery, map, QTE, chat/phone and mini-games.
+**Out of NEXT:** relationship screen, rollback, gallery, map, QTE, chat/phone, mini-games and screenshot file capture.
 
 ## Отложено или исключено
 
@@ -88,8 +88,16 @@ Add a safe, separately owned Hide UI + screenshot workflow that does not change 
 - Lock-picking, code lock, card/lyre/ball/reaction/score/slot loops без конкретной авторской сцены.
 - Любой `eval`/`exec` для условий диалога или чата.
 
+## Hide UI implementation notes
+
+- Implemented: `H` clean view and `H`/`Esc` restore; no dialogue/save state mutation.
+- Not implemented: middle-click Hide UI and any custom screenshot file writer/gallery/Steam API integration.
+- Intended screenshot UX: clean authored frame for the player's system or Steam screenshot tool.
+- Persistent Quick Menu preference remains **TODO** (`B03`): transient player Hide UI is not that setting.
+
 ## Maintenance log
 
+- `1d1d7dabf927dd764c6272877d038da9927b1bb0` - Hide UI clean view: `H` is a canonical Help binding. In a stable ordinary dialogue state it hides only the existing dialogue shell and Quick Menu; background and character stay visible. Hidden view is transient, blocks advance/Auto/Skip/save/load/Backlog/Settings/Main Menu/special-mode entry, stops timers without changing Auto or Skip preference, and restores on H or Esc with fresh normal eligibility. Quick Menu preserves previous intentional visibility and special-mode ownership. No middle-click binding or custom screenshot writer was added: player screenshots use system/Steam tools. `HideUiSmokeTests`, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
 - `e15003f28ee1029d3aa6fe712438c63c1d786b15` — Unified modal/special-mode coordinator: scene-local `VNDialogueController` owns a plain-C# exclusive coordinator with opaque generation-bound leases and fail-closed `BlockingExclusive`. Advance, Auto, Skip, save/load, Backlog, Settings, Quick Menu, Escape and Main Menu paths use permission gates; normal modals and ordinary choices remain outside coordinator ownership. Focused coordinator/integration smoke, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
 - `9d7be27db11ffcdabc6bb2ec56845440c6647b2f` — Backlog restoration: `SaveData` v3 хранит до 100 raw entries на slot; Manual/Auto/Quick и pre-load Auto capture один runtime source. In-place Load и scene reload/Continue заменяют History, restore suppression исключает duplicate current line/resultText, а failure возвращает прежние GameState/backlog. V1 Manual и v2 Manual/Auto/Quick остаются loadable без переписывания JSON; malformed optional snapshot не блокирует core Load. Focused smoke, общий CI/validator/scene validation, Manual graphical E2E и Save Backend graphical E2E прошли в Unity 6000.5.7f1.
 - `b5b47a108366e70c329e8de9ed63bf8b5abe8af2` — Unified input map + Help: `VNInputMap` используется runtime и Main Menu Help. Player Help показывает Ctrl/F5/F6/F8/F9/B/Esc; F2/F3 остаются скрытыми debug bindings; rebinding и InputAction asset не добавлялись. CI, project validator и scene validation passed в Unity 6000.5.7f1; visual Help QA pending.
@@ -99,7 +107,7 @@ Add a safe, separately owned Hide UI + screenshot workflow that does not change 
 
 - `9647986856fa8c5a545ee375e4a60866a9472212` - Typed conditional choices: added closed numeric condition enums for the nine persisted `GameState` values and three inclusive operators; unavailable choices are hidden through transient source-index mapping. Choice saves and result restore continue to use source indices, `SaveData` remains v3, and zero/capacity paths fail safely. Focused conditional smoke plus the full Unity 6000.5.7f1 CI, project validator and scene validation passed; visual Play Mode QA remains pending.
 
-**Last reviewed functional commit:** `e15003f28ee1029d3aa6fe712438c63c1d786b15`
+**Last reviewed functional commit:** `1d1d7dabf927dd764c6272877d038da9927b1bb0`
 
 ## Правило обновления
 

@@ -43,7 +43,7 @@
 | A07 | Textbox accessibility | Player меняет size, outline, opacity, width, height; say-screen перестраивается и учитывает quick menu. `screens.rpy:112-174,1364-1399`. | USEFUL — доступность и разные экраны. | PARTIAL — text speed есть; font-size/outline/opacity/geometry не применяются. | Settings/UI layout | Medium | Medium | NEW |
 | A08 | Inline pacing tags | `{w}`, `{nw}`, `{cps}` задают паузы, auto-continue и локальную скорость; активно применяются в scripts. Edge: skip/auto взаимодействуют с engine tags. | LATER — нужен авторский контроль напряжения. | TODO — `DialogueLine.text` не содержит типизированных timing commands; raw TMP tags не заменяют timing. | Dialogue command model | Medium | High | NEW |
 | A09 | Custom expressive text | `text.rpy` регистрирует bounce/fade/scare/chaos/rotate/swap/move/omega displayables; используются как эмоциональный эффект. | LATER — точечно для мистики. | NOT PLANNED — до стабильного сценарного command format; не копировать реализацию. | Text effects | Large | High | NEW |
-| A10 | Hide/show UI action | `H` and middle click hide interface; Esc/right click restore/open menu per Ren'Py defaults. `screens.rpy:1754-1776`. | USEFUL — screenshots/CG reading. | TODO — публичного hide-UI action нет. | Input + UI state | Small | Low | NEW |
+| A10 | Hide/show UI action | `H` and middle click hide interface; Esc/right click restore/open menu per Renpy defaults. `screens.rpy:1754-1776`. | USEFUL - screenshots/CG reading. | DONE - canonical `H` enters transient clean view only from stable ordinary dialogue; H/Esc restore. Dialogue shell and Quick Menu hide; authored background/character remain. Progression/save/load and modal/special entry are blocked; no custom screenshot writer. | `VNInputMap`, `VNDialogueController`, `VNQuickMenu` | Small | Low | EXPANDED |
 | A11 | Scripted pauses and transitions | `pause`, `with`, dissolve/punch/custom transforms pace scenes; menu enter/exit transitions configured globally. `options.rpy:69-93`, `transform.rpy`. | REQUIRED — сцена не должна быть статичной лекцией. | PARTIAL — scene music/visual swap есть; data-driven pauses/transitions отсутствуют. | Dialogue command model | Medium | Medium | NEW |
 
 ## B. Quick Menu
@@ -52,7 +52,7 @@
 |---|---|---|---|---|---|---|---|---|
 | B01 | Desktop quick actions | Back, History, Skip, Auto, Save, Q.Save, Q.Load, Preferences доступны поверх игры. `screens.rpy:308-334`. | REQUIRED — быстрый VN-контур. | DONE except Back — `VNQuickMenu` вызывает существующие APIs. | Existing services | Small | Medium | COVERED |
 | B02 | Runtime active state | Ren'Py `Preference`/`Skip` actions expose selected state; HIF visibly colors Auto/Skip. | REQUIRED — игрок понимает режим. | DONE для Auto/Skip; save/load disabled-state не отражается заранее. | UI state | Small | Low | EXPANDED |
-| B03 | Persistent quick-menu visibility | Preferences globally enable/disable panel; textbox geometry changes accordingly. `options.rpy:334`, `screens.rpy:112-119,1477-1482`. | USEFUL — минималистичный режим. | TODO — HIF quick menu always scene-configured. | Settings + layout | Small | Low | NEW |
+| B03 | Persistent quick-menu visibility | Preferences globally enable/disable panel; textbox geometry changes accordingly. `options.rpy:334`, `screens.rpy:112-119,1477-1482`. | USEFUL - minimal UI mode. | TODO - player H-hide is transient clean-view state, not a persistent global Quick Menu preference. | Settings + layout | Small | Low | NEW |
 | B04 | Modal/choice priority | Modal screens capture input; quick menu remains an overlay but no custom per-QTE disable policy is declared. Exact hotkey behavior requires runtime confirmation. | REQUIRED - exclude hidden clicks. | DONE - a scene-local special-mode coordinator blocks direct and hotkey routes while ordinary choices and normal modals retain their own ownership. | Modal coordinator | Medium | High | EXPANDED |
 | B05 | Touch quick menu | Touch variant reduces actions to Back, Skip, Auto, Menu and uses larger controls. `screens.rpy:2185-2204`. | LATER — если будет mobile. | NOT PLANNED for current PC slice. | Platform UX | Medium | Medium | NEW |
 
@@ -190,8 +190,8 @@
 | K06 | Skip keys | Ctrl hold and Tab toggle. | USEFUL. | PARTIAL — Ctrl toggles; Tab absent. | Skip | Small | Medium | EXPANDED |
 | K07 | Auto key | Alt+A toggles Auto. | USEFUL. | TODO. | Auto | Small | Low | NEW |
 | K08 | History key | No dedicated history key is documented by Eternum help; quick menu opens it. | USEFUL HIF extension. | DONE — B opens backlog, but UI help is absent. | Help | Small | Low | NEW |
-| K09 | Hide UI key | H and middle click. | USEFUL. | TODO. | A10 | Small | Low | NEW |
-| K10 | Screenshot key | S takes screenshot; notify confirms. `screens.rpy:1754-1760`. | LATER/community sharing. | TODO; Unity platform screenshot action absent. | Capture + toast | Small | Low | NEW |
+| K09 | Hide UI key | H and middle click. | USEFUL. | DONE for H only; middle click is intentionally not implemented. | A10 | Small | Low | EXPANDED |
+| K10 | Screenshot key | S takes screenshot; notify confirms. `screens.rpy:1754-1760`. | LATER/community sharing. | NOT PLANNED for V1 - clean view is for system/Steam capture; no custom file writer. | Platform capture | Small | Low | NEW |
 | K11 | Delete save key | `save_delete` removes selected slot. | LATER; visible button safer. | NOT PLANNED until focus/confirmation UX supports it. | Save UI | Small | Medium | EXPANDED |
 | K12 | Arrow/gamepad navigation | Arrows and D-pad/sticks navigate; gamepad actions advance, rollback, menu, hide UI and calibrate. `screens.rpy:1722-1728,1787-1814`. | LATER for controller/accessibility. | PARTIAL via Unity selectable defaults; no verified full navigation/help/calibration. | EventSystem | Medium | Medium | NEW |
 
@@ -376,10 +376,10 @@
 
 1. Relationship changes have no player-facing feedback despite existing relationship fields.
 2. Main/VN settings store several options that do nothing: resolution, refresh rate, language, font size, look/style, animation toggles; ambience volume has no source.
-3. Input bindings are centralized in `VNInputMap` and Main Menu Help; rebinding and mouse/gamepad help variants remain absent.
-4. A scene-local special-mode coordinator now owns one exclusive future QTE/map/chat interaction and blocks unsafe normal VN routes; no authored special scene exists yet.
+3. Input bindings are centralized in `VNInputMap` and Main Menu Help; H clean view is implemented, while rebinding and mouse/gamepad help variants remain absent.
+4. A scene-local special-mode coordinator owns one exclusive future QTE/map/chat interaction and clean view blocks entry while hidden; no authored special scene exists yet.
 5. Typed conditional choices are implemented for the nine persisted numeric GameState values; generic flags and other condition families remain intentionally out of scope.
 
 ## Audit conclusion
 
-Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now covers the core dialogue choice layer, including typed hidden conditional choices, while preserving the v3 save backbone. The next structural UX gap is a safe Hide UI + screenshot workflow; future authored interactive scenes can use the coordinator when separately scoped.
+Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now includes H clean view for system/Steam screenshots without a custom screenshot pipeline, while preserving the v3 save backbone. The next selected roadmap item is ambience channel/crossfade; it is not started by this audit update.
