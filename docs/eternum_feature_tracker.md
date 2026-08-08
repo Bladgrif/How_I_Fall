@@ -42,7 +42,7 @@
 | Gallery/replay | Кнопка Gallery пока сообщает `not implemented`; unlock/replay scope отсутствуют | ⬜ TODO | Делать только вместе с первым реальным extra | Low / High |
 | Chat/phone | Отдельного формата сцены нет | ⬜ TODO | Typed conditions/effects, медиа и возврат в VN | Low / Medium |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
-| QTE/special mode | Scene-local `VNDialogueController` coordinator owns one exclusive special lease with fail-closed `BlockingExclusive`; authored special scenes remain absent | DONE | Keep map/QTE/chat as separately scoped work with their own local state and exit route | Medium / High |
+| Timed narrative beat | `TimedNarrativeBeatController` owns one `BlockingExclusive` lease, unscaled visible timer and exactly-once success/timeout routing through `VNDialogueController`; isolated TEST assets are technical demo only, not canon story | DONE (technical demo only) | Add authored content only after narrative team supplies it; this is not a full QTE framework | Medium / High |
 | Mini-games | Отсутствуют | 🚫 NOT PLANNED | Не строить без утверждённой сюжетной функции | — / High |
 
 ## Проверенные различия с прежним tracker
@@ -73,9 +73,9 @@
 
 ## Единственный NEXT
 
-### Timed narrative beat
+### Gallery/replay foundation
 
-Choose an authored pressure scene first, then add a small special-mode-owned timed beat with an explicit timeout route and accessibility policy. Do not start map/QTE/chat systems without that scene.
+Start only when the narrative team supplies the first real replay or extra-content case. Define unlock scope and safe return routing before UI work; do not reuse the timed-beat technical demo as story content.
 
 **Deferred audio content:** no `DialogueSceneData` ambience command or authored ambience clip yet; the Ambient slider remains hidden until the first authored ambience scene.
 
@@ -99,6 +99,7 @@ Choose an authored pressure scene first, then add a small special-mode-owned tim
 
 ## Maintenance log
 
+- `a088a29449f6fc59496c311db3e8162302fba40e` - Timed narrative beat: isolated technical/demo-only `TimedNarrativeBeatController` acquires `BlockingExclusive`, uses unscaled time with visible remaining time/progress, resolves button-versus-timeout exactly once, releases its lease before routing through the existing VN scene path, and has no mid-beat save state. `SaveData` remains v3 and `SaveManager` is unchanged. `TimedNarrativeBeatSmokeTests`, full CI, project validator and scene validation passed in Unity 6000.5.7f1; graphical Play Mode QA is pending.
 - `1d1d7dabf927dd764c6272877d038da9927b1bb0` - Hide UI clean view: `H` is a canonical Help binding. In a stable ordinary dialogue state it hides only the existing dialogue shell and Quick Menu; background and character stay visible. Hidden view is transient, blocks advance/Auto/Skip/save/load/Backlog/Settings/Main Menu/special-mode entry, stops timers without changing Auto or Skip preference, and restores on H or Esc with fresh normal eligibility. Quick Menu preserves previous intentional visibility and special-mode ownership. No middle-click binding or custom screenshot writer was added: player screenshots use system/Steam tools. `HideUiSmokeTests`, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
 - `19584260e053c99bc8abb854764cb0c713d354c9` - Ambience runtime foundation: `AudioManager` now owns two persistent looping ambience sources with a 1.25-second default unscaled crossfade, safe immediate Play/Stop paths and interruption cancellation. `ambientVolume` is applied as setting times per-source fade gain, so Settings updates preserve a live crossfade; Music, SFX and master-volume semantics are unchanged. `AudioAmbienceSmokeTests`, Settings Truth, full CI, validator and scene validation passed in Unity 6000.5.7f1. No `DialogueSceneData` command or authored clip was added, and the player-facing Ambient slider remains intentionally hidden until the first authored ambience scene; `SaveData` remains v3.
 - `e15003f28ee1029d3aa6fe712438c63c1d786b15` — Unified modal/special-mode coordinator: scene-local `VNDialogueController` owns a plain-C# exclusive coordinator with opaque generation-bound leases and fail-closed `BlockingExclusive`. Advance, Auto, Skip, save/load, Backlog, Settings, Quick Menu, Escape and Main Menu paths use permission gates; normal modals and ordinary choices remain outside coordinator ownership. Focused coordinator/integration smoke, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
@@ -110,7 +111,7 @@ Choose an authored pressure scene first, then add a small special-mode-owned tim
 
 - `9647986856fa8c5a545ee375e4a60866a9472212` - Typed conditional choices: added closed numeric condition enums for the nine persisted `GameState` values and three inclusive operators; unavailable choices are hidden through transient source-index mapping. Choice saves and result restore continue to use source indices, `SaveData` remains v3, and zero/capacity paths fail safely. Focused conditional smoke plus the full Unity 6000.5.7f1 CI, project validator and scene validation passed; visual Play Mode QA remains pending.
 
-**Last reviewed functional commit:** `19584260e053c99bc8abb854764cb0c713d354c9`
+**Last reviewed functional commit:** `a088a29449f6fc59496c311db3e8162302fba40e`
 
 ## Правило обновления
 

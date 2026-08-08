@@ -123,7 +123,7 @@
 | G04 | Disabled choice feedback | Native `choice` screen has no custom disabled/requirement reason; options are normally hidden. | USEFUL if HIF wants transparent morality. | NOT PLANNED until a scene requires disabled-visible choices. | Condition UX | Medium | Medium | NEW |
 | G05 | Choice effects | Branch scripts mutate flags, counters, points and route booleans. | REQUIRED. | DONE for fixed stat-deltas; arbitrary flags absent. | GameState | —/Medium | Medium | EXPANDED |
 | G06 | Choice result beat | Eternum branch immediately shows consequence content. HIF has `resultText` before routing. | REQUIRED feedback. | DONE — choice result and pending next scene are saveable. | SaveData | — | Medium | NEW |
-| G07 | Timed choice | `millionairescreen` has hotspots plus 30s timeout; several QTEs are also timed decisions. `screens.rpy:3822-3834`. | LATER — only for authored pressure scene. | TODO. | Timer + accessibility | Medium | High | NEW |
+| G07 | Timed choice | `millionairescreen` has hotspots plus 30s timeout; several QTEs are also timed decisions. `screens.rpy:3822-3834`. | LATER - only for authored pressure scene. | DONE (technical demo only) - one action with an unscaled visible timer, exactly-once success/timeout route, and a 2s authored lower-bound validator. No canonical scene or story state was added. | `TimedNarrativeBeatController`, special-mode coordinator | Medium | High | NEW |
 | G08 | Choice history | No separate durable choice-history UI; consequences live in variables/rollback. | NOT NEEDED as standalone now. | NOT PLANNED; `selectedChoiceIndex` stores only active result state. | — | — | Low | NEW |
 
 ## H. Game State
@@ -299,8 +299,8 @@
 
 | ID | Feature | Eternum / edge / input | HIF value / why | HIF / gap | Dep | Size | Risk | Old |
 |---|---|---|---|---|---|---|---|---|
-| T01 | Single-target timed QTE | Click a highlighted target before timer expires; bar visualizes remaining time. `screens.rpy:2632-2676`. | LATER for rare tension peak. | TODO. | QTE runner | Medium | Medium | COVERED |
-| T02 | Success/failure branch | Target jumps to success; timeout jumps to fail/death/alternate label. | REQUIRED if QTE ships. | TODO. | Story routing | Medium | High | COVERED |
+| T01 | Single-target timed QTE | Click a highlighted target before timer expires; bar visualizes remaining time. `screens.rpy:2632-2676`. | LATER for rare tension peak. | DONE (technical demo only) - one action button, explicit remaining time/progress and unscaled timeout; not a reusable full QTE framework. | `TimedNarrativeBeatController` | Medium | Medium | COVERED |
+| T02 | Success/failure branch | Target jumps to success; timeout jumps to fail/death/alternate label. | REQUIRED if QTE ships. | DONE (technical demo only) - click and timeout use the existing typed VN scene transition path exactly once after lease exit. | `VNDialogueController.TryRouteToScene` | Medium | High | COVERED |
 | T03 | Multi-step QTE chain | Arannis sequence changes correct screen target and timing across five steps. `screens.rpy:4036-4165`. | NOT NEEDED for first slice. | NOT PLANNED. | QTE runner | Large | High | NEW |
 | T04 | Wrong-target failure | Some QTE screens show multiple targets where incorrect click immediately fails. | LATER. | NOT PLANNED until accessibility design. | QTE runner | Medium | High | NEW |
 | T05 | Difficulty/time variants | Timers vary roughly 1.5–5s; fail can set a flag before routing. | LATER; needs accessibility multiplier/skip. | TODO only with first QTE. | Settings + QTE | Medium | High | NEW |
@@ -377,9 +377,15 @@
 1. Relationship changes have no player-facing feedback despite existing relationship fields.
 2. Main/VN settings still store several options that do nothing: refresh rate, language, font size, look/style and animation toggles. `ambientVolume` now has a runtime consumer, but its player-facing control remains intentionally hidden until authored ambience content exists.
 3. Input bindings are centralized in `VNInputMap` and Main Menu Help; H clean view is implemented, while rebinding and mouse/gamepad help variants remain absent.
-4. A scene-local special-mode coordinator owns one exclusive future QTE/map/chat interaction and clean view blocks entry while hidden; no authored special scene exists yet.
+4. A scene-local special-mode coordinator now hosts one isolated technical timed-beat demo; it has no canonical story scene, characters or GameState effects. Clean view blocks entry while the beat is active.
 5. Typed conditional choices are implemented for the nine persisted numeric GameState values; generic flags and other condition families remain intentionally out of scope.
 
 ## Audit conclusion
 
-Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now includes H clean view for system/Steam screenshots and a separate ambience runtime channel with gain-safe crossfade, while preserving the v3 save backbone. The next selected roadmap item is a timed narrative beat; no scene-authored ambience command, ambience clip or visible Ambient slider was added by this runtime-foundation update.
+Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now includes an isolated timed narrative beat technical demo under `BlockingExclusive`: it uses an unscaled visible timer, exactly-once click/timeout routing and no mid-beat save state, while `SaveData` stays v3. The feature is explicitly not canon story and not a full QTE framework. Full CI, project validator and scene validation passed on `a088a29449f6fc59496c311db3e8162302fba40e` in Unity 6000.5.7f1; graphical Play Mode QA remains pending. The next selected roadmap item is gallery/replay foundation, only after real extra content exists.
+
+## Maintenance log
+
+- `a088a29449f6fc59496c311db3e8162302fba40e` - Timed narrative beat technical demo: full CI, project validator and scene validation passed in Unity 6000.5.7f1. Graphical Play Mode QA is pending.
+
+**Last reviewed functional commit:** `a088a29449f6fc59496c311db3e8162302fba40e`
