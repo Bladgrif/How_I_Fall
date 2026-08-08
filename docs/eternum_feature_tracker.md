@@ -5,7 +5,7 @@
 Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
-- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на functional `1d1d7dabf927dd764c6272877d038da9927b1bb0` и docs `ab64517f2b66915028c0942895c1c83c8b726033`.
+- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на functional `19584260e053c99bc8abb854764cb0c713d354c9`.
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
 - Runtime Eternum в этой задаче не запускался; Unity 6000.5.7f1 прошёл общий CI/validator/scene validation и оба graphical Save E2E на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
 
@@ -38,7 +38,7 @@
 | Character hub / bios | Отдельного экрана отношений и биографий нет | ⬜ TODO | Только после появления контентной потребности | Low / Medium |
 | Settings | Main Menu and VN Settings share `SettingsManager`: audio, text speed, auto, skip, autosave, display mode, resolution and background mode apply immediately; unsupported controls are hidden | DONE | Verify runtime Screen API and UI when future display/localization/theme systems are added | Medium / Low |
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
-| Audio | Music/SFX работают; отдельного ambience-исполнителя нет | 🟡 PARTIAL | Не показывать неработающий ambience либо добавить канал под сцену | Medium / Medium |
+| Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
 | Gallery/replay | Кнопка Gallery пока сообщает `not implemented`; unlock/replay scope отсутствуют | ⬜ TODO | Делать только вместе с первым реальным extra | Low / High |
 | Chat/phone | Отдельного формата сцены нет | ⬜ TODO | Typed conditions/effects, медиа и возврат в VN | Low / Medium |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
@@ -67,17 +67,19 @@
 | 4 | Typed conditional choices | Typed numeric AND conditions, source-index mapping and fail-safe fallback are implemented and covered by CI. | `ChoiceCondition`, `GameState`, dialogue validator | Medium | Low | **DONE** |
 | 5 | Unified modal/special-mode coordinator | Scene-local exclusive owner, opaque lease, fail-closed permissions and normal-modal entry gates are implemented; map/QTE/chat remain deferred. | [special_mode_coordinator_policy.md](special_mode_coordinator_policy.md), input/modal entry gates | Medium | High | **DONE** |
 | 6 | Hide UI + screenshot UX | `H` enters transient clean view; H/Esc restore without dialogue advance. Dialogue shell and Quick Menu hide; authored background/character remain. System/Steam capture stays player-owned. | `VNInputMap`, `VNDialogueController`, `VNQuickMenu` | Small | Low | **DONE** |
-| 7 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
+| 7 | Ambience channel/crossfade | Two-source runtime crossfade separates looping ambience from Music/SFX; `ambientVolume` now has a consumer | `AudioManager`, settings | Medium | Medium | **DONE (runtime foundation)** |
 | 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
 | 9 | Gallery/replay foundation | Нужна для Extra только когда есть реальный replay-контент | unlock registry, scoped state, safe return | Large | High | Later |
 
 ## Единственный NEXT
 
-### Ambience channel/crossfade
+### Timed narrative beat
 
-Implement a separate ambience channel and a small scene command only when an authored scene needs it. Keep music and SFX stable; do not start it automatically from this tracker update.
+Choose an authored pressure scene first, then add a small special-mode-owned timed beat with an explicit timeout route and accessibility policy. Do not start map/QTE/chat systems without that scene.
 
-**Out of NEXT:** relationship screen, rollback, gallery, map, QTE, chat/phone, mini-games and screenshot file capture.
+**Deferred audio content:** no `DialogueSceneData` ambience command or authored ambience clip yet; the Ambient slider remains hidden until the first authored ambience scene.
+
+**Out of NEXT:** relationship screen, rollback, gallery, map, chat/phone, a full QTE system, mini-games and screenshot file capture.
 
 ## Отложено или исключено
 
@@ -98,6 +100,7 @@ Implement a separate ambience channel and a small scene command only when an aut
 ## Maintenance log
 
 - `1d1d7dabf927dd764c6272877d038da9927b1bb0` - Hide UI clean view: `H` is a canonical Help binding. In a stable ordinary dialogue state it hides only the existing dialogue shell and Quick Menu; background and character stay visible. Hidden view is transient, blocks advance/Auto/Skip/save/load/Backlog/Settings/Main Menu/special-mode entry, stops timers without changing Auto or Skip preference, and restores on H or Esc with fresh normal eligibility. Quick Menu preserves previous intentional visibility and special-mode ownership. No middle-click binding or custom screenshot writer was added: player screenshots use system/Steam tools. `HideUiSmokeTests`, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
+- `19584260e053c99bc8abb854764cb0c713d354c9` - Ambience runtime foundation: `AudioManager` now owns two persistent looping ambience sources with a 1.25-second default unscaled crossfade, safe immediate Play/Stop paths and interruption cancellation. `ambientVolume` is applied as setting times per-source fade gain, so Settings updates preserve a live crossfade; Music, SFX and master-volume semantics are unchanged. `AudioAmbienceSmokeTests`, Settings Truth, full CI, validator and scene validation passed in Unity 6000.5.7f1. No `DialogueSceneData` command or authored clip was added, and the player-facing Ambient slider remains intentionally hidden until the first authored ambience scene; `SaveData` remains v3.
 - `e15003f28ee1029d3aa6fe712438c63c1d786b15` — Unified modal/special-mode coordinator: scene-local `VNDialogueController` owns a plain-C# exclusive coordinator with opaque generation-bound leases and fail-closed `BlockingExclusive`. Advance, Auto, Skip, save/load, Backlog, Settings, Quick Menu, Escape and Main Menu paths use permission gates; normal modals and ordinary choices remain outside coordinator ownership. Focused coordinator/integration smoke, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
 - `9d7be27db11ffcdabc6bb2ec56845440c6647b2f` — Backlog restoration: `SaveData` v3 хранит до 100 raw entries на slot; Manual/Auto/Quick и pre-load Auto capture один runtime source. In-place Load и scene reload/Continue заменяют History, restore suppression исключает duplicate current line/resultText, а failure возвращает прежние GameState/backlog. V1 Manual и v2 Manual/Auto/Quick остаются loadable без переписывания JSON; malformed optional snapshot не блокирует core Load. Focused smoke, общий CI/validator/scene validation, Manual graphical E2E и Save Backend graphical E2E прошли в Unity 6000.5.7f1.
 - `b5b47a108366e70c329e8de9ed63bf8b5abe8af2` — Unified input map + Help: `VNInputMap` используется runtime и Main Menu Help. Player Help показывает Ctrl/F5/F6/F8/F9/B/Esc; F2/F3 остаются скрытыми debug bindings; rebinding и InputAction asset не добавлялись. CI, project validator и scene validation passed в Unity 6000.5.7f1; visual Help QA pending.
@@ -107,7 +110,7 @@ Implement a separate ambience channel and a small scene command only when an aut
 
 - `9647986856fa8c5a545ee375e4a60866a9472212` - Typed conditional choices: added closed numeric condition enums for the nine persisted `GameState` values and three inclusive operators; unavailable choices are hidden through transient source-index mapping. Choice saves and result restore continue to use source indices, `SaveData` remains v3, and zero/capacity paths fail safely. Focused conditional smoke plus the full Unity 6000.5.7f1 CI, project validator and scene validation passed; visual Play Mode QA remains pending.
 
-**Last reviewed functional commit:** `1d1d7dabf927dd764c6272877d038da9927b1bb0`
+**Last reviewed functional commit:** `19584260e053c99bc8abb854764cb0c713d354c9`
 
 ## Правило обновления
 

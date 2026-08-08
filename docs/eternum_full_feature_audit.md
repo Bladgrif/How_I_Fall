@@ -159,7 +159,7 @@
 | J02 | Music volume | Separate music mixer. | REQUIRED. | DONE and applied. | AudioManager | — | Low | EXPANDED |
 | J03 | SFX volume | Separate sound mixer. | REQUIRED. | DONE and applied. | AudioManager | — | Low | EXPANDED |
 | J04 | Voice volume | `config.has_voice=True`, but voice slider is commented out and no dedicated player-facing voice control is active. | NOT NEEDED until voice exists. | NOT PLANNED. | Voice pipeline | Medium | Low | NEW |
-| J05 | Ambience volume | Eternum routes ambience-like loops through SFX channels; no separate ambience preference. | USEFUL for HIF atmosphere. | DEFERRED ? control hidden; `AudioManager` has no ambience source. | AudioManager | Medium | Medium | NEW |
+| J05 | Ambience volume | Eternum routes ambience-like loops through SFX channels; no separate ambience preference. | USEFUL for HIF atmosphere. | DONE for runtime: `ambientVolume` drives two gain-weighted ambience sources. Player control remains intentionally hidden until an authored ambience scene exists. | AudioManager | Medium | Medium | NEW |
 | J06 | Text speed | Slider controls `text_cps`. | REQUIRED. | DONE functionally; scale semantics need QA. | A02 | Small | Medium | EXPANDED |
 | J07 | Auto-forward delay | Slider controls AFM delay. | REQUIRED. | DONE. | D02 | — | Low | EXPANDED |
 | J08 | Text size | Persistent 20?50 range. | USEFUL accessibility. | DEFERRED ? control hidden until TMP typography scaling can be applied safely. | Typography | Medium | Medium | NEW |
@@ -226,11 +226,11 @@
 |---|---|---|---|---|---|---|---|---|
 | N01 | Music playback | Multiple music channels permit layers/overlap; main-menu music configured. `options.rpy:66,184-190`. | REQUIRED atmosphere. | DONE/PARTIAL — one looping music source, no crossfade/layers. | AudioManager | Medium | Medium | NEW |
 | N02 | One-shot SFX | Nine one-shot SFX channels support overlapping cues. `options.rpy:191-199`. | REQUIRED. | DONE/PARTIAL — one `PlayOneShot` source supports overlap but no bus/category routing. | AudioManager | Small | Low | NEW |
-| N03 | Looping ambience/SFX | Four loop channels support persistent ambience. `options.rpy:200-203`. | REQUIRED for hidden anxiety/locations. | TODO — no ambience source/runtime despite stored volume. | AudioManager | Medium | Medium | NEW |
+| N03 | Looping ambience/SFX | Four loop channels support persistent ambience. `options.rpy:200-203`. | REQUIRED for hidden anxiety/locations. | DONE for runtime foundation — two persistent looping ambience sources are independent from Music/SFX. No scene-authored ambience command or clip exists yet. | AudioManager | Medium | Medium | NEW |
 | N04 | Low-priority/secondary SFX | Separate `soundlow` channels prevent important sounds from being replaced. | LATER. | NOT PLANNED until audio contention appears. | Audio routing | Medium | Low | NEW |
 | N05 | Voice channel | Config declares voice capability, but player slider is disabled and inspected scripts do not establish a voice pipeline. | NOT NEEDED now. | NOT PLANNED. | Voice assets/system | Large | Medium | NEW |
-| N06 | Fades and cross-scene continuity | Scripts use fadein/fadeout and several channels; menu music can continue until replaced. | REQUIRED polish. | PARTIAL — music persists via `DontDestroyOnLoad`, but no fades/crossfade policy. | AudioManager | Medium | Medium | NEW |
-| N07 | Audio volume buses | Music/SFX mixers controlled separately; all-mute available. | REQUIRED. | DONE for master/music/SFX; ambience missing. | Settings | Small | Low | EXPANDED |
+| N06 | Fades and cross-scene continuity | Scripts use fadein/fadeout and several channels; menu music can continue until replaced. | REQUIRED polish. | DONE for ambience: `AudioManager` crossfades two persistent sources using unscaled time; Music does not gain crossfade/layer semantics. | AudioManager | Medium | Medium | NEW |
+| N07 | Audio volume buses | Music/SFX mixers controlled separately; all-mute available. | REQUIRED. | DONE for master/music/SFX/ambience; ambience volume multiplies per-source fade gains and master remains `AudioListener.volume`. | Settings | Small | Low | EXPANDED |
 | N08 | Audio in pause/modal | Eternum source does not expose a dedicated “music during pause” preference. | NOT REQUIRED as reference feature. | PARTIAL HIF-only — setting affects `ignoreListenerPause`, but global pause policy is not documented. | Pause model | Small | Medium | NEW |
 
 ## O. Visual Presentation
@@ -375,11 +375,11 @@
 ## How I Fall gaps that matter now
 
 1. Relationship changes have no player-facing feedback despite existing relationship fields.
-2. Main/VN settings store several options that do nothing: resolution, refresh rate, language, font size, look/style, animation toggles; ambience volume has no source.
+2. Main/VN settings still store several options that do nothing: refresh rate, language, font size, look/style and animation toggles. `ambientVolume` now has a runtime consumer, but its player-facing control remains intentionally hidden until authored ambience content exists.
 3. Input bindings are centralized in `VNInputMap` and Main Menu Help; H clean view is implemented, while rebinding and mouse/gamepad help variants remain absent.
 4. A scene-local special-mode coordinator owns one exclusive future QTE/map/chat interaction and clean view blocks entry while hidden; no authored special scene exists yet.
 5. Typed conditional choices are implemented for the nine persisted numeric GameState values; generic flags and other condition families remain intentionally out of scope.
 
 ## Audit conclusion
 
-Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now includes H clean view for system/Steam screenshots without a custom screenshot pipeline, while preserving the v3 save backbone. The next selected roadmap item is ambience channel/crossfade; it is not started by this audit update.
+Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now includes H clean view for system/Steam screenshots and a separate ambience runtime channel with gain-safe crossfade, while preserving the v3 save backbone. The next selected roadmap item is a timed narrative beat; no scene-authored ambience command, ambience clip or visible Ambient slider was added by this runtime-foundation update.
