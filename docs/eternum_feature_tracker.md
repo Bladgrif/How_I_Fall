@@ -5,7 +5,7 @@
 Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
-- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на functional `19584260e053c99bc8abb854764cb0c713d354c9`.
+- How I Fall audit baseline: `origin/master` `2d23bf639ca3bbf1a8b6411e2d44eadf9b9d56ec`, after functional `a088a29449f6fc59496c311db3e8162302fba40e`.
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
 - Runtime Eternum в этой задаче не запускался; Unity 6000.5.7f1 прошёл общий CI/validator/scene validation и оба graphical Save E2E на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
 
@@ -39,7 +39,7 @@
 | Settings | Main Menu and VN Settings share `SettingsManager`: audio, text speed, auto, skip, autosave, display mode, resolution and background mode apply immediately; unsupported controls are hidden | DONE | Verify runtime Screen API and UI when future display/localization/theme systems are added | Medium / Low |
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
-| Gallery/replay | Кнопка Gallery пока сообщает `not implemented`; unlock/replay scope отсутствуют | ⬜ TODO | Делать только вместе с первым реальным extra | Low / High |
+| Gallery/replay | `OpenGallery()` only logs `not implemented`; implementation is absent, but policy for a TECH DEMO ONLY foundation is decided | TODO | Implement one TEST replay under [gallery_replay_policy.md](gallery_replay_policy.md); no canon Extra content is required | High / High |
 | Chat/phone | Отдельного формата сцены нет | ⬜ TODO | Typed conditions/effects, медиа и возврат в VN | Low / Medium |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
 | Timed narrative beat | `TimedNarrativeBeatController` owns one `BlockingExclusive` lease, unscaled visible timer and exactly-once success/timeout routing through `VNDialogueController`; isolated TEST assets are technical demo only, not canon story | DONE (technical demo only) | Add authored content only after narrative team supplies it; this is not a full QTE framework | Medium / High |
@@ -69,17 +69,17 @@
 | 6 | Hide UI + screenshot UX | `H` enters transient clean view; H/Esc restore without dialogue advance. Dialogue shell and Quick Menu hide; authored background/character remain. System/Steam capture stays player-owned. | `VNInputMap`, `VNDialogueController`, `VNQuickMenu` | Small | Low | **DONE** |
 | 7 | Ambience channel/crossfade | Two-source runtime crossfade separates looping ambience from Music/SFX; `ambientVolume` now has a consumer | `AudioManager`, settings | Medium | Medium | **DONE (runtime foundation)** |
 | 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
-| 9 | Gallery/replay foundation | Нужна для Extra только когда есть реальный replay-контент | unlock registry, scoped state, safe return | Large | High | Later |
+| 9 | Gallery/replay foundation | Policy defines a TECH DEMO ONLY path without canon Extra content | profile unlock registry, transactional state isolation, safe return | Large | High | **TODO - policy decided** |
 
 ## Единственный NEXT
 
 ### Gallery/replay foundation
 
-Start only when the narrative team supplies the first real replay or extra-content case. Define unlock scope and safe return routing before UI work; do not reuse the timed-beat technical demo as story content.
+Implement Gallery / Replay foundation according to [gallery_replay_policy.md](gallery_replay_policy.md): one `TEST REPLAY` with TECH DEMO ONLY fixtures, profile-level unlock registry, transactional campaign-state isolation, save/load denial and controlled End Replay. Do not use the timed narrative-beat demo or any canon story content.
 
 **Deferred audio content:** no `DialogueSceneData` ambience command or authored ambience clip yet; the Ambient slider remains hidden until the first authored ambience scene.
 
-**Out of NEXT:** relationship screen, rollback, gallery, map, chat/phone, a full QTE system, mini-games and screenshot file capture.
+**Out of NEXT:** relationship screen, rollback, real Gallery/Extra content, map, chat/phone, a full QTE system, mini-games and screenshot file capture.
 
 ## Отложено или исключено
 
