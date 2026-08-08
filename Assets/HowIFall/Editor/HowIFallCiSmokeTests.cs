@@ -11,6 +11,8 @@ public static class HowIFallCiSmokeTests
             Debug.Log("[CI] How I Fall smoke tests started.");
 
             Run("Dialogue backlog", DialogueBacklogSmokeTests.RunBatchMode);
+            Run("Replay unlock registry", ReplayUnlockRegistrySmokeTests.RunBatchMode);
+            Run("Gallery replay isolation", GalleryReplaySmokeTests.RunBatchMode);
             Run("Backlog restoration", BacklogRestorationSmokeTests.RunBatchMode);
             Run("Auto dialogue", AutoDialogueSmokeTests.RunBatchMode);
             Run("Skip dialogue", SkipDialogueSmokeTests.RunBatchMode);

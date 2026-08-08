@@ -74,6 +74,12 @@ public static class HowIFallProjectValidator
             issues += ValidateRequiredReference(sceneName, "MainMenuController.dialogueRegistry", mainMenuController.dialogueRegistry);
             issues += ValidateRequiredReference(sceneName, "MainMenuController.continueButton", mainMenuController.continueButton);
             issues += ValidateRequiredReference(sceneName, "MainMenuController.helpText", mainMenuController.HelpText);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.galleryPanel", mainMenuController.GalleryPanel);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.galleryReplayButton", mainMenuController.GalleryReplayButton);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.galleryReplayTitle", mainMenuController.GalleryReplayTitle);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.galleryReplayState", mainMenuController.GalleryReplayState);
+            issues += ValidateRequiredReference(sceneName, "MainMenuController.galleryLockedOverlay", mainMenuController.GalleryLockedOverlay);
+            issues += ValidateGalleryReplayDefinitions(sceneName, mainMenuController);
         }
 
         issues += ValidateRequiredObject(sceneName, FindAny<SettingsPanelController>(), nameof(SettingsPanelController));
@@ -142,6 +148,13 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsCloseButton", controller.vnSettingsCloseButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsResetButton", controller.vnSettingsResetButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.manualSaveLoadPanel", controller.manualSaveLoadPanel);
+
+        ReplayEntryDefinition testReplay = AssetDatabase.LoadAssetAtPath<ReplayEntryDefinition>("Assets/HowIFall/Data/Replays/test_replay_v1.asset");
+        if (testReplay != null && (controller.sceneData == testReplay.startScene
+            || (testReplay.startScene != null && controller.sceneData == testReplay.startScene.defaultNextScene)))
+        {
+            issues += LogError($"{sceneName}: TECH DEMO replay scene must not be the normal VN start route.");
+        }
 
         TimedNarrativeBeatController timedBeat = FindAny<TimedNarrativeBeatController>();
         issues += ValidateRequiredObject(sceneName, timedBeat, nameof(TimedNarrativeBeatController));
@@ -220,6 +233,44 @@ public static class HowIFallProjectValidator
         if (!dialogueController.IsRegisteredDialogueScene(definition.timeoutNextScene))
         {
             issues += LogError($"{sceneName}: timed beat timeout target must be a registered valid dialogue scene.");
+        }
+
+        return issues;
+    }
+
+    private static int ValidateGalleryReplayDefinitions(string sceneName, MainMenuController controller)
+    {
+        if (controller.ReplayEntries == null || controller.ReplayEntries.Count != 1)
+        {
+            return LogError($"{sceneName}: Gallery must contain exactly one TEST replay definition.");
+        }
+
+        ReplayEntryDefinition definition = controller.ReplayEntries[0];
+        int issues = 0;
+        if (!SceneFlowManager.TryValidateReplayDefinition(definition, controller.ReplayEntries, controller.dialogueRegistry, out string error))
+        {
+            return LogError($"{sceneName}: Gallery replay definition is invalid. {error}");
+        }
+
+        if (definition.replayId != "test_replay_v1" || definition.displayName != "TEST REPLAY")
+        {
+            issues += LogError($"{sceneName}: TEST replay must use replayId 'test_replay_v1' and displayName 'TEST REPLAY'.");
+        }
+
+        DialogueSceneData start = definition.startScene;
+        if (start.sceneId != "replay_demo_start" || start.displayName != "TECH DEMO ONLY - NOT CANON"
+            || start.lines == null || start.lines.Count != 1 || start.lines[0] == null
+            || start.lines[0].text != "TEST REPLAY START")
+        {
+            issues += LogError($"{sceneName}: replay_demo_start is not the approved TECH DEMO fixture.");
+        }
+
+        DialogueSceneData end = start.defaultNextScene;
+        if (end == null || end.sceneId != "replay_demo_end" || end.displayName != "TECH DEMO ONLY - NOT CANON"
+            || end.lines == null || end.lines.Count != 1 || end.lines[0] == null
+            || end.lines[0].text != "TEST REPLAY END" || end.defaultNextScene != null)
+        {
+            issues += LogError($"{sceneName}: replay_demo_end is not the approved terminal TECH DEMO fixture.");
         }
 
         return issues;

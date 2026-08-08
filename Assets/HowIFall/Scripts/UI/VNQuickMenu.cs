@@ -20,9 +20,11 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private static readonly Color NormalColor = new Color(0.035f, 0.07f, 0.11f, 0.82f);
     private static readonly Color ActiveColor = new Color(0.12f, 0.31f, 0.43f, 0.96f);
+    private string normalMainMenuLabel;
 
     private void Awake()
     {
+        CacheNormalMainMenuLabel();
         Bind(historyButton, () => TryInvokeQuickMenuAction(() => dialogueController.ShowBacklog()));
         Bind(skipButton, () => TryInvokeQuickMenuAction(() => dialogueController.ToggleSkip()));
         Bind(autoButton, () => TryInvokeQuickMenuAction(() => dialogueController.ToggleAutoForward()));
@@ -31,7 +33,8 @@ public sealed class VNQuickMenu : MonoBehaviour
         Bind(quickLoadButton, () => TryInvokeQuickMenuAction(() => dialogueController.RequestQuickLoad()));
         Bind(loadButton, () => TryInvokeQuickMenuAction(() => dialogueController.manualSaveLoadPanel?.OpenLoad()));
         Bind(settingsButton, () => TryInvokeQuickMenuAction(() => dialogueController.OpenSettings()));
-        Bind(mainMenuButton, () => TryInvokeQuickMenuAction(() => dialogueController.ShowConfirmExit()));
+        Bind(mainMenuButton, () => TryInvokeQuickMenuAction(HandleMainMenuAction));
+        RefreshReplayPresentation();
     }
 
     private bool hiddenBySpecialMode;
@@ -41,6 +44,7 @@ public sealed class VNQuickMenu : MonoBehaviour
     private void Update()
     {
         RefreshSpecialModeVisibility();
+        RefreshReplayPresentation();
         UpdateActiveState(skipButton, dialogueController != null && dialogueController.IsSkipEnabled);
         UpdateActiveState(autoButton, dialogueController != null && dialogueController.IsAutoForwardEnabledState);
     }
@@ -98,6 +102,37 @@ public sealed class VNQuickMenu : MonoBehaviour
         wasVisibleBeforePlayerHide = false;
     }
 
+    public void RefreshReplayPresentation()
+    {
+        bool replay = SceneFlowManager.IsReplayModeActive;
+        CacheNormalMainMenuLabel();
+        SetButtonVisible(saveButton, !replay);
+        SetButtonVisible(quickSaveButton, !replay);
+        SetButtonVisible(quickLoadButton, !replay);
+        SetButtonVisible(loadButton, !replay);
+        SetButtonLabel(mainMenuButton, replay ? "End Replay" : normalMainMenuLabel);
+    }
+
+    private void CacheNormalMainMenuLabel()
+    {
+        string currentLabel = GetButtonLabel(mainMenuButton);
+        if (!string.IsNullOrWhiteSpace(currentLabel) && currentLabel != "End Replay")
+        {
+            normalMainMenuLabel = currentLabel;
+        }
+    }
+
+    private void HandleMainMenuAction()
+    {
+        if (SceneFlowManager.IsReplayModeActive)
+        {
+            dialogueController.ReturnToMainMenu();
+            return;
+        }
+
+        dialogueController.ShowConfirmExit();
+    }
+
     private void TryInvokeQuickMenuAction(UnityEngine.Events.UnityAction action)
     {
         if (dialogueController == null || !dialogueController.CanOpenQuickMenu)
@@ -122,5 +157,28 @@ public sealed class VNQuickMenu : MonoBehaviour
         {
             image.color = active ? ActiveColor : NormalColor;
         }
+    }
+
+    private static void SetButtonVisible(Button button, bool visible)
+    {
+        if (button != null && button.gameObject.activeSelf != visible)
+        {
+            button.gameObject.SetActive(visible);
+        }
+    }
+
+    private static void SetButtonLabel(Button button, string label)
+    {
+        TextMeshProUGUI text = button != null ? button.GetComponentInChildren<TextMeshProUGUI>(true) : null;
+        if (text != null && text.text != label)
+        {
+            text.text = label;
+        }
+    }
+
+    private static string GetButtonLabel(Button button)
+    {
+        TextMeshProUGUI text = button != null ? button.GetComponentInChildren<TextMeshProUGUI>(true) : null;
+        return text != null ? text.text : string.Empty;
     }
 }

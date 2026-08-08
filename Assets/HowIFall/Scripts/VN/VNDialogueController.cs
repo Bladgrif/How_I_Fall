@@ -95,8 +95,8 @@ public class VNDialogueController : MonoBehaviour
     public bool IsInterfaceHidden => isInterfaceHidden;
     public bool HasActiveSpecialMode => specialModeCoordinator != null && specialModeCoordinator.HasActiveOwner;
     public bool CanAdvanceDialogue => !isInterfaceHidden && (specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked);
-    public bool CanSave => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanSave);
-    public bool CanLoad => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanLoad);
+    public bool CanSave => !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanSave);
+    public bool CanLoad => !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanLoad);
     public bool CanOpenQuickMenu => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenQuickMenu);
     public bool CanOpenBacklog => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenBacklog);
     public bool CanOpenSettings => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenSettings);
@@ -121,6 +121,10 @@ public class VNDialogueController : MonoBehaviour
         if (!ValidateRequiredUiReferences())
         {
             enabled = false;
+            if (SceneFlowManager.IsReplayModeActive)
+            {
+                SceneFlowManager.Instance.FailReplay("VN replay host is missing required UI references.");
+            }
             return;
         }
 
@@ -195,6 +199,29 @@ public class VNDialogueController : MonoBehaviour
             {
                 Choose(choiceIndex);
             });
+        }
+
+        if (SceneFlowManager.IsReplayModeActive)
+        {
+            SceneFlowManager flow = SceneFlowManager.Instance;
+            if (flow == null || !flow.TryGetReplayStartScene(out DialogueSceneData replayStartScene)
+                || !IsRegisteredDialogueScene(replayStartScene))
+            {
+                flow?.FailReplay("VN replay start scene is missing, invalid, or unregistered.");
+                return;
+            }
+
+            ClearBacklog();
+            try
+            {
+                LoadDialogueScene(replayStartScene);
+                flow.AttachReplayHost(this);
+            }
+            catch (System.Exception exception)
+            {
+                flow.FailReplay($"VN replay graph failed to start. {exception.Message}");
+            }
+            return;
         }
 
         if (saveManager.HasPendingSceneRestore)
@@ -466,6 +493,11 @@ public class VNDialogueController : MonoBehaviour
 
     public void RequestQuickSave()
     {
+        if (RejectReplaySaveLoad("QUICK SAVE"))
+        {
+            return;
+        }
+
         if (quickSaveInProgress)
         {
             return;
@@ -500,6 +532,11 @@ public class VNDialogueController : MonoBehaviour
 
     public void RequestQuickLoad()
     {
+        if (RejectReplaySaveLoad("QUICK LOAD"))
+        {
+            return;
+        }
+
         if (!IsActiveControllerInCurrentScene())
         {
             Debug.LogWarning("[QUICK LOAD] Request ignored because VNDialogueController is not active in the current scene.", this);
@@ -519,6 +556,11 @@ public class VNDialogueController : MonoBehaviour
 
     public void RequestAutoSave()
     {
+        if (RejectReplaySaveLoad("AUTO SAVE"))
+        {
+            return;
+        }
+
         if (!IsActiveControllerInCurrentScene())
         {
             Debug.LogWarning("[AUTO SAVE] Request ignored because VNDialogueController is not active in the current scene.", this);
@@ -557,6 +599,12 @@ public class VNDialogueController : MonoBehaviour
 
     public void RequestPreLoadAutoSave(System.Action<bool> onCompleted)
     {
+        if (RejectReplaySaveLoad("PRE-LOAD AUTO SAVE"))
+        {
+            onCompleted?.Invoke(false);
+            return;
+        }
+
         if (!IsActiveControllerInCurrentScene())
         {
             Debug.LogWarning("[PRE-LOAD AUTO SAVE] Request ignored because VNDialogueController is not active in the current scene.", this);
@@ -663,8 +711,8 @@ public class VNDialogueController : MonoBehaviour
     {
         quickSaveInProgress = false;
         ShowToast(saved
-            ? "Р‘С‹СЃС‚СЂРѕРµ СЃРѕС…СЂР°РЅРµРЅРёРµ СЃРѕР·РґР°РЅРѕ"
-            : "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ Р±С‹СЃС‚СЂРѕРµ СЃРѕС…СЂР°РЅРµРЅРёРµ");
+            ? "\u0411\u044b\u0441\u0442\u0440\u043e\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u0441\u043e\u0437\u0434\u0430\u043d\u043e"
+            : "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c \u0431\u044b\u0441\u0442\u0440\u043e\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435");
     }
 
     private void CompleteAutoSave(bool saved)
@@ -729,6 +777,17 @@ public class VNDialogueController : MonoBehaviour
             || (backlogPanel != null && backlogPanel.activeSelf)
             || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf);
+    }
+
+    private bool RejectReplaySaveLoad(string operation)
+    {
+        if (!SceneFlowManager.IsReplayModeActive)
+        {
+            return false;
+        }
+
+        Debug.LogWarning($"[REPLAY] {operation} request denied before UI or screenshot work.", this);
+        return true;
     }
 
     public void AdvanceDialogue()
@@ -857,8 +916,19 @@ public class VNDialogueController : MonoBehaviour
 
     private bool IsLineAllowedForSkip(DialogueSceneData data, DialogueLine line)
     {
-        return !IsSeenOnlySkipMode()
-            || (data != null && line != null && EnsureReadHistory().IsSeen(data.sceneId, line.lineId));
+        if (!IsSeenOnlySkipMode())
+        {
+            return true;
+        }
+
+        if (data == null || line == null)
+        {
+            return false;
+        }
+
+        return SceneFlowManager.IsReplayModeActive
+            ? SceneFlowManager.Instance.IsReplayLineSeen(data.sceneId, line.lineId)
+            : EnsureReadHistory().IsSeen(data.sceneId, line.lineId);
     }
 
     private void MarkDisplayedLineSeen()
@@ -867,6 +937,12 @@ public class VNDialogueController : MonoBehaviour
             || string.IsNullOrWhiteSpace(displayedLineScene.sceneId)
             || string.IsNullOrWhiteSpace(displayedLine.lineId))
         {
+            return;
+        }
+
+        if (SceneFlowManager.IsReplayModeActive)
+        {
+            SceneFlowManager.Instance.MarkReplayLineSeen(displayedLineScene.sceneId, displayedLine.lineId);
             return;
         }
 
@@ -1133,6 +1209,11 @@ public class VNDialogueController : MonoBehaviour
             }
 
             ClearChoiceState();
+            if (TryEndTerminalReplay())
+            {
+                return;
+            }
+
             showingEndLine = true;
             ShowNarration(EndPrototypeText);
             return;
@@ -1159,6 +1240,11 @@ public class VNDialogueController : MonoBehaviour
                 return;
             }
 
+            if (TryEndTerminalReplay())
+            {
+                return;
+            }
+
             showingEndLine = true;
             ShowNarration(EndPrototypeText);
             return;
@@ -1177,6 +1263,11 @@ public class VNDialogueController : MonoBehaviour
             {
                 ClearChoiceState();
                 LoadDialogueScene(sceneData.defaultNextScene);
+                return;
+            }
+
+            if (TryEndTerminalReplay())
+            {
                 return;
             }
 
@@ -1300,6 +1391,12 @@ public class VNDialogueController : MonoBehaviour
     private void ShowControlledChoiceError(string diagnostic)
     {
         Debug.LogError(diagnostic, this);
+        if (SceneFlowManager.IsReplayModeActive)
+        {
+            SceneFlowManager.Instance.FailReplay(diagnostic);
+            return;
+        }
+
         visibleChoices.Clear();
         ClearChoiceState();
         pendingNextScene = null;
@@ -1517,6 +1614,14 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
+        if (SceneFlowManager.IsReplayModeActive)
+        {
+            StopSkipTimer();
+            StopAutoForwardTimer();
+            SceneFlowManager.Instance.EndReplay();
+            return;
+        }
+
         specialModeCoordinator?.ForceClearForHostLifecycle("Return to Main Menu");
 
         if (backlogPanel != null)
@@ -1561,6 +1666,12 @@ public class VNDialogueController : MonoBehaviour
     {
         if (!CanReturnToMainMenu)
         {
+            return;
+        }
+
+        if (SceneFlowManager.IsReplayModeActive)
+        {
+            ReturnToMainMenu();
             return;
         }
 
@@ -2061,6 +2172,12 @@ public class VNDialogueController : MonoBehaviour
         if (data == null)
         {
             Debug.LogError("Dialogue scene data is missing.", this);
+            if (SceneFlowManager.IsReplayModeActive)
+            {
+                SceneFlowManager.Instance.FailReplay("Replay attempted to load a missing dialogue scene.");
+                return;
+            }
+
             activeLines = null;
             activeChoices = new List<DialogueChoice>();
             showingChoice = false;
@@ -2077,6 +2194,12 @@ public class VNDialogueController : MonoBehaviour
         if (data.lines == null || data.lines.Count == 0)
         {
             Debug.LogError($"Dialogue scene '{data.name}' has no lines.", data);
+            if (SceneFlowManager.IsReplayModeActive)
+            {
+                SceneFlowManager.Instance.FailReplay($"Replay scene '{data.name}' has no lines.");
+                return;
+            }
+
             activeLines = null;
             activeChoices = new List<DialogueChoice>();
             showingChoice = false;
@@ -2180,5 +2303,31 @@ public class VNDialogueController : MonoBehaviour
         {
             Instance = null;
         }
+
+        SceneFlowManager flow = SceneFlowManager.Instance;
+        if (flow != null && flow.IsReplayHost(this))
+        {
+            flow.FailReplay("Replay VN host was destroyed unexpectedly.");
+        }
+    }
+
+    private bool TryEndTerminalReplay()
+    {
+        SceneFlowManager flow = SceneFlowManager.Instance;
+        if (flow == null || !flow.IsReplayMode)
+        {
+            return false;
+        }
+
+        StopSkipTimer();
+        StopAutoForwardTimer();
+        flow.EndReplay();
+        return true;
+    }
+
+    public void StopReplayExecutionForCleanup()
+    {
+        StopSkipTimer();
+        StopAutoForwardTimer();
     }
 }

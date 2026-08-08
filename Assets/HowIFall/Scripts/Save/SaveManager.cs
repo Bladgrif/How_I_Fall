@@ -116,13 +116,11 @@ public sealed class SaveManager : MonoBehaviour
         }
     }
 
-#if UNITY_EDITOR
     public void ConfigureSaveDirectoryForTests(string absolutePath)
     {
         saveDirectoryOverride = absolutePath;
         EnsureSaveDirectories();
     }
-#endif
 
     public bool SaveSlot(int slotIndex, Texture2D previewTexture)
     {
@@ -131,6 +129,11 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool SaveSlot(SaveSlotType type, int slotIndex, Texture2D previewTexture)
     {
+        if (IsReplayOperationBlocked("SAVE"))
+        {
+            return false;
+        }
+
         if (!TryValidateSlotAddress(type, slotIndex, out string addressError))
         {
             Debug.LogError($"[SAVE] {addressError}", this);
@@ -250,11 +253,21 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool SaveAuto(Texture2D previewTexture)
     {
+        if (IsReplayOperationBlocked("AUTO SAVE"))
+        {
+            return false;
+        }
+
         return SaveRotatingSlot(SaveSlotType.Auto, previewTexture);
     }
 
     public bool SaveQuick(Texture2D previewTexture)
     {
+        if (IsReplayOperationBlocked("QUICK SAVE"))
+        {
+            return false;
+        }
+
         return SaveRotatingSlot(SaveSlotType.Quick, previewTexture);
     }
 
@@ -278,6 +291,11 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool LoadSlot(SaveSlotType type, int slotIndex)
     {
+        if (IsReplayOperationBlocked("LOAD"))
+        {
+            return false;
+        }
+
         SaveSlotInfo slot = ReadSlot(type, slotIndex);
         if (!slot.IsLoadable || slot.Data == null)
         {
@@ -290,6 +308,11 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool LoadLatest()
     {
+        if (IsReplayOperationBlocked("CONTINUE"))
+        {
+            return false;
+        }
+
         SaveSlotInfo latest = FindLatestLoadableSlot();
 
         if (latest == null)
@@ -305,6 +328,17 @@ public sealed class SaveManager : MonoBehaviour
     public bool HasAnyValidSave()
     {
         return FindLatestLoadableSlot() != null;
+    }
+
+    public bool IsReplayOperationBlocked(string operation = "SAVE/LOAD")
+    {
+        if (!SceneFlowManager.IsReplayModeActive)
+        {
+            return false;
+        }
+
+        Debug.LogWarning($"[REPLAY] {operation} operation denied while replay mode is active.", this);
+        return true;
     }
 
     public bool DeleteSlot(int slotIndex)

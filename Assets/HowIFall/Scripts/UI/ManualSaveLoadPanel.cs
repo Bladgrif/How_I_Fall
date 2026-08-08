@@ -117,6 +117,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void OpenSave()
     {
+        if (RejectReplayOperation("SAVE UI"))
+        {
+            return;
+        }
+
         if (VNDialogueController.Instance == null)
         {
             Debug.LogWarning("[SAVE UI] Save panel can only be opened from VNPrototype.", this);
@@ -135,6 +140,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void OpenLoad()
     {
+        if (RejectReplayOperation("LOAD UI"))
+        {
+            return;
+        }
+
         if (VNDialogueController.Instance != null && !VNDialogueController.Instance.CanLoad)
         {
             return;
@@ -148,6 +158,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     /// <summary>Requests the newest valid quick slot through the normal load confirmation pipeline.</summary>
     public bool RequestQuickLoad()
     {
+        if (RejectReplayOperation("QUICK LOAD UI"))
+        {
+            return false;
+        }
+
         if (VNDialogueController.Instance != null && !VNDialogueController.Instance.CanLoad)
         {
             return false;
@@ -220,6 +235,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void OnSlotSelected(int slotIndex)
     {
+        if (RejectReplayOperation("SLOT UI"))
+        {
+            return;
+        }
+
         if (IsOperationInProgress() || IsConfirmationOpen)
         {
             return;
@@ -420,6 +440,13 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void ConfirmPendingAction()
     {
+        if (RejectReplayOperation("CONFIRMED SAVE/LOAD UI"))
+        {
+            ClearPendingConfirmation();
+            SetConfirmationVisible(false, true);
+            return;
+        }
+
         ConfirmationAction action = pendingConfirmationAction;
         SaveSlotType? slotType = pendingConfirmationSlotType;
         int slotIndex = pendingConfirmationSlot;
@@ -585,6 +612,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private IEnumerator CaptureAndSave(SaveSlotType slotType, int slotIndex)
     {
+        if (RejectReplayOperation("MANUAL SAVE CAPTURE"))
+        {
+            yield break;
+        }
+
         if (slotType != SaveSlotType.Manual)
         {
             yield break;
@@ -815,6 +847,17 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private bool IsOperationInProgress()
     {
         return saveInProgress || loadInProgress;
+    }
+
+    private bool RejectReplayOperation(string operation)
+    {
+        if (!SceneFlowManager.IsReplayModeActive)
+        {
+            return false;
+        }
+
+        Debug.LogWarning($"[REPLAY] {operation} denied.", this);
+        return true;
     }
 
     private void SetContentInteractive(bool interactive)

@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b94845fe1b063e2428026ec15f72fc57, type: 3}
+  m_Name: test_replay_v1
+  m_EditorClassIdentifier: Assembly-CSharp::ReplayEntryDefinition
+  replayId: test_replay_v1
+  displayName: TEST REPLAY
+  thumbnail: {fileID: 0}
+  startScene: {fileID: 11400000, guid: 82c2c4d46b111444b9fac5f438316569, type: 2}

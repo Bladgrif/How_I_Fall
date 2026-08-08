@@ -15,6 +15,7 @@ public class AudioManager : MonoBehaviour
     public float AmbienceGainA => ambienceGainA;
     public float AmbienceGainB => ambienceGainB;
     public AudioClip CurrentAmbienceClip => activeAmbienceSource != null ? activeAmbienceSource.clip : null;
+    public bool IsAmbiencePlaying => activeAmbienceSource != null && activeAmbienceSource.isPlaying;
     public bool IsAmbienceTransitionActive => ambienceTransitionCoroutine != null;
 
     private float ambienceGainA;
@@ -134,6 +135,39 @@ public class AudioManager : MonoBehaviour
         }
 
         ambienceTransitionCoroutine = StartCoroutine(FadeOutAmbience(outgoingSource, fadeSeconds));
+    }
+
+    public void RestorePlaybackStateAfterReplay(
+        AudioClip musicClip,
+        bool musicWasPlaying,
+        AudioClip ambienceClip,
+        bool ambienceWasPlaying)
+    {
+        StopMusic();
+        if (musicSource != null)
+        {
+            musicSource.clip = musicClip;
+            if (musicWasPlaying && musicClip != null)
+            {
+                musicSource.Play();
+            }
+        }
+
+        CancelAmbienceTransition();
+        StopAndClearAmbienceSource(ambienceSourceA);
+        StopAndClearAmbienceSource(ambienceSourceB);
+        if (ambienceClip != null && ambienceSourceA != null)
+        {
+            ambienceSourceA.clip = ambienceClip;
+            activeAmbienceSource = ambienceSourceA;
+            SetAmbienceGain(ambienceSourceA, 1f);
+            if (ambienceWasPlaying)
+            {
+                ambienceSourceA.Play();
+            }
+        }
+
+        ApplySettingsVolume();
     }
 
     public void ApplySettingsVolume()
