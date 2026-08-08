@@ -22,7 +22,7 @@
 |---|---|---:|---|---|
 | Диалог и typewriter | `VNDialogueController`, `DialogueSceneData`, завершение текущей печати, переходы между сценами | ✅ DONE | Контентная проверка темпа; диапазон `textSpeed` требует QA | Medium / Low |
 | Обычные выборы | Варианты, stat-delta, результат выбора и переход | ✅ DONE | Не смешивать с ещё не начатыми условиями | — / Low |
-| Условные выборы | Runtime-условий ещё нет; policy зафиксирована в [typed_conditional_choices_policy.md](typed_conditional_choices_policy.md) | ⬜ TODO | Реализовать typed numeric conditions, source-index mapping и fail-safe fallback | High / Medium |
+| Conditional choices | Typed numeric `ChoiceCondition` gates for the nine saved `GameState` integers; hidden unavailable options, transient source-index mapping, zero/capacity fail-safe and focused smoke coverage. | DONE | Author conditional content only where a scene needs it; keep a default route for all-hidden branches. | Medium / Low |
 | Game state | Оси, доверие/интерес и состояние выбора сохраняются | 🟡 PARTIAL | Нет общего реестра флагов, ресурсов и unlock-state | Medium / Medium |
 | Ручные сохранения | 6 Manual-слотов, JSON + PNG 384×216, overwrite/delete/load confirmations | ✅ DONE | Поддерживать совместимость | — / High |
 | Auto/Quick saves | По 6 циклических Auto/Quick-слотов; quick save/load доступны из VN UI и hotkeys | ✅ DONE | Проверять точки autosave с новым контентом | — / Medium |
@@ -64,8 +64,8 @@
 | 1 | Settings truth pass | Removed false UI affordances and connected small runtime consumers | `SettingsManager`, both Settings panels | Small | Low | **DONE** |
 | 2 | Unified input map + Help | Canonical map drives runtime and Main Menu Help; no rebinding framework | VN actions, modal policy | Medium | Low | **DONE** |
 | 3 | Backlog restoration | Save-scoped v3 snapshot без merge; legacy fallback и scoped suppression проверены | v3 schema, migration/tests, graphical E2E | Medium | High | **DONE** |
-| 4 | Typed conditional choices | Policy decided: typed numeric AND-conditions, hidden UX and source-index mapping | `typed_conditional_choices_policy.md`, focused tests | Medium | Medium | **NEXT: implement** |
-| 5 | Unified modal/special-mode coordinator | Предотвращает конфликт input, Auto/Skip и saves в будущих интерактивах | modal ownership, pause/save rules | Medium | High | Перед первым special mode |
+| 4 | Typed conditional choices | Typed numeric AND conditions, source-index mapping and fail-safe fallback are implemented and covered by CI. | `ChoiceCondition`, `GameState`, dialogue validator | Medium | Low | **DONE** |
+| 5 | Unified modal/special-mode coordinator | Prevents input, Auto/Skip and save conflicts in future interactive scenes. | modal ownership, pause/save rules | Medium | High | **NEXT** |
 | 6 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
 | 7 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
 | 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
@@ -73,9 +73,9 @@
 
 ## Единственный NEXT
 
-### Implement typed conditional choices
+### Plan unified modal/special-mode coordinator
 
-Реализовать утверждённую [policy](typed_conditional_choices_policy.md): typed numeric AND-conditions для `DialogueChoice`, hidden UX, transient source-index mapping, fail-safe zero/capacity handling и focused smoke coverage. Не использовать `eval`, произвольный C# или строковые выражения; `SaveData` остаётся v3.
+Prepare the minimal ownership contract for future QTE/map/chat interactions: input blocking, Auto/Skip behavior, and save restrictions. Do not change existing VN scene layout until a concrete authored special scene exists.
 
 **Out of NEXT:** relationship screen, rollback, gallery, QTE and mini-games.
 
@@ -96,7 +96,9 @@
 - `3e83fca55dc59efc3f960a9827dd1db9ac45ac3a` — Settings truth pass: `Screen.fullScreenMode` and `Screen.SetResolution` apply display values; autosave and skip cadence have runtime consumers; Main Menu hides controls that need absent subsystems. `SettingsTruthSmokeTests` is in CI; `SaveData` is unchanged.
 - `23358b6ed856c7e3b1da379d78085c0b84557f2c` — Relationship change feedback: после ручного `VNDialogueController.Choose()` применённые relationship delta собираются в один existing toast. Нулевые и неотношенческие delta не показываются, порядок Masha → Artem → Lera детерминирован, значения не выводятся; Save/Load и restore не создают событие.
 
-**Last reviewed functional commit:** `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`
+- `9647986856fa8c5a545ee375e4a60866a9472212` - Typed conditional choices: added closed numeric condition enums for the nine persisted `GameState` values and three inclusive operators; unavailable choices are hidden through transient source-index mapping. Choice saves and result restore continue to use source indices, `SaveData` remains v3, and zero/capacity paths fail safely. Focused conditional smoke plus the full Unity 6000.5.7f1 CI, project validator and scene validation passed; visual Play Mode QA remains pending.
+
+**Last reviewed functional commit:** `9647986856fa8c5a545ee375e4a60866a9472212`
 
 ## Правило обновления
 

@@ -118,7 +118,7 @@
 | ID | Feature | Eternum / edge / input | HIF value / why | HIF / gap | Dep | Size | Risk | Old |
 |---|---|---|---|---|---|---|---|---|
 | G01 | Normal menu choice | 337 `menu:` blocks across `script.rpy`–`script9.rpy`; selected caption continues its branch. | REQUIRED agency. | DONE — up to 3 wired choice buttons and `nextScene`. | DialogueChoice | — | Low | COVERED |
-| G02 | Conditional hidden option | At least 81 native options use `"caption" if condition:`; unavailable options are omitted, not disabled. | REQUIRED for consequences, but not immediate NEXT automatically. | TODO — no conditions on `DialogueChoice`. | Typed conditions + validator | Medium | Medium | COVERED |
+| G02 | Conditional hidden option | At least 81 native options use `"caption" if condition:`; unavailable options are omitted, not disabled. | REQUIRED for consequences. | DONE - typed numeric AND conditions hide unavailable options, preserve source indices for saves/results, and validate malformed data/capacity. | `ChoiceCondition`, `GameState`, validator | Medium | Medium | COVERED |
 | G03 | Conditional screen hotspot | Image maps/buttons appear only when flags/routes permit; e.g. survival safe and map evidence. `screens.rpy:2489-2495,3583-3715`. | LATER under interactive scenes. | TODO. | Story state + hotspot | Medium | High | NEW |
 | G04 | Disabled choice feedback | Native `choice` screen has no custom disabled/requirement reason; options are normally hidden. | USEFUL if HIF wants transparent morality. | NOT PLANNED until a scene requires disabled-visible choices. | Condition UX | Medium | Medium | NEW |
 | G05 | Choice effects | Branch scripts mutate flags, counters, points and route booleans. | REQUIRED. | DONE for fixed stat-deltas; arbitrary flags absent. | GameState | —/Medium | Medium | EXPANDED |
@@ -378,8 +378,8 @@
 2. Main/VN settings store several options that do nothing: resolution, refresh rate, language, font size, look/style, animation toggles; ambience volume has no source.
 3. Input bindings are centralized in `VNInputMap` and Main Menu Help; rebinding and mouse/gamepad help variants remain absent.
 4. There is no generic modal/special-scene coordinator for future QTE/map/chat/save restrictions.
-5. Conditional choices remain absent and need a typed design policy before implementation.
+5. Typed conditional choices are implemented for the nine persisted numeric GameState values; generic flags and other condition families remain intentionally out of scope.
 
 ## Audit conclusion
 
-Eternum is strongest as a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall already covers the highest-risk save backbone and core dialogue comfort. The safest next feature is not a large branching or mini-game subsystem, but **relationship change feedback** using existing `GameState` and toast infrastructure; it gives immediate narrative value without changing `SaveData` or scene architecture.
+Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now covers the core dialogue choice layer, including typed hidden conditional choices, while preserving the v3 save backbone. The next structural gap is a minimal modal/special-mode coordinator for future authored interactive scenes.
