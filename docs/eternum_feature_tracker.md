@@ -5,9 +5,9 @@
 Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
-- How I Fall audit baseline: `origin/master` `2d23bf639ca3bbf1a8b6411e2d44eadf9b9d56ec`, after functional `a088a29449f6fc59496c311db3e8162302fba40e`.
+- How I Fall audit baseline: functional `8e8bef75525750c4049643dd0e0c1b881fb08dec` on `master` (Gallery / Replay Foundation).
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
-- Runtime Eternum в этой задаче не запускался; Unity 6000.5.7f1 прошёл общий CI/validator/scene validation и оба graphical Save E2E на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
+- Eternum runtime was not launched; Unity 6000.5.7f1 passed full CI/validator/scene validation, both graphical Save E2E suites and Gallery GUI QA at 1280x720, 1920x1080, 2560x1440 and 3840x2160 on `8e8bef75525750c4049643dd0e0c1b881fb08dec`.
 
 ## Статусы
 
@@ -23,7 +23,7 @@
 | Диалог и typewriter | `VNDialogueController`, `DialogueSceneData`, завершение текущей печати, переходы между сценами | ✅ DONE | Контентная проверка темпа; диапазон `textSpeed` требует QA | Medium / Low |
 | Обычные выборы | Варианты, stat-delta, результат выбора и переход | ✅ DONE | Не смешивать с ещё не начатыми условиями | — / Low |
 | Conditional choices | Typed numeric `ChoiceCondition` gates for the nine saved `GameState` integers; hidden unavailable options, transient source-index mapping, zero/capacity fail-safe and focused smoke coverage. | DONE | Author conditional content only where a scene needs it; keep a default route for all-hidden branches. | Medium / Low |
-| Game state | Оси, доверие/интерес и состояние выбора сохраняются | 🟡 PARTIAL | Нет общего реестра флагов, ресурсов и unlock-state | Medium / Medium |
+| Game state | Numeric axes, relationships and choice state are saved; Gallery unlock is profile-level and separate from campaign state | PARTIAL | No general story flag/resource registry | Medium / Medium |
 | Ручные сохранения | 6 Manual-слотов, JSON + PNG 384×216, overwrite/delete/load confirmations | ✅ DONE | Поддерживать совместимость | — / High |
 | Auto/Quick saves | По 6 циклических Auto/Quick-слотов; quick save/load доступны из VN UI и hotkeys | ✅ DONE | Проверять точки autosave с новым контентом | — / Medium |
 | Continue | Загружает самое новое валидное Manual/Auto/Quick; в Eternum отдельной активной кнопки нет | ✅ DONE | — | — / Low |
@@ -39,7 +39,7 @@
 | Settings | Main Menu and VN Settings share `SettingsManager`: audio, text speed, auto, skip, autosave, display mode, resolution and background mode apply immediately; unsupported controls are hidden | DONE | Verify runtime Screen API and UI when future display/localization/theme systems are added | Medium / Low |
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
-| Gallery/replay | `OpenGallery()` only logs `not implemented`; implementation is absent, but policy for a TECH DEMO ONLY foundation is decided | TODO | Implement one TEST replay under [gallery_replay_policy.md](gallery_replay_policy.md); no canon Extra content is required | High / High |
+| Gallery/replay | One `TEST REPLAY`: profile JSON v1, locked/unlocked card, transactional `GameState`/backlog/audio isolation, replay-local read history, two-layer Save/Load denial and controlled End Replay | DONE (technical foundation) | Canon replay content and thumbnail remain separate future work | - / High |
 | Chat/phone | Отдельного формата сцены нет | ⬜ TODO | Typed conditions/effects, медиа и возврат в VN | Low / Medium |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
 | Timed narrative beat | `TimedNarrativeBeatController` owns one `BlockingExclusive` lease, unscaled visible timer and exactly-once success/timeout routing through `VNDialogueController`; isolated TEST assets are technical demo only, not canon story | DONE (technical demo only) | Add authored content only after narrative team supplies it; this is not a full QTE framework | Medium / High |
@@ -53,7 +53,7 @@
 - Quick menu, Auto и seen-aware Skip уже готовы; их нельзя повторно планировать как отсутствующие механики.
 - Continue — собственное улучшение How I Fall, а не функция для копирования из активного главного меню Eternum.
 - Настройки resolution, refresh rate, language, font size, game look/interface style и часть animation toggles сохраняются, но пока не меняют игру. Их нельзя отмечать `DONE`.
-- Backlog реализован по [backlog_restoration_policy.md](backlog_restoration_policy.md): `SaveData` v3 хранит save-scoped snapshot, Load/Continue заменяют runtime History, v1/v2 используют empty fallback с одной восстановленной visible line/resultText. Rollback, общий unlock registry и gallery/replay отсутствуют; special-mode coordinator now has a scene-local runtime bridge with opaque leases, permission gates and focused smoke coverage; authored special scenes remain absent. Relationship feedback remains transient toast and is not saved.
+- Backlog follows [backlog_restoration_policy.md](backlog_restoration_policy.md): `SaveData` v3 stores save-scoped snapshots and Load/Continue replace runtime History. Rollback and a general story flag/resource registry remain absent; Gallery uses a separate profile unlock registry.
 
 ## Рекомендуемые следующие механики
 
@@ -69,17 +69,15 @@
 | 6 | Hide UI + screenshot UX | `H` enters transient clean view; H/Esc restore without dialogue advance. Dialogue shell and Quick Menu hide; authored background/character remain. System/Steam capture stays player-owned. | `VNInputMap`, `VNDialogueController`, `VNQuickMenu` | Small | Low | **DONE** |
 | 7 | Ambience channel/crossfade | Two-source runtime crossfade separates looping ambience from Music/SFX; `ambientVolume` now has a consumer | `AudioManager`, settings | Medium | Medium | **DONE (runtime foundation)** |
 | 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
-| 9 | Gallery/replay foundation | Policy defines a TECH DEMO ONLY path without canon Extra content | profile unlock registry, transactional state isolation, safe return | Large | High | **TODO - policy decided** |
+| 9 | Gallery/replay foundation | `TEST REPLAY` isolates campaign state/save/backlog/read history and returns safely to Main Menu | profile JSON v1, `ReplaySession`, replay-aware VN/Quick Menu | Large | High | **DONE (technical foundation)** |
 
 ## Единственный NEXT
 
-### Gallery/replay foundation
+### Character hub / bios policy
 
-Implement Gallery / Replay foundation according to [gallery_replay_policy.md](gallery_replay_policy.md): one `TEST REPLAY` with TECH DEMO ONLY fixtures, profile-level unlock registry, transactional campaign-state isolation, save/load denial and controlled End Replay. Do not use the timed narrative-beat demo or any canon story content.
+Define the minimum authored contract in `docs/story` first: required biographies and relationship states, spoiler/locked behavior, and the existing data source for each field. Do not add runtime, scene UI or a general flag framework before that content contract is approved.
 
-**Deferred audio content:** no `DialogueSceneData` ambience command or authored ambience clip yet; the Ambient slider remains hidden until the first authored ambience scene.
-
-**Out of NEXT:** relationship screen, rollback, real Gallery/Extra content, map, chat/phone, a full QTE system, mini-games and screenshot file capture.
+Out of scope: canon Gallery content without an approved art/story package, rollback, map, chat/phone, a full QTE framework and mini-games.
 
 ## Отложено или исключено
 
@@ -99,6 +97,7 @@ Implement Gallery / Replay foundation according to [gallery_replay_policy.md](ga
 
 ## Maintenance log
 
+- `8e8bef75525750c4049643dd0e0c1b881fb08dec` - Gallery / Replay Foundation: one neutral `TEST REPLAY` uses profile JSON v1 outside Saves/PlayerPrefs, typed `ReplayEntryDefinition`, a persistent `SceneFlowManager`-owned `ReplaySession`, exact v3-field `GameState` snapshot/restore, backlog/audio/read-history isolation, two-layer Save/Load guards and End Replay. `SaveData` remains v3. Focused smoke, full CI/validator/scene validation, both graphical Save E2E suites and Gallery GUI QA at 1280x720/1920x1080/2560x1440/3840x2160 passed in Unity 6000.5.7f1.
 - `a088a29449f6fc59496c311db3e8162302fba40e` - Timed narrative beat: isolated technical/demo-only `TimedNarrativeBeatController` acquires `BlockingExclusive`, uses unscaled time with visible remaining time/progress, resolves button-versus-timeout exactly once, releases its lease before routing through the existing VN scene path, and has no mid-beat save state. `SaveData` remains v3 and `SaveManager` is unchanged. `TimedNarrativeBeatSmokeTests`, full CI, project validator and scene validation passed in Unity 6000.5.7f1; graphical Play Mode QA is pending.
 - `1d1d7dabf927dd764c6272877d038da9927b1bb0` - Hide UI clean view: `H` is a canonical Help binding. In a stable ordinary dialogue state it hides only the existing dialogue shell and Quick Menu; background and character stay visible. Hidden view is transient, blocks advance/Auto/Skip/save/load/Backlog/Settings/Main Menu/special-mode entry, stops timers without changing Auto or Skip preference, and restores on H or Esc with fresh normal eligibility. Quick Menu preserves previous intentional visibility and special-mode ownership. No middle-click binding or custom screenshot writer was added: player screenshots use system/Steam tools. `HideUiSmokeTests`, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
 - `19584260e053c99bc8abb854764cb0c713d354c9` - Ambience runtime foundation: `AudioManager` now owns two persistent looping ambience sources with a 1.25-second default unscaled crossfade, safe immediate Play/Stop paths and interruption cancellation. `ambientVolume` is applied as setting times per-source fade gain, so Settings updates preserve a live crossfade; Music, SFX and master-volume semantics are unchanged. `AudioAmbienceSmokeTests`, Settings Truth, full CI, validator and scene validation passed in Unity 6000.5.7f1. No `DialogueSceneData` command or authored clip was added, and the player-facing Ambient slider remains intentionally hidden until the first authored ambience scene; `SaveData` remains v3.
@@ -111,7 +110,7 @@ Implement Gallery / Replay foundation according to [gallery_replay_policy.md](ga
 
 - `9647986856fa8c5a545ee375e4a60866a9472212` - Typed conditional choices: added closed numeric condition enums for the nine persisted `GameState` values and three inclusive operators; unavailable choices are hidden through transient source-index mapping. Choice saves and result restore continue to use source indices, `SaveData` remains v3, and zero/capacity paths fail safely. Focused conditional smoke plus the full Unity 6000.5.7f1 CI, project validator and scene validation passed; visual Play Mode QA remains pending.
 
-**Last reviewed functional commit:** `a088a29449f6fc59496c311db3e8162302fba40e`
+**Last reviewed functional commit:** `8e8bef75525750c4049643dd0e0c1b881fb08dec`
 
 ## Правило обновления
 

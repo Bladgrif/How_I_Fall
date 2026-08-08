@@ -8,9 +8,9 @@
 - Повторно просмотрены 25 исходных `.rpy` верхнего уровня в `game`, включая `screens.rpy`, `options.rpy`, `save_name.rpy`, `save_compatibility.rpy`, `gallery.rpy`, `chat.rpy`, `pax.rpy`, `look.rpy`, `lock_minigame.rpy`, `text.rpy` и `script.rpy`–`script9.rpy`.
 - Переводы в `game/tl` использовались только для подтверждения локализованных подписей; они не считаются отдельной реализацией механик.
 - Проверялось поведение и структура систем. Код, тексты, изображения, музыка, UI-assets, названия сюжетных элементов и Ren'Py-архитектура не переносятся.
-- Состояние How I Fall по backlog/save migration повторно проверено на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`; остальные строки сохраняют границы исходного source-only аудита.
+- Gallery / Replay Foundation, backlog/save compatibility and related runtime guards were rechecked on `8e8bef75525750c4049643dd0e0c1b881fb08dec`; other rows retain the boundaries of the original source-only audit.
 - Runtime Eternum не запускался: выводы о собственном коде подтверждены исходниками, а стандартные действия Ren'Py описаны только там, где они явно подключены. Неочевидные engine edge cases помечены как непроверенные запуском.
-- Backlog implementation изменила `SaveData`, runtime restore и tests; story assets, Unity scenes, rollback и `DialogueReadHistory` не менялись.
+- Gallery foundation leaves `SaveData` v3 and campaign saves unchanged: unlocks use separate profile JSON, replay read history is transient, and neutral TEST assets are not canon story.
 
 ## Legend
 
@@ -25,8 +25,8 @@
 - Диалог: `VNDialogueController`, `DialogueSceneData`, `DialogueLine`, typewriter, complete-current-line, обычные выборы, переходы между сценами.
 - Состояние: `GameState`, типизированные stat-delta в `DialogueChoice`, восстановление scene/line/choice state.
 - Save/Load: `SaveManager`, `SaveData` v3, по 6 Manual/Auto/Quick слотов, PNG 384×216, Continue, подтверждения, pre-load autosave, controlled v1/v2 read.
-- UX: `VNQuickMenu`, save-scoped backlog до 100 entries, Auto, seen-aware Skip, toast, VN settings, главное меню.
-- Ограничения: нет rollback, conditional choices, общего unlock registry, relationship feedback, hotspot/map/chat/gallery/QTE/mini-game runtime; значительная часть сохранённых `GameSettings` пока не влияет на игру.
+- UX: `VNQuickMenu`, save-scoped backlog up to 100 entries, Auto, seen-aware Skip, toast, VN settings, Main Menu and a minimal locked/unlocked Gallery panel.
+- Limits: no rollback, general story flag/resource registry, character hub, hotspot/map/chat/full-QTE/mini-game runtime or canon Gallery content; several stored `GameSettings` still have no runtime effect.
 
 ---
 
@@ -286,14 +286,14 @@
 
 | ID | Feature | Eternum / edge / input | HIF value / why | HIF / gap | Dep | Size | Risk | Old |
 |---|---|---|---|---|---|---|---|---|
-| S01 | Seen-image unlock | Replay card is sensitive after a specific image was seen. `gallery.rpy:41-49,247-259`. | LATER when replayable scenes exist. | TODO. | Seen-scene registry | Medium | Medium | EXPANDED |
-| S02 | Persistent unlock-all | `persistent.gallery_unlocked` bypasses seen checks. | NOT NEEDED for normal roadmap; useful QA cheat only. | NOT PLANNED player-facing. | Debug/profile | Small | Low | NEW |
-| S03 | Locked thumbnail state | Locked cards are grayscale/blurred and display a lock label. | LATER. | TODO with gallery. | Gallery UI | Medium | Low | NEW |
-| S04 | Scene replay | `Replay(label, scope, locked=False)` launches a replay label; navigation exposes End Replay. | LATER. | TODO; replay mode must isolate story/save state. | Replay runtime | Large | High | COVERED |
-| S05 | Replay scope variables | Each replay passes only named variables needed to reconstruct variants. `gallery.rpy:47-79,188-193`. | REQUIRED if replay exists. | TODO — define immutable replay context, never reuse live `GameState`. | Replay runtime | Medium | High | NEW |
+| S01 | Seen-image unlock | Replay card is sensitive after a specific image was seen. `gallery.rpy:41-49,247-259`. | LATER when canon replayable scenes exist. | TODO for canon unlock rules; TEST foundation uses explicit Editor unlock only. | Seen-scene registry | Medium | Medium | EXPANDED |
+| S02 | Persistent unlock-all | `persistent.gallery_unlocked` bypasses seen checks. | NOT NEEDED for normal roadmap; useful QA cheat only. | DONE only as an Editor TEST unlock/reset helper; NOT PLANNED player-facing. | Debug/profile | Small | Low | NEW |
+| S03 | Locked thumbnail state | Locked cards are grayscale/blurred and display a lock label. | LATER. | DONE for the neutral TEST card via locked overlay/label; final thumbnail art remains out of scope. | Gallery UI | Medium | Low | NEW |
+| S04 | Scene replay | `Replay(label, scope, locked=False)` launches a replay label; navigation exposes End Replay. | LATER. | DONE (technical foundation) - isolated TEST graph, save/load denial, terminal/failure cleanup and End Replay. | `ReplaySession` | Large | High | COVERED |
+| S05 | Replay scope variables | Each replay passes only named variables needed to reconstruct variants. `gallery.rpy:47-79,188-193`. | REQUIRED if replay exists. | DONE for V1 - immutable `ReplayContext` contains only stable `ReplayId`; campaign snapshot is inaccessible to content. | Replay runtime | Medium | High | NEW |
 | S06 | Filter by category | Modal selector filters replay tags. | LATER after enough content. | NOT PLANNED initially. | Gallery metadata | Medium | Low | NEW |
 | S07 | Filter by character | Character availability gates filter options; relationship hub opens prefiltered. | LATER. | NOT PLANNED initially. | Character registry | Medium | Medium | NEW |
-| S08 | Persistent unlock state | Seen/unlock preference survives sessions independently of normal save. | LATER. | TODO only with profile/unlock registry. | Profile data | Medium | High | COVERED |
+| S08 | Persistent unlock state | Seen/unlock preference survives sessions independently of normal save. | LATER. | DONE - versioned fail-closed `GalleryReplayProfile.json` under persistent profile storage, outside Saves/PlayerPrefs. | `ReplayUnlockRegistry` | Medium | High | COVERED |
 
 ## T. QTE
 
@@ -336,7 +336,7 @@
 | V04 | Dynamic help page | Help switches keyboard/mouse/gamepad and hides gamepad tab if unavailable. | USEFUL before public build. | DONE — Main Menu Help is generated from `VNInputMap` for real keyboard bindings; no mouse/gamepad variant or rebinding. | Input map | Medium | Low | NEW |
 | V05 | Responsive touch variant | Ren'Py supplies small/touch styles and changes quick menu. | LATER mobile. | NOT PLANNED current PC target. | Platform UI | Large | Medium | NEW |
 | V06 | Screenshot notification | Screenshot action is documented and uses notify feedback. | LATER. | TODO/NOT PLANNED now. | K10/M01 | Small | Low | NEW |
-| V07 | Replay-aware navigation | Save actions disappear in replay and End Replay replaces them. | REQUIRED only with replay. | TODO. | S04 | Medium | High | NEW |
+| V07 | Replay-aware navigation | Save actions disappear in replay and End Replay replaces them. | REQUIRED only with replay. | DONE - Save/QSave/QLoad/Load are hidden and backend-denied; Main Menu becomes End Replay while History/Skip/Auto/Settings remain. | S04 | Medium | High | NEW |
 | V08 | External-link actions | UI opens community pages in browser. | NOT NEEDED core game. | NOT PLANNED. | Platform | Small | Low | NEW |
 
 ---
@@ -374,18 +374,19 @@
 
 ## How I Fall gaps that matter now
 
-1. Relationship changes have no player-facing feedback despite existing relationship fields.
-2. Main/VN settings still store several options that do nothing: refresh rate, language, font size, look/style and animation toggles. `ambientVolume` now has a runtime consumer, but its player-facing control remains intentionally hidden until authored ambience content exists.
-3. Input bindings are centralized in `VNInputMap` and Main Menu Help; H clean view is implemented, while rebinding and mouse/gamepad help variants remain absent.
-4. A scene-local special-mode coordinator now hosts one isolated technical timed-beat demo; it has no canonical story scene, characters or GameState effects. Clean view blocks entry while the beat is active.
-5. Typed conditional choices are implemented for the nine persisted numeric GameState values; generic flags and other condition families remain intentionally out of scope.
+1. Relationship feedback exists, but there is still no authored character hub/bios contract or spoiler/locked-state policy.
+2. Main/VN settings still store options with no runtime effect: refresh rate, language, font size, look/style and animation toggles. The Ambient slider remains hidden until authored ambience exists.
+3. Input bindings are centralized in `VNInputMap` and Main Menu Help; rebinding and mouse/gamepad help variants remain absent.
+4. Gallery/replay has a tested neutral foundation only; canon replay data, thumbnails and narrative unlock rules remain intentionally absent.
+5. Typed conditional choices cover the nine persisted numeric `GameState` values; generic story flags/resources and other condition families remain out of scope.
 
 ## Audit conclusion
 
-Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now includes an isolated timed narrative beat technical demo under `BlockingExclusive`: it uses an unscaled visible timer, exactly-once click/timeout routing and no mid-beat save state, while `SaveData` stays v3. The feature is explicitly not canon story and not a full QTE framework. Full CI, project validator and scene validation passed on `a088a29449f6fc59496c311db3e8162302fba40e` in Unity 6000.5.7f1; graphical Play Mode QA remains pending. The next selected roadmap item is gallery/replay foundation, only after real extra content exists.
+Eternum remains a behavior reference only. How I Fall now has a neutral Gallery / Replay technical foundation: one typed TEST entry, versioned profile unlocks, transactional campaign-state/backlog/audio isolation, replay-local read history, two-layer save/load denial and controlled End Replay. `SaveData` remains v3, and no canon story, character, artwork or Eternum asset/text/code was added. Focused smoke, full CI/validator/scene validation, both graphical Save E2E suites and exact-size Gallery GUI QA passed on `8e8bef75525750c4049643dd0e0c1b881fb08dec` in Unity 6000.5.7f1.
 
 ## Maintenance log
 
+- `8e8bef75525750c4049643dd0e0c1b881fb08dec` - Gallery / Replay Foundation: TEST-only profile unlock registry, typed replay entry/context, persistent session transaction, exact campaign restore, isolated backlog/read history/audio, save/load guards, minimal Gallery and End Replay. `SaveData` remains v3. Full CI/validator/scene validation, both graphical Save E2E suites and Gallery GUI QA at 1280x720/1920x1080/2560x1440/3840x2160 passed in Unity 6000.5.7f1.
 - `a088a29449f6fc59496c311db3e8162302fba40e` - Timed narrative beat technical demo: full CI, project validator and scene validation passed in Unity 6000.5.7f1. Graphical Play Mode QA is pending.
 
-**Last reviewed functional commit:** `a088a29449f6fc59496c311db3e8162302fba40e`
+**Last reviewed functional commit:** `8e8bef75525750c4049643dd0e0c1b881fb08dec`
