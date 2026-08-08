@@ -23,6 +23,8 @@ public static class SettingsTruthSmokeTests
         Require(Mathf.Approximately(VNDialogueController.GetSkipCadenceSeconds(SettingsOptionValues.ClassicSkip), 0.12f), "Classic skip must use the normal cadence.");
         Require(VNDialogueController.GetSkipCadenceSeconds(SettingsOptionValues.FastSkip) < VNDialogueController.GetSkipCadenceSeconds(SettingsOptionValues.ClassicSkip), "Fast skip must use a faster cadence.");
         Require(Mathf.Approximately(VNDialogueController.GetAutoForwardDelaySeconds(250f), 2.5f), "Auto-forward delay must remain a runtime delay.");
+        Require(typeof(GameSettings).GetField(nameof(GameSettings.ambientVolume)) != null, "Ambient volume preference must remain available for the runtime channel.");
+        Require(typeof(AudioManager).GetMethod(nameof(AudioManager.ApplyAmbienceVolumes)) != null, "Ambient volume preference must have an AudioManager runtime consumer.");
     }
 
     private static void Require(bool condition, string message)
