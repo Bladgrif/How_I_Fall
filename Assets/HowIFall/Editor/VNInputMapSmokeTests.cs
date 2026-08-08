@@ -23,6 +23,7 @@ public static class VNInputMapSmokeTests
         RequireBinding(VNInputAction.QuickLoad, "F8", "\u0411\u044b\u0441\u0442\u0440\u0430\u044f \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430");
         RequireBinding(VNInputAction.OpenLoad, "F9", "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c");
         RequireBinding(VNInputAction.ShowBacklog, "B", "\u0418\u0441\u0442\u043e\u0440\u0438\u044f");
+        RequireBinding(VNInputAction.ToggleInterfaceVisibility, "H", "\u0421\u043a\u0440\u044b\u0442\u044c / \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441");
         RequireBinding(VNInputAction.CloseOrCancel, "Esc", "\u041d\u0430\u0437\u0430\u0434 / \u0437\u0430\u043a\u0440\u044b\u0442\u044c \u043e\u043a\u043d\u043e");
 
         string helpText = VNInputMap.BuildHelpText();

@@ -11,6 +11,7 @@ public enum VNInputAction
     QuickLoad,
     OpenLoad,
     ShowBacklog,
+    ToggleInterfaceVisibility,
     CloseOrCancel,
     ToggleDebugStatsView,
     ToggleDebugStatsPanel
@@ -43,6 +44,7 @@ public static class VNInputMap
         new(VNInputAction.QuickLoad, "\u0411\u044b\u0441\u0442\u0440\u0430\u044f \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430", "F8", true),
         new(VNInputAction.OpenLoad, "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c", "F9", true),
         new(VNInputAction.ShowBacklog, "\u0418\u0441\u0442\u043e\u0440\u0438\u044f", "B", true),
+        new(VNInputAction.ToggleInterfaceVisibility, "\u0421\u043a\u0440\u044b\u0442\u044c / \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441", "H", true),
         new(VNInputAction.CloseOrCancel, "\u041d\u0430\u0437\u0430\u0434 / \u0437\u0430\u043a\u0440\u044b\u0442\u044c \u043e\u043a\u043d\u043e", "Esc", true),
         new(VNInputAction.ToggleDebugStatsView, "Toggle debug stats view", "F2", false),
         new(VNInputAction.ToggleDebugStatsPanel, "Toggle debug stats panel", "F3", false)
@@ -66,6 +68,7 @@ public static class VNInputMap
             VNInputAction.QuickLoad => keyboard.f8Key.wasPressedThisFrame,
             VNInputAction.OpenLoad => keyboard.f9Key.wasPressedThisFrame,
             VNInputAction.ShowBacklog => keyboard.bKey.wasPressedThisFrame,
+            VNInputAction.ToggleInterfaceVisibility => keyboard.hKey.wasPressedThisFrame,
             VNInputAction.CloseOrCancel => keyboard.escapeKey.wasPressedThisFrame,
             VNInputAction.ToggleDebugStatsView => keyboard.f2Key.wasPressedThisFrame,
             VNInputAction.ToggleDebugStatsPanel => keyboard.f3Key.wasPressedThisFrame,

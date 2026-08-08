@@ -19,6 +19,7 @@ public static class HowIFallCiSmokeTests
             Run("Settings truth", SettingsTruthSmokeTests.RunBatchMode);
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
             Run("VN input map", VNInputMapSmokeTests.RunBatchMode);
+            Run("Hide UI", HideUiSmokeTests.RunBatchMode);
             Run("Relationship feedback", RelationshipFeedbackSmokeTests.RunBatchMode);
             Run("Conditional choices", ConditionalChoicesSmokeTests.RunBatchMode);
             Run("Save backend v3", ManualSaveSystemV1SmokeTests.RunBatchMode);

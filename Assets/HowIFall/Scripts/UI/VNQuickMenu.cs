@@ -35,6 +35,8 @@ public sealed class VNQuickMenu : MonoBehaviour
     }
 
     private bool hiddenBySpecialMode;
+    private bool hiddenByPlayer;
+    private bool wasVisibleBeforePlayerHide;
 
     private void Update()
     {
@@ -46,16 +48,54 @@ public sealed class VNQuickMenu : MonoBehaviour
     public void RefreshSpecialModeVisibility()
     {
         bool canOpenQuickMenu = dialogueController == null || dialogueController.CanOpenQuickMenu;
-        if (!canOpenQuickMenu && root != null && root.activeSelf)
+        if (!canOpenQuickMenu)
         {
-            root.SetActive(false);
-            hiddenBySpecialMode = true;
+            if (root != null && root.activeSelf)
+            {
+                root.SetActive(false);
+                hiddenBySpecialMode = true;
+            }
+
+            return;
         }
-        else if (canOpenQuickMenu && hiddenBySpecialMode && root != null)
+
+        if (hiddenBySpecialMode)
+        {
+            hiddenBySpecialMode = false;
+            if (!hiddenByPlayer && root != null)
+            {
+                root.SetActive(true);
+            }
+        }
+    }
+
+    /// <summary>Temporarily hides the menu for the player's clean-view request without changing its normal visibility policy.</summary>
+    public void SetPlayerInterfaceHidden(bool hidden)
+    {
+        if (hidden == hiddenByPlayer)
+        {
+            return;
+        }
+
+        if (hidden)
+        {
+            wasVisibleBeforePlayerHide = root != null && root.activeSelf;
+            hiddenByPlayer = true;
+            if (root != null && root.activeSelf)
+            {
+                root.SetActive(false);
+            }
+
+            return;
+        }
+
+        hiddenByPlayer = false;
+        if (!hiddenBySpecialMode && wasVisibleBeforePlayerHide && root != null)
         {
             root.SetActive(true);
-            hiddenBySpecialMode = false;
         }
+
+        wasVisibleBeforePlayerHide = false;
     }
 
     private void TryInvokeQuickMenuAction(UnityEngine.Events.UnityAction action)

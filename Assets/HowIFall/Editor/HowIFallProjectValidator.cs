@@ -118,6 +118,7 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.characterImage", controller.characterImage);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.nameBox", controller.nameBox);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.nextButton", controller.nextButton);
+        issues += ValidateRequiredReference(sceneName, "VNDialogueController.dialogueUiRoot", controller.dialogueUiRoot);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.choicePanel", controller.choicePanel);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.choiceMashaButton", controller.choiceMashaButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.choiceArtemButton", controller.choiceArtemButton);

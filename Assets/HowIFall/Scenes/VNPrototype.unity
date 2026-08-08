@@ -8845,6 +8845,7 @@ MonoBehaviour:
   characterImage: {fileID: 484653053}
   nameBox: {fileID: 836355380}
   nextButton: {fileID: 658175718}
+  dialogueUiRoot: {fileID: 1816929753}
   choiceDimOverlay: {fileID: 873810329}
   choicePanel: {fileID: 934895944}
   choiceMashaButton: {fileID: 1900200395}

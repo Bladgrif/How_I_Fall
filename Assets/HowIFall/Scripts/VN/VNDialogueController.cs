@@ -23,6 +23,7 @@ public class VNDialogueController : MonoBehaviour
     public Image characterImage;
     public GameObject nameBox;
     public Button nextButton;
+    public GameObject dialogueUiRoot;
     public GameObject choiceDimOverlay;
     public GameObject choicePanel;
     public Button choiceMashaButton;
@@ -89,15 +90,17 @@ public class VNDialogueController : MonoBehaviour
     private DialogueLine displayedLine;
     private SpecialModeCoordinator specialModeCoordinator;
     private bool specialModeWasActive;
+    private bool isInterfaceHidden;
 
+    public bool IsInterfaceHidden => isInterfaceHidden;
     public bool HasActiveSpecialMode => specialModeCoordinator != null && specialModeCoordinator.HasActiveOwner;
-    public bool CanAdvanceDialogue => specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked;
-    public bool CanSave => specialModeCoordinator == null || specialModeCoordinator.CanSave;
-    public bool CanLoad => specialModeCoordinator == null || specialModeCoordinator.CanLoad;
-    public bool CanOpenQuickMenu => specialModeCoordinator == null || specialModeCoordinator.CanOpenQuickMenu;
-    public bool CanOpenBacklog => specialModeCoordinator == null || specialModeCoordinator.CanOpenBacklog;
-    public bool CanOpenSettings => specialModeCoordinator == null || specialModeCoordinator.CanOpenSettings;
-    public bool CanReturnToMainMenu => specialModeCoordinator == null || specialModeCoordinator.CanReturnToMainMenu;
+    public bool CanAdvanceDialogue => !isInterfaceHidden && (specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked);
+    public bool CanSave => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanSave);
+    public bool CanLoad => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanLoad);
+    public bool CanOpenQuickMenu => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenQuickMenu);
+    public bool CanOpenBacklog => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenBacklog);
+    public bool CanOpenSettings => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenSettings);
+    public bool CanReturnToMainMenu => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanReturnToMainMenu);
 
     private void Awake()
     {
@@ -237,12 +240,29 @@ public class VNDialogueController : MonoBehaviour
         RefreshSpecialModeOwnerLifecycle();
         RefreshAutoForwardState();
 
+        if (isInterfaceHidden)
+        {
+            if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleInterfaceVisibility)
+                || VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
+            {
+                RestoreInterface();
+            }
+
+            return;
+        }
+
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleInterfaceVisibility))
+        {
+            TryHideInterface();
+            return;
+        }
+
         if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleSkip))
         {
             ToggleSkip();
         }
 
-        if (VNInputMap.WasPressedThisFrame(VNInputAction.OpenSave))
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.OpenSave) && CanSave)
         {
             manualSaveLoadPanel?.OpenSave();
         }
@@ -257,7 +277,7 @@ public class VNDialogueController : MonoBehaviour
             RequestQuickLoad();
         }
 
-        if (VNInputMap.WasPressedThisFrame(VNInputAction.OpenLoad))
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.OpenLoad) && CanLoad)
         {
             manualSaveLoadPanel?.OpenLoad();
         }
@@ -300,6 +320,59 @@ public class VNDialogueController : MonoBehaviour
                 return;
             }
         }
+    }
+
+    public bool TryHideInterface()
+    {
+        if (isInterfaceHidden || IsHideInterfaceBlocked())
+        {
+            return false;
+        }
+
+        isInterfaceHidden = true;
+        StopAutoForwardTimer();
+        StopSkipTimer();
+        if (dialogueUiRoot != null)
+        {
+            dialogueUiRoot.SetActive(false);
+        }
+
+        FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetPlayerInterfaceHidden(true);
+        return true;
+    }
+
+    public void RestoreInterface()
+    {
+        if (!isInterfaceHidden)
+        {
+            return;
+        }
+
+        isInterfaceHidden = false;
+        if (dialogueUiRoot != null)
+        {
+            dialogueUiRoot.SetActive(true);
+        }
+
+        FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetPlayerInterfaceHidden(false);
+        StartAutoForwardDelayIfReady();
+        StartSkipDelayIfReady();
+    }
+
+    private bool IsHideInterfaceBlocked()
+    {
+        return HasActiveSpecialMode
+            || showingChoice
+            || isTyping
+            || quickSaveInProgress
+            || autoSaveInProgress
+            || preLoadAutoSavePending
+            || (choicePanel != null && choicePanel.activeSelf)
+            || (backlogPanel != null && backlogPanel.activeSelf)
+            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
+            || (confirmExitPanel != null && confirmExitPanel.activeSelf)
+            || (notificationPanel != null && notificationPanel.activeSelf);
     }
 
     public bool TryEnterSpecialMode(UnityEngine.Object owner, SpecialModePolicy policy, out SpecialModeLease lease)
@@ -363,6 +436,11 @@ public class VNDialogueController : MonoBehaviour
 
     private string GetSpecialModeEntryBlockerReason()
     {
+        if (isInterfaceHidden)
+        {
+            return "hidden interface";
+        }
+
         if (showingChoice || (choicePanel != null && choicePanel.activeSelf))
         {
             return "ordinary choice";
@@ -482,6 +560,12 @@ public class VNDialogueController : MonoBehaviour
         if (!IsActiveControllerInCurrentScene())
         {
             Debug.LogWarning("[PRE-LOAD AUTO SAVE] Request ignored because VNDialogueController is not active in the current scene.", this);
+            onCompleted?.Invoke(false);
+            return;
+        }
+
+        if (!CanLoad)
+        {
             onCompleted?.Invoke(false);
             return;
         }
@@ -661,7 +745,8 @@ public class VNDialogueController : MonoBehaviour
 
     private bool IsAdvanceBlockedByOpenPanel()
     {
-        return (choicePanel != null && choicePanel.activeSelf)
+        return isInterfaceHidden
+            || (choicePanel != null && choicePanel.activeSelf)
             || (backlogPanel != null && backlogPanel.activeSelf)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf)
             || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
@@ -674,6 +759,11 @@ public class VNDialogueController : MonoBehaviour
     /// </summary>
     public void SetAutoForward(bool enabled)
     {
+        if (isInterfaceHidden)
+        {
+            return;
+        }
+
         SettingsManager.Instance?.SetAutoForward(enabled);
         observedAutoForward = enabled;
 
@@ -698,7 +788,7 @@ public class VNDialogueController : MonoBehaviour
     /// </summary>
     public void SetSkip(bool enabled)
     {
-        if (specialModeCoordinator != null && specialModeCoordinator.IsSkipBlocked)
+        if (isInterfaceHidden || (specialModeCoordinator != null && specialModeCoordinator.IsSkipBlocked))
         {
             return;
         }
@@ -787,6 +877,7 @@ public class VNDialogueController : MonoBehaviour
     {
         StopSkipTimer();
         if (skipEnabled
+            && !isInterfaceHidden
             && (specialModeCoordinator == null || !specialModeCoordinator.IsSkipBlocked)
             && !IsAdvanceBlockedByOpenPanel()
             && !showingChoice
@@ -811,6 +902,7 @@ public class VNDialogueController : MonoBehaviour
         skipCoroutine = null;
 
         if (!skipEnabled
+            || isInterfaceHidden
             || (specialModeCoordinator != null && specialModeCoordinator.IsSkipBlocked)
             || IsAdvanceBlockedByOpenPanel()
             || showingChoice
@@ -944,6 +1036,7 @@ public class VNDialogueController : MonoBehaviour
             && !showingChoice
             && !showingEndLine
             && activeLines != null
+            && !isInterfaceHidden
             && (specialModeCoordinator == null || !specialModeCoordinator.IsAutoBlocked)
             && !IsAdvanceBlockedByOpenPanel();
     }
@@ -1673,6 +1766,7 @@ public class VNDialogueController : MonoBehaviour
         isValid &= ValidateReference(dialogueText, nameof(dialogueText));
         isValid &= ValidateReference(nameBox, nameof(nameBox));
         isValid &= ValidateReference(nextButton, nameof(nextButton));
+        isValid &= ValidateReference(dialogueUiRoot, nameof(dialogueUiRoot));
         isValid &= ValidateReference(choicePanel, nameof(choicePanel));
         isValid &= ValidateReference(choiceMashaButton, nameof(choiceMashaButton));
         isValid &= ValidateReference(choiceArtemButton, nameof(choiceArtemButton));
@@ -2050,6 +2144,11 @@ public class VNDialogueController : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (isInterfaceHidden)
+        {
+            RestoreInterface();
+        }
+
         specialModeCoordinator?.ForceClearForHostLifecycle("VNDialogueController destroyed");
         StopSkipTimer();
         StopAutoForwardTimer();
