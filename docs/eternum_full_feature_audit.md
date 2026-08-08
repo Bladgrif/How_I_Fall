@@ -53,7 +53,7 @@
 | B01 | Desktop quick actions | Back, History, Skip, Auto, Save, Q.Save, Q.Load, Preferences доступны поверх игры. `screens.rpy:308-334`. | REQUIRED — быстрый VN-контур. | DONE except Back — `VNQuickMenu` вызывает существующие APIs. | Existing services | Small | Medium | COVERED |
 | B02 | Runtime active state | Ren'Py `Preference`/`Skip` actions expose selected state; HIF visibly colors Auto/Skip. | REQUIRED — игрок понимает режим. | DONE для Auto/Skip; save/load disabled-state не отражается заранее. | UI state | Small | Low | EXPANDED |
 | B03 | Persistent quick-menu visibility | Preferences globally enable/disable panel; textbox geometry changes accordingly. `options.rpy:334`, `screens.rpy:112-119,1477-1482`. | USEFUL — минималистичный режим. | TODO — HIF quick menu always scene-configured. | Settings + layout | Small | Low | NEW |
-| B04 | Modal/choice priority | Modal screens capture input; quick menu remains an overlay but no custom per-QTE disable policy is declared. Exact hotkey behavior requires runtime confirmation. | REQUIRED — исключить скрытые clicks. | DONE/PARTIAL — HIF dialogue/save APIs block known panels; generic future modal contract отсутствует. | Modal coordinator | Medium | High | EXPANDED |
+| B04 | Modal/choice priority | Modal screens capture input; quick menu remains an overlay but no custom per-QTE disable policy is declared. Exact hotkey behavior requires runtime confirmation. | REQUIRED - exclude hidden clicks. | DONE - a scene-local special-mode coordinator blocks direct and hotkey routes while ordinary choices and normal modals retain their own ownership. | Modal coordinator | Medium | High | EXPANDED |
 | B05 | Touch quick menu | Touch variant reduces actions to Back, Skip, Auto, Menu and uses larger controls. `screens.rpy:2185-2204`. | LATER — если будет mobile. | NOT PLANNED for current PC slice. | Platform UX | Medium | Medium | NEW |
 
 ## C. Save / Load
@@ -86,7 +86,7 @@
 | D01 | Auto toggle | Quick menu and Alt+A toggle Ren'Py auto-forward. `screens.rpy:324,1746-1749`, `options.rpy:354`. | REQUIRED comfort. | DONE — quick menu/VN settings; no Alt+A. | Settings | Small | Low | COVERED |
 | D02 | Auto delay | `preferences.afm_time` and slider control delay. `options.rpy:127-130`, `screens.rpy:1323-1325`. | REQUIRED. | DONE — 0.5–5.0 sec mapping; label still stored/displayed as historical percent in some UI. | Settings UI | Small | Medium | EXPANDED |
 | D03 | Stop at choice | Engine auto waits at menu; player input selects branch. | REQUIRED — Auto must not choose. | DONE — `showingChoice` blocks timer. | Choice state | — | Low | EXPANDED |
-| D04 | Pause on modal/menu | Game menu/modal interaction pauses/interrupts auto; resume starts from visible dialogue. | REQUIRED. | DONE for known backlog/settings/save/confirm panels; future generic modals not registered. | Modal coordinator | Medium | Medium | EXPANDED |
+| D04 | Pause on modal/menu | Game menu/modal interaction pauses/interrupts auto; resume starts from visible dialogue. | REQUIRED. | DONE for known backlog/settings/save/confirm panels and the special-mode coordinator; a special exit starts a fresh Auto delay. | Modal coordinator | Medium | Medium | EXPANDED |
 | D05 | Auto vs Skip | Ren'Py modes are separate controls; active skip drives advancement. | REQUIRED deterministic input. | DONE — enabling Skip stops Auto timer; disabling restarts Auto if configured. | VNDialogueController | — | Medium | NEW |
 
 ## E. Skip
@@ -218,7 +218,7 @@
 | M03 | Relationship feedback | Heartbeat/heart overlays act as diegetic point-change feedback. | USEFUL, must be original. | TODO — preferred next roadmap item. | GameState + M01 | Small | Low | NEW |
 | M04 | Generic Yes/No modal | `confirm` is modal/zorder 200; Esc/right-click selects No. | REQUIRED. | DONE for overwrite/delete/load/exit, implemented by separate panels. | Modal stack | — | Medium | COVERED |
 | M05 | Error presentation | Ren'Py engine errors are not represented by a custom player-facing recovery UI in inspected scripts. | REQUIRED for saves only. | DONE/PARTIAL — save UI shows slot errors; other service errors mostly log. | Error policy | Medium | Medium | NEW |
-| M06 | Confirmation focus/cancel | Modal blocks underlying input and offers keyboard cancel. | REQUIRED. | DONE for known panels; a single reusable modal coordinator is absent. | Modal stack | Medium | Medium | EXPANDED |
+| M06 | Confirmation focus/cancel | Modal blocks underlying input and offers keyboard cancel. | REQUIRED. | DONE for known panels; special-mode Escape uses an explicit typed cancel contract without replacing normal modal ownership. | Modal stack | Medium | Medium | EXPANDED |
 
 ## N. Audio
 
@@ -305,7 +305,7 @@
 | T04 | Wrong-target failure | Some QTE screens show multiple targets where incorrect click immediately fails. | LATER. | NOT PLANNED until accessibility design. | QTE runner | Medium | High | NEW |
 | T05 | Difficulty/time variants | Timers vary roughly 1.5–5s; fail can set a flag before routing. | LATER; needs accessibility multiplier/skip. | TODO only with first QTE. | Settings + QTE | Medium | High | NEW |
 | T06 | Retry/death flow | Scripts route fail to lose/death labels; retry is story-specific, not a universal QTE control. | LATER. | TODO policy. | Checkpoint policy | Medium | High | NEW |
-| T07 | Save/Auto/Skip restrictions | No explicit source guard was found around QTE calls; safe behavior is not demonstrated. | REQUIRED architecture before implementation. | TODO — QTE mode must block save/auto/skip or serialize complete QTE state. | Scene-mode coordinator | Large | High | EXPANDED |
+| T07 | Save/Auto/Skip restrictions | No explicit source guard was found around QTE calls; safe behavior is not demonstrated. | REQUIRED architecture before implementation. | DONE - future BlockingExclusive owners block save/load/Auto/Skip; a QTE still needs its own authored state and save contract. | Scene-mode coordinator | Large | High | EXPANDED |
 
 ## U. Mini-games
 
@@ -377,9 +377,9 @@
 1. Relationship changes have no player-facing feedback despite existing relationship fields.
 2. Main/VN settings store several options that do nothing: resolution, refresh rate, language, font size, look/style, animation toggles; ambience volume has no source.
 3. Input bindings are centralized in `VNInputMap` and Main Menu Help; rebinding and mouse/gamepad help variants remain absent.
-4. There is no generic modal/special-scene coordinator for future QTE/map/chat/save restrictions.
+4. A scene-local special-mode coordinator now owns one exclusive future QTE/map/chat interaction and blocks unsafe normal VN routes; no authored special scene exists yet.
 5. Typed conditional choices are implemented for the nine persisted numeric GameState values; generic flags and other condition families remain intentionally out of scope.
 
 ## Audit conclusion
 
-Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now covers the core dialogue choice layer, including typed hidden conditional choices, while preserving the v3 save backbone. The next structural gap is a minimal modal/special-mode coordinator for future authored interactive scenes.
+Eternum remains a reference for a mature VN shell: save families, readable navigation, Auto/Skip/History, relationship feedback, persistent seen/unlock state, and occasional self-contained interactive modes. How I Fall now covers the core dialogue choice layer, including typed hidden conditional choices, while preserving the v3 save backbone. The next structural UX gap is a safe Hide UI + screenshot workflow; future authored interactive scenes can use the coordinator when separately scoped.

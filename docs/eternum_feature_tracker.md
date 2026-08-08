@@ -5,7 +5,7 @@
 Компактный roadmap по UX-механикам, повторно проверенным в локальной русской сборке **Eternum 0.9.5**. Полная инвентаризация 199 пунктов A–V, edge cases и источники вынесены в [eternum_full_feature_audit.md](eternum_full_feature_audit.md).
 
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
-- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на functional `9647986856fa8c5a545ee375e4a60866a9472212` и docs `ab64517f2b66915028c0942895c1c83c8b726033`.
+- Срез How I Fall: текущие C#-скрипты, Unity-сцены, данные и тесты на functional `e15003f28ee1029d3aa6fe712438c63c1d786b15` и docs `ab64517f2b66915028c0942895c1c83c8b726033`.
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
 - Runtime Eternum в этой задаче не запускался; Unity 6000.5.7f1 прошёл общий CI/validator/scene validation и оба graphical Save E2E на `9d7be27db11ffcdabc6bb2ec56845440c6647b2f`.
 
@@ -42,7 +42,7 @@
 | Gallery/replay | Кнопка Gallery пока сообщает `not implemented`; unlock/replay scope отсутствуют | ⬜ TODO | Делать только вместе с первым реальным extra | Low / High |
 | Chat/phone | Отдельного формата сцены нет | ⬜ TODO | Typed conditions/effects, медиа и возврат в VN | Low / Medium |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
-| QTE/special mode | Policy для единственного exclusive special owner определена; runtime coordinator и authored special scene отсутствуют | ⬜ TODO | Реализовать coordinator по [special_mode_coordinator_policy.md](special_mode_coordinator_policy.md); map/QTE/chat остаются отдельными задачами | Medium / High |
+| QTE/special mode | Scene-local `VNDialogueController` coordinator owns one exclusive special lease with fail-closed `BlockingExclusive`; authored special scenes remain absent | DONE | Keep map/QTE/chat as separately scoped work with their own local state and exit route | Medium / High |
 | Mini-games | Отсутствуют | 🚫 NOT PLANNED | Не строить без утверждённой сюжетной функции | — / High |
 
 ## Проверенные различия с прежним tracker
@@ -53,7 +53,7 @@
 - Quick menu, Auto и seen-aware Skip уже готовы; их нельзя повторно планировать как отсутствующие механики.
 - Continue — собственное улучшение How I Fall, а не функция для копирования из активного главного меню Eternum.
 - Настройки resolution, refresh rate, language, font size, game look/interface style и часть animation toggles сохраняются, но пока не меняют игру. Их нельзя отмечать `DONE`.
-- Backlog реализован по [backlog_restoration_policy.md](backlog_restoration_policy.md): `SaveData` v3 хранит save-scoped snapshot, Load/Continue заменяют runtime History, v1/v2 используют empty fallback с одной восстановленной visible line/resultText. Rollback, общий unlock registry и gallery/replay отсутствуют; для special-mode coordinator определена только policy в [special_mode_coordinator_policy.md](special_mode_coordinator_policy.md), runtime ещё отсутствует. Relationship feedback остаётся transient toast и не сохраняется.
+- Backlog реализован по [backlog_restoration_policy.md](backlog_restoration_policy.md): `SaveData` v3 хранит save-scoped snapshot, Load/Continue заменяют runtime History, v1/v2 используют empty fallback с одной восстановленной visible line/resultText. Rollback, общий unlock registry и gallery/replay отсутствуют; special-mode coordinator now has a scene-local runtime bridge with opaque leases, permission gates and focused smoke coverage; authored special scenes remain absent. Relationship feedback remains transient toast and is not saved.
 
 ## Рекомендуемые следующие механики
 
@@ -65,7 +65,7 @@
 | 2 | Unified input map + Help | Canonical map drives runtime and Main Menu Help; no rebinding framework | VN actions, modal policy | Medium | Low | **DONE** |
 | 3 | Backlog restoration | Save-scoped v3 snapshot без merge; legacy fallback и scoped suppression проверены | v3 schema, migration/tests, graphical E2E | Medium | High | **DONE** |
 | 4 | Typed conditional choices | Typed numeric AND conditions, source-index mapping and fail-safe fallback are implemented and covered by CI. | `ChoiceCondition`, `GameState`, dialogue validator | Medium | Low | **DONE** |
-| 5 | Unified modal/special-mode coordinator | Policy establishes exclusive ownership, blocking, cleanup and save rules for future interactive scenes; runtime is still absent. | [special_mode_coordinator_policy.md](special_mode_coordinator_policy.md), input/modal entry gates | Medium | High | **policy decided / implementation TODO** |
+| 5 | Unified modal/special-mode coordinator | Scene-local exclusive owner, opaque lease, fail-closed permissions and normal-modal entry gates are implemented; map/QTE/chat remain deferred. | [special_mode_coordinator_policy.md](special_mode_coordinator_policy.md), input/modal entry gates | Medium | High | **DONE** |
 | 6 | Hide UI + screenshot UX | Дешёвый VN comfort без влияния на state | input map, UI visibility owner | Small | Low | После input map |
 | 7 | Ambience channel/crossfade | Поддерживает скрытую тревогу и разделяет ambience от SFX | `AudioManager`, настройки, scene command | Medium | Medium | Под конкретную сцену |
 | 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
@@ -73,9 +73,9 @@
 
 ## Единственный NEXT
 
-### Implement unified modal/special-mode coordinator
+### Hide UI + screenshot UX
 
-Policy is decided in [special_mode_coordinator_policy.md](special_mode_coordinator_policy.md): a scene-local `VNDialogueController`-owned exclusive special owner, fail-closed default permissions, fresh Auto delay after exit, paused Skip progression, and no `SaveData` v4. Implement the bounded coordinator bridge and smoke coverage before authoring map/QTE/chat content.
+Add a safe, separately owned Hide UI + screenshot workflow that does not change dialogue or save state. Confirm runtime bindings and Quick Menu visibility ownership first; do not extend map/QTE/chat.
 
 **Out of NEXT:** relationship screen, rollback, gallery, map, QTE, chat/phone and mini-games.
 
@@ -90,6 +90,7 @@ Policy is decided in [special_mode_coordinator_policy.md](special_mode_coordinat
 
 ## Maintenance log
 
+- `e15003f28ee1029d3aa6fe712438c63c1d786b15` — Unified modal/special-mode coordinator: scene-local `VNDialogueController` owns a plain-C# exclusive coordinator with opaque generation-bound leases and fail-closed `BlockingExclusive`. Advance, Auto, Skip, save/load, Backlog, Settings, Quick Menu, Escape and Main Menu paths use permission gates; normal modals and ordinary choices remain outside coordinator ownership. Focused coordinator/integration smoke, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
 - `9d7be27db11ffcdabc6bb2ec56845440c6647b2f` — Backlog restoration: `SaveData` v3 хранит до 100 raw entries на slot; Manual/Auto/Quick и pre-load Auto capture один runtime source. In-place Load и scene reload/Continue заменяют History, restore suppression исключает duplicate current line/resultText, а failure возвращает прежние GameState/backlog. V1 Manual и v2 Manual/Auto/Quick остаются loadable без переписывания JSON; malformed optional snapshot не блокирует core Load. Focused smoke, общий CI/validator/scene validation, Manual graphical E2E и Save Backend graphical E2E прошли в Unity 6000.5.7f1.
 - `b5b47a108366e70c329e8de9ed63bf8b5abe8af2` — Unified input map + Help: `VNInputMap` используется runtime и Main Menu Help. Player Help показывает Ctrl/F5/F6/F8/F9/B/Esc; F2/F3 остаются скрытыми debug bindings; rebinding и InputAction asset не добавлялись. CI, project validator и scene validation passed в Unity 6000.5.7f1; visual Help QA pending.
 - `b62435651f3a2af3606584724989eccb6108b461` — Settings mapping fix: canonical Unicode-escape option constants are shared by UI, runtime and smoke tests. Windowed, borderless fullscreen compatibility and fast skip cadence now map to their intended runtime values; no autosave/pre-load routing changed.
@@ -98,7 +99,7 @@ Policy is decided in [special_mode_coordinator_policy.md](special_mode_coordinat
 
 - `9647986856fa8c5a545ee375e4a60866a9472212` - Typed conditional choices: added closed numeric condition enums for the nine persisted `GameState` values and three inclusive operators; unavailable choices are hidden through transient source-index mapping. Choice saves and result restore continue to use source indices, `SaveData` remains v3, and zero/capacity paths fail safely. Focused conditional smoke plus the full Unity 6000.5.7f1 CI, project validator and scene validation passed; visual Play Mode QA remains pending.
 
-**Last reviewed functional commit:** `9647986856fa8c5a545ee375e4a60866a9472212`
+**Last reviewed functional commit:** `e15003f28ee1029d3aa6fe712438c63c1d786b15`
 
 ## Правило обновления
 
