@@ -10,7 +10,7 @@ public class VNDialogueController : MonoBehaviour
 
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
     private const float SkipCadenceSeconds = 0.12f;
-    private const string EndPrototypeText = "Конец Unity-прототипа.";
+    private const string EndPrototypeText = "РљРѕРЅРµС† Unity-РїСЂРѕС‚РѕС‚РёРїР°.";
     private const string ChoiceConfigurationErrorText = "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0430.";
     public const int SupportedChoiceButtonCapacity = 3;
 
@@ -494,7 +494,7 @@ public class VNDialogueController : MonoBehaviour
         {
             quickSaveInProgress = false;
             Debug.LogError($"[QUICK SAVE] Could not start quick-save coroutine. {exception.Message}", this);
-            ShowToast("Не удалось создать быстрое сохранение");
+            ShowToast("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ Р±С‹СЃС‚СЂРѕРµ СЃРѕС…СЂР°РЅРµРЅРёРµ");
         }
     }
 
@@ -663,8 +663,8 @@ public class VNDialogueController : MonoBehaviour
     {
         quickSaveInProgress = false;
         ShowToast(saved
-            ? "Быстрое сохранение создано"
-            : "Не удалось создать быстрое сохранение");
+            ? "Р‘С‹СЃС‚СЂРѕРµ СЃРѕС…СЂР°РЅРµРЅРёРµ СЃРѕР·РґР°РЅРѕ"
+            : "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ Р±С‹СЃС‚СЂРѕРµ СЃРѕС…СЂР°РЅРµРЅРёРµ");
     }
 
     private void CompleteAutoSave(bool saved)
@@ -2014,6 +2014,29 @@ public class VNDialogueController : MonoBehaviour
         gameState.selectedChoiceIndex = -1;
         gameState.choiceResultActive = false;
         gameState.pendingNextSceneId = string.Empty;
+    }
+
+    /// <summary>Minimal typed bridge for authored systems that use the normal VN scene transition path.</summary>
+    public bool TryRouteToScene(DialogueSceneData targetScene)
+    {
+        if (HasActiveSpecialMode || !IsRegisteredDialogueScene(targetScene))
+        {
+            return false;
+        }
+
+        LoadDialogueScene(targetScene, 0, false);
+        return true;
+    }
+
+    /// <summary>Checks registry membership without exposing a second scene-flow system.</summary>
+    public bool IsRegisteredDialogueScene(DialogueSceneData targetScene)
+    {
+        return targetScene != null
+            && sceneRegistry != null
+            && sceneRegistry.scenes != null
+            && sceneRegistry.scenes.Contains(targetScene)
+            && targetScene.lines != null
+            && targetScene.lines.Count > 0;
     }
 
     private void LoadDialogueScene(DialogueSceneData data)

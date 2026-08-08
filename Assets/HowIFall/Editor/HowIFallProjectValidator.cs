@@ -142,6 +142,14 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsCloseButton", controller.vnSettingsCloseButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsResetButton", controller.vnSettingsResetButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.manualSaveLoadPanel", controller.manualSaveLoadPanel);
+
+        TimedNarrativeBeatController timedBeat = FindAny<TimedNarrativeBeatController>();
+        issues += ValidateRequiredObject(sceneName, timedBeat, nameof(TimedNarrativeBeatController));
+        if (timedBeat != null)
+        {
+            issues += ValidateTimedNarrativeBeatDemo(sceneName, controller, timedBeat);
+        }
+
         issues += ValidateRequiredObject(sceneName, FindAny<SaveManager>(), nameof(SaveManager));
 
         VNQuickMenu quickMenu = FindAny<VNQuickMenu>();
@@ -171,6 +179,51 @@ public static class HowIFallProjectValidator
         return issues;
     }
 
+    private static int ValidateTimedNarrativeBeatDemo(
+        string sceneName,
+        VNDialogueController dialogueController,
+        TimedNarrativeBeatController timedBeat)
+    {
+        int issues = 0;
+        TimedNarrativeBeatDefinition definition = timedBeat.demoDefinition;
+        if (definition == null)
+        {
+            return LogError($"{sceneName}: TimedNarrativeBeatController.demoDefinition is missing.");
+        }
+
+        if (string.IsNullOrWhiteSpace(definition.promptText))
+        {
+            issues += LogError($"{sceneName}: timed beat prompt text is empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(definition.actionText))
+        {
+            issues += LogError($"{sceneName}: timed beat action text is empty.");
+        }
+
+        if (definition.durationSeconds < TimedNarrativeBeatController.MinimumAuthoredDurationSeconds)
+        {
+            issues += LogError($"{sceneName}: timed beat duration must be at least {TimedNarrativeBeatController.MinimumAuthoredDurationSeconds:0} seconds.");
+        }
+
+        issues += ValidateRequiredReference(sceneName, "TimedNarrativeBeatController.rootPanel", timedBeat.rootPanel);
+        issues += ValidateRequiredReference(sceneName, "TimedNarrativeBeatController.promptText", timedBeat.promptText);
+        issues += ValidateRequiredReference(sceneName, "TimedNarrativeBeatController.actionButton", timedBeat.actionButton);
+        issues += ValidateRequiredReference(sceneName, "TimedNarrativeBeatController.remainingTimeText", timedBeat.remainingTimeText);
+        issues += ValidateRequiredReference(sceneName, "TimedNarrativeBeatController.progressSlider", timedBeat.progressSlider);
+
+        if (!dialogueController.IsRegisteredDialogueScene(definition.successNextScene))
+        {
+            issues += LogError($"{sceneName}: timed beat success target must be a registered valid dialogue scene.");
+        }
+
+        if (!dialogueController.IsRegisteredDialogueScene(definition.timeoutNextScene))
+        {
+            issues += LogError($"{sceneName}: timed beat timeout target must be a registered valid dialogue scene.");
+        }
+
+        return issues;
+    }
     private static int ValidateChoiceButtonCapacity(string sceneName, VNDialogueController controller)
     {
         var assignedButtons = new HashSet<Button>();
