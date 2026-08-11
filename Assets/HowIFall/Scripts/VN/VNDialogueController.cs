@@ -349,6 +349,11 @@ public class VNDialogueController : MonoBehaviour
                 return;
             }
 
+            if (chatController != null && chatController.TryCloseMediaViewerOnEscape())
+            {
+                return;
+            }
+
             if (HasActiveSpecialMode)
             {
                 specialModeCoordinator.TryRequestEscapeCancel();

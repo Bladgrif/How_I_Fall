@@ -61,7 +61,7 @@ public static class ChatPhoneSmokeTests
 
         Require(SaveData.CurrentVersion == 3, "SaveData version must remain v3.");
         string saveJson = JsonUtility.ToJson(new SaveData());
-        Require(!saveJson.Contains("chatId") && !saveJson.Contains("chatTranscript") && !saveJson.Contains("openSfx") && !saveJson.Contains("incomingSfx"), "SaveData must not contain chat runtime state or SFX references.");
+        Require(!saveJson.Contains("chatId") && !saveJson.Contains("chatTranscript") && !saveJson.Contains("openSfx") && !saveJson.Contains("incomingSfx") && !saveJson.Contains("mediaViewer") && !saveJson.Contains("viewedMedia"), "SaveData must not contain Chat or media-viewer runtime state.");
         Debug.Log("[CHAT] Smoke tests passed.");
     }
 
@@ -195,6 +195,8 @@ public static class ChatPhoneSmokeTests
                 "IncomingTyping must hide before revealing the entry and then begin the next authored delay.");
             Require(chat.IncomingSfxRequestCount == 1,
                 "The first incoming text reveal must request its incoming SFX once.");
+            Require(!chat.TryOpenRevealedMediaForTests(0),
+                "Revealed Text and the preceding typing indicator must not open the media viewer.");
             Require(chat.HasIncomingLeftPresentation,
                 "Incoming transcript entries must use the left-aligned bubble presentation.");
             Require(!chat.HasImageCard && !chat.AreReplyCardsInteractable,
@@ -217,6 +219,31 @@ public static class ChatPhoneSmokeTests
                 "Transcript layout refresh must not request an incoming SFX.");
             Require(dialogue.CaptureBacklogSnapshot().Count == backlogBeforeChat,
                 "Chat transcript entries must remain isolated from the dialogue backlog.");
+
+            int transcriptBeforeViewer = chat.Transcript.Count;
+            int openSfxBeforeViewer = chat.OpenSfxRequestCount;
+            int incomingSfxBeforeViewer = chat.IncomingSfxRequestCount;
+            Require(!chat.IsMediaViewerOpen && !chat.TryOpenRevealedMediaForTests(-1),
+                "Viewer must start closed and reject non-media sources.");
+            Require(chat.TryOpenRevealedMediaForTests(1), "The revealed image card must open the local viewer.");
+            Require(chat.IsMediaViewerOpen && chat.ViewedMediaSprite == terminalChat.entries[1].image,
+                "Viewer must retain the exact revealed image Sprite.");
+            Require(chat.MediaViewerOpenCount == 1 && !chat.TryOpenRevealedMediaForTests(1) && chat.MediaViewerOpenCount == 1,
+                "A second viewer open request must be a no-op.");
+            Require(!chat.AreReplyCardsInteractable && !chat.TryChoose(0),
+                "Viewer must block underlying reply-card input.");
+            Require(chat.Transcript.Count == transcriptBeforeViewer && chat.OpenSfxRequestCount == openSfxBeforeViewer
+                && chat.IncomingSfxRequestCount == incomingSfxBeforeViewer,
+                "Viewer interaction must not mutate transcript or request R08 audio cues.");
+            Require(chat.IsMediaViewerOpen, "Clicking the displayed image must be consumed without closing the viewer.");
+            Require(chat.TryCloseMediaViewerOnEscape() && !chat.IsMediaViewerOpen,
+                "Escape must close only the local viewer.");
+            Require(!chat.TryCloseMediaViewerOnEscape() && chat.IsRunning,
+                "The next Escape must return to normal active-Chat no-op behavior.");
+            Require(chat.TryOpenRevealedMediaForTests(1) && chat.TryCloseMediaViewerFromButtonForTests() && !chat.IsMediaViewerOpen,
+                "Close X must close the viewer without affecting Chat.");
+            Require(chat.TryOpenRevealedMediaForTests(1) && chat.TryCloseMediaViewerFromScrimForTests() && !chat.IsMediaViewerOpen,
+                "Scrim must close the viewer without affecting Chat.");
             Require(chat.TryChoose(0), "One terminal reply callback must be accepted.");
             Require(chat.IncomingSfxRequestCount == 2,
                 "Outgoing replies must not request an incoming SFX.");
@@ -247,6 +274,44 @@ public static class ChatPhoneSmokeTests
                 "Dialogue shell restore must respect its pre-chat legitimate visible state.");
             Require(!chat.TryCompletePendingTerminalPresentation() && chat.CompletionCount == 1,
                 "Second completion callback must be a no-op.");
+
+            ChatSceneData viewerPacingChat = CopyFixture(technicalChat);
+            viewerPacingChat.entries[0].kind = ChatEntryKind.Image;
+            viewerPacingChat.entries[0].text = string.Empty;
+            viewerPacingChat.entries[0].image = technicalChat.entries[1].image;
+            viewerPacingChat.entries[0].pacing = ChatEntryPacing.Immediate;
+            viewerPacingChat.entries[0].pacingSeconds = 0f;
+            viewerPacingChat.entries[1].kind = ChatEntryKind.Text;
+            viewerPacingChat.entries[1].image = null;
+            viewerPacingChat.entries[1].text = "TEST: delayed after media";
+            viewerPacingChat.entries[1].pacing = ChatEntryPacing.Delay;
+            viewerPacingChat.entries[1].pacingSeconds = 0.6f;
+            Require(viewerPacingChat.TryValidate(registry, out _), "Viewer pacing fixture must remain valid.");
+            Require(chat.TryStartChat(viewerPacingChat, out startReason) && chat.HasImageCard && chat.HasPendingEntryReveal,
+                "Viewer pacing fixture must reveal an image before entering a delayed next entry.");
+            float pacingBeforeViewer = chat.EntryPacingRemaining;
+            Require(chat.TryOpenRevealedMediaForTests(0) && chat.IsLocalPresentationTimerPaused,
+                "A revealed image must open while the next entry pacing timer is pending.");
+            chat.AdvanceEntryPacing(10f);
+            Require(chat.HasPendingEntryReveal && Mathf.Approximately(chat.EntryPacingRemaining, pacingBeforeViewer)
+                && chat.Transcript.Count == 1,
+                "Open viewer must pause entry pacing without mutating the transcript.");
+            Require(chat.TryCloseMediaViewerOnEscape(), "Viewer pacing fixture must close through Escape.");
+            chat.AdvanceEntryPacing(pacingBeforeViewer);
+            Require(chat.Transcript.Count == 2 && !chat.HasPendingEntryReveal,
+                "Entry pacing must resume from the exact remaining duration after close.");
+            Require(chat.TryCleanupPendingPacingForTests() == false, "No pending pacing remains after deterministic reveal.");
+            Require(chat.TryChoose(0), "Viewer pacing fixture must still preserve reply input after close.");
+            Require(chat.TerminalPresentationRemaining > 0f && !chat.IsLocalPresentationTimerPaused,
+                "Terminal presentation uses the same local timer gate; viewer and terminal state are not player-reachable together.");
+            chat.AdvanceTerminalPresentation(1f);
+
+            Require(chat.TryStartChat(viewerPacingChat, out startReason) && chat.TryOpenRevealedMediaForTests(0),
+                "Cleanup coverage must start from an open local viewer.");
+            Require(chat.TryCleanupPendingPacingForTests() && !chat.IsMediaViewerOpen && !chat.IsRunning,
+                "Chat cleanup must remove the local viewer and active input state.");
+            Require(!chat.TryOpenRevealedMediaForTests(0),
+                "Post-cleanup viewer open requests must be rejected.");
 
             ChatSceneData branchingChat = CopyFixture(technicalChat);
             branchingChat.entries[2].options[0].nextEntryId = "followup";

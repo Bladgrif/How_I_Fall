@@ -17,6 +17,7 @@ public sealed class ChatController : MonoBehaviour
     private static readonly Color PhoneBorderColor = new Color(0.20f, 0.66f, 0.86f, 0.58f);
     private static readonly Color HeaderColor = new Color(0.055f, 0.11f, 0.17f, 0.94f);
     private static readonly Color TranscriptColor = new Color(0.02f, 0.045f, 0.075f, 0.76f);
+    private static readonly Color MediaViewerScrimColor = new Color(0.005f, 0.012f, 0.025f, 0.86f);
     private static readonly Color IncomingColor = new Color(0.12f, 0.19f, 0.27f, 0.96f);
     private static readonly Color PlayerColor = new Color(0.075f, 0.36f, 0.52f, 0.98f);
     private static readonly Color ReplyColor = new Color(0.08f, 0.30f, 0.43f, 0.98f);
@@ -29,6 +30,9 @@ public sealed class ChatController : MonoBehaviour
     private GameObject phoneShell;
     private GameObject transcriptViewport;
     private GameObject replyArea;
+    private GameObject mediaViewerOverlay;
+    private Image viewedMediaImage;
+    private Sprite viewedMediaSprite;
     private RectTransform transcriptContent;
     private ScrollRect transcriptScroll;
     private TextMeshProUGUI headerText;
@@ -51,6 +55,7 @@ public sealed class ChatController : MonoBehaviour
     private int returnRouteAttemptCount;
     private int openSfxRequestCount;
     private int incomingSfxRequestCount;
+    private int mediaViewerOpenCount;
     private DialogueSceneData lastReturnScene;
     private readonly HashSet<ChatEntry> incomingSfxRevealedEntries = new HashSet<ChatEntry>();
 
@@ -74,7 +79,13 @@ public sealed class ChatController : MonoBehaviour
     public bool HasPendingEntryReveal => runtimeState == ChatRuntimeState.WaitingForEntryReveal && pendingEntry != null;
     public bool HasIncomingLeftPresentation => HasBubbleAlignment("Incoming Bubble", TextAnchor.UpperLeft);
     public bool HasPlayerRightPresentation => HasBubbleAlignment("Player Bubble", TextAnchor.UpperRight);
-    public bool AreReplyCardsInteractable => replyButtons != null && replyButtons.Length == 2
+    public bool IsMediaViewerOpen => mediaViewerOverlay != null && mediaViewerOverlay.activeInHierarchy;
+    public Sprite ViewedMediaSprite => viewedMediaSprite;
+    public int MediaViewerOpenCount => mediaViewerOpenCount;
+    public bool IsLocalPresentationTimerPaused => IsMediaViewerOpen;
+    public float EntryPacingRemaining => pacingRemaining;
+    public float TerminalPresentationRemaining => terminalPresentationRemaining;
+    public bool AreReplyCardsInteractable => !IsMediaViewerOpen && replyButtons != null && replyButtons.Length == 2
         && replyButtons[0] != null && replyButtons[1] != null
         && replyButtons[0].gameObject.activeInHierarchy && replyButtons[1].gameObject.activeInHierarchy
         && replyButtons[0].interactable && replyButtons[1].interactable;
@@ -148,6 +159,8 @@ public sealed class ChatController : MonoBehaviour
         openSfxRequestCount = 0;
         incomingSfxRequestCount = 0;
         incomingSfxRevealedEntries.Clear();
+        mediaViewerOpenCount = 0;
+        CloseMediaViewer();
         lastReturnScene = null;
         transcript.Clear();
         ClearTranscriptViews();
@@ -162,7 +175,7 @@ public sealed class ChatController : MonoBehaviour
 
     public bool TryChoose(int visibleOptionIndex)
     {
-        if (!IsRunning || runtimeState != ChatRuntimeState.Active || completionPending || visibleOptionIndex < 0 || visibleOptionIndex >= 2) return false;
+        if (!IsRunning || IsMediaViewerOpen || runtimeState != ChatRuntimeState.Active || completionPending || visibleOptionIndex < 0 || visibleOptionIndex >= 2) return false;
         ChatEntry entry = GetCurrentEntry();
         if (entry == null || entry.kind != ChatEntryKind.Choice || entry.options == null || entry.options.Count != 2) { Complete("Invalid runtime choice entry."); return false; }
         ChatChoiceOption option = entry.options[visibleOptionIndex];
@@ -212,7 +225,7 @@ public sealed class ChatController : MonoBehaviour
     /// <summary>Advances one authored entry reveal with unscaled time.</summary>
     public void AdvanceEntryPacing(float unscaledDeltaTime)
     {
-        if (runtimeState != ChatRuntimeState.WaitingForEntryReveal || pendingEntry == null || unscaledDeltaTime < 0f)
+        if (IsLocalPresentationTimerPaused || runtimeState != ChatRuntimeState.WaitingForEntryReveal || pendingEntry == null || unscaledDeltaTime < 0f)
         {
             return;
         }
@@ -232,7 +245,7 @@ public sealed class ChatController : MonoBehaviour
     /// <summary>Advances only the local terminal-reply presentation with unscaled time.</summary>
     public void AdvanceTerminalPresentation(float unscaledDeltaTime)
     {
-        if (runtimeState != ChatRuntimeState.ResolvingTerminalChoice || unscaledDeltaTime < 0f)
+        if (IsLocalPresentationTimerPaused || runtimeState != ChatRuntimeState.ResolvingTerminalChoice || unscaledDeltaTime < 0f)
         {
             return;
         }
@@ -442,6 +455,7 @@ public sealed class ChatController : MonoBehaviour
     private void ClearTransientState()
     {
         ClearPendingPacing();
+        CloseMediaViewer();
         if (root != null)
         {
             root.SetActive(false);
@@ -532,6 +546,23 @@ public sealed class ChatController : MonoBehaviour
     public void RefreshTranscriptForTests()
     {
         RefreshTranscript();
+    }
+
+    public bool TryOpenRevealedMediaForTests(int transcriptIndex)
+    {
+        return transcriptIndex >= 0 && transcriptIndex < transcript.Count && TryOpenMediaViewer(transcript[transcriptIndex]);
+    }
+
+    public bool TryCloseMediaViewerFromScrimForTests()
+    {
+        if (!IsMediaViewerOpen) return false;
+        CloseMediaViewer();
+        return true;
+    }
+
+    public bool TryCloseMediaViewerFromButtonForTests()
+    {
+        return TryCloseMediaViewerFromScrimForTests();
     }
 #endif
 
@@ -677,6 +708,9 @@ public sealed class ChatController : MonoBehaviour
         layout.childForceExpandHeight = false;
         card.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
+        Button cardButton = card.AddComponent<Button>();
+        cardButton.onClick.AddListener(() => TryOpenMediaViewer(entry));
+
         GameObject imageObject = CreateImageObject(card.transform, "Technical Image", Color.white);
         Image image = imageObject.GetComponent<Image>();
         image.sprite = entry.image;
@@ -786,6 +820,104 @@ public sealed class ChatController : MonoBehaviour
         BuildHeader(phoneShell.transform);
         BuildTranscriptViewport(phoneShell.transform);
         BuildReplyArea(phoneShell.transform);
+        BuildMediaViewerOverlay();
+    }
+
+    private void BuildMediaViewerOverlay()
+    {
+        mediaViewerOverlay = CreateLayoutObject(root.transform, "MediaViewerOverlay");
+        Stretch(mediaViewerOverlay.GetComponent<RectTransform>());
+
+        GameObject scrim = CreateImageObject(mediaViewerOverlay.transform, "Scrim", MediaViewerScrimColor);
+        Stretch(scrim.GetComponent<RectTransform>());
+        Button scrimButton = scrim.AddComponent<Button>();
+        scrimButton.onClick.AddListener(CloseMediaViewer);
+
+        GameObject imageContainer = CreateLayoutObject(mediaViewerOverlay.transform, "ImageContainer");
+        RectTransform containerRect = imageContainer.GetComponent<RectTransform>();
+        containerRect.anchorMin = new Vector2(0.08f, 0.08f);
+        containerRect.anchorMax = new Vector2(0.92f, 0.92f);
+        containerRect.offsetMin = Vector2.zero;
+        containerRect.offsetMax = Vector2.zero;
+
+        GameObject imageObject = CreateImageObject(imageContainer.transform, "Image", Color.white);
+        viewedMediaImage = imageObject.GetComponent<Image>();
+        viewedMediaImage.preserveAspect = true;
+        Stretch(imageObject.GetComponent<RectTransform>());
+        AspectRatioFitter aspectFitter = imageObject.AddComponent<AspectRatioFitter>();
+        aspectFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+        Button imageButton = imageObject.AddComponent<Button>();
+        imageButton.onClick.AddListener(() => { });
+
+        GameObject closeObject = CreateImageObject(mediaViewerOverlay.transform, "CloseButton", new Color(0.11f, 0.19f, 0.27f, 0.98f));
+        RectTransform closeRect = closeObject.GetComponent<RectTransform>();
+        closeRect.anchorMin = new Vector2(1f, 1f);
+        closeRect.anchorMax = new Vector2(1f, 1f);
+        closeRect.pivot = new Vector2(1f, 1f);
+        closeRect.sizeDelta = new Vector2(54f, 54f);
+        closeRect.anchoredPosition = new Vector2(-28f, -28f);
+        Button closeButton = closeObject.AddComponent<Button>();
+        closeButton.onClick.AddListener(CloseMediaViewer);
+        TextMeshProUGUI closeLabel = CreateTmp(closeObject.transform, "Close Label", "X", 30f, TextAlignmentOptions.Center, Color.white, FontStyles.Normal);
+        Stretch(closeLabel.rectTransform);
+
+        mediaViewerOverlay.SetActive(false);
+    }
+
+    private bool TryOpenMediaViewer(ChatTranscriptEntry entry)
+    {
+        if (!IsRunning || IsMediaViewerOpen || entry == null || entry.image == null || !transcript.Contains(entry))
+        {
+            return false;
+        }
+
+        viewedMediaSprite = entry.image;
+        if (viewedMediaImage == null || mediaViewerOverlay == null)
+        {
+            viewedMediaSprite = null;
+            return false;
+        }
+
+        viewedMediaImage.sprite = viewedMediaSprite;
+        AspectRatioFitter aspectFitter = viewedMediaImage.GetComponent<AspectRatioFitter>();
+        if (aspectFitter != null)
+        {
+            aspectFitter.aspectRatio = viewedMediaSprite.rect.height > 0f
+                ? viewedMediaSprite.rect.width / viewedMediaSprite.rect.height
+                : 1f;
+        }
+
+        mediaViewerOverlay.SetActive(true);
+        mediaViewerOverlay.transform.SetAsLastSibling();
+        mediaViewerOpenCount++;
+        return true;
+    }
+
+    private void CloseMediaViewer()
+    {
+        if (mediaViewerOverlay != null)
+        {
+            mediaViewerOverlay.SetActive(false);
+        }
+
+        if (viewedMediaImage != null)
+        {
+            viewedMediaImage.sprite = null;
+        }
+
+        viewedMediaSprite = null;
+    }
+
+    /// <summary>Gives the local viewer precedence over Chat's otherwise blocked Escape input.</summary>
+    public bool TryCloseMediaViewerOnEscape()
+    {
+        if (!IsMediaViewerOpen)
+        {
+            return false;
+        }
+
+        CloseMediaViewer();
+        return true;
     }
 
     private void BuildHeader(Transform parent)
