@@ -40,7 +40,7 @@
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
 | Gallery/replay | One `TEST REPLAY`: profile JSON v1, locked/unlocked card, transactional `GameState`/backlog/audio isolation, replay-local read history, two-layer Save/Load denial and controlled End Replay | DONE (technical foundation) | Canon replay content and thumbnail remain separate future work | - / High |
-| Chat/phone | Typed `ChatSceneData` provides Text/Image/Choice, typed `openSfx`/`incomingSfx`, and `ChatEntryPacing` (`Immediate`, `Delay`, `IncomingTyping`) with authored `pacingSeconds`, transient transcript and a responsive runtime portrait phone UI from a narrow Resources config. `ChatController` owns `BlockingExclusive`, Replay is denied, SaveManager has a generic backend guard, and return is exactly-once. | **DONE (technical foundation + Phone UI polish + R05 pacing + R08 sounds)** | Unscaled deterministic `WaitingForEntryReveal`; incoming typing is excluded from transcript/backlog/read-history/save and does not cue audio. Open cue runs once after successful start; Incoming Text/Image cue only on actual reveal; cleanup cancels pending reveal. `test_chat_v1` is TECH DEMO ONLY / NOT CANON with 1.5s typing, 0.6s image delay, one open and two incoming cues. Manual audio/pacing QA PASS. | Low / High |
+| Chat/phone | Typed `ChatSceneData` provides Text/Image/Choice, typed `openSfx`/`incomingSfx`, and `ChatEntryPacing` with transient transcript and responsive Phone UI. `ChatController` owns `BlockingExclusive`, Replay is denied, SaveManager has a generic backend guard, and return is exactly-once. | **DONE (technical foundation + Phone UI polish + R05 pacing + R08 sounds; R06 policy decided)** | R06 policy is documented in [chat_media_viewer_policy.md](chat_media_viewer_policy.md): local ChatController sub-modal only, revealed Image card only, aspect-fit fullscreen view, deterministic pacing pause/resume, no new SFX, runtime-only state, and no `VNPrototype.unity` change. Implementation TODO. `test_chat_v1` remains TECH DEMO ONLY / NOT CANON. | Low / High |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
 | Timed narrative beat | `TimedNarrativeBeatController` owns one `BlockingExclusive` lease, unscaled visible timer and exactly-once success/timeout routing through `VNDialogueController`; `TEST: success` / `TEST: timeout` are manually verified result beats. TEST fixtures are TECH DEMO ONLY / NOT CANON. | **DONE (technical foundation)** | Authored content remains deferred; this is not a full QTE framework. Terminal fallback is readable and the resolution input does not consume the result scene. | Medium / High |
 | Mini-games | Отсутствуют | 🚫 NOT PLANNED | Не строить без утверждённой сюжетной функции | — / High |
@@ -77,7 +77,9 @@
 
 ### Embedded chat media viewer (R06)
 
-Implement the existing audit item R06 only when a neutral TECH DEMO ONLY / NOT CANON media-viewer contract is approved. Preserve the current in-transcript image card, `BlockingExclusive`, `SaveData` v3 and the approved Phone UI layout; do not invent canon media or broaden this into a generic gallery system.
+**Status:** POLICY DECIDED / IMPLEMENTATION TODO
+
+Implement Embedded Chat Media Viewer (R06). See [chat_media_viewer_policy.md](chat_media_viewer_policy.md) for the approved V1 contract.
 
 ## Отложено или исключено
 
