@@ -40,7 +40,7 @@
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
 | Gallery/replay | One `TEST REPLAY`: profile JSON v1, locked/unlocked card, transactional `GameState`/backlog/audio isolation, replay-local read history, two-layer Save/Load denial and controlled End Replay | DONE (technical foundation) | Canon replay content and thumbnail remain separate future work | - / High |
-| Chat/phone | Отдельного формата сцены нет | ⬜ TODO | Typed conditions/effects, медиа и возврат в VN | Low / Medium |
+| Chat/phone | `docs/chat_phone_policy.md` defines the V1 typed scene-data contract, `BlockingExclusive`, transient transcript, Replay deny, SaveData v3, and deterministic return to VN; runtime is absent | **POLICY DECIDED / IMPLEMENTATION TODO** | Implement Chat / Phone technical foundation | Low / High |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
 | Timed narrative beat | `TimedNarrativeBeatController` owns one `BlockingExclusive` lease, unscaled visible timer and exactly-once success/timeout routing through `VNDialogueController`; `TEST: success` / `TEST: timeout` are manually verified result beats. TEST fixtures are TECH DEMO ONLY / NOT CANON. | **DONE (technical foundation)** | Authored content remains deferred; this is not a full QTE framework. Terminal fallback is readable and the resolution input does not consume the result scene. | Medium / High |
 | Mini-games | Отсутствуют | 🚫 NOT PLANNED | Не строить без утверждённой сюжетной функции | — / High |
@@ -74,9 +74,9 @@
 
 ## Единственный NEXT
 
-### Chat/phone: typed scene-data contract
+### Implement Chat / Phone technical foundation
 
-Define the minimal data contract and modal-return policy for one non-canon chat/phone prototype. Do not start implementation automatically.
+Implement only the approved V1 typed Chat/Phone foundation. Preserve the non-canon boundary, `SaveData` v3, and all existing VN/Replay contracts.
 
 ## Отложено или исключено
 
