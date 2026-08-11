@@ -24,7 +24,7 @@ public static class VNQuickMenuSmokeTests
         Require(menu.dialogueController != null && menu.root != null, "Quick Menu controller/root references are required.");
         Require(menu.historyButton != null && menu.skipButton != null && menu.autoButton != null, "Quick Menu History, Skip and Auto references are required.");
         Require(menu.saveButton != null && menu.quickSaveButton != null && menu.quickLoadButton != null && menu.loadButton != null, "Quick Menu save references are required.");
-        Require(menu.settingsButton != null && menu.mainMenuButton != null, "Quick Menu Settings and Main Menu references are required.");
+        Require(menu.settingsButton != null && menu.mainMenuButton != null, "Quick Menu Settings and Main Menu references are required; Characters is runtime-created.");
         Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.RequestQuickLoad)) != null, "Quick Load must use the VN controller entry point.");
         Require(typeof(ManualSaveLoadPanel).GetMethod(nameof(ManualSaveLoadPanel.RequestQuickLoad)) != null, "Quick Load must use the existing ManualSaveLoadPanel pipeline.");
     }

@@ -16,6 +16,7 @@ public sealed class VNQuickMenu : MonoBehaviour
     public Button quickLoadButton;
     public Button loadButton;
     public Button settingsButton;
+    public Button charactersButton;
     public Button mainMenuButton;
 
     private static readonly Color NormalColor = new Color(0.035f, 0.07f, 0.11f, 0.82f);
@@ -24,6 +25,7 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private void Awake()
     {
+        EnsureCharactersButton();
         CacheNormalMainMenuLabel();
         Bind(historyButton, () => TryInvokeQuickMenuAction(() => dialogueController.ShowBacklog()));
         Bind(skipButton, () => TryInvokeQuickMenuAction(() => dialogueController.ToggleSkip()));
@@ -33,8 +35,35 @@ public sealed class VNQuickMenu : MonoBehaviour
         Bind(quickLoadButton, () => TryInvokeQuickMenuAction(() => dialogueController.RequestQuickLoad()));
         Bind(loadButton, () => TryInvokeQuickMenuAction(() => dialogueController.manualSaveLoadPanel?.OpenLoad()));
         Bind(settingsButton, () => TryInvokeQuickMenuAction(() => dialogueController.OpenSettings()));
+        Bind(charactersButton, () => TryInvokeQuickMenuAction(() => dialogueController.OpenCharacterHub()));
         Bind(mainMenuButton, () => TryInvokeQuickMenuAction(HandleMainMenuAction));
         RefreshReplayPresentation();
+    }
+
+    public bool EnsureCharactersButton()
+    {
+        if (charactersButton != null)
+        {
+            return false;
+        }
+
+        if (settingsButton == null || settingsButton.transform.parent == null)
+        {
+            return false;
+        }
+
+        GameObject clone = Instantiate(settingsButton.gameObject, settingsButton.transform.parent);
+        clone.name = "Characters Runtime Button";
+        charactersButton = clone.GetComponent<Button>();
+        charactersButton.onClick.RemoveAllListeners();
+        TextMeshProUGUI label = clone.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.text = "Characters";
+        }
+
+        clone.transform.SetSiblingIndex(settingsButton.transform.GetSiblingIndex() + 1);
+        return true;
     }
 
     private bool hiddenBySpecialMode;
@@ -51,8 +80,12 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     public void RefreshSpecialModeVisibility()
     {
-        bool canOpenQuickMenu = dialogueController == null || dialogueController.CanOpenQuickMenu;
-        if (!canOpenQuickMenu)
+        // This owner is exclusively for SpecialModeCoordinator. Ordinary modals, including
+        // Character Hub, may deny Quick Menu actions but must not deactivate this root.
+        bool hiddenByBlockingSpecialMode = dialogueController != null
+            && dialogueController.HasActiveSpecialMode
+            && !dialogueController.CanOpenQuickMenu;
+        if (hiddenByBlockingSpecialMode)
         {
             if (root != null && root.activeSelf)
             {

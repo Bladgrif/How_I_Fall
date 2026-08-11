@@ -148,6 +148,14 @@ public static class HowIFallProjectValidator
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsCloseButton", controller.vnSettingsCloseButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.vnSettingsResetButton", controller.vnSettingsResetButton);
         issues += ValidateRequiredReference(sceneName, "VNDialogueController.manualSaveLoadPanel", controller.manualSaveLoadPanel);
+        CharacterHubTechnicalConfig characterHubConfig = AssetDatabase.LoadAssetAtPath<CharacterHubTechnicalConfig>("Assets/HowIFall/Resources/CharacterHub/TechnicalCharacterHubConfig.asset");
+        if (!CharacterHubController.TryCreateFixtures(characterHubConfig, out CharacterHubFixture[] characterHubFixtures, out _)
+            || characterHubFixtures.Length != 2
+            || characterHubFixtures[0].definition.characterId != "test_character_a"
+            || characterHubFixtures[1].definition.characterId != "test_character_b")
+        {
+            issues += LogError($"{sceneName}: Character Hub technical Resources config is missing or invalid.");
+        }
 
         ReplayEntryDefinition testReplay = AssetDatabase.LoadAssetAtPath<ReplayEntryDefinition>("Assets/HowIFall/Data/Replays/test_replay_v1.asset");
         if (testReplay != null && (controller.sceneData == testReplay.startScene

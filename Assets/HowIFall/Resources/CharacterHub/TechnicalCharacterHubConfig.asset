@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b90877636e4f13442bd792a8b3b0b016, type: 3}
+  m_Name: TechnicalCharacterHubConfig
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterHubTechnicalConfig
+  visibleProfile: {fileID: 11400000, guid: 6b1cd939b82339c45958a7743dcdcfc4, type: 2}
+  lockedProfile: {fileID: 11400000, guid: 80dfeed0c1d3c4245ad6b45ead6b6d02, type: 2}

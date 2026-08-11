@@ -51,6 +51,7 @@ public class VNDialogueController : MonoBehaviour
     public Button vnSettingsCloseButton;
     public Button vnSettingsResetButton;
     public ManualSaveLoadPanel manualSaveLoadPanel;
+    public CharacterHubController characterHubController;
     public float baseCharactersPerSecond = 45f;
 
     public Vector2 characterLeftPosition = new Vector2(-420f, -220f);
@@ -94,13 +95,21 @@ public class VNDialogueController : MonoBehaviour
 
     public bool IsInterfaceHidden => isInterfaceHidden;
     public bool HasActiveSpecialMode => specialModeCoordinator != null && specialModeCoordinator.HasActiveOwner;
-    public bool CanAdvanceDialogue => !isInterfaceHidden && (specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked);
-    public bool CanSave => !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanSave);
-    public bool CanLoad => !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanLoad);
-    public bool CanOpenQuickMenu => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenQuickMenu);
-    public bool CanOpenBacklog => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenBacklog);
-    public bool CanOpenSettings => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenSettings);
-    public bool CanReturnToMainMenu => !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanReturnToMainMenu);
+    public bool IsCharacterHubOpen => characterHubController != null && characterHubController.IsOpen;
+    public bool CanAdvanceDialogue => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked);
+    public bool CanSave => !IsCharacterHubOpen && !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanSave);
+    public bool CanLoad => !IsCharacterHubOpen && !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanLoad);
+    public bool CanOpenQuickMenu => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenQuickMenu);
+    public bool CanOpenBacklog => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenBacklog);
+    public bool CanOpenSettings => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenSettings);
+    public bool CanReturnToMainMenu => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanReturnToMainMenu);
+    public bool CanOpenCharacterHub => characterHubController != null
+        && !SceneFlowManager.IsReplayModeActive
+        && !isInterfaceHidden
+        && !showingChoice
+        && !IsCharacterHubOpen
+        && (specialModeCoordinator == null || !specialModeCoordinator.HasActiveOwner)
+        && !IsAnyOrdinaryModalOpen();
 
     private void Awake()
     {
@@ -129,6 +138,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         GameState gameState = GameState.EnsureInstance();
+        characterHubController = CharacterHubController.TryCreateRuntime(this);
         SaveManager saveManager = SaveManager.EnsureInstance(sceneRegistry);
         Debug.Log($"[VN] Start. sceneId='{gameState.currentSceneId}', lineId='{gameState.currentLineId}', lineIndex={gameState.currentLineIndex}, sceneData='{(sceneData != null ? sceneData.sceneId : "<null>")}'.", this);
 
@@ -316,6 +326,12 @@ public class VNDialogueController : MonoBehaviour
 
         if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
         {
+            if (IsCharacterHubOpen)
+            {
+                CloseCharacterHub();
+                return;
+            }
+
             if (HasActiveSpecialMode)
             {
                 specialModeCoordinator.TryRequestEscapeCancel();
@@ -389,6 +405,7 @@ public class VNDialogueController : MonoBehaviour
     private bool IsHideInterfaceBlocked()
     {
         return HasActiveSpecialMode
+            || IsCharacterHubOpen
             || showingChoice
             || isTyping
             || quickSaveInProgress
@@ -463,6 +480,11 @@ public class VNDialogueController : MonoBehaviour
 
     private string GetSpecialModeEntryBlockerReason()
     {
+        if (IsCharacterHubOpen)
+        {
+            return "character hub";
+        }
+
         if (isInterfaceHidden)
         {
             return "hidden interface";
@@ -489,6 +511,38 @@ public class VNDialogueController : MonoBehaviour
         }
 
         return confirmExitPanel != null && confirmExitPanel.activeSelf ? "main menu confirmation" : null;
+    }
+
+    public bool OpenCharacterHub()
+    {
+        if (!CanOpenCharacterHub || !characterHubController.Open())
+        {
+            return false;
+        }
+
+        StopAutoForwardTimer();
+        StopSkipTimer();
+        return true;
+    }
+
+    public void CloseCharacterHub()
+    {
+        if (characterHubController == null || !characterHubController.Hide())
+        {
+            return;
+        }
+
+        StartAutoForwardDelayIfReady();
+        StartSkipDelayIfReady();
+    }
+
+    private bool IsAnyOrdinaryModalOpen()
+    {
+        return (choicePanel != null && choicePanel.activeSelf)
+            || (backlogPanel != null && backlogPanel.activeSelf)
+            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
+            || (confirmExitPanel != null && confirmExitPanel.activeSelf);
     }
 
     public void RequestQuickSave()
@@ -804,7 +858,8 @@ public class VNDialogueController : MonoBehaviour
 
     private bool IsAdvanceBlockedByOpenPanel()
     {
-        return isInterfaceHidden
+        return IsCharacterHubOpen
+            || isInterfaceHidden
             || (choicePanel != null && choicePanel.activeSelf)
             || (backlogPanel != null && backlogPanel.activeSelf)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf)
@@ -818,7 +873,7 @@ public class VNDialogueController : MonoBehaviour
     /// </summary>
     public void SetAutoForward(bool enabled)
     {
-        if (isInterfaceHidden)
+        if (isInterfaceHidden || IsCharacterHubOpen)
         {
             return;
         }
@@ -847,7 +902,7 @@ public class VNDialogueController : MonoBehaviour
     /// </summary>
     public void SetSkip(bool enabled)
     {
-        if (isInterfaceHidden || (specialModeCoordinator != null && specialModeCoordinator.IsSkipBlocked))
+        if (isInterfaceHidden || IsCharacterHubOpen || (specialModeCoordinator != null && specialModeCoordinator.IsSkipBlocked))
         {
             return;
         }
