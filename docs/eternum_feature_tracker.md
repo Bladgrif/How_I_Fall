@@ -77,9 +77,9 @@
 
 ### Persistent Quick Menu visibility preference (B03)
 
-**Status:** TODO / NOT IMPLEMENTED
+**Status:** POLICY DECIDED / IMPLEMENTATION TODO
 
-Define the player-facing persistent Quick Menu visibility setting and its ownership/layout contract. This is existing audit item B03; do not implement it as part of R06.
+Policy: [quick_menu_visibility_policy.md](quick_menu_visibility_policy.md). B03 remains not implemented; the policy defines SettingsManager ownership, effective visibility precedence, settings lockout prevention and the future test contract.
 
 ## Отложено или исключено
 
