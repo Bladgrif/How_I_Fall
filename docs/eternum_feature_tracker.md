@@ -52,7 +52,7 @@
 - Ctrl в How I Fall **переключает** Skip. Это осознанно не совпадает с удержанием Ctrl в Eternum и явно показано в Help.
 - Quick menu, Auto и seen-aware Skip уже готовы; их нельзя повторно планировать как отсутствующие механики.
 - Continue — собственное улучшение How I Fall, а не функция для копирования из активного главного меню Eternum.
-- Настройки resolution, refresh rate, language, font size, game look/interface style и часть animation toggles сохраняются, но пока не меняют игру. Их нельзя отмечать `DONE`.
+- `screenMode`/resolution реально применяются. Refresh rate, language, font size, game look/interface style, VHS/hints и animation toggles остаются fake/unused и не могут считаться `DONE`; полный truth map находится в [main_menu_settings_eternum_gap_audit.md](main_menu_settings_eternum_gap_audit.md).
 - Backlog follows [backlog_restoration_policy.md](backlog_restoration_policy.md): `SaveData` v3 stores save-scoped snapshots and Load/Continue replace runtime History. Rollback and a general story flag/resource registry remain absent; Gallery uses a separate profile unlock registry.
 
 ## Рекомендуемые следующие механики
@@ -75,11 +75,11 @@
 
 ## Единственный NEXT
 
-### Persistent Quick Menu visibility preference (B03)
+### NEXT — Implement Shared Preferences Foundation
 
-**Status:** POLICY DECIDED / IMPLEMENTATION TODO
+**Status:** SPEC READY / IMPLEMENTATION TODO
 
-Policy: [quick_menu_visibility_policy.md](quick_menu_visibility_policy.md). B03 remains not implemented; the policy defines SettingsManager ownership, effective visibility precedence, settings lockout prevention and the future test contract.
+Blueprint: [main_menu_settings_eternum_parity_spec.md](main_menu_settings_eternum_parity_spec.md). Сначала заменить расходящиеся Main Menu Settings и `VNSettingsPresenter` одним shared Preferences contract поверх существующих `GameSettings`/`SettingsManager`. B03 имеет статус **PAUSED / ABSORBED INTO MENU-SETTINGS PARITY WORK** и остаётся не реализованным; его persistent visibility и textbox safe-area geometry входят в последующую unified Preferences phase.
 
 ## Отложено или исключено
 
@@ -95,9 +95,11 @@ Policy: [quick_menu_visibility_policy.md](quick_menu_visibility_policy.md). B03 
 - Implemented: `H` clean view and `H`/`Esc` restore; no dialogue/save state mutation.
 - Not implemented: middle-click Hide UI and any custom screenshot file writer/gallery/Steam API integration.
 - Intended screenshot UX: clean authored frame for the player's system or Steam screenshot tool.
-- Persistent Quick Menu preference remains **TODO** (`B03`): transient player Hide UI is not that setting.
+- Persistent Quick Menu preference remains **PAUSED / ABSORBED INTO MENU-SETTINGS PARITY WORK** (`B03`): transient player Hide UI is not that setting.
 
 ## Maintenance log
+
+- `2026-08-12` — Main Menu / Settings / Game UI parity audit: повторно проверены Eternum `screens.rpy`, `options.rpy`, `gui.rpy`, `save_name.rpy`, `gallery.rpy`, `pax.rpy` и связанные consumers; создан [gap audit](main_menu_settings_eternum_gap_audit.md) и [implementation spec](main_menu_settings_eternum_parity_spec.md). Зафиксированы отсутствие полноценного HIF Game Menu, две расходящиеся Settings UI, fake/partial fields и целевая shared Preferences architecture. B03 поглощён общей phase и не отмечен DONE; единственный NEXT — Shared Preferences Foundation.
 
 **Last reviewed functional commit:** `b2477d392d1816b983f33ee9f42825f15506e84a`
 
