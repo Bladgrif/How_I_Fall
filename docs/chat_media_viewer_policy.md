@@ -1,8 +1,8 @@
 # Embedded Chat Media Viewer (R06) Policy
 
-**Status:** POLICY DECIDED / IMPLEMENTATION TODO
-**Scope:** docs-only contract for the existing Chat/Phone technical demo.
-**Baseline:** `origin/master` at `39872ab947884ec84f56d8330741e68a47ca699c` (`docs: finalize chat notification sounds`).
+**Status:** DONE / IMPLEMENTED
+**Scope:** implemented contract for the existing Chat/Phone technical demo.
+**Feature commit:** `b2477d392d1816b983f33ee9f42825f15506e84a` (`feat: add chat media viewer`).
 
 ## Purpose and boundary
 
@@ -10,7 +10,7 @@ R06 adds one narrow player-facing interaction:
 
 `revealed Chat Image card -> fullscreen/local media viewer -> close -> exact same active Chat state`.
 
-The current in-transcript Image card and approved Phone UI remain unchanged. This is **TECH DEMO ONLY / NOT CANON** and uses the existing neutral technical placeholder image. No runtime, scene, asset, or test code is changed by this policy task.
+The current in-transcript Image card and approved Phone UI remain unchanged. This is **TECH DEMO ONLY / NOT CANON** and uses the existing neutral technical placeholder image.
 
 ## Ownership
 
@@ -118,10 +118,10 @@ The future implementation must cover:
 - no viewer state is serialized and `SaveData.CurrentVersion == 3`;
 - `VNPrototype.unity` remains unchanged.
 
-## Implementation boundary
+## Implementation record
 
-The sole next step is:
+Implemented in `b2477d392d1816b983f33ee9f42825f15506e84a`. The revealed Image card opens a runtime-only local overlay owned by the existing `ChatController`; no manager, singleton or additional special-mode lease was added. The existing `PhoneShell` layout remains owned by the Phone UI. The overlay uses aspect-fit with no crop/stretch, consumes image clicks, and closes through X, Escape or scrim. Escape gets precedence only while the viewer is open.
 
-**Implement Embedded Chat Media Viewer (R06).**
+Underlying Phone input is raycast-blocked. Entry and terminal presentation timers pause locally without `Time.timeScale`; open/close preserves transcript, `GameState`, replies and return route. Viewer interaction has no SFX and leaves R08 request counters unchanged. Cleanup removes the overlay; state is runtime-only and `SaveData` remains v3. `VNPrototype.unity` is unchanged.
 
-Implementation must preserve the existing ChatController ownership, PhoneShell layout, technical placeholder, SaveData v3, R08 audio behavior, and unchanged `VNPrototype.unity`. Do not begin implementation as part of this policy commit.
+Manual R06 graphical/functional QA PASS. Repeated R08 audio QA PASS. During QA Unity initially failed to import the approved TECH SFX because `Technical.meta` and both WAV `.meta` files lacked a final newline/valid YAML termination. Only the newline/terminator was restored; GUIDs, import settings and WAV contents were unchanged. This was an asset-import issue, not an R06/R08 runtime-semantics bug.
