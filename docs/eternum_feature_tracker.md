@@ -35,7 +35,7 @@
 | Rollback | Обратимого состояния исполнения нет | 🚫 NOT PLANNED | Нужна отдельная модель границ и обратимости | — / High |
 | Уведомления/confirm | Toast и модальные подтверждения применяются в save/load UX; тот же toast показывает feedback об изменении отношений после ручного выбора | ✅ DONE | Проверять читабельность сообщений при новом контенте | High / Low |
 | Relationships | После ручного выбора существующий toast показывает применённые изменения `trustMasha`, `trustArtem` и `leraInterest` без чисел; порядок Masha → Artem → Lera | ✅ DONE | Контентно проверять формулировки при добавлении новых персонажей/отношений | — / Low |
-| Character hub / bios | Technical policy defines a future VN Quick Menu modal, static profile assets and a typed relationship bridge; no runtime/scene implementation yet | policy decided / implementation TODO | Real characters, bios, portraits and unlock rules will be supplied later by narrative/art teams | Low / Medium |
+| Character hub / bios | Runtime-created ordinary VN modal and runtime `Characters` Quick Menu entry use the narrow `CharacterHub/TechnicalCharacterHubConfig` bootstrap. TEST CHARACTER A is visible with typed numeric relationship value; TEST CHARACTER B is locked. Auto/Skip pause and restore; Replay, Hide UI and special-mode conflicts are denied. | **DONE (technical foundation)** | Real characters, biographies, portraits and unlock rules remain deferred to narrative/art teams; TEST fixtures are TECH DEMO ONLY / NOT CANON. | Low / Medium |
 | Settings | Main Menu and VN Settings share `SettingsManager`: audio, text speed, auto, skip, autosave, display mode, resolution and background mode apply immediately; unsupported controls are hidden | DONE | Verify runtime Screen API and UI when future display/localization/theme systems are added | Medium / Low |
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
@@ -70,14 +70,13 @@
 | 7 | Ambience channel/crossfade | Two-source runtime crossfade separates looping ambience from Music/SFX; `ambientVolume` now has a consumer | `AudioManager`, settings | Medium | Medium | **DONE (runtime foundation)** |
 | 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | После coordinator |
 | 9 | Gallery/replay foundation | `TEST REPLAY` isolates campaign state/save/backlog/read history and returns safely to Main Menu | profile JSON v1, `ReplaySession`, replay-aware VN/Quick Menu | Large | High | **DONE (technical foundation)** |
+| 10 | Character Hub / Bios | Runtime-created ordinary modal, typed profile fixtures and relationship bridge; `VNPrototype.unity` intentionally unchanged | narrow Resources config, VN Quick Menu runtime entry, modal gates | Medium | Medium | **DONE (technical foundation)** |
 
 ## Единственный NEXT
 
-### Character Hub / Bios: policy decided / implementation TODO
+### Timed Narrative Beat: graphical Play Mode QA
 
-Implement Character Hub / Bios technical foundation.
-
-Real characters, bios, portraits, and unlock rules will be supplied later by narrative/art teams.
+Run the pending manual graphical Play Mode QA for the existing timed technical demo. Do not start new mechanics automatically.
 
 ## Отложено или исключено
 
@@ -97,6 +96,7 @@ Real characters, bios, portraits, and unlock rules will be supplied later by nar
 
 ## Maintenance log
 
+- `9681822537ca418f0b5486ac9de1643887df170a` - Character Hub / Bios technical foundation: a runtime `Characters` entry augments the existing VN Quick Menu and opens a runtime-created ordinary modal from the narrow `CharacterHub/TechnicalCharacterHubConfig` Resources bootstrap. TEST CHARACTER A is visible with TEST BIO A and a typed numeric relationship bridge; TEST CHARACTER B is visibly locked and hides its biography/relationship. Hub pauses Auto/Skip without changing preferences, Esc/Close restore normal eligibility and Quick Menu ownership, while Replay, Hide UI and BlockingExclusive conflicts are denied. `SaveData` remains v3; `VNPrototype.unity` is intentionally unchanged. TEST fixtures are TECH DEMO ONLY / NOT CANON; authored characters, bios, portraits and unlock rules remain deferred. Focused smoke, full CI, project validator and scene validation passed in Unity 6000.5.7f1; manual graphical QA passed at 1280x720, 1920x1080, 2560x1440 and 3840x2160.
 - `8e8bef75525750c4049643dd0e0c1b881fb08dec` - Gallery / Replay Foundation: one neutral `TEST REPLAY` uses profile JSON v1 outside Saves/PlayerPrefs, typed `ReplayEntryDefinition`, a persistent `SceneFlowManager`-owned `ReplaySession`, exact v3-field `GameState` snapshot/restore, backlog/audio/read-history isolation, two-layer Save/Load guards and End Replay. `SaveData` remains v3. Focused smoke, full CI/validator/scene validation, both graphical Save E2E suites and Gallery GUI QA at 1280x720/1920x1080/2560x1440/3840x2160 passed in Unity 6000.5.7f1.
 - `a088a29449f6fc59496c311db3e8162302fba40e` - Timed narrative beat: isolated technical/demo-only `TimedNarrativeBeatController` acquires `BlockingExclusive`, uses unscaled time with visible remaining time/progress, resolves button-versus-timeout exactly once, releases its lease before routing through the existing VN scene path, and has no mid-beat save state. `SaveData` remains v3 and `SaveManager` is unchanged. `TimedNarrativeBeatSmokeTests`, full CI, project validator and scene validation passed in Unity 6000.5.7f1; graphical Play Mode QA is pending.
 - `1d1d7dabf927dd764c6272877d038da9927b1bb0` - Hide UI clean view: `H` is a canonical Help binding. In a stable ordinary dialogue state it hides only the existing dialogue shell and Quick Menu; background and character stay visible. Hidden view is transient, blocks advance/Auto/Skip/save/load/Backlog/Settings/Main Menu/special-mode entry, stops timers without changing Auto or Skip preference, and restores on H or Esc with fresh normal eligibility. Quick Menu preserves previous intentional visibility and special-mode ownership. No middle-click binding or custom screenshot writer was added: player screenshots use system/Steam tools. `HideUiSmokeTests`, full CI, validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `SaveManager` is unchanged.
@@ -110,7 +110,7 @@ Real characters, bios, portraits, and unlock rules will be supplied later by nar
 
 - `9647986856fa8c5a545ee375e4a60866a9472212` - Typed conditional choices: added closed numeric condition enums for the nine persisted `GameState` values and three inclusive operators; unavailable choices are hidden through transient source-index mapping. Choice saves and result restore continue to use source indices, `SaveData` remains v3, and zero/capacity paths fail safely. Focused conditional smoke plus the full Unity 6000.5.7f1 CI, project validator and scene validation passed; visual Play Mode QA remains pending.
 
-**Last reviewed functional commit:** `8e8bef75525750c4049643dd0e0c1b881fb08dec`
+**Last reviewed functional commit:** `9681822537ca418f0b5486ac9de1643887df170a`
 
 ## Правило обновления
 

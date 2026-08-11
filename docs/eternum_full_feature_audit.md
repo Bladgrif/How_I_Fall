@@ -151,6 +151,19 @@
 | I06 | Unlockable looks | Met character can cycle unlocked appearance variants; `after_load` migrates old lists. `look.rpy`, `save_compatibility.rpy:9-16`. | NOT NEEDED for current VN slice. | NOT PLANNED. | Cosmetic registry | Large | Medium | NEW |
 | I07 | Relationship-to-gallery bridge | Character hub opens gallery prefiltered to selected character. `pax.rpy:229-249`. | LATER. | TODO only with gallery. | Gallery + character hub | Small | Low | NEW |
 
+### Character Hub foundation status (2026-08-11)
+
+`I02`-`I05` are now **DONE (technical foundation)** for a deliberately narrow non-canonical fixture:
+
+- runtime `Characters` entry augments the existing VN Quick Menu; the Hub UI is runtime-created;
+- the only bootstrap is `Resources.Load<CharacterHubTechnicalConfig>("CharacterHub/TechnicalCharacterHubConfig")`;
+- TEST CHARACTER A is visible with TEST BIO A and a typed numeric `GameState` relationship value; TEST CHARACTER B is visibly locked and hides biography/relationship;
+- the Hub is an ordinary modal: Auto/Skip pause and restore, Close/Esc preserve Quick Menu visibility ownership, and Replay/Hide UI/BlockingExclusive conflicts are denied;
+- `SaveData` remains v3 and `VNPrototype.unity` is intentionally unchanged;
+- TEST fixtures are TECH DEMO ONLY / NOT CANON. Real characters, biographies, portraits and unlock rules remain deferred to narrative/art teams.
+
+Focused smoke, full CI, project validator, scene validation and manual graphical QA at 1280x720, 1920x1080, 2560x1440 and 3840x2160 passed on `9681822537ca418f0b5486ac9de1643887df170a`.
+
 ## J. Settings
 
 | ID | Feature | Eternum / edge / input | HIF value / why | HIF / gap | Dep | Size | Risk | Old |
@@ -382,11 +395,12 @@
 
 ## Audit conclusion
 
-Eternum remains a behavior reference only. How I Fall now has a neutral Gallery / Replay technical foundation: one typed TEST entry, versioned profile unlocks, transactional campaign-state/backlog/audio isolation, replay-local read history, two-layer save/load denial and controlled End Replay. `SaveData` remains v3, and no canon story, character, artwork or Eternum asset/text/code was added. Focused smoke, full CI/validator/scene validation, both graphical Save E2E suites and exact-size Gallery GUI QA passed on `8e8bef75525750c4049643dd0e0c1b881fb08dec` in Unity 6000.5.7f1.
+Eternum remains a behavior reference only. How I Fall now has a neutral Gallery / Replay technical foundation and a narrow Character Hub / Bios technical foundation. The Hub uses a runtime Quick Menu entry, runtime-created ordinary modal, narrow Resources bootstrap, TEST CHARACTER A/B fixtures and a typed numeric relationship bridge; Auto/Skip pause and restore, while Replay/Hide UI/BlockingExclusive conflicts fail closed. `SaveData` remains v3, `VNPrototype.unity` is intentionally unchanged, and no canon story, character artwork or Eternum asset/text/code was added. TEST fixtures are TECH DEMO ONLY / NOT CANON; real character content remains deferred. Full CI/validator/scene validation and manual graphical QA at 1280x720, 1920x1080, 2560x1440 and 3840x2160 passed on `9681822537ca418f0b5486ac9de1643887df170a` in Unity 6000.5.7f1.
 
 ## Maintenance log
 
+- `9681822537ca418f0b5486ac9de1643887df170a` - Character Hub / Bios technical foundation: runtime `Characters` Quick Menu entry, runtime-created ordinary modal, narrow `CharacterHub/TechnicalCharacterHubConfig` bootstrap, visible TEST CHARACTER A with TEST BIO A and typed numeric relationship, and locked TEST CHARACTER B with hidden bio/relationship. Auto/Skip pause and restore; Close/Esc preserve Quick Menu visibility ownership; Replay/Hide UI/BlockingExclusive are guarded. `SaveData` remains v3 and `VNPrototype.unity` was not changed. TEST fixtures are TECH DEMO ONLY / NOT CANON; real content/unlock rules remain deferred. Full CI, validator, scene validation and manual graphical QA passed.
 - `8e8bef75525750c4049643dd0e0c1b881fb08dec` - Gallery / Replay Foundation: TEST-only profile unlock registry, typed replay entry/context, persistent session transaction, exact campaign restore, isolated backlog/read history/audio, save/load guards, minimal Gallery and End Replay. `SaveData` remains v3. Full CI/validator/scene validation, both graphical Save E2E suites and Gallery GUI QA at 1280x720/1920x1080/2560x1440/3840x2160 passed in Unity 6000.5.7f1.
 - `a088a29449f6fc59496c311db3e8162302fba40e` - Timed narrative beat technical demo: full CI, project validator and scene validation passed in Unity 6000.5.7f1. Graphical Play Mode QA is pending.
 
-**Last reviewed functional commit:** `8e8bef75525750c4049643dd0e0c1b881fb08dec`
+**Last reviewed functional commit:** `9681822537ca418f0b5486ac9de1643887df170a`
