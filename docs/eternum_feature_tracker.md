@@ -40,7 +40,7 @@
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
 | Gallery/replay | One `TEST REPLAY`: profile JSON v1, locked/unlocked card, transactional `GameState`/backlog/audio isolation, replay-local read history, two-layer Save/Load denial and controlled End Replay | DONE (technical foundation) | Canon replay content and thumbnail remain separate future work | - / High |
-| Chat/phone | Typed `ChatSceneData` provides Text/Image/Choice entries, typed conditions/effects, transient transcript and a responsive runtime portrait phone UI from a narrow Resources config. `ChatController` owns `BlockingExclusive`, Replay is denied, SaveManager has a generic backend guard, and return is exactly-once. | **DONE (technical foundation + Phone UI polish)** | Clean-glass smartphone messenger overlay, dimmed VN background, shell suppression and four-resolution manual QA are complete. TEST content is TECH DEMO ONLY / NOT CANON; authored content remains deferred. | Low / High |
+| Chat/phone | Typed `ChatSceneData` provides Text/Image/Choice plus `ChatEntryPacing` (`Immediate`, `Delay`, `IncomingTyping`) with authored `pacingSeconds`, transient transcript and a responsive runtime portrait phone UI from a narrow Resources config. `ChatController` owns `BlockingExclusive`, Replay is denied, SaveManager has a generic backend guard, and return is exactly-once. | **DONE (technical foundation + Phone UI polish + R05 pacing)** | Unscaled deterministic `WaitingForEntryReveal`; transient incoming typing is excluded from transcript/backlog/read-history/save, replies stay unavailable during pacing, and cleanup cancels pending reveal. TEST content is TECH DEMO ONLY / NOT CANON; authored content remains deferred. Manual Play Mode QA PASS. | Low / High |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
 | Timed narrative beat | `TimedNarrativeBeatController` owns one `BlockingExclusive` lease, unscaled visible timer and exactly-once success/timeout routing through `VNDialogueController`; `TEST: success` / `TEST: timeout` are manually verified result beats. TEST fixtures are TECH DEMO ONLY / NOT CANON. | **DONE (technical foundation)** | Authored content remains deferred; this is not a full QTE framework. Terminal fallback is readable and the resolution input does not consume the result scene. | Medium / High |
 | Mini-games | Отсутствуют | 🚫 NOT PLANNED | Не строить без утверждённой сюжетной функции | — / High |
@@ -75,9 +75,9 @@
 
 ## Единственный NEXT
 
-### Typed chat pacing / typing indicator
+### Chat notification sound (R08)
 
-Implement the existing audit item R05 as a narrow typed pacing pass: an NPC typing indicator and authored short delays for Chat entries, without string commands, canon content, persistence or changes to `SaveData` v3, `BlockingExclusive` or the phone UI ownership contract.
+Implement the existing audit item R08 only after an approved non-canon technical SFX fixture exists: keep opening and incoming cues typed and isolated from transcript, persistence, `SaveData` v3, `BlockingExclusive` and the approved Phone UI layout. Do not introduce canon audio content or a general audio scripting layer.
 
 ## Отложено или исключено
 
