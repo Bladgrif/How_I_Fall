@@ -35,7 +35,7 @@
 | Rollback | Обратимого состояния исполнения нет | 🚫 NOT PLANNED | Нужна отдельная модель границ и обратимости | — / High |
 | Уведомления/confirm | Toast и модальные подтверждения применяются в save/load UX; тот же toast показывает feedback об изменении отношений после ручного выбора | ✅ DONE | Проверять читабельность сообщений при новом контенте | High / Low |
 | Relationships | После ручного выбора существующий toast показывает применённые изменения `trustMasha`, `trustArtem` и `leraInterest` без чисел; порядок Masha → Artem → Lera | ✅ DONE | Контентно проверять формулировки при добавлении новых персонажей/отношений | — / Low |
-| Character hub / bios | Отдельного экрана отношений и биографий нет | ⬜ TODO | Только после появления контентной потребности | Low / Medium |
+| Character hub / bios | Technical policy defines a future VN Quick Menu modal, static profile assets and a typed relationship bridge; no runtime/scene implementation yet | policy decided / implementation TODO | Real characters, bios, portraits and unlock rules will be supplied later by narrative/art teams | Low / Medium |
 | Settings | Main Menu and VN Settings share `SettingsManager`: audio, text speed, auto, skip, autosave, display mode, resolution and background mode apply immediately; unsupported controls are hidden | DONE | Verify runtime Screen API and UI when future display/localization/theme systems are added | Medium / Low |
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
@@ -73,11 +73,11 @@
 
 ## Единственный NEXT
 
-### Character hub / bios policy
+### Character Hub / Bios: policy decided / implementation TODO
 
-Define the minimum authored contract in `docs/story` first: required biographies and relationship states, spoiler/locked behavior, and the existing data source for each field. Do not add runtime, scene UI or a general flag framework before that content contract is approved.
+Implement Character Hub / Bios technical foundation.
 
-Out of scope: canon Gallery content without an approved art/story package, rollback, map, chat/phone, a full QTE framework and mini-games.
+Real characters, bios, portraits, and unlock rules will be supplied later by narrative/art teams.
 
 ## Отложено или исключено
 
