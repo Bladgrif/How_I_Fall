@@ -25,6 +25,7 @@ public sealed class ChatSceneData : ScriptableObject
             ChatEntry entry = entries[i];
             if (entry == null || string.IsNullOrWhiteSpace(entry.entryId) || !ids.Add(entry.entryId)) { diagnostic = "Entry IDs must be non-empty and unique."; return false; }
             if (!Enum.IsDefined(typeof(ChatEntryKind), entry.kind) || !Enum.IsDefined(typeof(ChatSenderSide), entry.sender)) { diagnostic = "Entry kind or sender is unsupported."; return false; }
+            if (!TryValidatePacing(entry, out diagnostic)) { return false; }
             byId.Add(entry.entryId, entry);
             if (entry.kind == ChatEntryKind.Text)
             {
@@ -56,6 +57,53 @@ public sealed class ChatSceneData : ScriptableObject
             if (!string.IsNullOrEmpty(entry.fallbackEntryId) && !byId.ContainsKey(entry.fallbackEntryId)) { diagnostic = "Choice fallback target is missing from this chat."; return false; }
         }
         if (!HasTerminalPath(0, byId, new HashSet<int>())) { diagnostic = "Chat graph has no valid terminal path or contains a cycle."; return false; }
+        return true;
+    }
+
+    public static bool TryValidatePacing(ChatEntry entry, out string diagnostic)
+    {
+        diagnostic = string.Empty;
+        if (entry == null || !Enum.IsDefined(typeof(ChatEntryPacing), entry.pacing)
+            || float.IsNaN(entry.pacingSeconds) || float.IsInfinity(entry.pacingSeconds) || entry.pacingSeconds < 0f)
+        {
+            diagnostic = "Entry pacing is unsupported or has a negative duration.";
+            return false;
+        }
+
+        if (entry.kind == ChatEntryKind.Choice)
+        {
+            if (entry.pacing != ChatEntryPacing.Immediate)
+            {
+                diagnostic = "Choice entry pacing must be Immediate.";
+                return false;
+            }
+
+            return true;
+        }
+
+        if (entry.pacing == ChatEntryPacing.Immediate)
+        {
+            return true;
+        }
+
+        if (entry.kind != ChatEntryKind.Text && entry.kind != ChatEntryKind.Image)
+        {
+            diagnostic = "Delayed pacing is only supported by Text or Image entries.";
+            return false;
+        }
+
+        if (entry.pacingSeconds <= 0f)
+        {
+            diagnostic = "Delayed pacing requires a duration greater than zero.";
+            return false;
+        }
+
+        if (entry.pacing == ChatEntryPacing.IncomingTyping && entry.sender != ChatSenderSide.Incoming)
+        {
+            diagnostic = "IncomingTyping pacing requires an Incoming sender.";
+            return false;
+        }
+
         return true;
     }
 

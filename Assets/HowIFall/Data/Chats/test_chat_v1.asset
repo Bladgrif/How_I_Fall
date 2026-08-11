@@ -18,6 +18,8 @@ MonoBehaviour:
   - entryId: incoming
     kind: 0
     sender: 0
+    pacing: 2
+    pacingSeconds: 0.8
     text: 'TEST: incoming message'
     image: {fileID: 0}
     options: []
@@ -25,6 +27,8 @@ MonoBehaviour:
   - entryId: image
     kind: 1
     sender: 0
+    pacing: 1
+    pacingSeconds: 0.35
     text:
     image: {fileID: 21300000, guid: 4ce6fbba7c8f4fd419488432a98369cf, type: 3}
     options: []
@@ -32,6 +36,8 @@ MonoBehaviour:
   - entryId: choice
     kind: 2
     sender: 1
+    pacing: 0
+    pacingSeconds: 0
     text:
     image: {fileID: 0}
     options:

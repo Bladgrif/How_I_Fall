@@ -27,18 +27,23 @@ public static class ChatPhoneTechnicalAssets
         ChatSceneData chat = AssetDatabase.LoadAssetAtPath<ChatSceneData>(ChatPath);
         if (chat == null) { chat = ScriptableObject.CreateInstance<ChatSceneData>(); AssetDatabase.CreateAsset(chat, ChatPath); }
         chat.chatId = "test_chat_v1"; chat.contactDisplayName = "TEST CONTACT"; chat.returnScene = returnScene;
-        chat.entries = new System.Collections.Generic.List<ChatEntry>
-        {
-            new ChatEntry { entryId = "incoming", kind = ChatEntryKind.Text, sender = ChatSenderSide.Incoming, text = "TEST: incoming message" },
-            new ChatEntry { entryId = "image", kind = ChatEntryKind.Image, sender = ChatSenderSide.Incoming, image = sprite },
-            new ChatEntry { entryId = "choice", kind = ChatEntryKind.Choice, sender = ChatSenderSide.Player, options = new System.Collections.Generic.List<ChatChoiceOption>
-                { new ChatChoiceOption { text = "TEST: reply A", nextEntryId = string.Empty }, new ChatChoiceOption { text = "TEST: reply B", nextEntryId = string.Empty } } }
-        };
+        chat.entries = CreateTechnicalEntries(sprite);
         ChatPhoneTechnicalConfig config = AssetDatabase.LoadAssetAtPath<ChatPhoneTechnicalConfig>(ConfigPath);
         if (config == null) { config = ScriptableObject.CreateInstance<ChatPhoneTechnicalConfig>(); AssetDatabase.CreateAsset(config, ConfigPath); }
         config.technicalDemoChat = chat;
         EditorUtility.SetDirty(returnScene); EditorUtility.SetDirty(chat); EditorUtility.SetDirty(config); AssetDatabase.SaveAssets(); AssetDatabase.Refresh();
         Debug.Log("[CHAT] TECH DEMO ONLY / NOT CANON assets are ready.");
+    }
+
+    internal static System.Collections.Generic.List<ChatEntry> CreateTechnicalEntries(Sprite sprite)
+    {
+        return new System.Collections.Generic.List<ChatEntry>
+        {
+            new ChatEntry { entryId = "incoming", kind = ChatEntryKind.Text, sender = ChatSenderSide.Incoming, pacing = ChatEntryPacing.IncomingTyping, pacingSeconds = 0.8f, text = "TEST: incoming message" },
+            new ChatEntry { entryId = "image", kind = ChatEntryKind.Image, sender = ChatSenderSide.Incoming, pacing = ChatEntryPacing.Delay, pacingSeconds = 0.35f, image = sprite },
+            new ChatEntry { entryId = "choice", kind = ChatEntryKind.Choice, sender = ChatSenderSide.Player, pacing = ChatEntryPacing.Immediate, pacingSeconds = 0f, options = new System.Collections.Generic.List<ChatChoiceOption>
+                { new ChatChoiceOption { text = "TEST: reply A", nextEntryId = string.Empty }, new ChatChoiceOption { text = "TEST: reply B", nextEntryId = string.Empty } } }
+        };
     }
 
     private static Sprite EnsurePlaceholder()

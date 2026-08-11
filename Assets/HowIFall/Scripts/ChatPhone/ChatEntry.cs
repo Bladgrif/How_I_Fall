@@ -4,7 +4,8 @@ using UnityEngine;
 
 public enum ChatEntryKind { Text, Image, Choice }
 public enum ChatSenderSide { Incoming, Player }
-public enum ChatRuntimeState { Idle, Active, ResolvingTerminalChoice, Resolved }
+public enum ChatEntryPacing { Immediate, Delay, IncomingTyping }
+public enum ChatRuntimeState { Idle, Active, WaitingForEntryReveal, ResolvingTerminalChoice, Resolved }
 
 [Serializable]
 public sealed class ChatGameStateDelta
@@ -40,6 +41,8 @@ public sealed class ChatEntry
     public string entryId;
     public ChatEntryKind kind;
     public ChatSenderSide sender;
+    public ChatEntryPacing pacing;
+    [Min(0f)] public float pacingSeconds;
     [TextArea(2, 5)] public string text;
     public Sprite image;
     public List<ChatChoiceOption> options = new List<ChatChoiceOption>();

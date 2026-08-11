@@ -14,10 +14,15 @@ public static class ChatPhoneSmokeTests
         ChatPhoneTechnicalConfig config = Resources.Load<ChatPhoneTechnicalConfig>(ChatPhoneTechnicalConfig.ResourcesPath);
         DialogueSceneRegistry registry = AssetDatabase.LoadAssetAtPath<DialogueSceneRegistry>("Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset");
         Require(config != null && config.technicalDemoChat != null, "Technical chat config is missing.");
+        Require(AssetDatabase.GetAssetPath(config.technicalDemoChat) == ChatPhoneTechnicalAssets.ChatPath,
+            "Technical config must reference the approved test_chat_v1 asset.");
         Require(config.technicalDemoChat.TryValidate(registry, out _), "Approved chat fixture must validate.");
         Require(config.technicalDemoChat.entries.Count == 3, "Fixture must include incoming text, image, and choice.");
         Require(config.technicalDemoChat.entries[0].kind == ChatEntryKind.Text && config.technicalDemoChat.entries[0].sender == ChatSenderSide.Incoming, "Incoming presentation fixture is missing.");
+        Require(config.technicalDemoChat.entries[0].pacing == ChatEntryPacing.IncomingTyping && config.technicalDemoChat.entries[0].pacingSeconds > 0f, "Incoming fixture must use typed IncomingTyping pacing.");
         Require(config.technicalDemoChat.entries[1].kind == ChatEntryKind.Image && config.technicalDemoChat.entries[1].image != null, "Image placeholder fixture is missing.");
+        Require(config.technicalDemoChat.entries[1].pacing == ChatEntryPacing.Delay && config.technicalDemoChat.entries[1].pacingSeconds > 0f, "Image fixture must use typed Delay pacing.");
+        Require(config.technicalDemoChat.entries[2].pacing == ChatEntryPacing.Immediate, "Choice fixture must remain Immediate.");
         Require(config.technicalDemoChat.entries[2].options.Count == 2, "V1 choice must have exactly two options.");
         VerifyRuntimeChatBootstrap(config.technicalDemoChat, registry);
 
@@ -25,6 +30,7 @@ public static class ChatPhoneSmokeTests
         Require(!duplicate.TryValidate(registry, out _), "Duplicate entry IDs must be rejected.");
         duplicate = CopyFixture(config.technicalDemoChat); duplicate.entries[1].kind = ChatEntryKind.Image; duplicate.entries[1].image = null;
         Require(!duplicate.TryValidate(registry, out _), "Null image must be rejected safely.");
+        VerifyPacingValidation(config.technicalDemoChat, registry);
 
         GameObject stateObject = new GameObject("ChatPhoneSmokeGameState");
         try
@@ -57,6 +63,13 @@ public static class ChatPhoneSmokeTests
 
     private static void VerifyLauncherContract()
     {
+        List<ChatEntry> rebuiltEntries = ChatPhoneTechnicalAssets.CreateTechnicalEntries(null);
+        Require(rebuiltEntries.Count == 3
+            && rebuiltEntries[0].pacing == ChatEntryPacing.IncomingTyping && Mathf.Approximately(rebuiltEntries[0].pacingSeconds, 0.8f)
+            && rebuiltEntries[1].pacing == ChatEntryPacing.Delay && Mathf.Approximately(rebuiltEntries[1].pacingSeconds, 0.35f)
+            && rebuiltEntries[2].pacing == ChatEntryPacing.Immediate && Mathf.Approximately(rebuiltEntries[2].pacingSeconds, 0f),
+            "Technical asset repair must preserve the authored R05 pacing values.");
+
         // Pure plan checks: the Edit Mode branch only selects the editor-scene path;
         // it cannot invoke SceneManager until Play Mode has actually started.
         Require(
@@ -88,6 +101,31 @@ public static class ChatPhoneSmokeTests
             "Cleanup must remove the pending state after the one-shot start.");
     }
 
+    private static void VerifyPacingValidation(ChatSceneData technicalChat, DialogueSceneRegistry registry)
+    {
+        ChatSceneData invalid = CopyFixture(technicalChat);
+        invalid.entries[0].sender = ChatSenderSide.Player;
+        Require(!invalid.TryValidate(registry, out _), "IncomingTyping on a Player entry must be rejected.");
+
+        invalid = CopyFixture(technicalChat);
+        invalid.entries[2].pacing = ChatEntryPacing.IncomingTyping;
+        invalid.entries[2].pacingSeconds = 0.8f;
+        Require(!invalid.TryValidate(registry, out _), "IncomingTyping on a Choice entry must be rejected.");
+
+        invalid = CopyFixture(technicalChat);
+        invalid.entries[2].pacing = ChatEntryPacing.Delay;
+        invalid.entries[2].pacingSeconds = 0.3f;
+        Require(!invalid.TryValidate(registry, out _), "Choice pacing other than Immediate must be rejected.");
+
+        invalid = CopyFixture(technicalChat);
+        invalid.entries[1].pacingSeconds = -0.1f;
+        Require(!invalid.TryValidate(registry, out _), "Negative pacing duration must be rejected.");
+
+        invalid = CopyFixture(technicalChat);
+        invalid.entries[1].pacingSeconds = 0f;
+        Require(!invalid.TryValidate(registry, out _), "Delay requires a positive duration.");
+    }
+
     private static void VerifyRuntimeChatBootstrap(ChatSceneData technicalChat, DialogueSceneRegistry registry)
     {
         GameObject canvasObject = new GameObject("ChatPhoneSmokeCanvas", typeof(Canvas));
@@ -109,20 +147,47 @@ public static class ChatPhoneSmokeTests
                 "Ready chat runtime UI must be creatable: " + createReason);
             ChatSceneData terminalChat = CopyFixture(technicalChat);
             terminalChat.entries[2].options[0].effects = new ChatGameStateDelta { trustMashaDelta = 3 };
+            int backlogBeforeChat = dialogue.CaptureBacklogSnapshot().Count;
             Require(chat.TryStartChat(terminalChat, out string startReason),
                 "Valid technical chat must start its runtime controller: " + startReason);
             Require(chat.IsRunning && chat.IsRuntimeUiActive,
                 "Successful technical chat start must leave ChatController and runtime UI active.");
             Require(chat.HasSinglePhoneRoot && chat.HasDistinctReplyArea,
                 "Chat must build one PhoneRoot with a distinct persistent ReplyArea.");
-            Require(chat.HasImageCard,
-                "Image entries must render an image card from the image payload, not debug text.");
-            Require(chat.HasIncomingLeftPresentation,
-                "Incoming transcript entries must use the left-aligned bubble presentation.");
             Require(chat.IsDialogueShellSuppressed && dialogue.IsDialogueShellSuppressed && !dialogue.dialogueUiRoot.activeSelf,
                 "Chat must suppress the ordinary dialogue shell while its phone overlay is active.");
-            Require(chat.AreReplyCardsInteractable,
-                "Available reply cards must be the active chat input before selection.");
+            Require(chat.RuntimeState == ChatRuntimeState.WaitingForEntryReveal && chat.HasPendingEntryReveal,
+                "IncomingTyping must enter a deterministic waiting state.");
+            Require(chat.IsTypingIndicatorVisible && chat.Transcript.Count == 0,
+                "IncomingTyping must show a transient indicator outside the transcript.");
+            Require(!chat.AreReplyCardsInteractable && !chat.TryChoose(0),
+                "Reply cards must remain unavailable while pacing is active.");
+            Require(dialogue.HasActiveSpecialMode && !dialogue.CanAdvanceDialogue
+                && !dialogue.CanOpenQuickMenu && !dialogue.CanOpenBacklog && !dialogue.CanOpenSettings,
+                "BlockingExclusive must remain owned while entry pacing is active.");
+            Require(dialogue.CaptureBacklogSnapshot().Count == backlogBeforeChat,
+                "Typing indicator and pending chat entry must not enter the dialogue backlog.");
+            chat.AdvanceEntryPacing(0.4f);
+            Require(chat.Transcript.Count == 0 && chat.IsTypingIndicatorVisible,
+                "IncomingTyping must not reveal before its countdown finishes.");
+            chat.AdvanceEntryPacing(0.4f);
+            Require(chat.Transcript.Count == 1 && !chat.IsTypingIndicatorVisible && chat.RuntimeState == ChatRuntimeState.WaitingForEntryReveal,
+                "IncomingTyping must hide before revealing the entry and then begin the next authored delay.");
+            Require(chat.HasIncomingLeftPresentation,
+                "Incoming transcript entries must use the left-aligned bubble presentation.");
+            Require(!chat.HasImageCard && !chat.AreReplyCardsInteractable,
+                "The delayed image and replies must not appear in the incoming reveal frame.");
+            chat.AdvanceEntryPacing(0.2f);
+            Require(!chat.HasImageCard && chat.Transcript.Count == 1,
+                "Delay must not reveal before enough unscaled countdown time.");
+            chat.AdvanceEntryPacing(0.15f);
+            Require(chat.HasImageCard && chat.Transcript.Count == 2 && chat.AreReplyCardsInteractable,
+                "Delay must reveal the image automatically and then show replies.");
+            chat.AdvanceEntryPacing(10f);
+            Require(chat.Transcript.Count == 2,
+                "A completed delayed entry must reveal exactly once.");
+            Require(dialogue.CaptureBacklogSnapshot().Count == backlogBeforeChat,
+                "Chat transcript entries must remain isolated from the dialogue backlog.");
             Require(chat.TryChoose(0), "One terminal reply callback must be accepted.");
             Require(chat.IsCompletionPending && chat.RuntimeState == ChatRuntimeState.ResolvingTerminalChoice,
                 "Terminal reply must enter an automatic resolving state without another input.");
@@ -167,11 +232,39 @@ public static class ChatPhoneSmokeTests
             });
             Require(branchingChat.TryValidate(registry, out _), "Non-terminal branch fixture must validate.");
             Require(chat.TryStartChat(branchingChat, out startReason), "Chat must restart after terminal cleanup: " + startReason);
+            chat.AdvanceEntryPacing(1f);
+            chat.AdvanceEntryPacing(1f);
             Require(chat.TryChoose(0) && chat.IsRunning && !chat.IsCompletionPending && chat.CurrentEntryIndex == 3,
                 "Non-terminal reply must immediately reach nextEntryId without a second input.");
             Require(!chat.TryStartChat(technicalChat, out string duplicateReason)
                 && duplicateReason == "Chat already active",
                 "Repeated start must reject an active chat without a duplicate UI.");
+            Require(chat.TryChoose(0), "Follow-up branch must still accept its terminal reply.");
+            chat.AdvanceTerminalPresentation(1f);
+
+            ChatSceneData immediateChat = CopyFixture(technicalChat);
+            immediateChat.entries[0].pacing = ChatEntryPacing.Immediate;
+            immediateChat.entries[0].pacingSeconds = 0f;
+            Require(chat.TryCompletePendingTerminalPresentation() == false,
+                "Completed chat cleanup must not expose a second terminal completion callback.");
+            Require(chat.TryStartChat(immediateChat, out startReason), "Chat must restart after terminal cleanup: " + startReason);
+            Require(chat.Transcript.Count == 1 && chat.RuntimeState == ChatRuntimeState.WaitingForEntryReveal && !chat.IsTypingIndicatorVisible,
+                "Immediate entries must reveal immediately without a typing indicator.");
+            chat.AdvanceEntryPacing(1f);
+            Require(chat.AreReplyCardsInteractable, "The remaining delayed entry must reveal automatically after its countdown.");
+            Require(chat.TryChoose(0), "Immediate fixture must still accept its terminal reply.");
+            chat.AdvanceTerminalPresentation(1f);
+
+            Require(chat.TryStartChat(terminalChat, out startReason), "Chat must start for cleanup pacing coverage: " + startReason);
+            int cleanupCompletionCount = chat.CompletionCount;
+            int cleanupRouteCount = chat.ReturnRouteAttemptCount;
+            Require(chat.IsTypingIndicatorVisible && chat.HasPendingEntryReveal, "Cleanup fixture must be waiting on IncomingTyping.");
+            Require(chat.TryCleanupPendingPacingForTests(), "Pending pacing cleanup must be accepted exactly once.");
+            chat.AdvanceEntryPacing(10f);
+            Require(!chat.IsTypingIndicatorVisible && !chat.HasPendingEntryReveal && !chat.IsRunning,
+                "Cleanup must cancel pending pacing and remove the typing indicator.");
+            Require(chat.CompletionCount == cleanupCompletionCount && chat.ReturnRouteAttemptCount == cleanupRouteCount,
+                "Cleanup must not reveal or route a pending entry.");
         }
         finally
         {
@@ -185,7 +278,7 @@ public static class ChatPhoneSmokeTests
         ChatSceneData copy = ScriptableObject.CreateInstance<ChatSceneData>(); copy.chatId = source.chatId; copy.contactDisplayName = source.contactDisplayName; copy.returnScene = source.returnScene; copy.entries = new List<ChatEntry>();
         foreach (ChatEntry entry in source.entries)
         {
-            var clone = new ChatEntry { entryId = entry.entryId, kind = entry.kind, sender = entry.sender, text = entry.text, image = entry.image, fallbackEntryId = entry.fallbackEntryId, options = new List<ChatChoiceOption>() };
+            var clone = new ChatEntry { entryId = entry.entryId, kind = entry.kind, sender = entry.sender, pacing = entry.pacing, pacingSeconds = entry.pacingSeconds, text = entry.text, image = entry.image, fallbackEntryId = entry.fallbackEntryId, options = new List<ChatChoiceOption>() };
             foreach (ChatChoiceOption option in entry.options ?? new List<ChatChoiceOption>()) clone.options.Add(new ChatChoiceOption { text = option.text, nextEntryId = option.nextEntryId, conditions = new List<ChoiceCondition>(option.conditions ?? new List<ChoiceCondition>()), effects = option.effects });
             copy.entries.Add(clone);
         }

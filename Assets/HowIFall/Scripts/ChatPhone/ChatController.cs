@@ -39,10 +39,13 @@ public sealed class ChatController : MonoBehaviour
     private readonly List<ChatTranscriptEntry> transcript = new List<ChatTranscriptEntry>();
     private ChatSceneData activeChat;
     private SpecialModeLease activeLease;
+    private ChatEntry pendingEntry;
+    private GameObject typingIndicatorView;
     private int currentEntryIndex;
     private ChatRuntimeState runtimeState = ChatRuntimeState.Idle;
     private bool completionPending;
     private bool dialogueShellSuppressed;
+    private float pacingRemaining;
     private float terminalPresentationRemaining;
     private int completionCount;
     private int returnRouteAttemptCount;
@@ -62,10 +65,13 @@ public sealed class ChatController : MonoBehaviour
     public bool HasSinglePhoneRoot => root != null && phoneShell != null && root.transform.Find("PhoneShell") == phoneShell.transform;
     public bool HasDistinctReplyArea => replyArea != null && replyArea.transform.parent == phoneShell.transform;
     public bool HasImageCard => transcriptViews.Exists(view => view != null && view.name == "Image Card");
+    public bool IsTypingIndicatorVisible => typingIndicatorView != null && typingIndicatorView.activeInHierarchy;
+    public bool HasPendingEntryReveal => runtimeState == ChatRuntimeState.WaitingForEntryReveal && pendingEntry != null;
     public bool HasIncomingLeftPresentation => HasBubbleAlignment("Incoming Bubble", TextAnchor.UpperLeft);
     public bool HasPlayerRightPresentation => HasBubbleAlignment("Player Bubble", TextAnchor.UpperRight);
     public bool AreReplyCardsInteractable => replyButtons != null && replyButtons.Length == 2
         && replyButtons[0] != null && replyButtons[1] != null
+        && replyButtons[0].gameObject.activeInHierarchy && replyButtons[1].gameObject.activeInHierarchy
         && replyButtons[0].interactable && replyButtons[1].interactable;
 
     public static ChatController TryCreateRuntime(VNDialogueController controller)
@@ -130,6 +136,7 @@ public sealed class ChatController : MonoBehaviour
         dialogueShellSuppressed = true;
         currentEntryIndex = 0;
         runtimeState = ChatRuntimeState.Active;
+        ClearPendingPacing();
         completionPending = false;
         completionCount = 0;
         returnRouteAttemptCount = 0;
@@ -189,7 +196,28 @@ public sealed class ChatController : MonoBehaviour
 
     private void Update()
     {
+        AdvanceEntryPacing(Time.unscaledDeltaTime);
         AdvanceTerminalPresentation(Time.unscaledDeltaTime);
+    }
+
+    /// <summary>Advances one authored entry reveal with unscaled time.</summary>
+    public void AdvanceEntryPacing(float unscaledDeltaTime)
+    {
+        if (runtimeState != ChatRuntimeState.WaitingForEntryReveal || pendingEntry == null || unscaledDeltaTime < 0f)
+        {
+            return;
+        }
+
+        pacingRemaining = Mathf.Max(0f, pacingRemaining - unscaledDeltaTime);
+        if (pacingRemaining > 0f)
+        {
+            return;
+        }
+
+        ChatEntry entryToReveal = pendingEntry;
+        ClearPendingPacing();
+        runtimeState = ChatRuntimeState.Active;
+        RevealEntry(entryToReveal);
     }
 
     /// <summary>Advances only the local terminal-reply presentation with unscaled time.</summary>
@@ -216,6 +244,51 @@ public sealed class ChatController : MonoBehaviour
         if (entry == null) { Complete("Current entry is invalid."); return; }
 
         HideReplyCards();
+        if (!ChatSceneData.TryValidatePacing(entry, out string pacingDiagnostic))
+        {
+            Complete("Invalid runtime entry pacing: " + pacingDiagnostic);
+            return;
+        }
+
+        if (entry.pacing == ChatEntryPacing.Immediate)
+        {
+            RevealEntry(entry);
+            return;
+        }
+
+        BeginEntryPacing(entry);
+    }
+
+    private void BeginEntryPacing(ChatEntry entry)
+    {
+        if (entry == null || runtimeState != ChatRuntimeState.Active)
+        {
+            Complete("Unable to begin entry pacing.");
+            return;
+        }
+
+        pendingEntry = entry;
+        pacingRemaining = entry.pacingSeconds;
+        runtimeState = ChatRuntimeState.WaitingForEntryReveal;
+        if (entry.pacing == ChatEntryPacing.IncomingTyping)
+        {
+            ShowTypingIndicator();
+        }
+    }
+
+    private void RevealEntry(ChatEntry entry)
+    {
+        if (!IsRunning || runtimeState != ChatRuntimeState.Active || entry == null)
+        {
+            return;
+        }
+
+        if (!ChatSceneData.TryValidatePacing(entry, out string pacingDiagnostic))
+        {
+            Complete("Invalid runtime entry pacing: " + pacingDiagnostic);
+            return;
+        }
+
         switch (entry.kind)
         {
             case ChatEntryKind.Text:
@@ -326,6 +399,7 @@ public sealed class ChatController : MonoBehaviour
 
     private void ClearTransientState()
     {
+        ClearPendingPacing();
         if (root != null)
         {
             root.SetActive(false);
@@ -366,6 +440,7 @@ public sealed class ChatController : MonoBehaviour
         }
 
         dialogueShellSuppressed = false;
+        ClearPendingPacing();
         transcript.Clear();
     }
 
@@ -373,6 +448,14 @@ public sealed class ChatController : MonoBehaviour
     {
         completionPending = false;
         terminalPresentationRemaining = 0f;
+        ClearPendingPacing();
+    }
+
+    private void ClearPendingPacing()
+    {
+        pendingEntry = null;
+        pacingRemaining = 0f;
+        HideTypingIndicator();
     }
 
     /// <summary>Completes an already-pending terminal presentation. Runtime input never calls this directly.</summary>
@@ -386,6 +469,22 @@ public sealed class ChatController : MonoBehaviour
         AdvanceTerminalPresentation(terminalPresentationRemaining);
         return true;
     }
+
+#if UNITY_EDITOR
+    /// <summary>Exercises the same no-route cleanup path used by OnDisable for an awaiting entry reveal.</summary>
+    public bool TryCleanupPendingPacingForTests()
+    {
+        if (!HasPendingEntryReveal)
+        {
+            return false;
+        }
+
+        CancelPendingPresentation();
+        ReleaseLease();
+        ClearTransientState();
+        return true;
+    }
+#endif
 
     private void RefreshTranscript()
     {
@@ -445,6 +544,50 @@ public sealed class ChatController : MonoBehaviour
         }
 
         transcriptViews.Clear();
+    }
+
+    private void ShowTypingIndicator()
+    {
+        HideTypingIndicator();
+        if (transcriptContent == null)
+        {
+            return;
+        }
+
+        float bubbleWidth = GetTranscriptRelativeBubbleWidth();
+        typingIndicatorView = CreateLayoutObject(transcriptContent, "Incoming Typing Indicator");
+        ConfigureBubbleRow(typingIndicatorView, ChatSenderSide.Incoming);
+        GameObject bubble = CreateImageObject(typingIndicatorView.transform, "Typing Bubble", IncomingColor);
+        ConfigureBubbleSurface(bubble, bubbleWidth);
+        VerticalLayoutGroup layout = bubble.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(16, 16, 8, 8);
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        bubble.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        TextMeshProUGUI label = CreateTmp(bubble.transform, "Typing Dots", "...", 24f, TextAlignmentOptions.TopLeft, Color.white, FontStyles.Bold);
+        label.gameObject.AddComponent<LayoutElement>().preferredWidth = bubbleWidth - 32f;
+        SizeTranscriptContentToViewport();
+        Canvas.ForceUpdateCanvases();
+        if (transcriptScroll != null)
+        {
+            transcriptScroll.verticalNormalizedPosition = 0f;
+        }
+    }
+
+    private void HideTypingIndicator()
+    {
+        if (typingIndicatorView == null)
+        {
+            return;
+        }
+
+        typingIndicatorView.SetActive(false);
+        if (Application.isPlaying) Destroy(typingIndicatorView); else DestroyImmediate(typingIndicatorView);
+        typingIndicatorView = null;
+        SizeTranscriptContentToViewport();
     }
 
     private GameObject CreateTextBubble(ChatTranscriptEntry entry, float bubbleWidth)
