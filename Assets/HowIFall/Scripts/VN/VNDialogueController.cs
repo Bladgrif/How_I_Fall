@@ -94,8 +94,12 @@ public class VNDialogueController : MonoBehaviour
     private bool specialModeWasActive;
     private bool isInterfaceHidden;
     private bool isRuntimeReady;
+    private UnityEngine.Object dialogueShellSuppressionOwner;
+    private bool dialogueShellWasVisibleBeforeSuppression;
 
     public bool IsInterfaceHidden => isInterfaceHidden;
+    /// <summary>True while a transient special presentation owns the ordinary dialogue shell.</summary>
+    public bool IsDialogueShellSuppressed => dialogueShellSuppressionOwner != null;
     /// <summary>True only after this controller completed its scene-local Start initialization.</summary>
     public bool IsRuntimeReady => isRuntimeReady && isActiveAndEnabled;
     public ChatController ActiveChatController => chatController;
@@ -536,6 +540,54 @@ public class VNDialogueController : MonoBehaviour
         StopAutoForwardTimer();
         StopSkipTimer();
         return true;
+    }
+
+    /// <summary>
+    /// Gives one transient presentation ownership of the ordinary dialogue shell without changing
+    /// player Hide UI state or forcing a later visibility restore from an unrelated owner.
+    /// </summary>
+    public bool TrySuppressDialogueShell(UnityEngine.Object owner)
+    {
+        if (owner == null)
+        {
+            return false;
+        }
+
+        if (dialogueShellSuppressionOwner != null && dialogueShellSuppressionOwner != owner)
+        {
+            return false;
+        }
+
+        if (dialogueShellSuppressionOwner == owner)
+        {
+            return true;
+        }
+
+        dialogueShellSuppressionOwner = owner;
+        dialogueShellWasVisibleBeforeSuppression = dialogueUiRoot != null && dialogueUiRoot.activeSelf;
+        if (dialogueUiRoot != null && dialogueUiRoot.activeSelf)
+        {
+            dialogueUiRoot.SetActive(false);
+        }
+
+        return true;
+    }
+
+    /// <summary>Releases the matching transient dialogue-shell owner without overriding Hide UI.</summary>
+    public void ReleaseDialogueShellSuppression(UnityEngine.Object owner)
+    {
+        if (owner == null || dialogueShellSuppressionOwner != owner)
+        {
+            return;
+        }
+
+        dialogueShellSuppressionOwner = null;
+        if (!isInterfaceHidden && dialogueShellWasVisibleBeforeSuppression && dialogueUiRoot != null)
+        {
+            dialogueUiRoot.SetActive(true);
+        }
+
+        dialogueShellWasVisibleBeforeSuppression = false;
     }
 
     public void CloseCharacterHub()

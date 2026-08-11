@@ -101,6 +101,7 @@ public static class ChatPhoneSmokeTests
             gameState.ResetState();
             VNDialogueController dialogue = controllerObject.AddComponent<VNDialogueController>();
             dialogue.sceneRegistry = registry;
+            ConfigureRouteUi(dialogue, canvasObject.transform);
             Require(!dialogue.TryStartChat(technicalChat, out string notReadyReason)
                 && notReadyReason == "controller not ready",
                 "A found controller before Start completion must explicitly report not-ready.");
@@ -112,12 +113,26 @@ public static class ChatPhoneSmokeTests
                 "Valid technical chat must start its runtime controller: " + startReason);
             Require(chat.IsRunning && chat.IsRuntimeUiActive,
                 "Successful technical chat start must leave ChatController and runtime UI active.");
+            Require(chat.HasSinglePhoneRoot && chat.HasDistinctReplyArea,
+                "Chat must build one PhoneRoot with a distinct persistent ReplyArea.");
+            Require(chat.HasImageCard,
+                "Image entries must render an image card from the image payload, not debug text.");
+            Require(chat.HasIncomingLeftPresentation,
+                "Incoming transcript entries must use the left-aligned bubble presentation.");
+            Require(chat.IsDialogueShellSuppressed && dialogue.IsDialogueShellSuppressed && !dialogue.dialogueUiRoot.activeSelf,
+                "Chat must suppress the ordinary dialogue shell while its phone overlay is active.");
+            Require(chat.AreReplyCardsInteractable,
+                "Available reply cards must be the active chat input before selection.");
             Require(chat.TryChoose(0), "One terminal reply callback must be accepted.");
             Require(chat.IsCompletionPending && chat.RuntimeState == ChatRuntimeState.ResolvingTerminalChoice,
                 "Terminal reply must enter an automatic resolving state without another input.");
             Require(chat.Transcript.Count > 0 && chat.Transcript[chat.Transcript.Count - 1].sender == ChatSenderSide.Player,
                 "Outgoing reply must be appended before terminal completion.");
             Require(gameState.trustMasha == 3, "Terminal reply effect must apply exactly once before completion.");
+            Require(chat.HasPlayerRightPresentation,
+                "Selected player replies must use the right-aligned bubble presentation.");
+            Require(!chat.AreReplyCardsInteractable,
+                "Selecting a reply must disable its cards before terminal completion.");
             dialogue.AdvanceDialogue();
             Require(chat.IsCompletionPending, "Generic dialogue advance must not be required or accepted during terminal presentation.");
             Require(!chat.TryChoose(0) && gameState.trustMasha == 3,
@@ -125,9 +140,15 @@ public static class ChatPhoneSmokeTests
             chat.AdvanceTerminalPresentation(0.2f);
             Require(chat.IsCompletionPending && chat.IsRunning,
                 "Terminal presentation must remain active before its unscaled countdown finishes.");
-            chat.AdvanceTerminalPresentation(0.2f);
+            chat.AdvanceTerminalPresentation(0.3f);
             Require(chat.CompletionCount == 1 && chat.ReturnRouteAttemptCount == 1 && chat.LastReturnScene == terminalChat.returnScene,
                 "Terminal completion must attempt the authored return route exactly once.");
+            Require(dialogue.sceneData == terminalChat.returnScene,
+                "Successful terminal completion must make the authored returnScene current without a second chat input.");
+            Require(!string.IsNullOrEmpty(dialogue.dialogueText.text),
+                "Return scene must begin presenting its first line immediately after the automatic route.");
+            Require(!dialogue.IsDialogueShellSuppressed && dialogue.dialogueUiRoot.activeSelf,
+                "Dialogue shell restore must respect its pre-chat legitimate visible state.");
             Require(!chat.TryCompletePendingTerminalPresentation() && chat.CompletionCount == 1,
                 "Second completion callback must be a no-op.");
 
@@ -169,6 +190,32 @@ public static class ChatPhoneSmokeTests
             copy.entries.Add(clone);
         }
         return copy;
+    }
+
+    private static void ConfigureRouteUi(VNDialogueController dialogue, Transform parent)
+    {
+        dialogue.dialogueUiRoot = CreateUiObject(parent, "ChatPhoneSmokeDialogueShell");
+        dialogue.nameBox = CreateUiObject(dialogue.dialogueUiRoot.transform, "NameBox");
+        dialogue.speakerText = CreateText(dialogue.nameBox.transform, "SpeakerText");
+        dialogue.dialogueText = CreateText(dialogue.dialogueUiRoot.transform, "DialogueText");
+        dialogue.nextButton = CreateUiObject(dialogue.dialogueUiRoot.transform, "NextButton").AddComponent<UnityEngine.UI.Button>();
+        dialogue.choicePanel = CreateUiObject(dialogue.dialogueUiRoot.transform, "ChoicePanel");
+        dialogue.choicePanel.SetActive(false);
+    }
+
+    private static GameObject CreateUiObject(Transform parent, string name)
+    {
+        GameObject result = new GameObject(name, typeof(RectTransform));
+        result.transform.SetParent(parent, false);
+        return result;
+    }
+
+    private static TMPro.TextMeshProUGUI CreateText(Transform parent, string name)
+    {
+        GameObject result = CreateUiObject(parent, name);
+        TMPro.TextMeshProUGUI text = result.AddComponent<TMPro.TextMeshProUGUI>();
+        text.font = TMPro.TMP_Settings.defaultFontAsset;
+        return text;
     }
 
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }

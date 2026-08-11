@@ -7,25 +7,42 @@ using UnityEngine.UI;
 /// <summary>Scene-local, runtime-only owner of one transient authored chat.</summary>
 public sealed class ChatController : MonoBehaviour
 {
-    private const float TerminalReplyPresentationSeconds = 0.35f;
-    private static readonly Color OverlayColor = new Color(0f, 0f, 0f, 0.82f);
-    private static readonly Color PhoneColor = new Color(0.045f, 0.065f, 0.09f, 1f);
-    private static readonly Color IncomingColor = new Color(0.14f, 0.20f, 0.27f, 1f);
-    private static readonly Color PlayerColor = new Color(0.11f, 0.38f, 0.48f, 1f);
+    private const float TerminalReplyPresentationSeconds = 0.45f;
+    private const float PhoneWidth = 640f;
+    private const float BubbleWidthFraction = 0.72f;
+    private const float MinimumBubbleWidth = 260f;
+
+    private static readonly Color ScrimColor = new Color(0.015f, 0.03f, 0.055f, 0.70f);
+    private static readonly Color PhoneColor = new Color(0.035f, 0.065f, 0.105f, 0.96f);
+    private static readonly Color PhoneBorderColor = new Color(0.20f, 0.66f, 0.86f, 0.58f);
+    private static readonly Color HeaderColor = new Color(0.055f, 0.11f, 0.17f, 0.94f);
+    private static readonly Color TranscriptColor = new Color(0.02f, 0.045f, 0.075f, 0.76f);
+    private static readonly Color IncomingColor = new Color(0.12f, 0.19f, 0.27f, 0.96f);
+    private static readonly Color PlayerColor = new Color(0.075f, 0.36f, 0.52f, 0.98f);
+    private static readonly Color ReplyColor = new Color(0.08f, 0.30f, 0.43f, 0.98f);
+    private static readonly Color MutedTextColor = new Color(0.61f, 0.78f, 0.88f, 1f);
+    private static Sprite runtimeSurfaceSprite;
+    private static Sprite runtimeCircleSprite;
 
     private VNDialogueController dialogueController;
     private GameObject root;
+    private GameObject phoneShell;
+    private GameObject transcriptViewport;
+    private GameObject replyArea;
+    private RectTransform transcriptContent;
+    private ScrollRect transcriptScroll;
     private TextMeshProUGUI headerText;
-    private TextMeshProUGUI transcriptText;
-    private Image imagePreview;
+    private TextMeshProUGUI replyStatusText;
     private Button[] replyButtons;
-    private Text[] replyLabels;
+    private TextMeshProUGUI[] replyLabels;
+    private readonly List<GameObject> transcriptViews = new List<GameObject>();
     private readonly List<ChatTranscriptEntry> transcript = new List<ChatTranscriptEntry>();
     private ChatSceneData activeChat;
     private SpecialModeLease activeLease;
     private int currentEntryIndex;
     private ChatRuntimeState runtimeState = ChatRuntimeState.Idle;
     private bool completionPending;
+    private bool dialogueShellSuppressed;
     private float terminalPresentationRemaining;
     private int completionCount;
     private int returnRouteAttemptCount;
@@ -41,6 +58,15 @@ public sealed class ChatController : MonoBehaviour
     public IReadOnlyList<ChatTranscriptEntry> Transcript => transcript;
     public SpecialModeLease ActiveLease => activeLease;
     public int CurrentEntryIndex => currentEntryIndex;
+    public bool IsDialogueShellSuppressed => dialogueShellSuppressed;
+    public bool HasSinglePhoneRoot => root != null && phoneShell != null && root.transform.Find("PhoneShell") == phoneShell.transform;
+    public bool HasDistinctReplyArea => replyArea != null && replyArea.transform.parent == phoneShell.transform;
+    public bool HasImageCard => transcriptViews.Exists(view => view != null && view.name == "Image Card");
+    public bool HasIncomingLeftPresentation => HasBubbleAlignment("Incoming Bubble", TextAnchor.UpperLeft);
+    public bool HasPlayerRightPresentation => HasBubbleAlignment("Player Bubble", TextAnchor.UpperRight);
+    public bool AreReplyCardsInteractable => replyButtons != null && replyButtons.Length == 2
+        && replyButtons[0] != null && replyButtons[1] != null
+        && replyButtons[0].interactable && replyButtons[1].interactable;
 
     public static ChatController TryCreateRuntime(VNDialogueController controller)
     {
@@ -56,6 +82,7 @@ public sealed class ChatController : MonoBehaviour
         if (existing != null) { controllerResult = existing; return true; }
         Canvas canvas = controller.GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
         if (canvas == null || !canvas.gameObject.activeInHierarchy) { failureReason = "Canvas/UI unavailable"; return false; }
+
         ChatController chat = controller.gameObject.AddComponent<ChatController>();
         chat.InitializeRuntime(controller, canvas);
         if (chat.root == null) { failureReason = "Canvas/UI unavailable"; Destroy(chat); return false; }
@@ -82,7 +109,7 @@ public sealed class ChatController : MonoBehaviour
         if (chat == null) { failureReason = "null chat data"; return false; }
         if (SceneFlowManager.IsReplayModeActive) { failureReason = "Replay active"; return false; }
         if (IsRunning) { failureReason = "Chat already active"; return false; }
-        if (root == null || headerText == null || transcriptText == null || replyButtons == null || replyButtons.Length != 2)
+        if (root == null || headerText == null || transcriptContent == null || replyButtons == null || replyButtons.Length != 2)
         { failureReason = "Canvas/UI unavailable"; return false; }
         if (!chat.TryValidate(dialogueController.sceneRegistry, out string diagnostic))
         {
@@ -91,9 +118,16 @@ public sealed class ChatController : MonoBehaviour
         }
         if (!dialogueController.TryEnterSpecialMode(this, SpecialModePolicy.BlockingExclusive, out SpecialModeLease lease))
         { failureReason = dialogueController.HasActiveSpecialMode ? "another special mode active" : "lease rejected"; return false; }
+        if (!dialogueController.TrySuppressDialogueShell(this))
+        {
+            dialogueController.ExitSpecialMode(lease);
+            failureReason = "dialogue shell unavailable";
+            return false;
+        }
 
         activeChat = chat;
         activeLease = lease;
+        dialogueShellSuppressed = true;
         currentEntryIndex = 0;
         runtimeState = ChatRuntimeState.Active;
         completionPending = false;
@@ -101,9 +135,11 @@ public sealed class ChatController : MonoBehaviour
         returnRouteAttemptCount = 0;
         lastReturnScene = null;
         transcript.Clear();
+        ClearTranscriptViews();
         headerText.text = chat.contactDisplayName;
-        imagePreview.gameObject.SetActive(false);
+        replyStatusText.text = "Choose a reply";
         root.SetActive(true);
+        root.transform.SetAsLastSibling();
         ShowCurrentEntry();
         return true;
     }
@@ -115,15 +151,26 @@ public sealed class ChatController : MonoBehaviour
         if (entry == null || entry.kind != ChatEntryKind.Choice || entry.options == null || entry.options.Count != 2) { Complete("Invalid runtime choice entry."); return false; }
         ChatChoiceOption option = entry.options[visibleOptionIndex];
         if (option == null || !ConditionalChoiceEvaluator.AreConditionsAvailable(option.conditions, GameState.Instance, option.text)) return false;
-        Debug.Log("[ChatPhone] reply clicked: " + (visibleOptionIndex == 0 ? "A" : "B"), this);
+
         int target = string.IsNullOrEmpty(option.nextEntryId) ? -1 : activeChat.FindEntryIndex(option.nextEntryId);
         if (!string.IsNullOrEmpty(option.nextEntryId) && target < 0) { Complete("Choice target is invalid."); return false; }
+
         transcript.Add(new ChatTranscriptEntry(ChatSenderSide.Player, option.text));
         option.effects?.ApplyTo(GameState.Instance);
         RefreshTranscript();
-        Debug.Log("[ChatPhone] outgoing appended", this);
-        SetReplyButtons(false, null);
-        if (target < 0) BeginTerminalCompletion(); else { currentEntryIndex = target; ShowCurrentEntry(); }
+        SetReplyCardsInteractable(false);
+        replyStatusText.text = target < 0 ? "Sending reply…" : string.Empty;
+
+        if (target < 0)
+        {
+            BeginTerminalCompletion();
+        }
+        else
+        {
+            currentEntryIndex = target;
+            ShowCurrentEntry();
+        }
+
         return true;
     }
 
@@ -137,8 +184,7 @@ public sealed class ChatController : MonoBehaviour
         completionPending = true;
         runtimeState = ChatRuntimeState.ResolvingTerminalChoice;
         terminalPresentationRemaining = TerminalReplyPresentationSeconds;
-        SetReplyButtons(false, null);
-        Debug.Log("[ChatPhone] terminal presentation started", this);
+        SetReplyCardsInteractable(false);
     }
 
     private void Update()
@@ -160,7 +206,6 @@ public sealed class ChatController : MonoBehaviour
             return;
         }
 
-        Debug.Log("[ChatPhone] terminal presentation finished", this);
         Complete(null);
     }
 
@@ -169,19 +214,28 @@ public sealed class ChatController : MonoBehaviour
         if (!IsRunning) return;
         ChatEntry entry = GetCurrentEntry();
         if (entry == null) { Complete("Current entry is invalid."); return; }
-        SetReplyButtons(false, null);
+
+        HideReplyCards();
         switch (entry.kind)
         {
             case ChatEntryKind.Text:
                 if (string.IsNullOrWhiteSpace(entry.text)) { Complete("Text payload is invalid."); return; }
-                imagePreview.gameObject.SetActive(false);
-                transcript.Add(new ChatTranscriptEntry(entry.sender, entry.text)); RefreshTranscript(); AdvanceOrderedEntry(); break;
+                transcript.Add(new ChatTranscriptEntry(entry.sender, entry.text));
+                RefreshTranscript();
+                AdvanceOrderedEntry();
+                break;
             case ChatEntryKind.Image:
                 if (entry.image == null) { Complete("Image payload is invalid."); return; }
-                transcript.Add(new ChatTranscriptEntry(entry.sender, "[IMAGE]", entry.image)); imagePreview.sprite = entry.image; imagePreview.gameObject.SetActive(true); RefreshTranscript(); AdvanceOrderedEntry(); break;
+                transcript.Add(new ChatTranscriptEntry(entry.sender, string.Empty, entry.image));
+                RefreshTranscript();
+                AdvanceOrderedEntry();
+                break;
             case ChatEntryKind.Choice:
-                ShowChoices(entry); break;
-            default: Complete("Unsupported entry kind."); break;
+                ShowChoices(entry);
+                break;
+            default:
+                Complete("Unsupported entry kind.");
+                break;
         }
     }
 
@@ -194,75 +248,100 @@ public sealed class ChatController : MonoBehaviour
 
     private void ShowChoices(ChatEntry entry)
     {
-        var visible = new List<ChatChoiceOption>();
-        foreach (ChatChoiceOption option in entry.options)
-            if (option != null && ConditionalChoiceEvaluator.AreConditionsAvailable(option.conditions, GameState.Instance, option.text)) visible.Add(option);
-        if (visible.Count == 0)
-        {
-            int fallback = string.IsNullOrEmpty(entry.fallbackEntryId) ? -1 : activeChat.FindEntryIndex(entry.fallbackEntryId);
-            if (fallback >= 0) { currentEntryIndex = fallback; ShowCurrentEntry(); }
-            else Complete("All responses were hidden and no valid fallback exists.");
-            return;
-        }
-        // V1 always authors two options. Tests may hide one; disabled slots retain stable source indexes.
+        int availableCount = 0;
         for (int i = 0; i < 2; i++)
         {
             ChatChoiceOption option = entry.options[i];
             bool available = option != null && ConditionalChoiceEvaluator.AreConditionsAvailable(option.conditions, GameState.Instance, option.text);
             replyButtons[i].gameObject.SetActive(available);
-            if (available) replyLabels[i].text = option.text;
+            replyButtons[i].interactable = available;
+            if (available)
+            {
+                replyLabels[i].text = option.text;
+                availableCount++;
+            }
+        }
+
+        if (availableCount > 0)
+        {
+            replyStatusText.text = "Choose a reply";
+            return;
+        }
+
+        int fallback = string.IsNullOrEmpty(entry.fallbackEntryId) ? -1 : activeChat.FindEntryIndex(entry.fallbackEntryId);
+        if (fallback >= 0)
+        {
+            currentEntryIndex = fallback;
+            ShowCurrentEntry();
+        }
+        else
+        {
+            Complete("All responses were hidden and no valid fallback exists.");
         }
     }
 
     private void Complete(string diagnostic)
     {
         if (runtimeState == ChatRuntimeState.Resolved) return;
-        Debug.Log("[ChatPhone] Complete begin", this);
+
         runtimeState = ChatRuntimeState.Resolved;
         completionPending = false;
         terminalPresentationRemaining = 0f;
         completionCount++;
         if (!string.IsNullOrEmpty(diagnostic)) Debug.LogWarning("[CHAT] " + diagnostic, this);
+
         DialogueSceneData returnScene = activeChat != null ? activeChat.returnScene : null;
         lastReturnScene = returnScene;
         ReleaseLease();
         ClearTransientState();
-        if (returnScene != null && dialogueController != null)
+
+        if (returnScene == null || dialogueController == null)
         {
-            returnRouteAttemptCount++;
-            try
+            return;
+        }
+
+        returnRouteAttemptCount++;
+        try
+        {
+            if (!dialogueController.TryRouteToScene(returnScene))
             {
-                Debug.Log("[ChatPhone] return route requested", this);
-                if (!dialogueController.TryRouteToScene(returnScene))
-                {
-                    Debug.Log("[ChatPhone] return route result: false", this);
-                    Debug.LogWarning("[CHAT] Return route failed after controlled cleanup.", this);
-                }
-                else
-                {
-                    Debug.Log("[ChatPhone] return route result: true", this);
-                }
+                Debug.LogWarning("[CHAT] Return route failed after controlled cleanup.", this);
             }
-            catch (System.Exception exception)
-            {
-                Debug.Log("[ChatPhone] return route result: false", this);
-                Debug.LogWarning("[CHAT] Return route threw after controlled cleanup: " + exception.Message, this);
-            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("[CHAT] Return route threw after controlled cleanup: " + exception.Message, this);
         }
     }
 
     private void ReleaseLease()
     {
-        if (activeLease != null && dialogueController != null) dialogueController.ExitSpecialMode(activeLease);
+        if (activeLease != null && dialogueController != null)
+        {
+            dialogueController.ExitSpecialMode(activeLease);
+        }
+
         activeLease = null;
-        Debug.Log("[ChatPhone] lease released", this);
     }
 
     private void ClearTransientState()
     {
-        if (root != null) root.SetActive(false);
-        transcript.Clear(); activeChat = null; currentEntryIndex = 0; terminalPresentationRemaining = 0f;
-        Debug.Log("[ChatPhone] cleanup complete", this);
+        if (root != null)
+        {
+            root.SetActive(false);
+        }
+
+        if (dialogueShellSuppressed && dialogueController != null)
+        {
+            dialogueController.ReleaseDialogueShellSuppression(this);
+        }
+
+        dialogueShellSuppressed = false;
+        transcript.Clear();
+        ClearTranscriptViews();
+        activeChat = null;
+        currentEntryIndex = 0;
+        terminalPresentationRemaining = 0f;
     }
 
     private ChatEntry GetCurrentEntry()
@@ -270,8 +349,25 @@ public sealed class ChatController : MonoBehaviour
         return activeChat != null && activeChat.entries != null && currentEntryIndex >= 0 && currentEntryIndex < activeChat.entries.Count ? activeChat.entries[currentEntryIndex] : null;
     }
 
-    private void OnDisable() { CancelPendingPresentation(); ReleaseLease(); ClearTransientState(); }
-    private void OnDestroy() { CancelPendingPresentation(); ReleaseLease(); transcript.Clear(); }
+    private void OnDisable()
+    {
+        CancelPendingPresentation();
+        ReleaseLease();
+        ClearTransientState();
+    }
+
+    private void OnDestroy()
+    {
+        CancelPendingPresentation();
+        ReleaseLease();
+        if (dialogueShellSuppressed && dialogueController != null)
+        {
+            dialogueController.ReleaseDialogueShellSuppression(this);
+        }
+
+        dialogueShellSuppressed = false;
+        transcript.Clear();
+    }
 
     private void CancelPendingPresentation()
     {
@@ -293,37 +389,482 @@ public sealed class ChatController : MonoBehaviour
 
     private void RefreshTranscript()
     {
-        var lines = new List<string>();
+        Canvas.ForceUpdateCanvases();
+        ClearTranscriptViews();
         foreach (ChatTranscriptEntry entry in transcript)
         {
-            string side = entry.sender == ChatSenderSide.Incoming ? "<align=left>" : "<align=right>";
-            string body = entry.image != null ? "[IMAGE: TECHNICAL PLACEHOLDER]" : entry.text;
-            lines.Add(side + body + "</align>");
+            float bubbleWidth = GetTranscriptRelativeBubbleWidth();
+            transcriptViews.Add(entry.image != null ? CreateImageCard(entry, bubbleWidth) : CreateTextBubble(entry, bubbleWidth));
         }
-        transcriptText.text = string.Join("\n\n", lines);
+
+        SizeTranscriptContentToViewport();
+        Canvas.ForceUpdateCanvases();
+        if (transcriptScroll != null)
+        {
+            transcriptScroll.verticalNormalizedPosition = 0f;
+        }
     }
 
-    private void SetReplyButtons(bool active, string ignored) { foreach (Button button in replyButtons) if (button != null) button.gameObject.SetActive(active); }
+    private bool HasBubbleAlignment(string viewName, TextAnchor alignment)
+    {
+        foreach (GameObject view in transcriptViews)
+        {
+            if (view != null && view.name == viewName)
+            {
+                HorizontalLayoutGroup layout = view.GetComponent<HorizontalLayoutGroup>();
+                if (layout != null && layout.childAlignment == alignment)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void SizeTranscriptContentToViewport()
+    {
+        if (transcriptContent == null || transcriptViewport == null)
+        {
+            return;
+        }
+
+        Canvas.ForceUpdateCanvases();
+        float preferredHeight = LayoutUtility.GetPreferredHeight(transcriptContent);
+        float viewportHeight = transcriptViewport.GetComponent<RectTransform>().rect.height;
+        transcriptContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(preferredHeight, viewportHeight));
+    }
+
+    private void ClearTranscriptViews()
+    {
+        foreach (GameObject view in transcriptViews)
+        {
+            if (view == null) continue;
+            view.SetActive(false);
+            if (Application.isPlaying) Destroy(view); else DestroyImmediate(view);
+        }
+
+        transcriptViews.Clear();
+    }
+
+    private GameObject CreateTextBubble(ChatTranscriptEntry entry, float bubbleWidth)
+    {
+        GameObject row = CreateLayoutObject(transcriptContent, entry.sender == ChatSenderSide.Incoming ? "Incoming Bubble" : "Player Bubble");
+        ConfigureBubbleRow(row, entry.sender);
+
+        GameObject bubble = CreateImageObject(row.transform, "Bubble", entry.sender == ChatSenderSide.Incoming ? IncomingColor : PlayerColor);
+        ConfigureBubbleSurface(bubble, bubbleWidth);
+        VerticalLayoutGroup layout = bubble.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(16, 16, 11, 11);
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        bubble.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        TextMeshProUGUI label = CreateTmp(bubble.transform, "Message Text", entry.text, 21f, TextAlignmentOptions.TopLeft, Color.white, FontStyles.Normal);
+        label.enableWordWrapping = true;
+        label.overflowMode = TextOverflowModes.Overflow;
+        LayoutElement labelLayout = label.gameObject.AddComponent<LayoutElement>();
+        labelLayout.preferredWidth = bubbleWidth - 32f;
+        return row;
+    }
+
+    private GameObject CreateImageCard(ChatTranscriptEntry entry, float bubbleWidth)
+    {
+        GameObject row = CreateLayoutObject(transcriptContent, "Image Card");
+        ConfigureBubbleRow(row, entry.sender);
+
+        GameObject card = CreateImageObject(row.transform, "Media Surface", entry.sender == ChatSenderSide.Incoming ? IncomingColor : PlayerColor);
+        ConfigureBubbleSurface(card, bubbleWidth);
+        VerticalLayoutGroup layout = card.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(12, 12, 12, 12);
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        card.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        GameObject imageObject = CreateImageObject(card.transform, "Technical Image", Color.white);
+        Image image = imageObject.GetComponent<Image>();
+        image.sprite = entry.image;
+        image.preserveAspect = true;
+        LayoutElement imageLayout = imageObject.AddComponent<LayoutElement>();
+        imageLayout.preferredWidth = bubbleWidth - 24f;
+        imageLayout.preferredHeight = GetBoundedImageHeight(entry.image, bubbleWidth - 24f);
+        return row;
+    }
+
+    private static void ConfigureBubbleRow(GameObject row, ChatSenderSide sender)
+    {
+        HorizontalLayoutGroup layout = row.AddComponent<HorizontalLayoutGroup>();
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+        layout.childAlignment = sender == ChatSenderSide.Incoming ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
+        row.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        LayoutElement element = row.AddComponent<LayoutElement>();
+        element.flexibleWidth = 1f;
+    }
+
+    private float GetTranscriptRelativeBubbleWidth()
+    {
+        float viewportWidth = transcriptViewport != null ? transcriptViewport.GetComponent<RectTransform>().rect.width : 0f;
+        if (viewportWidth <= 0f)
+        {
+            // Same layout-derived fallback used before the first Canvas rebuild:
+            // shell padding + transcript content padding, not text-dependent width.
+            viewportWidth = PhoneWidth - 36f;
+        }
+
+        float contentWidth = Mathf.Max(0f, viewportWidth - 28f);
+        return Mathf.Max(MinimumBubbleWidth, contentWidth * BubbleWidthFraction);
+    }
+
+    private static float GetBoundedImageHeight(Sprite image, float imageWidth)
+    {
+        float aspect = image != null && image.rect.height > 0f ? image.rect.width / image.rect.height : 1.6f;
+        float naturalHeight = imageWidth / Mathf.Max(0.1f, aspect);
+        return Mathf.Clamp(naturalHeight, 150f, 245f);
+    }
+
+    private static void ConfigureBubbleSurface(GameObject bubble, float preferredWidth)
+    {
+        Image image = bubble.GetComponent<Image>();
+        image.sprite = GetUiSprite();
+        image.type = Image.Type.Sliced;
+        LayoutElement element = bubble.AddComponent<LayoutElement>();
+        element.preferredWidth = preferredWidth;
+        element.flexibleWidth = 0f;
+    }
+
+    private void HideReplyCards()
+    {
+        if (replyButtons == null) return;
+        foreach (Button button in replyButtons)
+        {
+            if (button != null) button.gameObject.SetActive(false);
+        }
+    }
+
+    private void SetReplyCardsInteractable(bool interactable)
+    {
+        if (replyButtons == null) return;
+        foreach (Button button in replyButtons)
+        {
+            if (button != null && button.gameObject.activeSelf) button.interactable = interactable;
+        }
+    }
 
     private void BuildRuntimeUi(Canvas canvas)
     {
-        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        root = CreatePanel(canvas.transform, "Chat Phone Runtime", OverlayColor, Vector2.zero, Vector2.one, Vector2.zero);
-        GameObject phone = CreatePanel(root.transform, "Technical Phone", PhoneColor, new Vector2(.5f,.5f), new Vector2(.5f,.5f), new Vector2(620, 720));
-        headerText = CreateTmp(phone.transform, "TEST CONTACT", 28, new Vector2(0, 310), new Vector2(540, 46), TextAlignmentOptions.Center, FontStyles.Bold);
-        TextMeshProUGUI tag = CreateTmp(phone.transform, "TECH DEMO ONLY / NOT CANON", 13, new Vector2(0, 278), new Vector2(540, 30), TextAlignmentOptions.Center);
-        tag.color = new Color(.6f,.76f,.86f,1f);
-        GameObject transcriptArea = CreatePanel(phone.transform, "Transcript Scroll Area", new Color(.025f,.04f,.06f,1f), new Vector2(.5f,.5f), new Vector2(.5f,.5f), new Vector2(540, 410));
-        transcriptArea.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, 45);
-        transcriptText = CreateTmp(transcriptArea.transform, string.Empty, 20, Vector2.zero, new Vector2(500, 375), TextAlignmentOptions.TopLeft);
-        transcriptText.enableWordWrapping = true;
-        GameObject imageObject = new GameObject("Image Message", typeof(RectTransform), typeof(Image)); imageObject.transform.SetParent(phone.transform, false);
-        imagePreview = imageObject.GetComponent<Image>(); imagePreview.preserveAspect = true; RectTransform imageRect = imageObject.GetComponent<RectTransform>(); imageRect.anchorMin=imageRect.anchorMax=new Vector2(.5f,.5f); imageRect.anchoredPosition=new Vector2(0,30); imageRect.sizeDelta=new Vector2(180,110);
-        replyButtons = new Button[2]; replyLabels = new Text[2];
-        for (int i=0;i<2;i++) { int index=i; replyButtons[i]=CreateButton(phone.transform, "Reply " + i, new Vector2(0, -205 - i*66), font, out replyLabels[i]); replyButtons[i].onClick.AddListener(()=>TryChoose(index)); }
+        root = CreateLayoutObject(canvas.transform, "PhoneRoot");
+        Stretch(root.GetComponent<RectTransform>());
+        root.transform.SetAsLastSibling();
+
+        GameObject scrim = CreateImageObject(root.transform, "Scrim", ScrimColor);
+        Stretch(scrim.GetComponent<RectTransform>());
+
+        phoneShell = CreateImageObject(root.transform, "PhoneShell", PhoneColor);
+        RectTransform shellRect = phoneShell.GetComponent<RectTransform>();
+        shellRect.anchorMin = new Vector2(0.5f, 0.10f);
+        shellRect.anchorMax = new Vector2(0.5f, 0.90f);
+        shellRect.pivot = new Vector2(0.5f, 0.5f);
+        shellRect.sizeDelta = new Vector2(PhoneWidth, 0f);
+        Image shellImage = phoneShell.GetComponent<Image>();
+        shellImage.sprite = GetUiSprite();
+        shellImage.type = Image.Type.Sliced;
+
+        Outline border = phoneShell.AddComponent<Outline>();
+        border.effectColor = PhoneBorderColor;
+        border.effectDistance = new Vector2(1f, -1f);
+        Shadow shadow = phoneShell.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+        shadow.effectDistance = new Vector2(0f, -8f);
+
+        VerticalLayoutGroup shellLayout = phoneShell.AddComponent<VerticalLayoutGroup>();
+        shellLayout.padding = new RectOffset(18, 18, 18, 18);
+        shellLayout.spacing = 14f;
+        shellLayout.childControlWidth = true;
+        shellLayout.childControlHeight = true;
+        shellLayout.childForceExpandWidth = true;
+        shellLayout.childForceExpandHeight = false;
+
+        BuildHeader(phoneShell.transform);
+        BuildTranscriptViewport(phoneShell.transform);
+        BuildReplyArea(phoneShell.transform);
     }
 
-    private static GameObject CreatePanel(Transform parent,string name,Color color,Vector2 min,Vector2 max,Vector2 size) { var o=new GameObject(name,typeof(RectTransform),typeof(Image)); o.transform.SetParent(parent,false); var r=o.GetComponent<RectTransform>();r.anchorMin=min;r.anchorMax=max;r.pivot=new Vector2(.5f,.5f);r.sizeDelta=size;o.GetComponent<Image>().color=color;return o; }
-    private static TextMeshProUGUI CreateTmp(Transform parent,string value,float size,Vector2 pos,Vector2 dimensions,TextAlignmentOptions align,FontStyles style=FontStyles.Normal) { var o=new GameObject("Text",typeof(RectTransform),typeof(TextMeshProUGUI));o.transform.SetParent(parent,false);var r=o.GetComponent<RectTransform>();r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.anchoredPosition=pos;r.sizeDelta=dimensions;var t=o.GetComponent<TextMeshProUGUI>();t.font=TMP_Settings.defaultFontAsset;t.text=value;t.fontSize=size;t.fontStyle=style;t.alignment=align;t.color=Color.white;t.overflowMode=TextOverflowModes.Ellipsis;return t; }
-    private static Button CreateButton(Transform parent,string name,Vector2 pos,Font font,out Text label) { var o=new GameObject(name,typeof(RectTransform),typeof(Image),typeof(Button));o.transform.SetParent(parent,false);var r=o.GetComponent<RectTransform>();r.anchorMin=r.anchorMax=new Vector2(.5f,.5f);r.anchoredPosition=pos;r.sizeDelta=new Vector2(500,52);var im=o.GetComponent<Image>();im.color=PlayerColor;var lo=new GameObject("Label",typeof(RectTransform),typeof(Text));lo.transform.SetParent(o.transform,false);var lr=lo.GetComponent<RectTransform>();lr.anchorMin=Vector2.zero;lr.anchorMax=Vector2.one;lr.offsetMin=lr.offsetMax=Vector2.zero;label=lo.GetComponent<Text>();label.font=font;label.fontSize=18;label.alignment=TextAnchor.MiddleCenter;label.color=Color.white;return o.GetComponent<Button>(); }
+    private void BuildHeader(Transform parent)
+    {
+        GameObject header = CreateImageObject(parent, "Header", HeaderColor);
+        ConfigureSlicedSurface(header);
+        header.AddComponent<LayoutElement>().preferredHeight = 98f;
+
+        HorizontalLayoutGroup headerLayout = header.AddComponent<HorizontalLayoutGroup>();
+        headerLayout.padding = new RectOffset(16, 16, 12, 12);
+        headerLayout.spacing = 13f;
+        headerLayout.childControlWidth = true;
+        headerLayout.childControlHeight = true;
+        headerLayout.childForceExpandWidth = false;
+        headerLayout.childForceExpandHeight = false;
+        headerLayout.childAlignment = TextAnchor.MiddleLeft;
+
+        GameObject avatar = CreateImageObject(header.transform, "Avatar Placeholder", new Color(0.14f, 0.58f, 0.73f, 1f));
+        ConfigureCircleSurface(avatar);
+        LayoutElement avatarLayout = avatar.AddComponent<LayoutElement>();
+        avatarLayout.preferredWidth = 54f;
+        avatarLayout.preferredHeight = 54f;
+        TextMeshProUGUI avatarLabel = CreateTmp(avatar.transform, "Avatar Initial", "T", 25f, TextAlignmentOptions.Center, Color.white, FontStyles.Bold);
+        Stretch(avatarLabel.rectTransform);
+
+        GameObject identity = CreateLayoutObject(header.transform, "Contact Identity");
+        identity.AddComponent<LayoutElement>().flexibleWidth = 1f;
+        VerticalLayoutGroup identityLayout = identity.AddComponent<VerticalLayoutGroup>();
+        identityLayout.childAlignment = TextAnchor.MiddleLeft;
+        identityLayout.childControlWidth = true;
+        identityLayout.childControlHeight = true;
+        identityLayout.childForceExpandHeight = false;
+        identityLayout.spacing = 2f;
+
+        headerText = CreateTmp(identity.transform, "Contact Name", "TEST CONTACT", 26f, TextAlignmentOptions.Left, Color.white, FontStyles.Bold);
+        headerText.gameObject.AddComponent<LayoutElement>().preferredHeight = 35f;
+        TextMeshProUGUI tag = CreateTmp(identity.transform, "Technical Demo Tag", "TECH DEMO ONLY / NOT CANON", 12f, TextAlignmentOptions.Left, MutedTextColor, FontStyles.Bold);
+        tag.gameObject.AddComponent<LayoutElement>().preferredHeight = 20f;
+
+        GameObject status = CreateImageObject(header.transform, "Status Indicator", new Color(0.30f, 0.93f, 0.72f, 1f));
+        ConfigureCircleSurface(status);
+        LayoutElement statusLayout = status.AddComponent<LayoutElement>();
+        statusLayout.preferredWidth = 10f;
+        statusLayout.preferredHeight = 10f;
+    }
+
+    private void BuildTranscriptViewport(Transform parent)
+    {
+        transcriptViewport = CreateImageObject(parent, "TranscriptViewport", TranscriptColor);
+        ConfigureSlicedSurface(transcriptViewport);
+        LayoutElement viewportElement = transcriptViewport.AddComponent<LayoutElement>();
+        viewportElement.minHeight = 220f;
+        viewportElement.flexibleHeight = 1f;
+
+        RectTransform viewportRect = transcriptViewport.GetComponent<RectTransform>();
+        Mask mask = transcriptViewport.AddComponent<Mask>();
+        mask.showMaskGraphic = true;
+        transcriptScroll = transcriptViewport.AddComponent<ScrollRect>();
+        transcriptScroll.horizontal = false;
+        transcriptScroll.vertical = true;
+        transcriptScroll.movementType = ScrollRect.MovementType.Clamped;
+        transcriptScroll.scrollSensitivity = 28f;
+        transcriptScroll.viewport = viewportRect;
+
+        GameObject content = CreateLayoutObject(transcriptViewport.transform, "TranscriptContent");
+        transcriptContent = content.GetComponent<RectTransform>();
+        transcriptContent.anchorMin = new Vector2(0f, 1f);
+        transcriptContent.anchorMax = new Vector2(1f, 1f);
+        transcriptContent.pivot = new Vector2(0.5f, 1f);
+        transcriptContent.anchoredPosition = Vector2.zero;
+        transcriptContent.sizeDelta = Vector2.zero;
+        transcriptScroll.content = transcriptContent;
+
+        VerticalLayoutGroup contentLayout = content.AddComponent<VerticalLayoutGroup>();
+        contentLayout.padding = new RectOffset(14, 14, 16, 16);
+        contentLayout.spacing = 12f;
+        contentLayout.childControlWidth = true;
+        contentLayout.childControlHeight = true;
+        contentLayout.childForceExpandWidth = true;
+        contentLayout.childForceExpandHeight = false;
+        contentLayout.childAlignment = TextAnchor.LowerCenter;
+    }
+
+    private void BuildReplyArea(Transform parent)
+    {
+        replyArea = CreateImageObject(parent, "ReplyArea", new Color(0.045f, 0.12f, 0.18f, 0.96f));
+        ConfigureSlicedSurface(replyArea);
+        replyArea.AddComponent<LayoutElement>().preferredHeight = 164f;
+
+        VerticalLayoutGroup layout = replyArea.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(14, 14, 11, 11);
+        layout.spacing = 8f;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        replyStatusText = CreateTmp(replyArea.transform, "Reply Status", "SELECT A REPLY", 12f, TextAlignmentOptions.Left, MutedTextColor, FontStyles.Bold);
+        replyStatusText.gameObject.AddComponent<LayoutElement>().preferredHeight = 18f;
+
+        replyButtons = new Button[2];
+        replyLabels = new TextMeshProUGUI[2];
+        for (int i = 0; i < replyButtons.Length; i++)
+        {
+            int index = i;
+            replyButtons[i] = CreateReplyCard(replyArea.transform, "Reply Card " + (i + 1), out replyLabels[i]);
+            replyButtons[i].onClick.AddListener(() => TryChoose(index));
+        }
+    }
+
+    private static Button CreateReplyCard(Transform parent, string name, out TextMeshProUGUI label)
+    {
+        GameObject card = CreateImageObject(parent, name, ReplyColor);
+        ConfigureSlicedSurface(card);
+        LayoutElement cardLayout = card.AddComponent<LayoutElement>();
+        cardLayout.preferredHeight = 54f;
+        Button button = card.AddComponent<Button>();
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1.45f, 1.45f, 1.35f, 1f);
+        colors.pressedColor = new Color(0.70f, 0.88f, 0.96f, 1f);
+        colors.selectedColor = new Color(1.45f, 1.45f, 1.35f, 1f);
+        colors.disabledColor = new Color(0.42f, 0.50f, 0.58f, 0.80f);
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+
+        label = CreateTmp(card.transform, "Reply Text", string.Empty, 18f, TextAlignmentOptions.Left, Color.white, FontStyles.Normal);
+        RectTransform labelRect = label.rectTransform;
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = new Vector2(15f, 0f);
+        labelRect.offsetMax = new Vector2(-40f, 0f);
+        label.enableWordWrapping = true;
+        label.overflowMode = TextOverflowModes.Ellipsis;
+
+        TextMeshProUGUI chevron = CreateTmp(card.transform, "Reply Chevron", "›", 28f, TextAlignmentOptions.Center, MutedTextColor, FontStyles.Bold);
+        RectTransform chevronRect = chevron.rectTransform;
+        chevronRect.anchorMin = new Vector2(1f, 0f);
+        chevronRect.anchorMax = new Vector2(1f, 1f);
+        chevronRect.pivot = new Vector2(1f, 0.5f);
+        chevronRect.sizeDelta = new Vector2(32f, 0f);
+        chevronRect.anchoredPosition = new Vector2(-7f, 0f);
+        return button;
+    }
+
+    private static GameObject CreateLayoutObject(Transform parent, string name)
+    {
+        GameObject result = new GameObject(name, typeof(RectTransform));
+        result.transform.SetParent(parent, false);
+        return result;
+    }
+
+    private static GameObject CreateImageObject(Transform parent, string name, Color color)
+    {
+        GameObject result = new GameObject(name, typeof(RectTransform), typeof(Image));
+        result.transform.SetParent(parent, false);
+        result.GetComponent<Image>().color = color;
+        return result;
+    }
+
+    private static TextMeshProUGUI CreateTmp(Transform parent, string name, string value, float size, TextAlignmentOptions alignment, Color color, FontStyles style)
+    {
+        GameObject result = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+        result.transform.SetParent(parent, false);
+        TextMeshProUGUI text = result.GetComponent<TextMeshProUGUI>();
+        text.font = TMP_Settings.defaultFontAsset;
+        text.text = value;
+        text.fontSize = size;
+        text.fontStyle = style;
+        text.alignment = alignment;
+        text.color = color;
+        text.enableWordWrapping = true;
+        text.overflowMode = TextOverflowModes.Overflow;
+        return text;
+    }
+
+    private static void ConfigureSlicedSurface(GameObject target)
+    {
+        Image image = target.GetComponent<Image>();
+        image.sprite = GetUiSprite();
+        image.type = Image.Type.Sliced;
+    }
+
+    private static void ConfigureCircleSurface(GameObject target)
+    {
+        Image image = target.GetComponent<Image>();
+        image.sprite = GetCircleSprite();
+        image.type = Image.Type.Simple;
+    }
+
+    private static void Stretch(RectTransform rect)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+    }
+
+    private static Sprite GetUiSprite()
+    {
+        if (runtimeSurfaceSprite != null)
+        {
+            return runtimeSurfaceSprite;
+        }
+
+        const int size = 32;
+        const int radius = 8;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "ChatPhoneRuntimeSurface",
+            hideFlags = HideFlags.HideAndDontSave,
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float cornerX = Mathf.Max(radius - x, x - (size - radius - 1), 0f);
+                float cornerY = Mathf.Max(radius - y, y - (size - radius - 1), 0f);
+                float alpha = cornerX * cornerX + cornerY * cornerY <= radius * radius ? 1f : 0f;
+                texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+            }
+        }
+
+        texture.Apply(false, true);
+        runtimeSurfaceSprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            size,
+            0,
+            SpriteMeshType.FullRect,
+            new Vector4(radius, radius, radius, radius));
+        runtimeSurfaceSprite.name = "ChatPhoneRuntimeSurface";
+        runtimeSurfaceSprite.hideFlags = HideFlags.HideAndDontSave;
+        return runtimeSurfaceSprite;
+    }
+
+    private static Sprite GetCircleSprite()
+    {
+        if (runtimeCircleSprite != null)
+        {
+            return runtimeCircleSprite;
+        }
+
+        const int size = 32;
+        float radius = (size - 1) * 0.5f;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "ChatPhoneRuntimeCircle",
+            hideFlags = HideFlags.HideAndDontSave,
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x - radius;
+                float dy = y - radius;
+                texture.SetPixel(x, y, new Color(1f, 1f, 1f, dx * dx + dy * dy <= radius * radius ? 1f : 0f));
+            }
+        }
+
+        texture.Apply(false, true);
+        runtimeCircleSprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
+        runtimeCircleSprite.name = "ChatPhoneRuntimeCircle";
+        runtimeCircleSprite.hideFlags = HideFlags.HideAndDontSave;
+        return runtimeCircleSprite;
+    }
 }
