@@ -49,13 +49,18 @@ public sealed class ChatController : MonoBehaviour
     private float terminalPresentationRemaining;
     private int completionCount;
     private int returnRouteAttemptCount;
+    private int openSfxRequestCount;
+    private int incomingSfxRequestCount;
     private DialogueSceneData lastReturnScene;
+    private readonly HashSet<ChatEntry> incomingSfxRevealedEntries = new HashSet<ChatEntry>();
 
     public bool IsRunning => activeChat != null && activeLease != null && runtimeState != ChatRuntimeState.Resolved;
     public bool IsRuntimeUiActive => root != null && root.activeInHierarchy;
     public bool IsCompletionPending => completionPending;
     public int CompletionCount => completionCount;
     public int ReturnRouteAttemptCount => returnRouteAttemptCount;
+    public int OpenSfxRequestCount => openSfxRequestCount;
+    public int IncomingSfxRequestCount => incomingSfxRequestCount;
     public DialogueSceneData LastReturnScene => lastReturnScene;
     public ChatRuntimeState RuntimeState => runtimeState;
     public IReadOnlyList<ChatTranscriptEntry> Transcript => transcript;
@@ -140,6 +145,9 @@ public sealed class ChatController : MonoBehaviour
         completionPending = false;
         completionCount = 0;
         returnRouteAttemptCount = 0;
+        openSfxRequestCount = 0;
+        incomingSfxRequestCount = 0;
+        incomingSfxRevealedEntries.Clear();
         lastReturnScene = null;
         transcript.Clear();
         ClearTranscriptViews();
@@ -147,6 +155,7 @@ public sealed class ChatController : MonoBehaviour
         replyStatusText.text = "Choose a reply";
         root.SetActive(true);
         root.transform.SetAsLastSibling();
+        RequestOpenSfx();
         ShowCurrentEntry();
         return true;
     }
@@ -295,12 +304,14 @@ public sealed class ChatController : MonoBehaviour
                 if (string.IsNullOrWhiteSpace(entry.text)) { Complete("Text payload is invalid."); return; }
                 transcript.Add(new ChatTranscriptEntry(entry.sender, entry.text));
                 RefreshTranscript();
+                RequestIncomingSfxOnReveal(entry);
                 AdvanceOrderedEntry();
                 break;
             case ChatEntryKind.Image:
                 if (entry.image == null) { Complete("Image payload is invalid."); return; }
                 transcript.Add(new ChatTranscriptEntry(entry.sender, string.Empty, entry.image));
                 RefreshTranscript();
+                RequestIncomingSfxOnReveal(entry);
                 AdvanceOrderedEntry();
                 break;
             case ChatEntryKind.Choice:
@@ -317,6 +328,37 @@ public sealed class ChatController : MonoBehaviour
         if (currentEntryIndex + 1 >= activeChat.entries.Count) { Complete(null); return; }
         currentEntryIndex++;
         ShowCurrentEntry();
+    }
+
+    private void RequestOpenSfx()
+    {
+        if (activeChat == null || activeChat.openSfx == null)
+        {
+            return;
+        }
+
+        openSfxRequestCount++;
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(activeChat.openSfx);
+        }
+    }
+
+    private void RequestIncomingSfxOnReveal(ChatEntry entry)
+    {
+        if (activeChat == null || activeChat.incomingSfx == null || entry == null
+            || entry.sender != ChatSenderSide.Incoming
+            || (entry.kind != ChatEntryKind.Text && entry.kind != ChatEntryKind.Image)
+            || !incomingSfxRevealedEntries.Add(entry))
+        {
+            return;
+        }
+
+        incomingSfxRequestCount++;
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySfx(activeChat.incomingSfx);
+        }
     }
 
     private void ShowChoices(ChatEntry entry)
@@ -413,6 +455,7 @@ public sealed class ChatController : MonoBehaviour
         dialogueShellSuppressed = false;
         transcript.Clear();
         ClearTranscriptViews();
+        incomingSfxRevealedEntries.Clear();
         activeChat = null;
         currentEntryIndex = 0;
         terminalPresentationRemaining = 0f;
@@ -483,6 +526,12 @@ public sealed class ChatController : MonoBehaviour
         ReleaseLease();
         ClearTransientState();
         return true;
+    }
+
+    /// <summary>Verifies that a transcript layout rebuild does not replay entry cues.</summary>
+    public void RefreshTranscriptForTests()
+    {
+        RefreshTranscript();
     }
 #endif
 

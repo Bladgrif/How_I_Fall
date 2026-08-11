@@ -9,6 +9,8 @@ public sealed class ChatSceneData : ScriptableObject
     public string contactDisplayName;
     public List<ChatEntry> entries = new List<ChatEntry>();
     public DialogueSceneData returnScene;
+    public AudioClip openSfx;
+    public AudioClip incomingSfx;
 
     public bool TryValidate(DialogueSceneRegistry registry, out string diagnostic)
     {

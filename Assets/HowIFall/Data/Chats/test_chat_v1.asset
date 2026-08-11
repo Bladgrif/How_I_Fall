@@ -19,7 +19,7 @@ MonoBehaviour:
     kind: 0
     sender: 0
     pacing: 2
-    pacingSeconds: 0.8
+    pacingSeconds: 1.5
     text: 'TEST: incoming message'
     image: {fileID: 0}
     options: []
@@ -28,7 +28,7 @@ MonoBehaviour:
     kind: 1
     sender: 0
     pacing: 1
-    pacingSeconds: 0.35
+    pacingSeconds: 0.6
     text:
     image: {fileID: 21300000, guid: 4ce6fbba7c8f4fd419488432a98369cf, type: 3}
     options: []
@@ -69,3 +69,5 @@ MonoBehaviour:
       nextEntryId:
     fallbackEntryId:
   returnScene: {fileID: 11400000, guid: b78571d9ec0ea6c449489dbbcbbff938, type: 2}
+  openSfx: {fileID: 8300000, guid: 3cfe185a7a22b6e4dac43574031e1b01, type: 3}
+  incomingSfx: {fileID: 8300000, guid: 5aea3ba2bb5ba5041ac187df0745c445, type: 3}

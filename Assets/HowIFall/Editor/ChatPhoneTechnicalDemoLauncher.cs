@@ -10,6 +10,8 @@ public static class ChatPhoneTechnicalAssets
     public const string ChatPath = "Assets/HowIFall/Data/Chats/test_chat_v1.asset";
     public const string ReturnPath = "Assets/HowIFall/Data/Dialogues/chat_demo_return.asset";
     public const string ConfigPath = "Assets/HowIFall/Resources/ChatPhone/TechnicalChatPhoneConfig.asset";
+    public const string OpenSfxPath = "Assets/HowIFall/Audio/SFX/Technical/HIF_TECH_phone_open.wav";
+    public const string IncomingSfxPath = "Assets/HowIFall/Audio/SFX/Technical/HIF_TECH_chat_incoming.wav";
     private const string ImagePath = "Assets/HowIFall/Data/Chats/chat_technical_placeholder.png";
 
     [MenuItem("How I Fall/Chat Phone/Create or Repair Technical Assets")]
@@ -26,8 +28,17 @@ public static class ChatPhoneTechnicalAssets
         if (registry != null && !registry.scenes.Contains(returnScene)) { registry.scenes.Add(returnScene); EditorUtility.SetDirty(registry); }
         ChatSceneData chat = AssetDatabase.LoadAssetAtPath<ChatSceneData>(ChatPath);
         if (chat == null) { chat = ScriptableObject.CreateInstance<ChatSceneData>(); AssetDatabase.CreateAsset(chat, ChatPath); }
+        AudioClip openSfx = AssetDatabase.LoadAssetAtPath<AudioClip>(OpenSfxPath);
+        AudioClip incomingSfx = AssetDatabase.LoadAssetAtPath<AudioClip>(IncomingSfxPath);
+        if (openSfx == null || incomingSfx == null)
+        {
+            Debug.LogError("[CHAT] Approved technical chat SFX could not be loaded.");
+            return;
+        }
         chat.chatId = "test_chat_v1"; chat.contactDisplayName = "TEST CONTACT"; chat.returnScene = returnScene;
         chat.entries = CreateTechnicalEntries(sprite);
+        chat.openSfx = openSfx;
+        chat.incomingSfx = incomingSfx;
         ChatPhoneTechnicalConfig config = AssetDatabase.LoadAssetAtPath<ChatPhoneTechnicalConfig>(ConfigPath);
         if (config == null) { config = ScriptableObject.CreateInstance<ChatPhoneTechnicalConfig>(); AssetDatabase.CreateAsset(config, ConfigPath); }
         config.technicalDemoChat = chat;
@@ -39,8 +50,8 @@ public static class ChatPhoneTechnicalAssets
     {
         return new System.Collections.Generic.List<ChatEntry>
         {
-            new ChatEntry { entryId = "incoming", kind = ChatEntryKind.Text, sender = ChatSenderSide.Incoming, pacing = ChatEntryPacing.IncomingTyping, pacingSeconds = 0.8f, text = "TEST: incoming message" },
-            new ChatEntry { entryId = "image", kind = ChatEntryKind.Image, sender = ChatSenderSide.Incoming, pacing = ChatEntryPacing.Delay, pacingSeconds = 0.35f, image = sprite },
+            new ChatEntry { entryId = "incoming", kind = ChatEntryKind.Text, sender = ChatSenderSide.Incoming, pacing = ChatEntryPacing.IncomingTyping, pacingSeconds = 1.5f, text = "TEST: incoming message" },
+            new ChatEntry { entryId = "image", kind = ChatEntryKind.Image, sender = ChatSenderSide.Incoming, pacing = ChatEntryPacing.Delay, pacingSeconds = 0.6f, image = sprite },
             new ChatEntry { entryId = "choice", kind = ChatEntryKind.Choice, sender = ChatSenderSide.Player, pacing = ChatEntryPacing.Immediate, pacingSeconds = 0f, options = new System.Collections.Generic.List<ChatChoiceOption>
                 { new ChatChoiceOption { text = "TEST: reply A", nextEntryId = string.Empty }, new ChatChoiceOption { text = "TEST: reply B", nextEntryId = string.Empty } } }
         };
