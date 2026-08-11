@@ -40,7 +40,7 @@
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
 | Gallery/replay | One `TEST REPLAY`: profile JSON v1, locked/unlocked card, transactional `GameState`/backlog/audio isolation, replay-local read history, two-layer Save/Load denial and controlled End Replay | DONE (technical foundation) | Canon replay content and thumbnail remain separate future work | - / High |
-| Chat/phone | `docs/chat_phone_policy.md` defines the V1 typed scene-data contract, `BlockingExclusive`, transient transcript, Replay deny, SaveData v3, and deterministic return to VN; runtime is absent | **POLICY DECIDED / IMPLEMENTATION TODO** | Implement Chat / Phone technical foundation | Low / High |
+| Chat/phone | Typed `ChatSceneData` provides Text/Image/Choice entries, typed conditions/effects, transient transcript and runtime technical UI from a narrow Resources config. `ChatController` owns `BlockingExclusive`, Replay is denied, SaveManager has a generic backend guard, and return is exactly-once. | **DONE (technical foundation)** | Final Phone UI polish, authored content and additional resolution QA remain deferred. TEST content is TECH DEMO ONLY / NOT CANON. | Low / High |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
 | Timed narrative beat | `TimedNarrativeBeatController` owns one `BlockingExclusive` lease, unscaled visible timer and exactly-once success/timeout routing through `VNDialogueController`; `TEST: success` / `TEST: timeout` are manually verified result beats. TEST fixtures are TECH DEMO ONLY / NOT CANON. | **DONE (technical foundation)** | Authored content remains deferred; this is not a full QTE framework. Terminal fallback is readable and the resolution input does not consume the result scene. | Medium / High |
 | Mini-games | Отсутствуют | 🚫 NOT PLANNED | Не строить без утверждённой сюжетной функции | — / High |
@@ -71,12 +71,13 @@
 | 8 | Timed narrative beat | Лёгкое напряжение без полноценной mini-game системы | special-mode contract, success/fail routing | Medium | Medium | **DONE (technical foundation)** |
 | 9 | Gallery/replay foundation | `TEST REPLAY` isolates campaign state/save/backlog/read history and returns safely to Main Menu | profile JSON v1, `ReplaySession`, replay-aware VN/Quick Menu | Large | High | **DONE (technical foundation)** |
 | 10 | Character Hub / Bios | Runtime-created ordinary modal, typed profile fixtures and relationship bridge; `VNPrototype.unity` intentionally unchanged | narrow Resources config, VN Quick Menu runtime entry, modal gates | Medium | Medium | **DONE (technical foundation)** |
+| 11 | Chat / Phone | Typed `ChatSceneData`, Text/Image/Choice, typed condition/effect mapping, transient transcript, BlockingExclusive and exactly-once VN return. TEST only; `VNPrototype.unity` unchanged. | narrow Resources bootstrap, existing VN route and SaveManager guard | Medium | High | **DONE (technical foundation)** |
 
 ## Единственный NEXT
 
-### Implement Chat / Phone technical foundation
+### Phone UI polish
 
-Implement only the approved V1 typed Chat/Phone foundation. Preserve the non-canon boundary, `SaveData` v3, and all existing VN/Replay contracts.
+Polish the final Phone presentation only after an approved visual direction: resolve the perceived terminal-reply transition and complete responsive QA. Preserve the typed V1 data contract, `SaveData` v3 and the TECH DEMO ONLY / NOT CANON boundary.
 
 ## Отложено или исключено
 
@@ -96,8 +97,9 @@ Implement only the approved V1 typed Chat/Phone foundation. Preserve the non-can
 
 ## Maintenance log
 
-**Last reviewed functional commit:** `75814acb12d27e733b49102050a21d65895eb6c1`
+**Last reviewed functional commit:** `f8efadc6f07f3c1991794d7efa1537aa4589d653`
 
+- `f8efadc6f07f3c1991794d7efa1537aa4589d653` - Chat / Phone technical foundation: typed `ChatSceneData` with closed Text/Image/Choice entries, stable IDs, typed numeric `ChoiceCondition` gates and typed `ChatGameStateDelta` mapping for the nine saved `GameState` fields. Scene-local `ChatController` creates a runtime technical UI from `ChatPhone/TechnicalChatPhoneConfig`, holds `BlockingExclusive`, keeps the transcript only in memory, rejects Replay and returns to the registered scene exactly once after releasing its lease. SaveManager now has a generic active-BlockingExclusive backend guard; `SaveData` remains v3. `test_chat_v1`, TEST CONTACT, the placeholder image and `chat_demo_return` are TECH DEMO ONLY / NOT CANON; `VNPrototype.unity` is unchanged. Manual Chat QA at 1920x1080 passed functionally (contact, incoming text, image, both replies, return, Esc, Quick Menu blocking and VN resume); additional resolution QA is pending/non-blocking. Known limitation: terminal reply transition can feel like it requires a second click in the current technical UI, although the return route completes automatically and exactly once. Deferred to final Phone UI polish. Manual Save graphical E2E and Save Backend graphical E2E passed; focused Chat Phone, Special Mode and Save smoke, full CI, project validator and scene validation passed in Unity 6000.5.7f1.
 - `75814acb12d27e733b49102050a21d65895eb6c1` - Timed Narrative Beat QA closure: manual graphical QA passed for the manual success and timeout paths; `TEST: success` and `TEST: timeout` are visibly shown before the terminal fallback. The terminal fallback no longer contains mojibake, and the resolution input does not consume the result scene. Focused Timed Narrative Beat, Special Mode, Conditional Choices, Auto and Skip smoke tests, full CI, project validator and scene validation passed in Unity 6000.5.7f1; `SaveData` remains v3 and `VNPrototype.unity` is unchanged. TEST fixtures are TECH DEMO ONLY / NOT CANON.
 - `9681822537ca418f0b5486ac9de1643887df170a` - Character Hub / Bios technical foundation: a runtime `Characters` entry augments the existing VN Quick Menu and opens a runtime-created ordinary modal from the narrow `CharacterHub/TechnicalCharacterHubConfig` Resources bootstrap. TEST CHARACTER A is visible with TEST BIO A and a typed numeric relationship bridge; TEST CHARACTER B is visibly locked and hides its biography/relationship. Hub pauses Auto/Skip without changing preferences, Esc/Close restore normal eligibility and Quick Menu ownership, while Replay, Hide UI and BlockingExclusive conflicts are denied. `SaveData` remains v3; `VNPrototype.unity` is intentionally unchanged. TEST fixtures are TECH DEMO ONLY / NOT CANON; authored characters, bios, portraits and unlock rules remain deferred. Focused smoke, full CI, project validator and scene validation passed in Unity 6000.5.7f1; manual graphical QA passed at 1280x720, 1920x1080, 2560x1440 and 3840x2160.
 - `8e8bef75525750c4049643dd0e0c1b881fb08dec` - Gallery / Replay Foundation: one neutral `TEST REPLAY` uses profile JSON v1 outside Saves/PlayerPrefs, typed `ReplayEntryDefinition`, a persistent `SceneFlowManager`-owned `ReplaySession`, exact v3-field `GameState` snapshot/restore, backlog/audio/read-history isolation, two-layer Save/Load guards and End Replay. `SaveData` remains v3. Focused smoke, full CI/validator/scene validation, both graphical Save E2E suites and Gallery GUI QA at 1280x720/1920x1080/2560x1440/3840x2160 passed in Unity 6000.5.7f1.
@@ -113,7 +115,7 @@ Implement only the approved V1 typed Chat/Phone foundation. Preserve the non-can
 
 - `9647986856fa8c5a545ee375e4a60866a9472212` - Typed conditional choices: added closed numeric condition enums for the nine persisted `GameState` values and three inclusive operators; unavailable choices are hidden through transient source-index mapping. Choice saves and result restore continue to use source indices, `SaveData` remains v3, and zero/capacity paths fail safely. Focused conditional smoke plus the full Unity 6000.5.7f1 CI, project validator and scene validation passed; visual Play Mode QA remains pending.
 
-**Last reviewed functional commit:** `9681822537ca418f0b5486ac9de1643887df170a`
+**Last reviewed functional commit:** `f8efadc6f07f3c1991794d7efa1537aa4589d653`
 
 ## Правило обновления
 
