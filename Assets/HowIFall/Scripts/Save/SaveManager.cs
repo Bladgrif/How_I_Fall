@@ -129,6 +129,11 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool SaveSlot(SaveSlotType type, int slotIndex, Texture2D previewTexture)
     {
+        if (IsSpecialModeOperationBlocked("SAVE"))
+        {
+            return false;
+        }
+
         if (IsReplayOperationBlocked("SAVE"))
         {
             return false;
@@ -263,6 +268,11 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool SaveQuick(Texture2D previewTexture)
     {
+        if (IsSpecialModeOperationBlocked("QUICK SAVE"))
+        {
+            return false;
+        }
+
         if (IsReplayOperationBlocked("QUICK SAVE"))
         {
             return false;
@@ -291,6 +301,11 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool LoadSlot(SaveSlotType type, int slotIndex)
     {
+        if (IsSpecialModeOperationBlocked("LOAD"))
+        {
+            return false;
+        }
+
         if (IsReplayOperationBlocked("LOAD"))
         {
             return false;
@@ -308,6 +323,11 @@ public sealed class SaveManager : MonoBehaviour
 
     public bool LoadLatest()
     {
+        if (IsSpecialModeOperationBlocked("CONTINUE"))
+        {
+            return false;
+        }
+
         if (IsReplayOperationBlocked("CONTINUE"))
         {
             return false;
@@ -338,6 +358,19 @@ public sealed class SaveManager : MonoBehaviour
         }
 
         Debug.LogWarning($"[REPLAY] {operation} operation denied while replay mode is active.", this);
+        return true;
+    }
+
+    /// <summary>Backend defense for any VN BlockingExclusive owner; not chat-specific.</summary>
+    public bool IsSpecialModeOperationBlocked(string operation = "SAVE/LOAD")
+    {
+        VNDialogueController controller = VNDialogueController.Instance;
+        if (controller == null || !controller.IsSpecialModeSaveLoadBlocked)
+        {
+            return false;
+        }
+
+        Debug.LogWarning($"[SPECIAL MODE] {operation} operation denied while exclusive VN interaction is active.", this);
         return true;
     }
 

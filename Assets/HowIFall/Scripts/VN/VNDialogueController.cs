@@ -90,11 +90,20 @@ public class VNDialogueController : MonoBehaviour
     private DialogueSceneData displayedLineScene;
     private DialogueLine displayedLine;
     private SpecialModeCoordinator specialModeCoordinator;
+    private ChatController chatController;
     private bool specialModeWasActive;
     private bool isInterfaceHidden;
+    private bool isRuntimeReady;
 
     public bool IsInterfaceHidden => isInterfaceHidden;
+    /// <summary>True only after this controller completed its scene-local Start initialization.</summary>
+    public bool IsRuntimeReady => isRuntimeReady && isActiveAndEnabled;
+    public ChatController ActiveChatController => chatController;
     public bool HasActiveSpecialMode => specialModeCoordinator != null && specialModeCoordinator.HasActiveOwner;
+    /// <summary>Generic backend guard for any active exclusive special interaction.</summary>
+    public bool IsSpecialModeSaveLoadBlocked => specialModeCoordinator != null
+        && specialModeCoordinator.HasActiveOwner
+        && (!specialModeCoordinator.CanSave || !specialModeCoordinator.CanLoad);
     public bool IsCharacterHubOpen => characterHubController != null && characterHubController.IsOpen;
     public bool CanAdvanceDialogue => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked);
     public bool CanSave => !IsCharacterHubOpen && !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanSave);
@@ -139,6 +148,7 @@ public class VNDialogueController : MonoBehaviour
 
         GameState gameState = GameState.EnsureInstance();
         characterHubController = CharacterHubController.TryCreateRuntime(this);
+        chatController = ChatController.TryCreateRuntime(this);
         SaveManager saveManager = SaveManager.EnsureInstance(sceneRegistry);
         Debug.Log($"[VN] Start. sceneId='{gameState.currentSceneId}', lineId='{gameState.currentLineId}', lineIndex={gameState.currentLineIndex}, sceneData='{(sceneData != null ? sceneData.sceneId : "<null>")}'.", this);
 
@@ -257,6 +267,7 @@ public class VNDialogueController : MonoBehaviour
             if (restored)
             {
                 saveManager.CompletePendingSceneRestore();
+                isRuntimeReady = true;
                 return;
             }
 
@@ -266,10 +277,12 @@ public class VNDialogueController : MonoBehaviour
                 $"[LOAD] Pending restore for slot {pendingSlotIndex} failed in VNDialogueController.Start(). Loaded GameState was discarded, ResetState() was applied, and configured start scene '{(sceneData != null ? sceneData.sceneId : "<null>")}' will be started.",
                 this);
             LoadDialogueScene(sceneData);
+            isRuntimeReady = true;
             return;
         }
 
         LoadDialogueScene(sceneData);
+        isRuntimeReady = true;
     }
 
     private void Update()
@@ -534,6 +547,60 @@ public class VNDialogueController : MonoBehaviour
 
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
+    }
+
+    /// <summary>Narrow story-facing entry point for the typed chat technical foundation.</summary>
+    public bool StartChat(ChatSceneData chat)
+    {
+        return TryStartChat(chat, out _);
+    }
+
+    /// <summary>Narrow diagnostic contract for authored chat startup and the technical launcher.</summary>
+    public bool TryStartChat(ChatSceneData chat, out string failureReason)
+    {
+        failureReason = string.Empty;
+        if (!IsRuntimeReady)
+        {
+            failureReason = "controller not ready";
+            return false;
+        }
+
+        if (chat == null)
+        {
+            failureReason = "null chat data";
+            return false;
+        }
+
+        if (SceneFlowManager.IsReplayModeActive)
+        {
+            failureReason = "Replay active";
+            return false;
+        }
+
+        if (chatController != null && chatController.IsRunning)
+        {
+            failureReason = "Chat already active";
+            return false;
+        }
+
+        if (HasActiveSpecialMode)
+        {
+            failureReason = "another special mode active";
+            return false;
+        }
+
+        if (chatController == null && !ChatController.TryCreateRuntime(this, out chatController, out failureReason))
+        {
+            return false;
+        }
+
+        if (chatController == null)
+        {
+            failureReason = "Canvas/UI unavailable";
+            return false;
+        }
+
+        return chatController.TryStartChat(chat, out failureReason);
     }
 
     private bool IsAnyOrdinaryModalOpen()
@@ -2345,6 +2412,7 @@ public class VNDialogueController : MonoBehaviour
 
     private void OnDestroy()
     {
+        isRuntimeReady = false;
         if (isInterfaceHidden)
         {
             RestoreInterface();

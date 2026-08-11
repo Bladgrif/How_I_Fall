@@ -43,23 +43,35 @@ public static class ConditionalChoiceEvaluator
             return false;
         }
 
-        if (choice.conditions == null || choice.conditions.Count == 0)
+        return AreConditionsAvailable(choice.conditions, gameState, choice.text);
+    }
+
+    /// <summary>Shared typed condition path for non-dialogue authored choices.</summary>
+    public static bool AreConditionsAvailable(IList<ChoiceCondition> conditions, GameState gameState, string sourceLabel)
+    {
+        if (gameState == null)
+        {
+            Debug.LogWarning("[CHOICE CONDITIONS] Cannot evaluate conditions without GameState.");
+            return false;
+        }
+
+        if (conditions == null || conditions.Count == 0)
         {
             return true;
         }
 
-        for (int i = 0; i < choice.conditions.Count; i++)
+        for (int i = 0; i < conditions.Count; i++)
         {
-            ChoiceCondition condition = choice.conditions[i];
+            ChoiceCondition condition = conditions[i];
             if (condition == null)
             {
-                Debug.LogWarning($"[CHOICE CONDITIONS] Choice '{choice.text}' contains a null condition at index {i}.");
+                Debug.LogWarning($"[CHOICE CONDITIONS] Choice '{sourceLabel}' contains a null condition at index {i}.");
                 return false;
             }
 
             if (!gameState.TryGetChoiceStateValue(condition.stateValue, out int currentValue))
             {
-                Debug.LogWarning($"[CHOICE CONDITIONS] Choice '{choice.text}' uses unsupported state value '{condition.stateValue}'.");
+                Debug.LogWarning($"[CHOICE CONDITIONS] Choice '{sourceLabel}' uses unsupported state value '{condition.stateValue}'.");
                 return false;
             }
 
@@ -76,7 +88,7 @@ public static class ConditionalChoiceEvaluator
                     matches = currentValue <= condition.threshold;
                     break;
                 default:
-                    Debug.LogWarning($"[CHOICE CONDITIONS] Choice '{choice.text}' uses unsupported comparison '{condition.comparison}'.");
+                    Debug.LogWarning($"[CHOICE CONDITIONS] Choice '{sourceLabel}' uses unsupported comparison '{condition.comparison}'.");
                     return false;
             }
 

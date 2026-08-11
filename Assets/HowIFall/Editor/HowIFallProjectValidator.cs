@@ -20,6 +20,7 @@ public static class HowIFallProjectValidator
         issueCount += DialogueContentValidator.Validate();
         issueCount += ValidateMainMenuScene();
         issueCount += ValidateVNPrototypeScene();
+        issueCount += ValidateChatPhoneTechnicalFoundation();
 
         if (issueCount == 0)
         {
@@ -241,6 +242,47 @@ public static class HowIFallProjectValidator
         if (!dialogueController.IsRegisteredDialogueScene(definition.timeoutNextScene))
         {
             issues += LogError($"{sceneName}: timed beat timeout target must be a registered valid dialogue scene.");
+        }
+
+        return issues;
+    }
+
+    private static int ValidateChatPhoneTechnicalFoundation()
+    {
+        const string configPath = "Assets/HowIFall/Resources/ChatPhone/TechnicalChatPhoneConfig.asset";
+        ChatPhoneTechnicalConfig config = AssetDatabase.LoadAssetAtPath<ChatPhoneTechnicalConfig>(configPath);
+        DialogueSceneRegistry registry = AssetDatabase.LoadAssetAtPath<DialogueSceneRegistry>("Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset");
+        if (config == null || config.technicalDemoChat == null)
+        {
+            return LogError("Chat Phone: technical Resources config or test_chat_v1 is missing.");
+        }
+
+        int issues = 0;
+        if (!config.technicalDemoChat.TryValidate(registry, out string diagnostic))
+        {
+            issues += LogError("Chat Phone: test chat is invalid. " + diagnostic);
+        }
+
+        if (config.technicalDemoChat.chatId != "test_chat_v1" || config.technicalDemoChat.contactDisplayName != "TEST CONTACT")
+        {
+            issues += LogError("Chat Phone: test_chat_v1 is not the approved TECH DEMO fixture.");
+        }
+
+        string[] guids = AssetDatabase.FindAssets("t:ChatSceneData");
+        var ids = new HashSet<string>();
+        foreach (string guid in guids)
+        {
+            ChatSceneData chat = AssetDatabase.LoadAssetAtPath<ChatSceneData>(AssetDatabase.GUIDToAssetPath(guid));
+            if (chat == null || string.IsNullOrWhiteSpace(chat.chatId) || !ids.Add(chat.chatId))
+            {
+                issues += LogError("Chat Phone: chatId values must be non-empty and unique.");
+            }
+        }
+
+        DialogueSceneData returnScene = config.technicalDemoChat.returnScene;
+        if (returnScene == null || returnScene.sceneId != "chat_demo_return" || returnScene.lines == null || returnScene.lines.Count != 1 || returnScene.lines[0] == null || returnScene.lines[0].text != "TEST: chat complete")
+        {
+            issues += LogError("Chat Phone: chat_demo_return fixture is invalid.");
         }
 
         return issues;

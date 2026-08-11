@@ -106,15 +106,17 @@ public class GameState : MonoBehaviour
             return;
         }
 
-        lust += choice.lustDelta;
-        romance += choice.romanceDelta;
-        purity += choice.purityDelta;
-        corruptionLevel += choice.corruptionDelta;
-        selfControl += choice.selfControlDelta;
-        suspicion += choice.suspicionDelta;
-        trustMasha += choice.trustMashaDelta;
-        trustArtem += choice.trustArtemDelta;
-        leraInterest += choice.leraInterestDelta;
+        ApplyChoiceStateDelta(choice.lustDelta, choice.romanceDelta, choice.purityDelta, choice.corruptionDelta,
+            choice.selfControlDelta, choice.suspicionDelta, choice.trustMashaDelta, choice.trustArtemDelta, choice.leraInterestDelta);
+    }
+
+    /// <summary>Single typed mapping for the nine numeric authored state deltas.</summary>
+    public void ApplyChoiceStateDelta(int lustDelta, int romanceDelta, int purityDelta, int corruptionDelta,
+        int selfControlDelta, int suspicionDelta, int trustMashaDelta, int trustArtemDelta, int leraInterestDelta)
+    {
+        lust += lustDelta; romance += romanceDelta; purity += purityDelta; corruptionLevel += corruptionDelta;
+        selfControl += selfControlDelta; suspicion += suspicionDelta; trustMasha += trustMashaDelta;
+        trustArtem += trustArtemDelta; leraInterest += leraInterestDelta;
     }
 
     public void ResetState()
