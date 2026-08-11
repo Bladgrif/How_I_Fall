@@ -97,15 +97,20 @@ This polish pass must preserve the existing generic SaveManager backend guard; U
 2. The phone overlay and scrim disappear without a second player input.
 3. Normal VN UI resumes only through the existing return-scene route. Failure and destruction cleanup must release the lease but must not cause an accidental success route.
 
-## Known foundation limitation
+## Implementation and QA closure
 
-The technical foundation is functionally complete. The terminal reply transition can currently **feel** like it requires a second click, although the return route completes automatically and exactly once after the first reply input. This does not block the technical foundation. Phone UI polish may refine the presentation flow, timing and visual feedback, but must not weaken exactly-once completion or require a second input.
+Phone UI polish is **DONE**. The approved hybrid clean-glass and smartphone-messenger direction is implemented as a responsive portrait `PhoneShell`: dimmed VN background, hidden ordinary dialogue shell, left Incoming bubbles, right Player bubbles, neutral image media card and persistent bottom reply cards. Selected replies disable both cards and appear once as outgoing bubbles.
+
+- Short transcripts bottom-align without excessive empty space; long transcripts remain scrollable. Layout rebuild happens when the transcript changes, not every frame.
+- Terminal replies require one logical click. The earlier apparent second-click issue was Unity Editor/Game View lag at 3840x2160, not a Chat runtime limitation.
+- `BlockingExclusive`, SaveManager backend guard, Replay denial, typed data/effect contracts and `SaveData` v3 are unchanged. `VNPrototype.unity` remains unchanged and all TEST content remains **TECH DEMO ONLY / NOT CANON**.
+- Manual graphical QA passed at 1280x720, 1920x1080, 2560x1440 and 3840x2160: shell, header, transcript, image card, reply cards, dialogue/Quick Menu suppression, outgoing reply, return scene and clipping/overlap checks all passed.
 
 ## Acceptance criteria for implementation
 
 - The active chat reads immediately as a phone/messenger overlay, with clear glass UI and a dimmed VN background.
-- `TEST CONTACT`, incoming text, the neutral image card, both reply cards and the chosen outgoing bubble are readable at 1920x1080.
-- No clipping, overlap or inaccessible reply target occurs at the resolutions selected for the implementation QA pass.
+- `TEST CONTACT`, incoming text, the neutral image card, both reply cards and the chosen outgoing bubble are readable at 1280x720, 1920x1080, 2560x1440 and 3840x2160.
+- No clipping, overlap or inaccessible reply target occurs at those four QA resolutions.
 - Ordinary dialogue box and ordinary VN controls are not visible or actionable while chat is active.
 - Reply selection has one semantic action: it selects the reply and never advances the underlying VN dialogue.
 - A terminal reply completes and routes automatically exactly once; no second mouse, keyboard or background input is required.
