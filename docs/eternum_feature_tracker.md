@@ -40,7 +40,7 @@
 | Input/help | `VNInputMap` — единый source-of-truth для player hotkeys; Main Menu Help строится из него | ✅ DONE | Rebinding сознательно отсутствует; graphical QA Help pending | Medium / Low |
 | Audio | Music/SFX сохранены; `AudioManager` имеет два независимых looping ambience sources и unscaled crossfade | ✅ DONE | Runtime готов; нет authored clip/команды сцены, Ambient slider намеренно скрыт | Medium / Medium |
 | Gallery/replay | One `TEST REPLAY`: profile JSON v1, locked/unlocked card, transactional `GameState`/backlog/audio isolation, replay-local read history, two-layer Save/Load denial and controlled End Replay | DONE (technical foundation) | Canon replay content and thumbnail remain separate future work | - / High |
-| Chat/phone | Typed `ChatSceneData` provides Text/Image/Choice entries, typed conditions/effects, transient transcript and runtime technical UI from a narrow Resources config. `ChatController` owns `BlockingExclusive`, Replay is denied, SaveManager has a generic backend guard, and return is exactly-once. | **DONE (technical foundation)** | Final Phone UI polish, authored content and additional resolution QA remain deferred. TEST content is TECH DEMO ONLY / NOT CANON. | Low / High |
+| Chat/phone | Typed `ChatSceneData` provides Text/Image/Choice entries, typed conditions/effects, transient transcript and runtime technical UI from a narrow Resources config. `ChatController` owns `BlockingExclusive`, Replay is denied, SaveManager has a generic backend guard, and return is exactly-once. | **DONE (technical foundation)** | [Phone UI polish spec](phone_ui_polish_spec.md) approved; implement the technical/demo Phone UI polish next. Authored content and additional resolution QA remain deferred. TEST content is TECH DEMO ONLY / NOT CANON. | Low / High |
 | Hotspots/map | Координатных интерактивных сцен и карты нет | ⬜ TODO | Нужны accessibility и modal-return contract | Low / Medium |
 | Timed narrative beat | `TimedNarrativeBeatController` owns one `BlockingExclusive` lease, unscaled visible timer and exactly-once success/timeout routing through `VNDialogueController`; `TEST: success` / `TEST: timeout` are manually verified result beats. TEST fixtures are TECH DEMO ONLY / NOT CANON. | **DONE (technical foundation)** | Authored content remains deferred; this is not a full QTE framework. Terminal fallback is readable and the resolution input does not consume the result scene. | Medium / High |
 | Mini-games | Отсутствуют | 🚫 NOT PLANNED | Не строить без утверждённой сюжетной функции | — / High |
@@ -75,9 +75,9 @@
 
 ## Единственный NEXT
 
-### Phone UI polish
+### Implement Phone UI polish
 
-Polish the final Phone presentation only after an approved visual direction: resolve the perceived terminal-reply transition and complete responsive QA. Preserve the typed V1 data contract, `SaveData` v3 and the TECH DEMO ONLY / NOT CANON boundary.
+Implement the approved [Phone UI polish specification](phone_ui_polish_spec.md): hybrid clean glass reply-card structure plus a clear phone/messenger overlay. Preserve the typed V1 data contract, `SaveData` v3, `BlockingExclusive` and the TECH DEMO ONLY / NOT CANON boundary.
 
 ## Отложено или исключено
 
