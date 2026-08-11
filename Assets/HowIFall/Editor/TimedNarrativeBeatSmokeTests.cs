@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -7,6 +8,10 @@ using UnityEngine.UI;
 
 public static class TimedNarrativeBeatSmokeTests
 {
+    private const string ExpectedEndPrototypeText = "\u041a\u043e\u043d\u0435\u0446 Unity-\u043f\u0440\u043e\u0442\u043e\u0442\u0438\u043f\u0430.";
+    private const string ExpectedSuccessText = "TEST: success";
+    private const string ExpectedTimeoutText = "TEST: timeout";
+
     [MenuItem("How I Fall/Tests/Run Timed Narrative Beat Smoke Tests")]
     public static void RunFromMenu()
     {
@@ -16,10 +21,29 @@ public static class TimedNarrativeBeatSmokeTests
 
     public static void RunBatchMode()
     {
+        TestTerminalAndDemoResultContentContract();
         TestManualSuccessAndExactlyOnce();
         TestImmediateTimeoutAndRejectedStarts();
         TestConflictAndLifecycleCleanup();
         Require(SaveData.CurrentVersion == 3, "Timed beat must preserve SaveData v3.");
+    }
+
+    private static void TestTerminalAndDemoResultContentContract()
+    {
+        FieldInfo endTextField = typeof(VNDialogueController).GetField(
+            "EndPrototypeText",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Require(endTextField != null, "VN terminal text contract must exist.");
+        Require(
+            string.Equals((string)endTextField.GetRawConstantValue(), ExpectedEndPrototypeText, StringComparison.Ordinal),
+            "VN terminal text must use the readable Russian contract, not mojibake.");
+
+        DialogueSceneData success = AssetDatabase.LoadAssetAtPath<DialogueSceneData>(
+            "Assets/HowIFall/Data/Dialogues/timed_demo_success.asset");
+        DialogueSceneData timeout = AssetDatabase.LoadAssetAtPath<DialogueSceneData>(
+            "Assets/HowIFall/Data/Dialogues/timed_demo_timeout.asset");
+        RequireSceneHasExactFirstLine(success, ExpectedSuccessText, "Success demo target");
+        RequireSceneHasExactFirstLine(timeout, ExpectedTimeoutText, "Timeout demo target");
     }
 
     private static void TestManualSuccessAndExactlyOnce()
@@ -40,6 +64,9 @@ public static class TimedNarrativeBeatSmokeTests
             Require(!fixture.dialogue.HasActiveSpecialMode && fixture.dialogue.CanAdvanceDialogue, "Manual resolution must release the lease.");
             Require(!fixture.panel.activeSelf, "Manual resolution must hide beat UI.");
             Require(ReferenceEquals(fixture.dialogue.sceneData, fixture.success), "Manual action must use the normal success scene route.");
+            RequireSceneHasExactFirstLine(fixture.dialogue.sceneData, ExpectedSuccessText, "Manual success route");
+            fixture.dialogue.AdvanceDialogue();
+            Require(ReferenceEquals(fixture.dialogue.sceneData, fixture.success), "The resolution event must not also advance past the success result scene.");
             Require(!fixture.beat.ResolveFromManualAction(), "Second manual callback must be a no-op.");
             Require(ReferenceEquals(fixture.dialogue.sceneData, fixture.success), "Second manual callback must not route again.");
         }
@@ -53,6 +80,9 @@ public static class TimedNarrativeBeatSmokeTests
             Require(fixture.beat.State == TimedNarrativeBeatState.Resolved, "Non-positive duration must not leave a running beat.");
             Require(!fixture.dialogue.HasActiveSpecialMode && !fixture.panel.activeSelf, "Immediate timeout must release lease and hide UI.");
             Require(ReferenceEquals(fixture.dialogue.sceneData, fixture.timeout), "Immediate timeout must route to timeout scene.");
+            RequireSceneHasExactFirstLine(fixture.dialogue.sceneData, ExpectedTimeoutText, "Timeout route");
+            fixture.dialogue.AdvanceDialogue();
+            Require(ReferenceEquals(fixture.dialogue.sceneData, fixture.timeout), "The resolution event must not also advance past the timeout result scene.");
             Require(!fixture.beat.ResolveFromManualAction(), "Callback after timeout must be a no-op.");
 
             Require(!fixture.beat.TryStartBeat(null), "Null definition must fail cleanly.");
@@ -98,8 +128,8 @@ public static class TimedNarrativeBeatSmokeTests
             controllerObject = CreateUiObject("TimedBeatDialogueController");
             dialogue = controllerObject.AddComponent<VNDialogueController>();
             ConfigureDialogueUi(dialogue);
-            success = CreateScene("timed_smoke_success", "TEST: success");
-            timeout = CreateScene("timed_smoke_timeout", "TEST: timeout");
+            success = CreateScene("timed_smoke_success", ExpectedSuccessText);
+            timeout = CreateScene("timed_smoke_timeout", ExpectedTimeoutText);
             DialogueSceneRegistry registry = ScriptableObject.CreateInstance<DialogueSceneRegistry>();
             registry.scenes = new List<DialogueSceneData> { success, timeout };
             dialogue.sceneRegistry = registry;
@@ -185,6 +215,12 @@ public static class TimedNarrativeBeatSmokeTests
         }
 
         return result;
+    }
+
+    private static void RequireSceneHasExactFirstLine(DialogueSceneData scene, string expectedText, string context)
+    {
+        Require(scene != null && scene.lines != null && scene.lines.Count > 0, $"{context} must contain a normal dialogue beat.");
+        Require(string.Equals(scene.lines[0].text, expectedText, StringComparison.Ordinal), $"{context} must contain exact '{expectedText}'.");
     }
 
     private static void Require(bool condition, string message)

@@ -10,7 +10,7 @@ public class VNDialogueController : MonoBehaviour
 
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
     private const float SkipCadenceSeconds = 0.12f;
-    private const string EndPrototypeText = "РљРѕРЅРµС† Unity-РїСЂРѕС‚РѕС‚РёРїР°.";
+    private const string EndPrototypeText = "\u041a\u043e\u043d\u0435\u0446 Unity-\u043f\u0440\u043e\u0442\u043e\u0442\u0438\u043f\u0430.";
     private const string ChoiceConfigurationErrorText = "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0430.";
     public const int SupportedChoiceButtonCapacity = 3;
 
