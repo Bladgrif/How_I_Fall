@@ -1,12 +1,12 @@
 # How I Fall — Eternum Main Menu / Game Menu / Preferences parity spec
 
-**Status:** implementation blueprint; no C# or Unity scene changes in this task.
+**Status:** active parity roadmap; Preferences UI Parity Phase 2 is complete.
 
 **Reference priority:** Eternum behavior first, then proven HIF safety improvements.
 
 **Dependency owner:** existing `GameSettings` + `SettingsManager`.
 
-**Last reviewed functional commit:** `f7c07b25fbf68c279d1406aaf8d0eabaabc4c672`.
+**Last reviewed functional commit:** `0b6c778adf2252e0f1f26eb1945eb4e7c71c1382`.
 
 ## 1. Target principles
 
@@ -222,7 +222,7 @@ Save naming remains NOT NEEDED for fixed six-slot HIF UI.
 
 | Control | Type | State | Target behavior |
 |---|---|---|---|
-| Show Quick Menu | toggle | B03 / IMPLEMENT in this unified phase | default ON; immediate persistent |
+| Show Quick Menu | toggle | B03 / DEFERRED to Phase 4 (NOT DONE) | future default ON; immediate persistent |
 | Text Size | slider/presets + reset | IMPLEMENT TO PARITY | changes actual dialogue TMP size |
 | Text Outline | slider/presets + reset | IMPLEMENT TO PARITY after visual proof | changes actual outline/material safely |
 | Textbox Opacity | slider + reset | IMPLEMENT TO PARITY | changes only dialogue box background |
@@ -276,7 +276,7 @@ Requirements:
 - changing preference under a blocker updates stored truth but does not reveal the root early;
 - Reset returns ON;
 - Replay button filtering runs inside the effective-visible root and remains unchanged;
-- B03 is delivered with shared Preferences, not as an isolated UI patch.
+- B03 remains NOT DONE after Phase 2 and is deferred to the explicit Main Menu / Quick Menu cleanup phase; the contract above remains the future target.
 
 ## 8. Save/Load navigation target
 
@@ -395,12 +395,17 @@ Global rules:
 
 ### Phase 2 — Preferences UI Parity
 
-- **Goal:** truthful one-page UI; Mute All, dialogue accessibility subset, labels/units; fake controls absent.
-- **Likely files:** shared Preferences prefab/screen, controller, dialogue UI consumers, tests.
-- **Risk:** HIGH (responsive text geometry).
-- **Model/session:** Codex App, GPT-5.6 Sol, High, new session.
-- **Manual QA:** mandatory four resolutions.
-- **Dependency:** Phase 1.
+- **Status:** **DONE** at `0b6c778adf2252e0f1f26eb1945eb4e7c71c1382`.
+- Main Menu and gameplay instantiate the same deterministic runtime-built `SharedPreferencesView`; only Back destination and modal ownership differ. The legacy Main Menu and gameplay settings hierarchies are hidden and unreachable.
+- `GameSettings` / `SettingsManager` remain the only settings truth. `PreferencesService` / `PreferencesController` remain authoritative, with immediate apply and persistence; there is no second settings cache and no Save/Apply state.
+- The identical player-facing order is Display (Screen Mode, Resolution, Run in Background), Audio (Mute All, Master, Music, SFX), Dialogue & Auto (Text Speed, Auto-Forward Delay), Skip & Saves (unseen text, resume after choices, Classic/Fast speed, Autosave), Accessibility (Dialogue Text Size, Textbox Opacity), then fixed Reset/Back.
+- Mute All is a separate persisted flag that mutes output without overwriting stored Master/Music/SFX values. Dialogue Text Size has a real TMP dialogue-text consumer at 85–125%; speaker, choices and backlog intentionally remain unchanged. Textbox Opacity changes only the dialogue-box background alpha.
+- Auto-Forward Delay is shown in seconds (`0.5..5.0`) while round-tripping the existing stored representation. Text Outline, textbox width/height and Interface Motion remain deferred and invisible. Ambient Volume and Music During Pause remain hidden until their authored/pause policies are player-relevant; Auto ON/OFF remains a runtime Quick Menu mode.
+- Refresh Rate, Game Look, Interface Style, Rewind VHS, Character/Background Animations, Language, legacy Font Size Mode, Show Hints, Ambient Volume, Music During Pause and B03 Show Quick Menu are not player-facing.
+- Gameplay Preferences adds only a temporary Quick Menu visibility blocker. Closing removes only that blocker and respects H clean view and Special Mode ownership; it does not mutate B03 persistence, Quick Menu enabled state or hotkeys.
+- Automated regression, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`; `SaveData.CurrentVersion` remains 3 and Preferences state is absent from campaign JSON.
+- Manual visual QA passed for the shared layout, gameplay Quick Menu suppression/restoration, sticky-footer scrolling and compact slider handles. `MainMenu.unity` and `VNPrototype.unity` are unchanged.
+- The 1280×720, 1920×1080, 2560×1440 and 3840×2160 contract remains mandatory for later full-shell regression.
 
 ### Phase 3 — Game Menu / navigation
 
@@ -512,6 +517,6 @@ Parity shell is DONE only when:
 
 ## 16. Exact next step
 
-### Implement Preferences UI Parity (Phase 2)
+### Implement Game Menu / Navigation (Phase 3)
 
-Build one identical shared player-facing Preferences screen used from both Main Menu and gameplay, following this approved parity specification and the completed Phase 1 foundation. Keep `SettingsManager` as the only truth, expose only verified controls, and preserve context-specific Back behavior. B03 remains absorbed into later unified Preferences work and was not implemented by Phase 1.
+Create a real Game Menu separate from Quick Menu, using the approved navigation, modal precedence and context-return contracts above. Do not implement B03 in Phase 3; persistent Quick Menu visibility and safe-area work remain a later explicit phase.
