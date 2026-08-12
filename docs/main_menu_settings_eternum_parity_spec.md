@@ -6,6 +6,8 @@
 
 **Dependency owner:** existing `GameSettings` + `SettingsManager`.
 
+**Last reviewed functional commit:** `f7c07b25fbf68c279d1406aaf8d0eabaabc4c672`.
+
 ## 1. Target principles
 
 1. One player-facing Preferences screen from Main Menu and gameplay.
@@ -380,15 +382,18 @@ Global rules:
 
 ### Phase 1 — Shared Preferences Foundation
 
-- **Goal:** one settings truth/presenter contract; inventory and migrate/remove duplicate fields; no visual parity expansion yet.
-- **Likely files:** `GameSettings.cs`, `SettingsManager.cs`, new or replacement shared Preferences presenter/view adapter, focused tests; minimal existing entry adapters.
-- **Do not touch:** SaveData version, SaveManager, scenes unless unavoidable wiring is separately approved.
-- **Risk:** HIGH (persistence migration and two entry points).
-- **Model/session:** Codex App, GPT-5.6 Sol, High, new dedicated session, one agent.
-- **Manual QA:** both entry points open the same state and return correctly.
-- **Dependency:** none; this is NEXT.
+- **Status:** **DONE** at `f7c07b25fbf68c279d1406aaf8d0eabaabc4c672`.
+- `GameSettings` remains the DTO and `SettingsManager` remains the only persistence/runtime owner; no second settings storage was added.
+- Shared typed `IPreferencesService` / `PreferencesService` and `PreferencesController` now drive both entry points over current `SettingsManager` state.
+- `VNSettingsService` was removed. `VNSettingsPresenter` was retired as an independent subset; its stable source file now contains only the thin gameplay `VNPreferencesAdapter`.
+- `SettingsPanelController` is the Main Menu view/tab/legacy wiring adapter and delegates approved working settings behavior to the shared controller.
+- `screenMode` is canonical. Legacy `fullscreen` field/key/API remain only as a compatibility layer derived from `screenMode`.
+- Fake/unused fields and partial audio fields were not promoted into the approved player-facing contract. `SaveData.CurrentVersion` remains 3.
+- `MainMenu.unity` and `VNPrototype.unity` were unchanged. Focused tests, full CI, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`.
+- Manual cross-context QA passed: Music Volume changed from either entry point was immediately visible from the other.
+- **Intentional limitation:** Phase 1 unified ownership and behavior only. Main Menu and gameplay still use different legacy visual/control surfaces; for example, Master Volume remains visible only in the current Main Menu surface. Identical controls/layout belong to Phase 2.
 
-### Phase 2 — Preferences parity controls
+### Phase 2 — Preferences UI Parity
 
 - **Goal:** truthful one-page UI; Mute All, dialogue accessibility subset, labels/units; fake controls absent.
 - **Likely files:** shared Preferences prefab/screen, controller, dialogue UI consumers, tests.
@@ -507,6 +512,6 @@ Parity shell is DONE only when:
 
 ## 16. Exact next step
 
-### First implementation phase — Shared Preferences Foundation
+### Implement Preferences UI Parity (Phase 2)
 
-Start a new dedicated Codex App session with **GPT-5.6 Sol**, **High reasoning**, **one agent**. The phase must first preserve/validate current persistence and consumers, introduce one shared presentation contract, redirect both entry points incrementally, and leave scene edits outside scope unless separately proven unavoidable.
+Build one identical shared player-facing Preferences screen used from both Main Menu and gameplay, following this approved parity specification and the completed Phase 1 foundation. Keep `SettingsManager` as the only truth, expose only verified controls, and preserve context-specific Back behavior. B03 remains absorbed into later unified Preferences work and was not implemented by Phase 1.
