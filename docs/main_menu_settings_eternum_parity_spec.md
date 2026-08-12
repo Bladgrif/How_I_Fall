@@ -1,12 +1,12 @@
 # How I Fall — Eternum Main Menu / Game Menu / Preferences parity spec
 
-**Status:** active parity roadmap; Preferences UI Parity Phase 2 is complete.
+**Status:** active parity roadmap; Game Menu / Navigation Phase 3 is complete.
 
-**Reference priority:** Eternum behavior first, then proven HIF safety improvements.
+**Reference priority:** runtime observations in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md) first, then proven HIF safety improvements; source-only assumptions are secondary.
 
 **Dependency owner:** existing `GameSettings` + `SettingsManager`.
 
-**Last reviewed functional commit:** `0b6c778adf2252e0f1f26eb1945eb4e7c71c1382`.
+**Last reviewed functional commit:** `fa996b9bce2039e550723ed58ed6e42990482b41`.
 
 ## 1. Target principles
 
@@ -77,50 +77,52 @@ If visual testing shows New Game should remain first for a new profile, it may p
 
 ## 4. Target Game Menu
 
-HIF needs a real Game Menu separate from Quick Menu.
+HIF has a real Game Menu separate from Quick Menu as of Phase 3.
 
 ### Entry
 
 - Esc from stable ordinary dialogue opens it;
-- right-click may open it only after a focused input QA pass and must not conflict with dialogue advance/context actions;
+- right-click is intentionally not bound to Game Menu in HIF Phase 3; do not add it without explicit approval;
 - Quick Menu `Menu` opens it;
 - no opening while H-clean view is active, Character Hub/Chat/media/confirmation/save panel owns input, or BlockingExclusive denies navigation;
 - opening stops current Auto/Skip timers without changing their stored/runtime enabled states.
 
 ### Normal gameplay navigation
 
-Recommended order:
+Implemented Phase 3 order:
 
-1. Return
-2. Save
-3. Load
-4. Preferences
-5. History
-6. Characters / Extras entry (only if current Character Hub remains approved)
-7. Main Menu
-8. Quit
+1. Save
+2. Load
+3. Preferences
+4. Main Menu
+5. Quit
+6. Return — visually separated at the bottom
 
-Differences from Eternum are explicit:
+Runtime-audit corrections:
 
-- History is included for discoverability because HIF has no rollback `Back` and already exposes B/History.
-- Characters may live here rather than Quick Menu; it is an HIF-specific ordinary modal.
-- Quit is parity; if product direction later chooses Main Menu-only quit, remove it consistently rather than leave two confirmation styles.
+- History is absent from the normal Game Menu and remains available through Quick Menu / `B`.
+- Characters is absent from the normal Game Menu and remains available through its existing HIF route.
+- HIF excludes Eternum's external/promotional entry.
+- Quit remains available with confirmation.
 
 ### Replay navigation
 
-1. Return
-2. Preferences
-3. History
-4. End Replay
-5. Quit
+1. Preferences
+2. History
+3. End Replay
+4. Quit
+5. Return — visually separated at the bottom
 
-Replay hides Save, Load and Characters. Preferences/History remain because current HIF replay policy explicitly permits them; this is safer and more useful than copying the narrower Eternum replay navigation branch. End Replay uses confirmation and existing idempotent replay cleanup.
+Replay hides Save, Load, Characters and Main Menu. Preferences/History remain because current HIF replay policy explicitly permits them; this is safer and more useful than copying an unaudited replay branch. End Replay uses confirmation and existing idempotent replay cleanup.
 
 ### Presentation/ownership
 
 - full-screen navigation layer over gameplay, not a small floating window;
 - original HIF skin, no Eternum assets/layout copy;
-- navigation region and content/summary region are separate;
+- compact left navigation occupies approximately 25–30% of the safe-width shell;
+- no generic placeholder or decorative empty right content frame;
+- authored background may remain subtly visible under the strong HIF navy/red dim treatment;
+- embedded Save/Load content is intentionally deferred to Phase 5;
 - underlying dialogue cannot receive clicks/advance;
 - closing restores the previously eligible dialogue state and starts a fresh Auto/Skip delay;
 - Game Menu owns no save/settings/replay state; it calls existing controllers.
@@ -276,7 +278,7 @@ Requirements:
 - changing preference under a blocker updates stored truth but does not reveal the root early;
 - Reset returns ON;
 - Replay button filtering runs inside the effective-visible root and remains unchanged;
-- B03 remains NOT DONE after Phase 2 and is deferred to the explicit Main Menu / Quick Menu cleanup phase; the contract above remains the future target.
+- B03 remains NOT DONE after Phase 3 and is deferred to the explicit Main Menu / Quick Menu cleanup phase; the contract above remains the future target.
 
 ## 8. Save/Load navigation target
 
@@ -303,7 +305,7 @@ Required behavior:
 
 - modal blocks raycasts/input to underlying screen;
 - one clear prompt and primary/destructive + cancel action;
-- Esc/right-click always means Cancel/No, never destructive Yes;
+- Esc means Cancel/No, never destructive Yes; Phase 3 adds no right-click behavior;
 - default focus is Cancel for destructive actions;
 - close one modal layer at a time;
 - wording names the consequence, but final canon text is outside this spec;
@@ -324,13 +326,13 @@ Required behavior:
 
 | Context | Eternum | HIF current | Target HIF |
 |---|---|---|---|
-| Ordinary dialogue | Esc/right-click Game Menu | Esc no-op | Esc opens Game Menu; right-click only after QA |
+| Ordinary dialogue | Esc hides/restores dialogue; RMB opens Game Menu | Esc opens Game Menu; H owns clean view | keep; no RMB binding |
 | Quick Menu | action overlay | direct panels/Main Menu | `Menu` opens Game Menu; other fast actions remain |
-| Game Menu | Esc/Return closes/back | absent | Esc closes top Game Menu layer |
-| Preferences | Esc/right-click Return | Esc closes VN panel only | Esc returns to invoking context |
+| Game Menu | RMB closes; Esc no-op; Back control returns | Esc closes top Game Menu layer | keep HIF improvement |
+| Preferences | Back from observed in-game route returns directly to gameplay; Esc unverified | Esc returns to invoking HIF context | keep HIF improvement |
 | Save/Load | Return/back within menu stack | own Escape; confirmation first | keep confirmation-first, then panel, then Game Menu |
 | History | Esc Return | Esc closes | keep; Return destination preserved |
-| Confirm modal | Esc/right-click No | Esc usually cancels | standardize Cancel/No |
+| Confirm modal | runtime behavior not recorded | Esc cancels | standardize Cancel/No |
 | Character Hub | modal Return | Esc closes | closes before Game Menu can open |
 | Chat | authored owner | BlockingExclusive denies Escape | unchanged; no Game Menu |
 | Media Viewer | nested modal | Esc closes viewer first | unchanged |
@@ -409,12 +411,17 @@ Global rules:
 
 ### Phase 3 — Game Menu / navigation
 
-- **Goal:** Esc/Menu navigation layer and shared back stack without bypassing ownership.
-- **Likely files:** new focused Game Menu controller/prefab, `VNDialogueController`, `VNInputMap`, tests.
-- **Risk:** HIGH (input precedence).
-- **Model/session:** Codex App, GPT-5.6 Sol, High, new session.
-- **Manual QA:** modal/special/replay matrix mandatory.
-- **Dependency:** Phase 1; preferably Phase 2 stable.
+- **Status:** **DONE** at `fa996b9bce2039e550723ed58ed6e42990482b41`.
+- Esc and Quick Menu `Menu` open a scene-local full-screen Game Menu; a second Esc/Return closes it without dialogue advance.
+- Normal actions are Save, Load, Preferences, Main Menu, Quit and a visually separated Return. History remains in Quick Menu; Characters is removed from the normal Game Menu but keeps its existing route.
+- Replay actions remain Preferences, History, End Replay, Quit and Return; campaign-only actions stay absent.
+- Existing Preferences, History, Character Hub, confirmations and `ManualSaveLoadPanel` retain ownership; supported child closures return to Game Menu.
+- Esc is an intentional HIF improvement over the observed Eternum RMB Game Menu behavior; H clean-view and stronger modal/Special/Chat precedence remain.
+- The shell uses compact 25–30% navigation with no empty placeholder region. Save/Load is not embedded yet and remains Phase 5 scope.
+- Automated regression, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`; `SaveData.CurrentVersion` remains 3 and the Save backend is unchanged.
+- Manual visual QA passed at 1920×1080 and 1280×720. `MainMenu.unity` and `VNPrototype.unity` are unchanged.
+- Runtime observations are persisted in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md).
+- B03 remains **NOT DONE**.
 
 ### Phase 4 — Main Menu and Quick Menu cleanup + B03
 
@@ -491,7 +498,7 @@ At each relevant phase:
 
 - Main Menu → Preferences → Back;
 - gameplay → Game Menu → Preferences/History/Save/Load → Back;
-- Esc and optional right-click across every context in section 10;
+- Esc across every context in section 10; verify that RMB remains unbound to Game Menu;
 - Auto/Skip active before opening and after closing panels;
 - Quit, Main Menu, Load, Overwrite, Delete and End Replay confirms;
 - no input leakage to dialogue under modal;
@@ -515,8 +522,6 @@ Parity shell is DONE only when:
 9. manual four-resolution QA passes;
 10. no copyrighted Eternum source/assets/text are copied.
 
-## 16. Exact next step
+## 16. Roadmap continuation
 
-### Implement Game Menu / Navigation (Phase 3)
-
-Create a real Game Menu separate from Quick Menu, using the approved navigation, modal precedence and context-return contracts above. Do not implement B03 in Phase 3; persistent Quick Menu visibility and safe-area work remain a later explicit phase.
+Proceed with **Main Menu and Quick Menu cleanup + B03 (Phase 4)** as defined in the roadmap above. Do not implement it as part of the Phase 3 closure. B03 is still NOT DONE.

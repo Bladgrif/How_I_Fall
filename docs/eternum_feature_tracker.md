@@ -7,7 +7,7 @@
 - Срез Eternum: source-only аудит 25 верхнеуровневых `.rpy`, 2026-08-07.
 - How I Fall audit baseline: functional `8e8bef75525750c4049643dd0e0c1b881fb08dec` on `master` (Gallery / Replay Foundation).
 - Граница: переносим только полезное поведение. Не копируем код, тексты, визуал, аудио, layout и сюжетные элементы Eternum.
-- Eternum runtime was not launched; Unity 6000.5.7f1 passed full CI/validator/scene validation, both graphical Save E2E suites and Gallery GUI QA at 1280x720, 1920x1080, 2560x1440 and 3840x2160 on `8e8bef75525750c4049643dd0e0c1b881fb08dec`.
+- A read-only runtime audit of actual Eternum 0.9.5 player-facing UI is persisted in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md); runtime observations now override source-only assumptions where they conflict.
 
 ## Статусы
 
@@ -29,6 +29,7 @@
 | Continue | Загружает самое новое валидное Manual/Auto/Quick; в Eternum отдельной активной кнопки нет | ✅ DONE | — | — / Low |
 | Совместимость saves | `SaveData` v3; v1 Manual и v2 Manual/Auto/Quick мигрируют только in-memory, следующий save пишет v3 | ✅ DONE | Любое расширение формата требует явной миграции | — / High |
 | Quick menu | History, Skip, Auto, Save, Quick Save, Quick Load, Load, Settings, Main Menu | ✅ DONE | Back сознательно отсутствует | — / Medium |
+| Game Menu / navigation | Full-screen scene-local HIF shell; normal actions Save, Load, Preferences, Main Menu, Quit and separated Return. History remains in Quick Menu; Characters keeps its existing route. | **DONE (Phase 3)** | Save/Load content is not embedded; Phase 5 owns shell integration. Feature `fa996b9bce2039e550723ed58ed6e42990482b41`. | Medium / High |
 | Auto | Таймер диалога, блокировка на choice/modal, согласование со Skip | ✅ DONE | QA задержки на длинных строках | Low / Low |
 | Skip | Seen-aware, не выбирает варианты, согласован с Auto | ✅ DONE | Ctrl сейчас переключает режим, а не работает удержанием как в Eternum | Low / Medium |
 | Backlog | До 100 raw speaker/text entries; Manual/Auto/Quick сохраняют save-scoped snapshot, Load/Continue заменяют History без merge и дублей | ✅ DONE | Поддерживать v1/v2 fallback и проверять новые restore beats | — / High |
@@ -74,14 +75,15 @@
 | 11 | Chat / Phone | Typed `ChatSceneData`, Text/Image/Choice, typed condition/effect mapping, transient transcript, BlockingExclusive, exactly-once VN return, responsive runtime Phone UI, R06 local media viewer and typed R08 open/incoming SFX. TEST only; `VNPrototype.unity` unchanged. | narrow Resources bootstrap, existing VN route, `AudioManager.PlaySfx`, and SaveManager guard | Medium | High | **DONE (technical foundation + UI polish + R06 + R08)** |
 | 12 | Shared Preferences Foundation | One typed service/controller contract over `GameSettings`/`SettingsManager`; Main Menu and gameplay share current state without second storage | existing Settings runtime consumers | Medium | High | **DONE** |
 | 13 | Preferences UI Parity | One runtime-built shared screen exposes the same truthful control set and order from Main Menu and gameplay; legacy settings surfaces are unreachable | Shared Preferences foundation, runtime consumers | Medium | High | **DONE** at `0b6c778adf2252e0f1f26eb1945eb4e7c71c1382` |
+| 14 | Game Menu / Navigation | Esc/Menu navigation shell, modal precedence and child return context; corrected normal/replay action sets | existing VN controllers and panels; no Save backend ownership | Medium | High | **DONE** at `fa996b9bce2039e550723ed58ed6e42990482b41` |
 
 ## Единственный следующий шаг
 
-### NEXT — Implement Game Menu / Navigation (Phase 3)
+### NEXT — Implement Main Menu and Quick Menu cleanup + B03 (Phase 4)
 
-**Status:** PHASE 2 DONE / PHASE 3 TODO
+**Status:** PHASE 3 DONE / PHASE 4 TODO
 
-Goal: create a real Game Menu separate from Quick Menu, following the approved navigation, modal precedence and context-return contracts in [main_menu_settings_eternum_parity_spec.md](main_menu_settings_eternum_parity_spec.md). Do not implement B03 in Phase 3; persistent Quick Menu visibility remains NOT DONE and deferred to its later explicit phase.
+Goal: follow the approved Phase 4 roadmap in [main_menu_settings_eternum_parity_spec.md](main_menu_settings_eternum_parity_spec.md): finish Main Menu/Quick Menu cleanup, implement the persistent Quick Menu visibility preference and add the safe-area reserve without changing hotkey semantics. Do not implement Phase 4 as part of this documentation closure.
 
 ## Отложено или исключено
 
@@ -97,15 +99,16 @@ Goal: create a real Game Menu separate from Quick Menu, following the approved n
 - Implemented: `H` clean view and `H`/`Esc` restore; no dialogue/save state mutation.
 - Not implemented: middle-click Hide UI and any custom screenshot file writer/gallery/Steam API integration.
 - Intended screenshot UX: clean authored frame for the player's system or Steam screenshot tool.
-- Persistent Quick Menu preference (`B03`) remains **NOT DONE**. Phase 2 only adds a temporary gameplay Preferences-modal visibility blocker; it does not mutate persistent state, enabled state or hotkeys.
+- Persistent Quick Menu preference (`B03`) remains **NOT DONE**. Phase 3 adds only its own transient Game Menu visibility blocker; it does not make B03 complete or change Quick Menu hotkey/action semantics.
 
 ## Maintenance log
 
+- `2026-08-12` — Phase 3 Game Menu / Navigation completed at `fa996b9bce2039e550723ed58ed6e42990482b41`. Normal actions are Save, Load, Preferences, Main Menu, Quit and a separated Return; History remains in Quick Menu and Characters is absent from the normal Game Menu while its existing route remains. Replay keeps Preferences, History, End Replay, Quit and Return. HIF intentionally uses Esc rather than the RMB behavior observed in Eternum and retains H clean view plus stronger modal/Special/Chat precedence. The compact full-screen shell has no empty placeholder region; Save/Load remains the existing separate panel until Phase 5. Runtime observations are persisted in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md). Automated regression and manual visual QA PASS; `SaveData` remains v3; Save backend, `MainMenu.unity` and `VNPrototype.unity` are unchanged; `missingScripts=0`, `invalidEvents=0`. B03 remains NOT DONE.
 - `2026-08-12` — Phase 2 Preferences UI Parity completed at `0b6c778adf2252e0f1f26eb1945eb4e7c71c1382`: one runtime-built `SharedPreferencesView` serves Main Menu and gameplay with the same ordered truthful controls; legacy visual surfaces are unreachable. `GameSettings` / `SettingsManager` and the shared Preferences service/controller remain authoritative with immediate persistence and no second storage. Mute All preserves stored channel values; Dialogue Text Size has a real 85–125% TMP consumer; Textbox Opacity changes only the dialogue-box background; Auto delay is shown in seconds; fake/deferred controls remain hidden. Gameplay Preferences applies only a temporary Quick Menu blocker and respects other visibility owners on close; B03 remains NOT DONE. Automated regression and manual visual QA PASS. `SaveData` remains v3; `MainMenu.unity` and `VNPrototype.unity` are unchanged. The four-resolution contract remains required for later full-shell regression.
 - `2026-08-12` — Phase 1 Shared Preferences Foundation completed at `f7c07b25fbf68c279d1406aaf8d0eabaabc4c672`: `GameSettings`/`SettingsManager` remain the only truth; shared typed Preferences service/controller behavior drives Main Menu and gameplay adapters; `VNSettingsService` was removed; `VNSettingsPresenter` was retired to a thin gameplay adapter; `SettingsPanelController` became the Main Menu view adapter. `screenMode` is canonical while legacy fullscreen compatibility remains; fake/unused fields were not promoted; `SaveData` remains v3; both scenes are unchanged. Automated regression and manual Music Volume cross-context synchronization QA passed. Intentional Phase 1 debt: Main Menu and gameplay still have different legacy visual/control surfaces (for example, Master Volume remains visible only in Main Menu) until Phase 2.
 - `2026-08-12` — Main Menu / Settings / Game UI parity audit: повторно проверены Eternum `screens.rpy`, `options.rpy`, `gui.rpy`, `save_name.rpy`, `gallery.rpy`, `pax.rpy` и связанные consumers; создан [gap audit](main_menu_settings_eternum_gap_audit.md) и [implementation spec](main_menu_settings_eternum_parity_spec.md). Зафиксированы отсутствие полноценного HIF Game Menu, две расходящиеся Settings UI, fake/partial fields и целевая shared Preferences architecture. B03 поглощён общей phase и не отмечен DONE; тогда следующим шагом была Shared Preferences Foundation.
 
-**Last reviewed functional commit:** `0b6c778adf2252e0f1f26eb1945eb4e7c71c1382`
+**Last reviewed functional commit:** `fa996b9bce2039e550723ed58ed6e42990482b41`
 
 - `b2477d392d1816b983f33ee9f42825f15506e84a` - R06 Embedded Chat Media Viewer: revealed Image cards open an aspect-fit local overlay owned by the existing `ChatController`, with no new manager/singleton/lease and unchanged `PhoneShell` ownership. X/Escape/scrim close; image clicks consume; underlying Phone input is blocked; Escape precedence applies only while active. Local entry/terminal timers pause without `Time.timeScale`; open/close preserves transcript, `GameState`, replies and route, adds no SFX and leaves R08 counters unchanged. Cleanup is safe, state is runtime-only, `SaveData` remains v3 and `VNPrototype.unity` is unchanged. Manual R06 QA and repeated R08 audio QA PASS. QA found malformed TECH audio `.meta` files lacking final newline/valid YAML termination; only that terminator was restored, with GUID/import settings/WAV contents unchanged. This was importer-only, not an R06/R08 runtime bug.
 - `cc57c08845e94092c4b30be3c15b51199da97e42` - R08 Chat notification sound: `ChatSceneData` now has typed `AudioClip` `openSfx` and `incomingSfx`; null clips are intentionally silent. `ChatController` reuses existing `AudioManager.PlaySfx(AudioClip)` without a new manager, source family or volume path. The open cue is requested once only after validation, `BlockingExclusive`, dialogue-shell suppression and runtime UI start succeed; Incoming Text/Image requests one cue only at actual reveal, never for typing, replies, choices, return, refresh or a cancelled pending entry. `test_chat_v1` is TECH DEMO ONLY / NOT CANON and references `HIF_TECH_phone_open.wav` and `HIF_TECH_chat_incoming.wav`; its authored pacing is IncomingTyping 1.5s, Image Delay 0.6s, Choice Immediate, so the demo expects one open and two incoming cues. `CreateOrRepair` preserves approved SFX refs and timing. Existing Settings/Audio SFX volume applies. `SaveData` remains v3, `BlockingExclusive` and `VNPrototype.unity` are unchanged. Manual audio/pacing QA PASS; Chat Phone, full CI, project validator and scene validation passed with `missingScripts=0` and `invalidEvents=0`.
