@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -38,6 +38,7 @@ public sealed class VNQuickMenu : MonoBehaviour
         Bind(charactersButton, () => TryInvokeQuickMenuAction(() => dialogueController.OpenCharacterHub()));
         Bind(mainMenuButton, () => TryInvokeQuickMenuAction(HandleMainMenuAction));
         RefreshReplayPresentation();
+        RefreshEffectiveVisibility();
     }
 
     public bool EnsureCharactersButton()
@@ -68,11 +69,11 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private bool hiddenBySpecialMode;
     private bool hiddenByPlayer;
-    private bool wasVisibleBeforePlayerHide;
+    private bool hiddenByPreferencesModal;
 
     private void Update()
     {
-        RefreshSpecialModeVisibility();
+        RefreshEffectiveVisibility();
         RefreshReplayPresentation();
         UpdateActiveState(skipButton, dialogueController != null && dialogueController.IsSkipEnabled);
         UpdateActiveState(autoButton, dialogueController != null && dialogueController.IsAutoForwardEnabledState);
@@ -80,59 +81,40 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     public void RefreshSpecialModeVisibility()
     {
-        // This owner is exclusively for SpecialModeCoordinator. Ordinary modals, including
-        // Character Hub, may deny Quick Menu actions but must not deactivate this root.
-        bool hiddenByBlockingSpecialMode = dialogueController != null
+        RefreshEffectiveVisibility();
+    }
+
+    private void RefreshEffectiveVisibility()
+    {
+        // Each modal owner contributes only its own temporary blocker.
+        hiddenBySpecialMode = dialogueController != null
             && dialogueController.HasActiveSpecialMode
             && !dialogueController.CanOpenQuickMenu;
-        if (hiddenByBlockingSpecialMode)
-        {
-            if (root != null && root.activeSelf)
-            {
-                root.SetActive(false);
-                hiddenBySpecialMode = true;
-            }
 
-            return;
-        }
-
-        if (hiddenBySpecialMode)
+        bool visible = !hiddenByPlayer
+            && !hiddenBySpecialMode
+            && !hiddenByPreferencesModal;
+        if (root != null && root.activeSelf != visible)
         {
-            hiddenBySpecialMode = false;
-            if (!hiddenByPlayer && root != null)
-            {
-                root.SetActive(true);
-            }
+            root.SetActive(visible);
         }
+    }
+
+    /// <summary>
+    /// Temporary visual ownership for gameplay Preferences. This never changes
+    /// persistent Quick Menu data or any Quick Menu action semantics.
+    /// </summary>
+    public void SetPreferencesModalHidden(bool hidden)
+    {
+        hiddenByPreferencesModal = hidden;
+        RefreshEffectiveVisibility();
     }
 
     /// <summary>Temporarily hides the menu for the player's clean-view request without changing its normal visibility policy.</summary>
     public void SetPlayerInterfaceHidden(bool hidden)
     {
-        if (hidden == hiddenByPlayer)
-        {
-            return;
-        }
-
-        if (hidden)
-        {
-            wasVisibleBeforePlayerHide = root != null && root.activeSelf;
-            hiddenByPlayer = true;
-            if (root != null && root.activeSelf)
-            {
-                root.SetActive(false);
-            }
-
-            return;
-        }
-
-        hiddenByPlayer = false;
-        if (!hiddenBySpecialMode && wasVisibleBeforePlayerHide && root != null)
-        {
-            root.SetActive(true);
-        }
-
-        wasVisibleBeforePlayerHide = false;
+        hiddenByPlayer = hidden;
+        RefreshEffectiveVisibility();
     }
 
     public void RefreshReplayPresentation()

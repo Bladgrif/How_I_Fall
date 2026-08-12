@@ -10,6 +10,7 @@ public static class SharedPreferencesFoundationSmokeTests
     private const string MasterVolumeKey = "hif_master_volume";
     private const string MusicVolumeKey = "hif_music_volume";
     private const string SfxVolumeKey = "hif_sfx_volume";
+    private const string MuteAllKey = "hif_mute_all";
     private const string AmbientVolumeKey = "hif_ambient_volume";
     private const string MusicDuringPauseKey = "hif_music_during_pause";
     private const string ScreenModeKey = "hif_screen_mode";
@@ -26,6 +27,8 @@ public static class SharedPreferencesFoundationSmokeTests
     private const string SkipModeKey = "hif_skip_mode";
     private const string SkipBehaviorKey = "hif_skip_behavior";
     private const string TextSpeedKey = "hif_text_speed";
+    private const string DialogueTextScaleKey = "hif_dialogue_text_scale";
+    private const string TextboxOpacityKey = "hif_textbox_opacity";
     private const string AutoForwardDelayKey = "hif_auto_forward_delay";
     private const string SkipAfterChoicesKey = "hif_skip_after_choices";
     private const string AutoForwardKey = "hif_auto_forward";
@@ -38,6 +41,7 @@ public static class SharedPreferencesFoundationSmokeTests
         MasterVolumeKey,
         MusicVolumeKey,
         SfxVolumeKey,
+        MuteAllKey,
         AmbientVolumeKey,
         MusicDuringPauseKey,
         ScreenModeKey,
@@ -54,6 +58,8 @@ public static class SharedPreferencesFoundationSmokeTests
         SkipModeKey,
         SkipBehaviorKey,
         TextSpeedKey,
+        DialogueTextScaleKey,
+        TextboxOpacityKey,
         AutoForwardDelayKey,
         SkipAfterChoicesKey,
         AutoForwardKey,
@@ -112,12 +118,15 @@ public static class SharedPreferencesFoundationSmokeTests
             "Partial audio fields must remain persisted compatibility data, not approved player-facing Preferences.");
 
         Require(contract.GetMethod("SetMasterVolume") != null, "Approved Master Volume must be exposed.");
+        Require(contract.GetMethod("SetMuteAll") != null, "Approved Mute All must be exposed.");
         Require(contract.GetMethod("SetScreenMode") != null, "Approved Screen Mode must be exposed.");
         Require(contract.GetMethod("SetResolution") != null, "Approved Resolution must be exposed.");
         Require(contract.GetMethod("SetRunInBackground") != null, "Approved Run in Background must be exposed.");
         Require(contract.GetMethod("SetSkipMode") != null, "Approved Skip Mode must be exposed.");
         Require(contract.GetMethod("SetSkipBehavior") != null, "Approved Skip Speed must be exposed.");
         Require(contract.GetMethod("SetTextSpeed") != null, "Approved Text Speed must be exposed.");
+        Require(contract.GetMethod("SetDialogueTextScale") != null, "Approved dialogue Text Size must be exposed.");
+        Require(contract.GetMethod("SetTextboxOpacity") != null, "Approved Textbox Opacity must be exposed.");
         Require(contract.GetMethod("SetSkipAfterChoices") != null, "Approved Skip After Choices must be exposed.");
         Require(contract.GetMethod("SetAutoForward") != null, "Approved Auto Forward must be exposed.");
         Require(contract.GetMethod("SetAutoSave") != null, "Approved Autosave must be exposed.");
@@ -153,8 +162,12 @@ public static class SharedPreferencesFoundationSmokeTests
             Require(Mathf.Approximately(gameplayView.LastSettings.musicVolume, 0.31f), "Gameplay must see a Main Menu change on refresh.");
 
             gameplayController.SetTextSpeed(73f);
+            gameplayController.SetDialogueTextScale(1.15f);
+            gameplayController.SetTextboxOpacity(0.44f);
             mainController.Refresh();
             Require(Mathf.Approximately(mainView.LastSettings.textSpeed, 73f), "Main Menu must see a gameplay change on refresh.");
+            Require(Mathf.Approximately(mainView.LastSettings.dialogueTextScale, 1.15f), "Main Menu must see gameplay Text Size changes.");
+            Require(Mathf.Approximately(mainView.LastSettings.textboxOpacity, 0.44f), "Main Menu must see gameplay Textbox Opacity changes.");
 
             gameplayController.Reset();
             mainController.Refresh();
@@ -180,12 +193,15 @@ public static class SharedPreferencesFoundationSmokeTests
             service.SetMasterVolume(0.41f);
             service.SetMusicVolume(0.42f);
             service.SetSfxVolume(0.43f);
+            service.SetMuteAll(true);
             service.SetScreenMode(SettingsOptionValues.Borderless);
             service.SetResolution("1600x900");
             service.SetRunInBackground(true);
             service.SetSkipMode("Всё");
             service.SetSkipBehavior(SettingsOptionValues.FastSkip);
             service.SetTextSpeed(77f);
+            service.SetDialogueTextScale(1.2f);
+            service.SetTextboxOpacity(0.37f);
             service.SetAutoForwardDelay(333f);
             service.SetSkipAfterChoices(true);
             service.SetAutoForward(true);
@@ -197,12 +213,15 @@ public static class SharedPreferencesFoundationSmokeTests
             Require(Mathf.Approximately(loaded.masterVolume, 0.41f), "Master Volume persistence roundtrip failed.");
             Require(Mathf.Approximately(loaded.musicVolume, 0.42f), "Music Volume persistence roundtrip failed.");
             Require(Mathf.Approximately(loaded.sfxVolume, 0.43f), "SFX Volume persistence roundtrip failed.");
+            Require(loaded.muteAll, "Mute All persistence roundtrip failed.");
             Require(loaded.screenMode == SettingsOptionValues.Borderless, "Screen Mode persistence roundtrip failed.");
             Require(loaded.resolution == "1600x900", "Resolution persistence roundtrip failed.");
             Require(loaded.runInBackground, "Run in Background persistence roundtrip failed.");
             Require(loaded.skipMode == "Всё", "Skip Mode persistence roundtrip failed.");
             Require(loaded.skipBehavior == SettingsOptionValues.FastSkip, "Skip Speed persistence roundtrip failed.");
             Require(Mathf.Approximately(loaded.textSpeed, 77f), "Text Speed persistence roundtrip failed.");
+            Require(Mathf.Approximately(loaded.dialogueTextScale, 1.2f), "Text Size persistence roundtrip failed.");
+            Require(Mathf.Approximately(loaded.textboxOpacity, 0.37f), "Textbox Opacity persistence roundtrip failed.");
             Require(Mathf.Approximately(loaded.autoForwardDelay, 333f), "Auto Forward Delay persistence roundtrip failed.");
             Require(loaded.skipAfterChoices, "Skip After Choices persistence roundtrip failed.");
             Require(loaded.autoForward, "Auto Forward persistence roundtrip failed.");
@@ -223,12 +242,15 @@ public static class SharedPreferencesFoundationSmokeTests
             Require(Mathf.Approximately(manager.CurrentSettings.masterVolume, defaults.masterVolume), "Reset must restore Master Volume default.");
             Require(Mathf.Approximately(manager.CurrentSettings.musicVolume, defaults.musicVolume), "Reset must restore Music Volume default.");
             Require(Mathf.Approximately(manager.CurrentSettings.sfxVolume, defaults.sfxVolume), "Reset must restore SFX Volume default.");
+            Require(manager.CurrentSettings.muteAll == defaults.muteAll, "Reset must restore Mute All default.");
             Require(manager.CurrentSettings.screenMode == defaults.screenMode, "Reset must restore canonical Screen Mode default.");
             Require(manager.CurrentSettings.resolution == defaults.resolution, "Reset must restore Resolution default.");
             Require(manager.CurrentSettings.runInBackground == defaults.runInBackground, "Reset must restore Run in Background default.");
             Require(manager.CurrentSettings.skipMode == defaults.skipMode, "Reset must restore Skip Mode default.");
             Require(manager.CurrentSettings.skipBehavior == defaults.skipBehavior, "Reset must restore Skip Speed default.");
             Require(Mathf.Approximately(manager.CurrentSettings.textSpeed, defaults.textSpeed), "Reset must restore Text Speed default.");
+            Require(Mathf.Approximately(manager.CurrentSettings.dialogueTextScale, defaults.dialogueTextScale), "Reset must restore Text Size default.");
+            Require(Mathf.Approximately(manager.CurrentSettings.textboxOpacity, defaults.textboxOpacity), "Reset must restore Textbox Opacity default.");
             Require(Mathf.Approximately(manager.CurrentSettings.autoForwardDelay, defaults.autoForwardDelay), "Reset must restore Auto Forward Delay default.");
             Require(manager.CurrentSettings.skipAfterChoices == defaults.skipAfterChoices, "Reset must restore Skip After Choices default.");
             Require(manager.CurrentSettings.autoForward == defaults.autoForward, "Reset must restore Auto Forward default.");
@@ -354,7 +376,8 @@ public static class SharedPreferencesFoundationSmokeTests
         private static PreferenceValueType GetValueType(string key)
         {
             if (key == MasterVolumeKey || key == MusicVolumeKey || key == SfxVolumeKey || key == AmbientVolumeKey
-                || key == TextSpeedKey || key == AutoForwardDelayKey)
+                || key == TextSpeedKey || key == AutoForwardDelayKey || key == DialogueTextScaleKey
+                || key == TextboxOpacityKey)
             {
                 return PreferenceValueType.Float;
             }

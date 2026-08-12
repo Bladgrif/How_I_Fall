@@ -27,6 +27,51 @@ public static class VNQuickMenuSmokeTests
         Require(menu.settingsButton != null && menu.mainMenuButton != null, "Quick Menu Settings and Main Menu references are required; Characters is runtime-created.");
         Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.RequestQuickLoad)) != null, "Quick Load must use the VN controller entry point.");
         Require(typeof(ManualSaveLoadPanel).GetMethod(nameof(ManualSaveLoadPanel.RequestQuickLoad)) != null, "Quick Load must use the existing ManualSaveLoadPanel pipeline.");
+        VerifyPreferencesModalVisibilityOwnership();
+    }
+
+    private static void VerifyPreferencesModalVisibilityOwnership()
+    {
+        const string quickMenuPreferenceKey = "hif_show_quick_menu";
+        bool preferenceKeyExisted = PlayerPrefs.HasKey(quickMenuPreferenceKey);
+        int persistedPreferenceBefore = PlayerPrefs.GetInt(quickMenuPreferenceKey, int.MinValue);
+        GameSettings runtimeSettings = SettingsManager.Instance != null ? SettingsManager.Instance.CurrentSettings : null;
+        System.Reflection.FieldInfo runtimePreferenceField = runtimeSettings?.GetType().GetField("showQuickMenu");
+        bool? runtimePreferenceBefore = runtimePreferenceField != null
+            ? (bool?)runtimePreferenceField.GetValue(runtimeSettings)
+            : null;
+
+        GameObject owner = new GameObject("Quick Menu Preferences Modal Ownership Test");
+        GameObject root = new GameObject("Quick Menu Root");
+        root.transform.SetParent(owner.transform, false);
+        VNQuickMenu menu = owner.AddComponent<VNQuickMenu>();
+        menu.root = root;
+
+        try
+        {
+            root.SetActive(true);
+            menu.SetPreferencesModalHidden(true);
+            Require(!root.activeSelf, "Gameplay Preferences must temporarily hide the Quick Menu root.");
+
+            menu.SetPlayerInterfaceHidden(true);
+            menu.SetPreferencesModalHidden(false);
+            Require(!root.activeSelf, "Closing Preferences must not force the Quick Menu visible through the H/clean-view blocker.");
+
+            menu.SetPlayerInterfaceHidden(false);
+            bool expectedVisible = !runtimePreferenceBefore.HasValue || runtimePreferenceBefore.Value;
+            Require(root.activeSelf == expectedVisible, "Closing Preferences must restore the current effective Quick Menu visibility policy.");
+
+            Require(PlayerPrefs.HasKey(quickMenuPreferenceKey) == preferenceKeyExisted
+                && PlayerPrefs.GetInt(quickMenuPreferenceKey, int.MinValue) == persistedPreferenceBefore,
+                "Preferences modal ownership must not mutate the persistent Quick Menu preference.");
+            Require(!runtimePreferenceBefore.HasValue
+                || (bool)runtimePreferenceField.GetValue(runtimeSettings) == runtimePreferenceBefore.Value,
+                "Preferences modal ownership must not mutate the runtime Quick Menu preference.");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(owner);
+        }
     }
 
     private static void Require(bool condition, string message)

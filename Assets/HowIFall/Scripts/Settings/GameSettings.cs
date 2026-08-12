@@ -6,6 +6,7 @@ public class GameSettings
     public float masterVolume = 0.8f;
     public float musicVolume = 0.8f;
     public float sfxVolume = 0.8f;
+    public bool muteAll = false;
     public float ambientVolume = 0.8f;
     public bool musicDuringPause = false;
     public string screenMode = SettingsOptionValues.Fullscreen;
@@ -22,6 +23,8 @@ public class GameSettings
     public string skipMode = "Виденное";
     public string skipBehavior = SettingsOptionValues.ClassicSkip;
     public float textSpeed = 50f;
+    public float dialogueTextScale = 1f;
+    public float textboxOpacity = 0.62f;
     public float autoForwardDelay = 250f;
     public bool skipAfterChoices = false;
     public bool autoForward = false;

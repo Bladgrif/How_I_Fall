@@ -84,6 +84,8 @@ public class VNDialogueController : MonoBehaviour
     private readonly DialogueBacklog backlog = new DialogueBacklog(DialogueBacklog.DefaultCapacity);
     private int backlogCaptureSuppressionDepth;
     private PreferencesController preferencesController;
+    private float dialogueBaseFontSize;
+    private Image dialogueBoxBackground;
     private bool observedAutoForward;
     private bool skipEnabled;
     private DialogueReadHistory readHistory;
@@ -98,6 +100,8 @@ public class VNDialogueController : MonoBehaviour
     private bool dialogueShellWasVisibleBeforeSuppression;
 
     public bool IsInterfaceHidden => isInterfaceHidden;
+    public bool IsPreferencesOpen => (preferencesController != null && preferencesController.IsOpen)
+        || (vnSettingsPanel != null && vnSettingsPanel.activeSelf);
     /// <summary>True while a transient special presentation owns the ordinary dialogue shell.</summary>
     public bool IsDialogueShellSuppressed => dialogueShellSuppressionOwner != null;
     /// <summary>True only after this controller completed its scene-local Start initialization.</summary>
@@ -136,6 +140,7 @@ public class VNDialogueController : MonoBehaviour
         Instance = this;
         specialModeCoordinator = new SpecialModeCoordinator(GetSpecialModeEntryBlockerReason, message => Debug.LogWarning(message, this));
         EnsureReadHistory();
+        SettingsManager.DialoguePresentationChanged += RefreshDialoguePresentation;
     }
 
     private void Start()
@@ -149,6 +154,8 @@ public class VNDialogueController : MonoBehaviour
             }
             return;
         }
+
+        RefreshDialoguePresentation();
 
         GameState gameState = GameState.EnsureInstance();
         characterHubController = CharacterHubController.TryCreateRuntime(this);
@@ -297,6 +304,16 @@ public class VNDialogueController : MonoBehaviour
         RefreshSpecialModeOwnerLifecycle();
         RefreshAutoForwardState();
 
+        if (IsPreferencesOpen)
+        {
+            if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
+            {
+                HideSettings();
+            }
+
+            return;
+        }
+
         if (isInterfaceHidden)
         {
             if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleInterfaceVisibility)
@@ -375,12 +392,6 @@ public class VNDialogueController : MonoBehaviour
                 return;
             }
 
-            if (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
-            {
-                HideSettings();
-                return;
-            }
-
             if (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             {
                 // ManualSaveLoadPanel handles Escape itself so that an open
@@ -438,7 +449,7 @@ public class VNDialogueController : MonoBehaviour
             || preLoadAutoSavePending
             || (choicePanel != null && choicePanel.activeSelf)
             || (backlogPanel != null && backlogPanel.activeSelf)
-            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || IsPreferencesOpen
             || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf)
             || (notificationPanel != null && notificationPanel.activeSelf);
@@ -525,7 +536,7 @@ public class VNDialogueController : MonoBehaviour
             return "backlog";
         }
 
-        if (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+        if (IsPreferencesOpen)
         {
             return "VN settings";
         }
@@ -667,7 +678,7 @@ public class VNDialogueController : MonoBehaviour
     {
         return (choicePanel != null && choicePanel.activeSelf)
             || (backlogPanel != null && backlogPanel.activeSelf)
-            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || IsPreferencesOpen
             || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf);
     }
@@ -947,7 +958,7 @@ public class VNDialogueController : MonoBehaviour
         return !CanSave
             || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             || (backlogPanel != null && backlogPanel.activeSelf)
-            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || IsPreferencesOpen
             || (confirmExitPanel != null && confirmExitPanel.activeSelf);
     }
 
@@ -956,7 +967,7 @@ public class VNDialogueController : MonoBehaviour
         return !CanLoad
             || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             || (backlogPanel != null && backlogPanel.activeSelf)
-            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || IsPreferencesOpen
             || (confirmExitPanel != null && confirmExitPanel.activeSelf);
     }
 
@@ -990,7 +1001,7 @@ public class VNDialogueController : MonoBehaviour
             || (choicePanel != null && choicePanel.activeSelf)
             || (backlogPanel != null && backlogPanel.activeSelf)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf)
-            || (vnSettingsPanel != null && vnSettingsPanel.activeSelf)
+            || IsPreferencesOpen
             || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen);
     }
 
@@ -1749,18 +1760,31 @@ public class VNDialogueController : MonoBehaviour
         }
 
         StopAutoForwardTimer();
+        StopSkipTimer();
         preferencesController?.Open();
+        if (preferencesController != null && preferencesController.IsOpen)
+        {
+            SetQuickMenuPreferencesModalHidden(true);
+        }
     }
 
     public void HideSettings()
     {
         preferencesController?.Close();
+        vnSettingsPanel?.SetActive(false);
+        vnSettingsDimOverlay?.SetActive(false);
     }
 
     private void ResumeAfterPreferencesClosed()
     {
+        SetQuickMenuPreferencesModalHidden(false);
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
+    }
+
+    private void SetQuickMenuPreferencesModalHidden(bool hidden)
+    {
+        FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetPreferencesModalHidden(hidden);
     }
 
     public void ResetSettings()
@@ -1791,6 +1815,50 @@ public class VNDialogueController : MonoBehaviour
     public void OnFullscreenChanged(bool value)
     {
         preferencesController?.SetFullscreen(value);
+    }
+
+    /// <summary>Applies only the approved dialogue text and textbox background consumers.</summary>
+    public void RefreshDialoguePresentation()
+    {
+        GameSettings presentationSettings = SettingsManager.Instance != null
+            ? SettingsManager.Instance.CurrentSettings
+            : new GameSettings();
+
+        if (dialogueText != null)
+        {
+            if (dialogueBaseFontSize <= 0f)
+            {
+                dialogueBaseFontSize = dialogueText.fontSize;
+            }
+
+        }
+
+        if (dialogueUiRoot != null && dialogueBoxBackground == null)
+        {
+            dialogueBoxBackground = dialogueUiRoot.GetComponent<Image>();
+        }
+
+        ApplyDialoguePresentation(dialogueText, dialogueBoxBackground, dialogueBaseFontSize, presentationSettings);
+    }
+
+    public static void ApplyDialoguePresentation(
+        TextMeshProUGUI targetDialogueText,
+        Image targetTextboxBackground,
+        float baseFontSize,
+        GameSettings settings)
+    {
+        GameSettings source = settings ?? new GameSettings();
+        if (targetDialogueText != null && baseFontSize > 0f)
+        {
+            targetDialogueText.fontSize = baseFontSize * Mathf.Clamp(source.dialogueTextScale, 0.85f, 1.25f);
+        }
+
+        if (targetTextboxBackground != null)
+        {
+            Color color = targetTextboxBackground.color;
+            color.a = Mathf.Clamp01(source.textboxOpacity);
+            targetTextboxBackground.color = color;
+        }
     }
 
     public void ReturnToMainMenu()
@@ -1945,7 +2013,7 @@ public class VNDialogueController : MonoBehaviour
             textSpeed = SettingsManager.Instance.settings.textSpeed;
         }
 
-        float charsPerSecond = baseCharactersPerSecond * Mathf.Max(0.1f, textSpeed);
+        float charsPerSecond = GetCharactersPerSecond(textSpeed);
         float characterDelay = 1f / charsPerSecond;
 
         foreach (char character in text)
@@ -1959,6 +2027,11 @@ public class VNDialogueController : MonoBehaviour
         typingCoroutine = null;
         MarkDisplayedLineSeen();
         StartAutoForwardDelayIfReady();
+    }
+
+    public static float GetCharactersPerSecond(float storedTextSpeed)
+    {
+        return Mathf.Clamp(storedTextSpeed, 20f, 100f);
     }
 
     private void CompleteTyping()
@@ -2476,6 +2549,7 @@ public class VNDialogueController : MonoBehaviour
 
     private void OnDestroy()
     {
+        SettingsManager.DialoguePresentationChanged -= RefreshDialoguePresentation;
         isRuntimeReady = false;
         if (isInterfaceHidden)
         {

@@ -26,36 +26,13 @@ public static class VNSettingsPresenterSmokeTests
         {
             GameObject overlay = CreateChild(root, "Overlay");
             GameObject panel = CreateChild(root, "Panel");
-            Slider master = CreateComponent<Slider>(root, "Master");
-            Slider music = CreateComponent<Slider>(root, "Music");
-            Slider sfx = CreateComponent<Slider>(root, "Sfx");
-            Slider textSpeed = CreateComponent<Slider>(root, "TextSpeed");
-            textSpeed.minValue = 20f;
-            textSpeed.maxValue = 100f;
-            Toggle autoForward = CreateComponent<Toggle>(root, "AutoForward");
-            Slider autoForwardDelay = CreateComponent<Slider>(root, "AutoForwardDelay");
-            autoForwardDelay.minValue = 50f;
-            autoForwardDelay.maxValue = 500f;
-            autoForwardDelay.wholeNumbers = true;
-            Toggle fullscreen = CreateComponent<Toggle>(root, "Fullscreen");
-            Button close = CreateComponent<Button>(root, "Close");
-            Button reset = CreateComponent<Button>(root, "Reset");
-
             var service = new FakePreferencesService();
             string toast = string.Empty;
             int closeCount = 0;
             var view = new VNPreferencesAdapter(
                 overlay,
                 panel,
-                master,
-                music,
-                sfx,
-                textSpeed,
-                autoForward,
-                autoForwardDelay,
-                fullscreen,
-                close,
-                reset);
+                null, null, null, null, null, null, null, null, null);
             var controller = new PreferencesController(
                 service,
                 view,
@@ -63,33 +40,30 @@ public static class VNSettingsPresenterSmokeTests
                 () => closeCount++);
 
             controller.Initialize();
-            Require(!overlay.activeSelf && !panel.activeSelf, "Initialize did not hide the Preferences UI.");
+            Require(!overlay.activeSelf && !panel.activeSelf && !view.SharedView.IsVisible, "Initialize did not hide the Preferences UI.");
 
             controller.Open();
-            Require(overlay.activeSelf && panel.activeSelf, "Open did not show the Preferences UI.");
-            Require(Mathf.Approximately(master.value, service.Source.masterVolume), "Master volume was not refreshed.");
-            Require(Mathf.Approximately(textSpeed.value, service.Source.textSpeed), "Text speed was not refreshed.");
-            Require(autoForward.isOn == service.Source.autoForward, "Auto-forward state was not refreshed.");
-            Require(Mathf.Approximately(autoForwardDelay.value, service.Source.autoForwardDelay), "Auto-forward delay was not refreshed.");
-            Require(fullscreen.isOn == SettingsManager.IsFullscreenScreenMode(service.Source.screenMode), "Fullscreen compatibility toggle was not derived from screenMode.");
+            Require(!overlay.activeSelf && !panel.activeSelf && view.SharedView.IsVisible, "Open did not use only the shared Preferences UI.");
+            Require(Mathf.Approximately(view.SharedView.GetSlider(SharedPreferencesView.MasterVolumeId).value, service.Source.masterVolume), "Master volume was not refreshed.");
+            Require(Mathf.Approximately(view.SharedView.GetSlider(SharedPreferencesView.TextSpeedId).value, service.Source.textSpeed), "Text speed was not refreshed.");
+            Require(Mathf.Approximately(view.SharedView.GetSlider(SharedPreferencesView.AutoForwardDelayId).value, 2.5f), "Auto-forward delay was not converted to seconds.");
 
-
-            master.value = 0.35f;
-            autoForward.isOn = true;
-            autoForwardDelay.value = 400f;
-            fullscreen.isOn = false;
+            view.SharedView.GetSlider(SharedPreferencesView.MasterVolumeId).value = 0.35f;
+            view.SharedView.GetToggle(SharedPreferencesView.MuteAllId).isOn = true;
+            view.SharedView.GetSlider(SharedPreferencesView.AutoForwardDelayId).value = 4f;
+            view.SharedView.GetToggle(SharedPreferencesView.SkipUnseenId).isOn = true;
             Require(Mathf.Approximately(service.Source.masterVolume, 0.35f), "Master volume change was not forwarded.");
-            Require(service.Source.screenMode == SettingsOptionValues.Windowed, "Compact fullscreen toggle did not update canonical screenMode.");
-            Require(service.Source.autoForward, "Auto-forward change was not forwarded.");
+            Require(service.Source.muteAll, "Mute All change was not forwarded.");
             Require(Mathf.Approximately(service.Source.autoForwardDelay, 400f), "Auto-forward delay change was not forwarded.");
+            Require(service.Source.skipMode == "Всё", "Skip unseen toggle was not forwarded truthfully.");
 
-            reset.onClick.Invoke();
+            view.SharedView.GetButton("reset").onClick.Invoke();
             Require(service.ResetCount == 1, "Reset was not forwarded.");
             Require(toast == "Настройки сброшены", "Reset toast was not shown.");
-            Require(Mathf.Approximately(master.value, service.Source.masterVolume), "Reset did not refresh the open view.");
+            Require(Mathf.Approximately(view.SharedView.GetSlider(SharedPreferencesView.MasterVolumeId).value, service.Source.masterVolume), "Reset did not refresh the open view.");
 
-            close.onClick.Invoke();
-            Require(!overlay.activeSelf && !panel.activeSelf, "Close did not hide the Preferences UI.");
+            view.SharedView.GetButton("back").onClick.Invoke();
+            Require(!overlay.activeSelf && !panel.activeSelf && !view.SharedView.IsVisible, "Close did not hide the Preferences UI.");
             Require(closeCount == 1, "Gameplay close context callback was not invoked once.");
         }
         finally
@@ -135,6 +109,7 @@ public static class VNSettingsPresenterSmokeTests
         public void SetMasterVolume(float value) => Source.masterVolume = value;
         public void SetMusicVolume(float value) => Source.musicVolume = value;
         public void SetSfxVolume(float value) => Source.sfxVolume = value;
+        public void SetMuteAll(bool value) => Source.muteAll = value;
         public void SetScreenMode(string value)
         {
             Source.screenMode = value;
@@ -146,6 +121,8 @@ public static class VNSettingsPresenterSmokeTests
         public void SetSkipMode(string value) => Source.skipMode = value;
         public void SetSkipBehavior(string value) => Source.skipBehavior = value;
         public void SetTextSpeed(float value) => Source.textSpeed = value;
+        public void SetDialogueTextScale(float value) => Source.dialogueTextScale = value;
+        public void SetTextboxOpacity(float value) => Source.textboxOpacity = value;
         public void SetAutoForwardDelay(float value) => Source.autoForwardDelay = value;
         public void SetSkipAfterChoices(bool value) => Source.skipAfterChoices = value;
         public void SetAutoForward(bool value) => Source.autoForward = value;

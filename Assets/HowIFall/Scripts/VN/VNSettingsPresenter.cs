@@ -18,6 +18,7 @@ public sealed class VNPreferencesAdapter : IPreferencesView
     private readonly Toggle fullscreenToggle;
     private readonly Button closeButton;
     private readonly Button resetButton;
+    private readonly SharedPreferencesView sharedView;
     private PreferencesController controller;
     private bool isBound;
 
@@ -45,6 +46,8 @@ public sealed class VNPreferencesAdapter : IPreferencesView
         this.fullscreenToggle = fullscreenToggle;
         this.closeButton = closeButton;
         this.resetButton = resetButton;
+        Transform contextTransform = panel != null ? panel.transform : dimOverlay != null ? dimOverlay.transform : null;
+        sharedView = SharedPreferencesView.Create(contextTransform, "Gameplay");
     }
 
     public void Bind(PreferencesController sharedController)
@@ -56,33 +59,21 @@ public sealed class VNPreferencesAdapter : IPreferencesView
         }
 
         isBound = true;
-        closeButton?.onClick.AddListener(controller.Close);
-        resetButton?.onClick.AddListener(controller.Reset);
-        masterVolumeSlider?.onValueChanged.AddListener(controller.SetMasterVolume);
-        musicVolumeSlider?.onValueChanged.AddListener(controller.SetMusicVolume);
-        sfxVolumeSlider?.onValueChanged.AddListener(controller.SetSfxVolume);
-        textSpeedSlider?.onValueChanged.AddListener(controller.SetTextSpeed);
-        autoForwardToggle?.onValueChanged.AddListener(controller.SetAutoForward);
-        autoForwardDelaySlider?.onValueChanged.AddListener(controller.SetAutoForwardDelay);
-        fullscreenToggle?.onValueChanged.AddListener(controller.SetFullscreen);
-
+        sharedView?.Bind(controller);
     }
 
     public void SetVisible(bool visible)
     {
-        panel?.SetActive(visible);
-        dimOverlay?.SetActive(visible);
+        panel?.SetActive(false);
+        dimOverlay?.SetActive(false);
+        sharedView?.SetVisible(visible);
     }
 
     public void Refresh(PreferencesState settings)
     {
-        masterVolumeSlider?.SetValueWithoutNotify(settings.masterVolume);
-        musicVolumeSlider?.SetValueWithoutNotify(settings.musicVolume);
-        sfxVolumeSlider?.SetValueWithoutNotify(settings.sfxVolume);
-        textSpeedSlider?.SetValueWithoutNotify(settings.textSpeed);
-        autoForwardToggle?.SetIsOnWithoutNotify(settings.autoForward);
-        autoForwardDelaySlider?.SetValueWithoutNotify(settings.autoForwardDelay);
-        fullscreenToggle?.SetIsOnWithoutNotify(SettingsManager.IsFullscreenScreenMode(settings.screenMode));
+        sharedView?.Refresh(settings);
     }
+
+    public SharedPreferencesView SharedView => sharedView;
 
 }

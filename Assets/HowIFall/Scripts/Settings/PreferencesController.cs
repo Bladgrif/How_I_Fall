@@ -36,6 +36,7 @@ public sealed class PreferencesController
     }
 
     public IPreferencesService Service => service;
+    public bool IsOpen { get; private set; }
 
     public void Initialize()
     {
@@ -53,6 +54,7 @@ public sealed class PreferencesController
 
         Refresh();
         view.SetVisible(true);
+        IsOpen = true;
     }
 
     public void Close()
@@ -64,6 +66,7 @@ public sealed class PreferencesController
     public void Hide()
     {
         view?.SetVisible(false);
+        IsOpen = false;
     }
 
     public void Refresh()
@@ -89,12 +92,20 @@ public sealed class PreferencesController
     public void SetMasterVolume(float value) => service?.SetMasterVolume(value);
     public void SetMusicVolume(float value) => service?.SetMusicVolume(value);
     public void SetSfxVolume(float value) => service?.SetSfxVolume(value);
+    public void SetMuteAll(bool value) => service?.SetMuteAll(value);
     public void SetRunInBackground(bool value) => service?.SetRunInBackground(value);
     public void SetTextSpeed(float value) => service?.SetTextSpeed(value);
+    public void SetDialogueTextScale(float value) => service?.SetDialogueTextScale(value);
+    public void SetTextboxOpacity(float value) => service?.SetTextboxOpacity(value);
     public void SetAutoForwardDelay(float value) => service?.SetAutoForwardDelay(value);
     public void SetSkipAfterChoices(bool value) => service?.SetSkipAfterChoices(value);
     public void SetAutoForward(bool value) => service?.SetAutoForward(value);
     public void SetAutoSave(bool value) => service?.SetAutoSave(value);
+
+    public void SetSkipUnseen(bool value)
+    {
+        SetSkipMode(value ? "Всё" : "Виденное");
+    }
 
     public void SetScreenMode(string value)
     {
@@ -156,7 +167,7 @@ public static class PreferencesOptions
         SettingsOptionValues.Borderless
     };
 
-    private static readonly string[] ResolutionValues = { "1920x1080", "1600x900", "1280x720" };
+    private static readonly string[] ResolutionValues = { "1280x720", "1600x900", "1920x1080", "2560x1440", "3840x2160" };
     private static readonly string[] SkipModeValues = { "Виденное", "Всё", "Ничего" };
     private static readonly string[] SkipBehaviorValues = { SettingsOptionValues.ClassicSkip, SettingsOptionValues.FastSkip };
 
@@ -187,5 +198,9 @@ public static class PreferencesOptions
 public static class PreferencesFormatting
 {
     public static string TextSpeed(float value) => $"{Mathf.RoundToInt(value)} симв./сек.";
-    public static string AutoForwardDelay(float value) => $"{Mathf.RoundToInt(value)} %";
+    public static float AutoForwardDelaySeconds(float storedValue) => Mathf.Clamp(storedValue / 100f, 0.5f, 5f);
+    public static float AutoForwardDelayStored(float seconds) => Mathf.Clamp(seconds, 0.5f, 5f) * 100f;
+    public static string AutoForwardDelay(float storedValue) => $"{AutoForwardDelaySeconds(storedValue):0.0} сек.";
+    public static string Percent(float value) => $"{Mathf.RoundToInt(Mathf.Clamp01(value) * 100f)} %";
+    public static string TextScale(float value) => $"{Mathf.RoundToInt(Mathf.Clamp(value, 0.85f, 1.25f) * 100f)} %";
 }

@@ -53,6 +53,8 @@ public class SettingsPanelController : MonoBehaviour, IPreferencesView
     public GameObject[] controlsHiddenUntilImplemented;
 
     private PreferencesController preferencesController;
+    private SharedPreferencesView sharedView;
+    private bool sharedViewInitialized;
 
     public PreferencesController SharedController
     {
@@ -69,17 +71,12 @@ public class SettingsPanelController : MonoBehaviour, IPreferencesView
 
     private void Awake()
     {
-        if (root == null)
-        {
-            root = gameObject;
-        }
-
-        SharedController.Initialize();
+        EnsureSharedViewInitialized();
     }
 
     public void Show()
     {
-        ShowAudioTab();
+        EnsureSharedViewInitialized();
         SharedController.Open();
     }
 
@@ -100,27 +97,51 @@ public class SettingsPanelController : MonoBehaviour, IPreferencesView
 
     void IPreferencesView.Bind(PreferencesController controller)
     {
-        // Main Menu controls keep their existing serialized UnityEvent wiring.
+        EnsureSharedView();
+        sharedView?.Bind(controller);
     }
 
     void IPreferencesView.SetVisible(bool visible)
     {
-        if (root == null)
+        SetHiddenObjectsActive(!visible);
+        if (root != null)
         {
-            return;
+            root.SetActive(false);
         }
 
-        SetHiddenObjectsActive(!visible);
-        root.SetActive(visible);
-        if (visible)
-        {
-            SetHiddenControlsActive(false);
-        }
+        EnsureSharedView();
+        sharedView?.SetVisible(visible);
     }
 
     void IPreferencesView.Refresh(PreferencesState settings)
     {
-        RefreshFromSettings(settings);
+        EnsureSharedView();
+        sharedView?.Refresh(settings);
+    }
+
+    private void EnsureSharedViewInitialized()
+    {
+        if (sharedViewInitialized)
+        {
+            return;
+        }
+
+        if (root == null)
+        {
+            root = gameObject;
+        }
+
+        EnsureSharedView();
+        sharedViewInitialized = true;
+        SharedController.Initialize();
+    }
+
+    private void EnsureSharedView()
+    {
+        if (sharedView == null && root != null)
+        {
+            sharedView = SharedPreferencesView.Create(root.transform, "MainMenu");
+        }
     }
 
     private void RefreshFromSettings(PreferencesState settings)

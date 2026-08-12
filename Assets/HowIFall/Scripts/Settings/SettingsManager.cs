@@ -21,6 +21,7 @@ public class SettingsManager : MonoBehaviour
     private const string MasterVolumeKey = "hif_master_volume";
     private const string MusicVolumeKey = "hif_music_volume";
     private const string SfxVolumeKey = "hif_sfx_volume";
+    private const string MuteAllKey = "hif_mute_all";
     private const string AmbientVolumeKey = "hif_ambient_volume";
     private const string MusicDuringPauseKey = "hif_music_during_pause";
     private const string ScreenModeKey = "hif_screen_mode";
@@ -37,12 +38,16 @@ public class SettingsManager : MonoBehaviour
     private const string SkipModeKey = "hif_skip_mode";
     private const string SkipBehaviorKey = "hif_skip_behavior";
     private const string TextSpeedKey = "hif_text_speed";
+    private const string DialogueTextScaleKey = "hif_dialogue_text_scale";
+    private const string TextboxOpacityKey = "hif_textbox_opacity";
     private const string AutoForwardDelayKey = "hif_auto_forward_delay";
     private const string SkipAfterChoicesKey = "hif_skip_after_choices";
     private const string AutoForwardKey = "hif_auto_forward";
     private const string AutoSaveKey = "hif_auto_save";
     private const string ShowHintsKey = "hif_show_hints";
     private const string FullscreenKey = "hif_fullscreen";
+
+    public static event System.Action DialoguePresentationChanged;
 
     private void Awake()
     {
@@ -71,6 +76,7 @@ public class SettingsManager : MonoBehaviour
         settings.masterVolume = PlayerPrefs.GetFloat(MasterVolumeKey, 0.8f);
         settings.musicVolume = PlayerPrefs.GetFloat(MusicVolumeKey, 0.8f);
         settings.sfxVolume = PlayerPrefs.GetFloat(SfxVolumeKey, 0.8f);
+        settings.muteAll = PlayerPrefs.GetInt(MuteAllKey, 0) == 1;
         settings.ambientVolume = PlayerPrefs.GetFloat(AmbientVolumeKey, 0.8f);
         settings.musicDuringPause = PlayerPrefs.GetInt(MusicDuringPauseKey, 0) == 1;
         settings.screenMode = PlayerPrefs.GetString(ScreenModeKey, SettingsOptionValues.Fullscreen);
@@ -87,6 +93,8 @@ public class SettingsManager : MonoBehaviour
         settings.skipMode = PlayerPrefs.GetString(SkipModeKey, "Виденное");
         settings.skipBehavior = PlayerPrefs.GetString(SkipBehaviorKey, SettingsOptionValues.ClassicSkip);
         settings.textSpeed = Mathf.Clamp(PlayerPrefs.GetFloat(TextSpeedKey, 50f), 20f, 100f);
+        settings.dialogueTextScale = Mathf.Clamp(PlayerPrefs.GetFloat(DialogueTextScaleKey, 1f), 0.85f, 1.25f);
+        settings.textboxOpacity = Mathf.Clamp01(PlayerPrefs.GetFloat(TextboxOpacityKey, 0.62f));
         settings.autoForwardDelay = Mathf.Clamp(PlayerPrefs.GetFloat(AutoForwardDelayKey, 250f), 50f, 500f);
         settings.skipAfterChoices = PlayerPrefs.GetInt(SkipAfterChoicesKey, 0) == 1;
         settings.autoForward = PlayerPrefs.GetInt(AutoForwardKey, 0) == 1;
@@ -95,6 +103,7 @@ public class SettingsManager : MonoBehaviour
         settings.fullscreen = IsFullscreenScreenMode(settings.screenMode);
         ApplySettings();
         AudioManager.Instance?.ApplySettingsVolume();
+        DialoguePresentationChanged?.Invoke();
     }
 
     public void SaveSettings()
@@ -105,6 +114,7 @@ public class SettingsManager : MonoBehaviour
         PlayerPrefs.SetFloat(MasterVolumeKey, settings.masterVolume);
         PlayerPrefs.SetFloat(MusicVolumeKey, settings.musicVolume);
         PlayerPrefs.SetFloat(SfxVolumeKey, settings.sfxVolume);
+        PlayerPrefs.SetInt(MuteAllKey, settings.muteAll ? 1 : 0);
         PlayerPrefs.SetFloat(AmbientVolumeKey, settings.ambientVolume);
         PlayerPrefs.SetInt(MusicDuringPauseKey, settings.musicDuringPause ? 1 : 0);
         PlayerPrefs.SetString(ScreenModeKey, settings.screenMode);
@@ -121,6 +131,8 @@ public class SettingsManager : MonoBehaviour
         PlayerPrefs.SetString(SkipModeKey, settings.skipMode);
         PlayerPrefs.SetString(SkipBehaviorKey, settings.skipBehavior);
         PlayerPrefs.SetFloat(TextSpeedKey, settings.textSpeed);
+        PlayerPrefs.SetFloat(DialogueTextScaleKey, settings.dialogueTextScale);
+        PlayerPrefs.SetFloat(TextboxOpacityKey, settings.textboxOpacity);
         PlayerPrefs.SetFloat(AutoForwardDelayKey, settings.autoForwardDelay);
         PlayerPrefs.SetInt(SkipAfterChoicesKey, settings.skipAfterChoices ? 1 : 0);
         PlayerPrefs.SetInt(AutoForwardKey, settings.autoForward ? 1 : 0);
@@ -136,6 +148,7 @@ public class SettingsManager : MonoBehaviour
         ApplySettings();
         SaveSettings();
         AudioManager.Instance?.ApplySettingsVolume();
+        DialoguePresentationChanged?.Invoke();
     }
 
     public void SetMasterVolume(float value)
@@ -155,6 +168,14 @@ public class SettingsManager : MonoBehaviour
     public void SetSfxVolume(float value)
     {
         settings.sfxVolume = Mathf.Clamp01(value);
+        SaveSettings();
+        AudioManager.Instance?.ApplySettingsVolume();
+    }
+
+    public void SetMuteAll(bool value)
+    {
+        settings.muteAll = value;
+        ApplySettings();
         SaveSettings();
         AudioManager.Instance?.ApplySettingsVolume();
     }
@@ -261,6 +282,20 @@ public class SettingsManager : MonoBehaviour
         SaveSettings();
     }
 
+    public void SetDialogueTextScale(float value)
+    {
+        settings.dialogueTextScale = Mathf.Clamp(value, 0.85f, 1.25f);
+        SaveSettings();
+        DialoguePresentationChanged?.Invoke();
+    }
+
+    public void SetTextboxOpacity(float value)
+    {
+        settings.textboxOpacity = Mathf.Clamp01(value);
+        SaveSettings();
+        DialoguePresentationChanged?.Invoke();
+    }
+
     public void SetAutoForwardDelay(float value)
     {
         settings.autoForwardDelay = Mathf.Clamp(value, 50f, 500f);
@@ -290,7 +325,6 @@ public class SettingsManager : MonoBehaviour
         settings.showHints = value;
         SaveSettings();
     }
-
 
     public void SetFullscreen(bool value)
     {
@@ -348,7 +382,7 @@ public class SettingsManager : MonoBehaviour
 
     private void ApplySettings()
     {
-        AudioListener.volume = Mathf.Clamp01(settings.masterVolume);
+        AudioListener.volume = settings.muteAll ? 0f : Mathf.Clamp01(settings.masterVolume);
         Screen.fullScreenMode = GetFullScreenMode(settings.screenMode);
         ApplyResolution();
         Application.runInBackground = settings.runInBackground;
