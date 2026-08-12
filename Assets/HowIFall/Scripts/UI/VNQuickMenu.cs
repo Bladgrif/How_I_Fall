@@ -70,6 +70,7 @@ public sealed class VNQuickMenu : MonoBehaviour
     private bool hiddenBySpecialMode;
     private bool hiddenByPlayer;
     private bool hiddenByPreferencesModal;
+    private bool hiddenByGameMenuModal;
 
     private void Update()
     {
@@ -93,7 +94,8 @@ public sealed class VNQuickMenu : MonoBehaviour
 
         bool visible = !hiddenByPlayer
             && !hiddenBySpecialMode
-            && !hiddenByPreferencesModal;
+            && !hiddenByPreferencesModal
+            && !hiddenByGameMenuModal;
         if (root != null && root.activeSelf != visible)
         {
             root.SetActive(visible);
@@ -107,6 +109,13 @@ public sealed class VNQuickMenu : MonoBehaviour
     public void SetPreferencesModalHidden(bool hidden)
     {
         hiddenByPreferencesModal = hidden;
+        RefreshEffectiveVisibility();
+    }
+
+    /// <summary>Temporary Game Menu blocker. It never mutates clean-view or other visibility state.</summary>
+    public void SetGameMenuModalHidden(bool hidden)
+    {
+        hiddenByGameMenuModal = hidden;
         RefreshEffectiveVisibility();
     }
 
@@ -139,13 +148,7 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private void HandleMainMenuAction()
     {
-        if (SceneFlowManager.IsReplayModeActive)
-        {
-            dialogueController.ReturnToMainMenu();
-            return;
-        }
-
-        dialogueController.ShowConfirmExit();
+        dialogueController.OpenGameMenu();
     }
 
     private void TryInvokeQuickMenuAction(UnityEngine.Events.UnityAction action)

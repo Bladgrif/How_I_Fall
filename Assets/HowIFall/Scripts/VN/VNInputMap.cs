@@ -45,7 +45,7 @@ public static class VNInputMap
         new(VNInputAction.OpenLoad, "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c", "F9", true),
         new(VNInputAction.ShowBacklog, "\u0418\u0441\u0442\u043e\u0440\u0438\u044f", "B", true),
         new(VNInputAction.ToggleInterfaceVisibility, "\u0421\u043a\u0440\u044b\u0442\u044c / \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441", "H", true),
-        new(VNInputAction.CloseOrCancel, "\u041d\u0430\u0437\u0430\u0434 / \u0437\u0430\u043a\u0440\u044b\u0442\u044c \u043e\u043a\u043d\u043e", "Esc", true),
+        new(VNInputAction.CloseOrCancel, "\u0418\u0433\u0440\u043e\u0432\u043e\u0435 \u043c\u0435\u043d\u044e / \u043d\u0430\u0437\u0430\u0434", "Esc", true),
         new(VNInputAction.ToggleDebugStatsView, "Toggle debug stats view", "F2", false),
         new(VNInputAction.ToggleDebugStatsPanel, "Toggle debug stats panel", "F3", false)
     };

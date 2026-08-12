@@ -93,9 +93,11 @@ public class VNDialogueController : MonoBehaviour
     private DialogueLine displayedLine;
     private SpecialModeCoordinator specialModeCoordinator;
     private ChatController chatController;
+    private VNGameMenuController gameMenuController;
     private bool specialModeWasActive;
     private bool isInterfaceHidden;
     private bool isRuntimeReady;
+    private bool mainMenuConfirmationOpenedFromGameMenu;
     private UnityEngine.Object dialogueShellSuppressionOwner;
     private bool dialogueShellWasVisibleBeforeSuppression;
 
@@ -113,10 +115,12 @@ public class VNDialogueController : MonoBehaviour
         && specialModeCoordinator.HasActiveOwner
         && (!specialModeCoordinator.CanSave || !specialModeCoordinator.CanLoad);
     public bool IsCharacterHubOpen => characterHubController != null && characterHubController.IsOpen;
-    public bool CanAdvanceDialogue => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked);
+    public bool IsGameMenuOpen => gameMenuController != null && gameMenuController.IsOpen;
+    public VNGameMenuController GameMenuController => gameMenuController;
+    public bool CanAdvanceDialogue => !IsCharacterHubOpen && !IsGameMenuOpen && !isInterfaceHidden && (specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked);
     public bool CanSave => !IsCharacterHubOpen && !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanSave);
     public bool CanLoad => !IsCharacterHubOpen && !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanLoad);
-    public bool CanOpenQuickMenu => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenQuickMenu);
+    public bool CanOpenQuickMenu => !IsCharacterHubOpen && !IsGameMenuOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenQuickMenu);
     public bool CanOpenBacklog => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenBacklog);
     public bool CanOpenSettings => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanOpenSettings);
     public bool CanReturnToMainMenu => !IsCharacterHubOpen && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanReturnToMainMenu);
@@ -126,6 +130,17 @@ public class VNDialogueController : MonoBehaviour
         && !showingChoice
         && !IsCharacterHubOpen
         && (specialModeCoordinator == null || !specialModeCoordinator.HasActiveOwner)
+        && !IsAnyOrdinaryModalOpen();
+    public bool CanOpenGameMenu => IsRuntimeReady
+        && !IsGameMenuOpen
+        && !isInterfaceHidden
+        && !IsDialogueShellSuppressed
+        && !HasActiveSpecialMode
+        && !IsCharacterHubOpen
+        && !showingChoice
+        && !quickSaveInProgress
+        && !autoSaveInProgress
+        && !preLoadAutoSavePending
         && !IsAnyOrdinaryModalOpen();
 
     private void Awake()
@@ -201,6 +216,7 @@ public class VNDialogueController : MonoBehaviour
             ResumeAfterPreferencesClosed,
             this);
         preferencesController.Initialize();
+        gameMenuController = VNGameMenuController.TryCreateRuntime(this);
         observedAutoForward = IsAutoForwardEnabled();
 
         if (backlogCloseButton != null)
@@ -250,6 +266,7 @@ public class VNDialogueController : MonoBehaviour
             {
                 LoadDialogueScene(replayStartScene);
                 flow.AttachReplayHost(this);
+                isRuntimeReady = true;
             }
             catch (System.Exception exception)
             {
@@ -304,20 +321,20 @@ public class VNDialogueController : MonoBehaviour
         RefreshSpecialModeOwnerLifecycle();
         RefreshAutoForwardState();
 
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
+        {
+            HandleEscapePressed();
+            return;
+        }
+
         if (IsPreferencesOpen)
         {
-            if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
-            {
-                HideSettings();
-            }
-
             return;
         }
 
         if (isInterfaceHidden)
         {
-            if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleInterfaceVisibility)
-                || VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
+            if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleInterfaceVisibility))
             {
                 RestoreInterface();
             }
@@ -328,6 +345,11 @@ public class VNDialogueController : MonoBehaviour
         if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleInterfaceVisibility))
         {
             TryHideInterface();
+            return;
+        }
+
+        if (IsGameMenuOpen)
+        {
             return;
         }
 
@@ -361,44 +383,64 @@ public class VNDialogueController : MonoBehaviour
             ShowBacklog();
         }
 
-        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
+    }
+
+    /// <summary>Canonical single-owner Escape routing. Returns after exactly one owner handles the press.</summary>
+    public bool HandleEscapePressed()
+    {
+        if (isInterfaceHidden)
         {
-            if (IsCharacterHubOpen)
-            {
-                CloseCharacterHub();
-                return;
-            }
-
-            if (chatController != null && chatController.TryCloseMediaViewerOnEscape())
-            {
-                return;
-            }
-
-            if (HasActiveSpecialMode)
-            {
-                specialModeCoordinator.TryRequestEscapeCancel();
-                return;
-            }
-
-            if (backlogPanel != null && backlogPanel.activeSelf)
-            {
-                HideBacklog();
-                return;
-            }
-
-            if (confirmExitPanel != null && confirmExitPanel.activeSelf)
-            {
-                HideConfirmExit();
-                return;
-            }
-
-            if (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
-            {
-                // ManualSaveLoadPanel handles Escape itself so that an open
-                // confirmation is cancelled before the whole panel closes.
-                return;
-            }
+            RestoreInterface();
+            return true;
         }
+
+        if (IsCharacterHubOpen)
+        {
+            CloseCharacterHub();
+            return true;
+        }
+
+        if (chatController != null && chatController.TryCloseMediaViewerOnEscape())
+        {
+            return true;
+        }
+
+        if (HasActiveSpecialMode)
+        {
+            specialModeCoordinator.TryRequestEscapeCancel();
+            return true;
+        }
+
+        if (confirmExitPanel != null && confirmExitPanel.activeSelf)
+        {
+            HideConfirmExit();
+            return true;
+        }
+
+        if (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
+        {
+            // ManualSaveLoadPanel owns its confirmation-first Escape handling in its own Update.
+            return true;
+        }
+
+        if (IsPreferencesOpen)
+        {
+            HideSettings();
+            return true;
+        }
+
+        if (backlogPanel != null && backlogPanel.activeSelf)
+        {
+            HideBacklog();
+            return true;
+        }
+
+        if (gameMenuController != null && gameMenuController.TryHandleEscape())
+        {
+            return true;
+        }
+
+        return OpenGameMenu();
     }
 
     public bool TryHideInterface()
@@ -449,6 +491,7 @@ public class VNDialogueController : MonoBehaviour
             || preLoadAutoSavePending
             || (choicePanel != null && choicePanel.activeSelf)
             || (backlogPanel != null && backlogPanel.activeSelf)
+            || IsGameMenuOpen
             || IsPreferencesOpen
             || (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
             || (confirmExitPanel != null && confirmExitPanel.activeSelf)
@@ -541,6 +584,11 @@ public class VNDialogueController : MonoBehaviour
             return "VN settings";
         }
 
+        if (IsGameMenuOpen)
+        {
+            return "game menu";
+        }
+
         if (manualSaveLoadPanel != null && manualSaveLoadPanel.IsOpen)
         {
             return "manual save/load";
@@ -618,6 +666,7 @@ public class VNDialogueController : MonoBehaviour
 
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
+        gameMenuController?.NotifyCharactersClosed();
     }
 
     /// <summary>Narrow story-facing entry point for the typed chat technical foundation.</summary>
@@ -997,6 +1046,7 @@ public class VNDialogueController : MonoBehaviour
     private bool IsAdvanceBlockedByOpenPanel()
     {
         return IsCharacterHubOpen
+            || IsGameMenuOpen
             || isInterfaceHidden
             || (choicePanel != null && choicePanel.activeSelf)
             || (backlogPanel != null && backlogPanel.activeSelf)
@@ -1697,6 +1747,7 @@ public class VNDialogueController : MonoBehaviour
         SetBacklogOverlayActive(false);
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
+        gameMenuController?.NotifyHistoryClosed();
     }
 
     private void SetBacklogOverlayActive(bool isActive)
@@ -1780,11 +1831,31 @@ public class VNDialogueController : MonoBehaviour
         SetQuickMenuPreferencesModalHidden(false);
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
+        gameMenuController?.NotifyPreferencesClosed();
     }
 
     private void SetQuickMenuPreferencesModalHidden(bool hidden)
     {
         FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetPreferencesModalHidden(hidden);
+    }
+
+    public bool OpenGameMenu()
+    {
+        return gameMenuController != null && gameMenuController.Open();
+    }
+
+    public void OnGameMenuOpened()
+    {
+        StopAutoForwardTimer();
+        StopSkipTimer();
+        FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetGameMenuModalHidden(true);
+    }
+
+    public void OnGameMenuClosed()
+    {
+        FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetGameMenuModalHidden(false);
+        StartAutoForwardDelayIfReady();
+        StartSkipDelayIfReady();
     }
 
     public void ResetSettings()
@@ -1939,6 +2010,16 @@ public class VNDialogueController : MonoBehaviour
         confirmExitPanel.SetActive(true);
     }
 
+    public void ShowConfirmExitFromGameMenu()
+    {
+        mainMenuConfirmationOpenedFromGameMenu = true;
+        ShowConfirmExit();
+        if (confirmExitPanel == null || !confirmExitPanel.activeSelf)
+        {
+            mainMenuConfirmationOpenedFromGameMenu = false;
+        }
+    }
+
     public void HideConfirmExit()
     {
         if (confirmExitPanel != null)
@@ -1947,6 +2028,11 @@ public class VNDialogueController : MonoBehaviour
         }
 
         StartAutoForwardDelayIfReady();
+        if (mainMenuConfirmationOpenedFromGameMenu)
+        {
+            mainMenuConfirmationOpenedFromGameMenu = false;
+            gameMenuController?.NotifyMainMenuConfirmationClosed();
+        }
     }
 
     private void ConfirmReturnToMainMenu()

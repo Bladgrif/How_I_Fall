@@ -24,6 +24,7 @@ public static class HowIFallCiSmokeTests
             Run("Settings truth", SettingsTruthSmokeTests.RunBatchMode);
             Run("Audio ambience", AudioAmbienceSmokeTests.RunBatchMode);
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
+            Run("Game Menu navigation Phase 3", GameMenuSmokeTests.RunBatchMode);
             Run("Character Hub", CharacterHubSmokeTests.RunBatchMode);
             Run("Chat Phone", ChatPhoneSmokeTests.RunBatchMode);
             Run("VN input map", VNInputMapSmokeTests.RunBatchMode);
