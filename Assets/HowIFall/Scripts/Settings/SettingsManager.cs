@@ -5,6 +5,18 @@ public class SettingsManager : MonoBehaviour
     public static SettingsManager Instance { get; private set; }
 
     public GameSettings settings = new GameSettings();
+    public GameSettings CurrentSettings
+    {
+        get
+        {
+            if (settings == null)
+            {
+                settings = new GameSettings();
+            }
+
+            return settings;
+        }
+    }
 
     private const string MasterVolumeKey = "hif_master_volume";
     private const string MusicVolumeKey = "hif_music_volume";
@@ -55,6 +67,7 @@ public class SettingsManager : MonoBehaviour
 
     public void LoadSettings()
     {
+        _ = CurrentSettings;
         settings.masterVolume = PlayerPrefs.GetFloat(MasterVolumeKey, 0.8f);
         settings.musicVolume = PlayerPrefs.GetFloat(MusicVolumeKey, 0.8f);
         settings.sfxVolume = PlayerPrefs.GetFloat(SfxVolumeKey, 0.8f);
@@ -86,6 +99,9 @@ public class SettingsManager : MonoBehaviour
 
     public void SaveSettings()
     {
+        _ = CurrentSettings;
+        // screenMode is canonical. The bool/key remain write-only compatibility data.
+        settings.fullscreen = IsFullscreenScreenMode(settings.screenMode);
         PlayerPrefs.SetFloat(MasterVolumeKey, settings.masterVolume);
         PlayerPrefs.SetFloat(MusicVolumeKey, settings.musicVolume);
         PlayerPrefs.SetFloat(SfxVolumeKey, settings.sfxVolume);
@@ -275,12 +291,10 @@ public class SettingsManager : MonoBehaviour
         SaveSettings();
     }
 
+
     public void SetFullscreen(bool value)
     {
-        settings.fullscreen = value;
-        settings.screenMode = value ? SettingsOptionValues.Fullscreen : SettingsOptionValues.Windowed;
-        ApplySettings();
-        SaveSettings();
+        SetScreenMode(value ? SettingsOptionValues.Fullscreen : SettingsOptionValues.Windowed);
     }
 
     public static bool IsFullscreenScreenMode(string screenMode)

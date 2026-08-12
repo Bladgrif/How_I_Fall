@@ -83,7 +83,7 @@ public class VNDialogueController : MonoBehaviour
     private System.Action<bool> preLoadAutoSaveCompletion;
     private readonly DialogueBacklog backlog = new DialogueBacklog(DialogueBacklog.DefaultCapacity);
     private int backlogCaptureSuppressionDepth;
-    private VNSettingsPresenter settingsPresenter;
+    private PreferencesController preferencesController;
     private bool observedAutoForward;
     private bool skipEnabled;
     private DialogueReadHistory readHistory;
@@ -175,7 +175,7 @@ public class VNDialogueController : MonoBehaviour
             confirmExitPanel.SetActive(false);
         }
 
-        settingsPresenter = new VNSettingsPresenter(
+        var preferencesView = new VNPreferencesAdapter(
             vnSettingsDimOverlay,
             vnSettingsPanel,
             vnMasterVolumeSlider,
@@ -186,11 +186,14 @@ public class VNDialogueController : MonoBehaviour
             vnAutoForwardDelaySlider,
             vnFullscreenToggle,
             vnSettingsCloseButton,
-            vnSettingsResetButton,
-            new VNSettingsService(),
+            vnSettingsResetButton);
+        preferencesController = new PreferencesController(
+            new PreferencesService(),
+            preferencesView,
             ShowToast,
+            ResumeAfterPreferencesClosed,
             this);
-        settingsPresenter.Initialize();
+        preferencesController.Initialize();
         observedAutoForward = IsAutoForwardEnabled();
 
         if (backlogCloseButton != null)
@@ -1746,44 +1749,48 @@ public class VNDialogueController : MonoBehaviour
         }
 
         StopAutoForwardTimer();
-        settingsPresenter?.Open();
+        preferencesController?.Open();
     }
 
     public void HideSettings()
     {
-        settingsPresenter?.Hide();
+        preferencesController?.Close();
+    }
+
+    private void ResumeAfterPreferencesClosed()
+    {
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
     }
 
     public void ResetSettings()
     {
-        settingsPresenter?.Reset();
+        preferencesController?.Reset();
     }
 
     public void OnMasterVolumeChanged(float value)
     {
-        settingsPresenter?.SetMasterVolume(value);
+        preferencesController?.SetMasterVolume(value);
     }
 
     public void OnMusicVolumeChanged(float value)
     {
-        settingsPresenter?.SetMusicVolume(value);
+        preferencesController?.SetMusicVolume(value);
     }
 
     public void OnSfxVolumeChanged(float value)
     {
-        settingsPresenter?.SetSfxVolume(value);
+        preferencesController?.SetSfxVolume(value);
     }
 
     public void OnTextSpeedChanged(float value)
     {
-        settingsPresenter?.SetTextSpeed(value);
+        preferencesController?.SetTextSpeed(value);
     }
 
     public void OnFullscreenChanged(bool value)
     {
-        settingsPresenter?.SetFullscreen(value);
+        preferencesController?.SetFullscreen(value);
     }
 
     public void ReturnToMainMenu()
@@ -1815,7 +1822,7 @@ public class VNDialogueController : MonoBehaviour
             confirmExitPanel.SetActive(false);
         }
 
-        settingsPresenter?.Hide();
+        preferencesController?.Hide();
 
         if (choicePanel != null)
         {

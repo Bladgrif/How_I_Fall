@@ -2,17 +2,13 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class SettingsPanelController : MonoBehaviour
+public class SettingsPanelController : MonoBehaviour, IPreferencesView
 {
-    private static readonly string[] ScreenModeOptions = { SettingsOptionValues.Fullscreen, SettingsOptionValues.Windowed, SettingsOptionValues.Borderless };
-    private static readonly string[] ResolutionOptions = { "1920x1080", "1600x900", "1280x720" };
     private static readonly string[] RefreshRateOptions = { "60", "120", "144" };
     private static readonly string[] GameLookOptions = { "Чистый", "VHS", "Кинематографичный" };
     private static readonly string[] InterfaceStyleOptions = { "Классический", "Современный" };
     private static readonly string[] LanguageOptions = { "Русский", "English" };
     private static readonly string[] FontSizeModeOptions = { "Мелкий", "Средний", "Крупный" };
-    private static readonly string[] SkipModeOptions = { "Виденное", "Всё", "Ничего" };
-    private static readonly string[] SkipBehaviorOptions = { SettingsOptionValues.ClassicSkip, SettingsOptionValues.FastSkip };
 
     public GameObject root;
     public TextMeshProUGUI settingsTitleText;
@@ -56,48 +52,79 @@ public class SettingsPanelController : MonoBehaviour
     public GameObject[] objectsToHideWhenOpen;
     public GameObject[] controlsHiddenUntilImplemented;
 
+    private PreferencesController preferencesController;
+
+    public PreferencesController SharedController
+    {
+        get
+        {
+            if (preferencesController == null)
+            {
+                preferencesController = new PreferencesController(new PreferencesService(), this, logContext: this);
+            }
+
+            return preferencesController;
+        }
+    }
+
     private void Awake()
     {
         if (root == null)
         {
             root = gameObject;
         }
+
+        SharedController.Initialize();
     }
 
     public void Show()
     {
-        if (root == null)
-        {
-            return;
-        }
-
-        SetHiddenObjectsActive(false);
-        root.SetActive(true);
-        SetHiddenControlsActive(false);
         ShowAudioTab();
-        RefreshUi();
+        SharedController.Open();
     }
 
     public void Hide()
     {
+        SharedController.Close();
+    }
+
+    public void RefreshUi()
+    {
+        SharedController.Refresh();
+    }
+
+    public void ResetSettings()
+    {
+        SharedController.Reset();
+    }
+
+    void IPreferencesView.Bind(PreferencesController controller)
+    {
+        // Main Menu controls keep their existing serialized UnityEvent wiring.
+    }
+
+    void IPreferencesView.SetVisible(bool visible)
+    {
         if (root == null)
         {
             return;
         }
 
-        root.SetActive(false);
-        SetHiddenObjectsActive(true);
+        SetHiddenObjectsActive(!visible);
+        root.SetActive(visible);
+        if (visible)
+        {
+            SetHiddenControlsActive(false);
+        }
     }
 
-    public void RefreshUi()
+    void IPreferencesView.Refresh(PreferencesState settings)
     {
-        if (SettingsManager.Instance == null)
-        {
-            return;
-        }
+        RefreshFromSettings(settings);
+    }
 
-        GameSettings settings = SettingsManager.Instance.settings;
-
+    private void RefreshFromSettings(PreferencesState settings)
+    {
         if (masterVolumeSlider != null)
         {
             masterVolumeSlider.SetValueWithoutNotify(settings.masterVolume);
@@ -113,44 +140,13 @@ public class SettingsPanelController : MonoBehaviour
             sfxVolumeSlider.SetValueWithoutNotify(settings.sfxVolume);
         }
 
-        if (ambientVolumeSlider != null)
-        {
-            ambientVolumeSlider.SetValueWithoutNotify(settings.ambientVolume);
-        }
-
-        if (musicDuringPauseToggle != null)
-        {
-            musicDuringPauseToggle.SetIsOnWithoutNotify(settings.musicDuringPause);
-        }
-
         SetValueText(screenModeValueText, settings.screenMode);
         SetValueText(resolutionValueText, settings.resolution);
-        SetValueText(refreshRateValueText, settings.refreshRate);
-        SetValueText(gameLookValueText, settings.gameLook);
-        SetValueText(interfaceStyleValueText, settings.interfaceStyle);
-
-        if (rewindVhsFilterToggle != null)
-        {
-            rewindVhsFilterToggle.SetIsOnWithoutNotify(settings.rewindVhsFilter);
-        }
-
         if (runInBackgroundToggle != null)
         {
             runInBackgroundToggle.SetIsOnWithoutNotify(settings.runInBackground);
         }
 
-        if (characterAnimationsToggle != null)
-        {
-            characterAnimationsToggle.SetIsOnWithoutNotify(settings.characterAnimations);
-        }
-
-        if (backgroundAnimationsToggle != null)
-        {
-            backgroundAnimationsToggle.SetIsOnWithoutNotify(settings.backgroundAnimations);
-        }
-
-        SetValueText(languageValueText, settings.language);
-        SetValueText(fontSizeModeValueText, settings.fontSizeMode);
         SetValueText(skipModeValueText, settings.skipMode);
         SetValueText(skipBehaviorValueText, settings.skipBehavior);
 
@@ -183,74 +179,41 @@ public class SettingsPanelController : MonoBehaviour
             autoSaveToggle.SetIsOnWithoutNotify(settings.autoSave);
         }
 
-        if (showHintsToggle != null)
-        {
-            showHintsToggle.SetIsOnWithoutNotify(settings.showHints);
-        }
     }
 
     public void OnMasterVolumeChanged(float value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetMasterVolume(value);
-        }
+        SharedController.SetMasterVolume(value);
     }
 
     public void OnMusicVolumeChanged(float value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetMusicVolume(value);
-        }
+        SharedController.SetMusicVolume(value);
     }
 
     public void OnSfxVolumeChanged(float value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetSfxVolume(value);
-        }
+        SharedController.SetSfxVolume(value);
     }
 
     public void OnAmbientVolumeChanged(float value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetAmbientVolume(value);
-        }
+        SettingsManager.Instance?.SetAmbientVolume(value);
     }
 
     public void OnMusicDuringPauseChanged(bool value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetMusicDuringPause(value);
-        }
+        SettingsManager.Instance?.SetMusicDuringPause(value);
     }
 
     public void CycleScreenMode()
     {
-        if (SettingsManager.Instance == null)
-        {
-            return;
-        }
-
-        string value = GetNextValue(ScreenModeOptions, SettingsManager.Instance.settings.screenMode);
-        SettingsManager.Instance.SetScreenMode(value);
-        SetValueText(screenModeValueText, value);
+        SharedController.CycleScreenMode();
     }
 
     public void CycleResolution()
     {
-        if (SettingsManager.Instance == null)
-        {
-            return;
-        }
-
-        string value = GetNextValue(ResolutionOptions, SettingsManager.Instance.settings.resolution);
-        SettingsManager.Instance.SetResolution(value);
-        SetValueText(resolutionValueText, value);
+        SharedController.CycleResolution();
     }
 
     public void CycleRefreshRate()
@@ -299,10 +262,7 @@ public class SettingsPanelController : MonoBehaviour
 
     public void OnRunInBackgroundChanged(bool value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetRunInBackground(value);
-        }
+        SharedController.SetRunInBackground(value);
     }
 
     public void OnCharacterAnimationsChanged(bool value)
@@ -347,70 +307,41 @@ public class SettingsPanelController : MonoBehaviour
 
     public void CycleSkipMode()
     {
-        if (SettingsManager.Instance == null)
-        {
-            return;
-        }
-
-        string value = GetNextValue(SkipModeOptions, SettingsManager.Instance.settings.skipMode);
-        SettingsManager.Instance.SetSkipMode(value);
-        SetValueText(skipModeValueText, value);
+        SharedController.CycleSkipMode();
     }
 
     public void CycleSkipBehavior()
     {
-        if (SettingsManager.Instance == null)
-        {
-            return;
-        }
-
-        string value = GetNextValue(SkipBehaviorOptions, SettingsManager.Instance.settings.skipBehavior);
-        SettingsManager.Instance.SetSkipBehavior(value);
-        SetValueText(skipBehaviorValueText, value);
+        SharedController.CycleSkipBehavior();
     }
 
     public void OnTextSpeedChanged(float value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetTextSpeed(value);
-        }
+        SharedController.SetTextSpeed(value);
 
         SetTextSpeedValue(value);
     }
 
     public void OnAutoForwardDelayChanged(float value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetAutoForwardDelay(value);
-        }
+        SharedController.SetAutoForwardDelay(value);
 
         SetAutoForwardDelayValue(value);
     }
 
     public void OnSkipAfterChoicesChanged(bool value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetSkipAfterChoices(value);
-        }
+        SharedController.SetSkipAfterChoices(value);
     }
 
     public void OnAutoForwardChanged(bool value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetAutoForward(value);
-        }
+        SharedController.SetAutoForward(value);
     }
 
     public void OnAutoSaveChanged(bool value)
     {
-        if (SettingsManager.Instance != null)
-        {
-            SettingsManager.Instance.SetAutoSave(value);
-        }
+        SharedController.SetAutoSave(value);
     }
 
     public void OnShowHintsChanged(bool value)
@@ -524,12 +455,12 @@ public class SettingsPanelController : MonoBehaviour
 
     private void SetTextSpeedValue(float value)
     {
-        SetValueText(textSpeedValueText, $"{Mathf.RoundToInt(value)} симв./сек.");
+        SetValueText(textSpeedValueText, PreferencesFormatting.TextSpeed(value));
     }
 
     private void SetAutoForwardDelayValue(float value)
     {
-        SetValueText(autoForwardDelayValueText, $"{Mathf.RoundToInt(value)} %");
+        SetValueText(autoForwardDelayValueText, PreferencesFormatting.AutoForwardDelay(value));
     }
 
     private string GetNextValue(string[] options, string current)

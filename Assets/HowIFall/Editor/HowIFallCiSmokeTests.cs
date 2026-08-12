@@ -18,7 +18,8 @@ public static class HowIFallCiSmokeTests
             Run("Skip dialogue", SkipDialogueSmokeTests.RunBatchMode);
             Run("Special mode coordinator", SpecialModeCoordinatorSmokeTests.RunBatchMode);
             Run("Timed narrative beat", TimedNarrativeBeatSmokeTests.RunBatchMode);
-            Run("VN settings presenter", VNSettingsPresenterSmokeTests.RunBatchMode);
+            Run("Shared Preferences presenter", VNSettingsPresenterSmokeTests.RunBatchMode);
+            Run("Shared Preferences foundation", SharedPreferencesFoundationSmokeTests.RunBatchMode);
             Run("Settings truth", SettingsTruthSmokeTests.RunBatchMode);
             Run("Audio ambience", AudioAmbienceSmokeTests.RunBatchMode);
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
