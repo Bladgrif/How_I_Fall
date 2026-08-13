@@ -1,4 +1,4 @@
-# How I Fall ? Eternum Runtime UI Reference
+# How I Fall — Eternum Runtime UI Reference
 
 ## Status / usage rule
 
@@ -10,6 +10,7 @@ This is the permanent text-only reference for player-facing UI/UX behavior **OBS
 - Keep **OBSERVED IN RUNNING ETERNUM** separate from **SOURCE-BASED / UNVERIFIED**.
 - HIF may intentionally improve on Eternum where the difference is documented.
 - Do not copy Eternum assets, screenshots, source code, fonts, music, UI graphics, exact geometry or copyrighted text into HIF.
+- HIF Phase 4 final behavior is recorded at feature commit `91f1f8f5bd1b70e7c29663b35b6f2d44c9733b9d`.
 
 ## Main Menu
 
@@ -26,6 +27,13 @@ This is the permanent text-only reference for player-facing UI/UX behavior **OBS
 ### SOURCE-BASED / UNVERIFIED
 
 - Exact pixel sizes, font metrics, animation timing and keyboard/controller focus order were not recorded and must not be inferred.
+
+### HIF CURRENT / INTENTIONAL — PHASE 4 DONE
+
+- HIF keeps its existing authored Main Menu background, button objects and UnityEvent wiring rather than cloning Eternum's card composition.
+- Final order is Continue, New Game, Load, Preferences, Help, About, Quit.
+- Continue is disabled when no compatible valid save exists; Gallery is not inserted as a top-level action.
+- Preferences opens the same shared `SharedPreferencesView` used in gameplay.
 
 ## Preferences
 
@@ -47,6 +55,7 @@ This is the permanent text-only reference for player-facing UI/UX behavior **OBS
 
 - HIF uses the same shared Preferences screen from Main Menu and gameplay.
 - When opened from the HIF Game Menu, Back returns to the Game Menu instead of directly to gameplay.
+- B03 Show Quick Menu is DONE: it defaults ON, persists immediately through the shared Settings authority and Reset returns it to ON. Temporary H, BlockingExclusive, Preferences and Game Menu blockers do not overwrite the stored preference.
 
 ## Quick Menu
 
@@ -68,6 +77,24 @@ Core left-to-right order in the inspected desktop build:
 - History belongs here rather than in the normal Game Menu.
 - Auto and Skip have visible active-state presentation.
 - The localized build may also show a final external/promotional link; it is not part of the HIF parity target.
+
+### HIF CURRENT / INTENTIONAL — PHASE 4 DONE
+
+Final left-to-right order:
+
+1. History
+2. Skip
+3. Auto
+4. Save
+5. Q.Save
+6. Q.Load
+7. Preferences
+8. Menu
+
+- `Menu` opens the Phase 3 Game Menu. Manual Load, direct Main Menu and Characters are absent from the Quick Menu strip.
+- Character Hub remains reachable from a narrow dedicated HIF launcher outside the strip, with Replay, Hide UI, modal and special-mode restrictions preserved.
+- Effective Quick Menu visibility composes B03 with H, BlockingExclusive, Preferences and Game Menu blockers. Hotkeys remain available according to their existing action gates rather than being disabled by the visibility preference.
+- A measured Quick Menu `RectTransform` reserve moves only the dialogue shell and collapses to zero whenever the Quick Menu is effectively hidden.
 
 ## Esc / RMB behavior
 

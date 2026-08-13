@@ -1,12 +1,12 @@
 # How I Fall — Eternum Main Menu / Game Menu / Preferences parity spec
 
-**Status:** active parity roadmap; Game Menu / Navigation Phase 3 is complete.
+**Status:** active parity roadmap; Phases 1-4 are complete. Phase 5 Save/Load shell integration is the only next step.
 
 **Reference priority:** runtime observations in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md) first, then proven HIF safety improvements; source-only assumptions are secondary.
 
 **Dependency owner:** existing `GameSettings` + `SettingsManager`.
 
-**Last reviewed functional commit:** `fa996b9bce2039e550723ed58ed6e42990482b41`.
+**Last reviewed functional commit:** `91f1f8f5bd1b70e7c29663b35b6f2d44c9733b9d`.
 
 ## 1. Target principles
 
@@ -46,7 +46,7 @@ Required shape:
 | New Game | yes | yes | KEEP, first primary action | parity |
 | Continue | no | yes | KEEP, before New Game or immediately after it according to final visual hierarchy | proven HIF recovery improvement |
 | Load | yes | yes | KEEP | parity + working backend |
-| Preferences | yes | divergent Main settings | REWORK to shared screen | central architecture goal |
+| Preferences | yes | shared `SharedPreferencesView` | DONE; keep shared screen | central architecture goal |
 | Gallery/Extras | not in Main Menu; entered from relationship hub | backend panel exists but no wired entry | DEFER top-level button; preserve backend and decide a coherent Extras/Characters hub later | do not relocate solely by assumption |
 | Help | screen exists but not wired in reference navigation | yes | KEEP | HIF bindings are non-default and need discoverability |
 | Credits/About | yes | yes | KEEP | parity |
@@ -64,7 +64,7 @@ About
 Quit
 ```
 
-If visual testing shows New Game should remain first for a new profile, it may precede Continue; semantics do not change. Gallery is not inserted into this list during the shell parity work.
+Phase 4 manual QA approved this order. Gallery is not inserted into the top-level list.
 
 ### Main Menu behavior
 
@@ -127,9 +127,9 @@ Replay hides Save, Load, Characters and Main Menu. Preferences/History remain be
 - closing restores the previously eligible dialogue state and starts a fresh Auto/Skip delay;
 - Game Menu owns no save/settings/replay state; it calls existing controllers.
 
-## 5. Target Quick Menu
+## 5. Final Quick Menu
 
-Recommended final PC order:
+Implemented Phase 4 PC order:
 
 1. History
 2. Skip
@@ -150,7 +150,7 @@ Recommended final PC order:
 | Quick Load | KEEP | parity |
 | Load | MOVE TO GAME MENU | reference Quick Menu has no manual Load; reduces crowding |
 | Settings | KEEP as Preferences | parity and B03 recovery path remains available through Game Menu/Main Menu too |
-| Characters | MOVE TO GAME MENU/Extras | valuable HIF feature, not a universal quick action |
+| Characters | MOVE TO DEDICATED LAUNCHER | separate original HIF entry outside the Quick Menu; Replay/Special/modal gates remain authoritative |
 | Main Menu | REPLACE WITH Menu | direct destructive navigation belongs in Game Menu |
 | Back/Rollback | DEFER | no reversible-state model; do not create cosmetic Back |
 
@@ -161,7 +161,7 @@ Contract:
 - Replay filtering remains authoritative;
 - B03 hides only the root; keyboard actions and Game Menu remain available;
 - H and BlockingExclusive remain transient visibility blockers;
-- runtime-created Characters clone is removed once Characters moves, so final order is serialized/testable.
+- the old runtime Characters clone inside the strip is removed; a narrow dedicated Character Hub launcher exists outside the Quick Menu.
 
 ## 6. Target Preferences information architecture
 
@@ -224,7 +224,7 @@ Save naming remains NOT NEEDED for fixed six-slot HIF UI.
 
 | Control | Type | State | Target behavior |
 |---|---|---|---|
-| Show Quick Menu | toggle | B03 / DEFERRED to Phase 4 (NOT DONE) | future default ON; immediate persistent |
+| Show Quick Menu | toggle | **B03 / DONE** in Phase 4 | default ON; immediate `PlayerPrefs` persistence through shared Preferences |
 | Text Size | slider/presets + reset | IMPLEMENT TO PARITY | changes actual dialogue TMP size |
 | Text Outline | slider/presets + reset | IMPLEMENT TO PARITY after visual proof | changes actual outline/material safely |
 | Textbox Opacity | slider + reset | IMPLEMENT TO PARITY | changes only dialogue box background |
@@ -258,6 +258,8 @@ Canonical state:
 effectiveQuickMenuVisible = showQuickMenu
                          && !hiddenByPlayerCleanView
                          && !hiddenByBlockingSpecialMode
+                         && !hiddenByPreferencesModal
+                         && !hiddenByGameMenuModal
 ```
 
 Add layout contract:
@@ -278,7 +280,7 @@ Requirements:
 - changing preference under a blocker updates stored truth but does not reveal the root early;
 - Reset returns ON;
 - Replay button filtering runs inside the effective-visible root and remains unchanged;
-- B03 remains NOT DONE after Phase 3 and is deferred to the explicit Main Menu / Quick Menu cleanup phase; the contract above remains the future target.
+- **B03 is DONE** in Phase 4 at `91f1f8f5bd1b70e7c29663b35b6f2d44c9733b9d`; the contract above is implemented and covered by focused/full regression.
 
 ## 8. Save/Load navigation target
 
@@ -403,7 +405,7 @@ Global rules:
 - The identical player-facing order is Display (Screen Mode, Resolution, Run in Background), Audio (Mute All, Master, Music, SFX), Dialogue & Auto (Text Speed, Auto-Forward Delay), Skip & Saves (unseen text, resume after choices, Classic/Fast speed, Autosave), Accessibility (Dialogue Text Size, Textbox Opacity), then fixed Reset/Back.
 - Mute All is a separate persisted flag that mutes output without overwriting stored Master/Music/SFX values. Dialogue Text Size has a real TMP dialogue-text consumer at 85–125%; speaker, choices and backlog intentionally remain unchanged. Textbox Opacity changes only the dialogue-box background alpha.
 - Auto-Forward Delay is shown in seconds (`0.5..5.0`) while round-tripping the existing stored representation. Text Outline, textbox width/height and Interface Motion remain deferred and invisible. Ambient Volume and Music During Pause remain hidden until their authored/pause policies are player-relevant; Auto ON/OFF remains a runtime Quick Menu mode.
-- Refresh Rate, Game Look, Interface Style, Rewind VHS, Character/Background Animations, Language, legacy Font Size Mode, Show Hints, Ambient Volume, Music During Pause and B03 Show Quick Menu are not player-facing.
+- Refresh Rate, Game Look, Interface Style, Rewind VHS, Character/Background Animations, Language, legacy Font Size Mode, Show Hints, Ambient Volume and Music During Pause are not player-facing. B03 was deferred during Phase 2 and became player-facing in Phase 4.
 - Gameplay Preferences adds only a temporary Quick Menu visibility blocker. Closing removes only that blocker and respects H clean view and Special Mode ownership; it does not mutate B03 persistence, Quick Menu enabled state or hotkeys.
 - Automated regression, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`; `SaveData.CurrentVersion` remains 3 and Preferences state is absent from campaign JSON.
 - Manual visual QA passed for the shared layout, gameplay Quick Menu suppression/restoration, sticky-footer scrolling and compact slider handles. `MainMenu.unity` and `VNPrototype.unity` are unchanged.
@@ -421,16 +423,17 @@ Global rules:
 - Automated regression, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`; `SaveData.CurrentVersion` remains 3 and the Save backend is unchanged.
 - Manual visual QA passed at 1920×1080 and 1280×720. `MainMenu.unity` and `VNPrototype.unity` are unchanged.
 - Runtime observations are persisted in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md).
-- B03 remains **NOT DONE**.
+- B03 was intentionally deferred at the Phase 3 closure and is completed by Phase 4 below.
 
 ### Phase 4 — Main Menu and Quick Menu cleanup + B03
 
-- **Goal:** redirect Main Menu to shared Preferences; reduce Quick Menu; implement persistent visibility and safe-area reserve.
-- **Likely files:** `MainMenuController`, shared view wiring, `VNQuickMenu`, dialogue layout consumer, tests; scene/prefab edits only if approved.
-- **Risk:** HIGH because current scene wiring is serialized.
-- **Model/session:** Codex App, GPT-5.6 Sol, High, new session.
-- **Manual QA:** both menu contexts + H/Special/Replay + four resolutions.
-- **Dependencies:** Phases 1 and 3.
+- **Status:** **DONE** at `91f1f8f5bd1b70e7c29663b35b6f2d44c9733b9d`; manual QA PASS.
+- Main Menu reuses the authored background, buttons and existing UnityEvent wiring. Final order is Continue, New Game, Load, Preferences, Help, About, Quit; Continue remains truthfully disabled without a compatible valid save and Gallery is not top-level.
+- Quick Menu final order is History, Skip, Auto, Save, Q.Save, Q.Load, Preferences, Menu. Manual Load, direct Main Menu and Characters are absent from the strip; `Menu` opens the Phase 3 Game Menu.
+- Character Hub retains access through a narrow original HIF runtime launcher outside the Quick Menu. Replay, Hide UI, ordinary modal and BlockingExclusive restrictions remain authoritative.
+- **B03 is DONE:** `GameSettings.showQuickMenu`, default ON, key `hif_show_quick_menu`, immediate persistence through `SettingsManager` and the shared `SharedPreferencesView`; Reset returns ON and `SaveData` remains v3.
+- Effective visibility composes B03 with H, BlockingExclusive, Preferences and Game Menu blockers without changing hotkeys or stored truth. The measured `RectTransform` reserve moves only the dialogue shell and becomes zero while the Quick Menu is effectively hidden.
+- Focused regression, `HowIFallCiSmokeTests.RunAll`, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`; Save backend, `MainMenu.unity` and `VNPrototype.unity` are unchanged.
 
 ### Phase 5 — Save/Load shell integration
 
@@ -524,4 +527,4 @@ Parity shell is DONE only when:
 
 ## 16. Roadmap continuation
 
-Proceed with **Main Menu and Quick Menu cleanup + B03 (Phase 4)** as defined in the roadmap above. Do not implement it as part of the Phase 3 closure. B03 is still NOT DONE.
+Proceed with **Phase 5 - Save/Load shell integration**. Keep the existing Save backend unchanged and integrate presentation/routing only through the approved Game Menu shell.
