@@ -917,11 +917,20 @@ public class VNDialogueController : MonoBehaviour
 
         try
         {
-            yield return new WaitForEndOfFrame();
+            // WaitForEndOfFrame is not resumed by Unity's batch-mode PlayMode runner.
+            // A normal player build keeps the end-of-frame capture; CI advances one frame instead.
+            if (Application.isBatchMode)
+            {
+                yield return null;
+            }
+            else
+            {
+                yield return new WaitForEndOfFrame();
+            }
 
             try
             {
-                screenshot = ScreenCapture.CaptureScreenshotAsTexture();
+                screenshot = SaveManager.CaptureScreenshotForSave();
                 if (screenshot == null)
                 {
                     Debug.LogError($"[{logPrefix}] ScreenCapture returned no screenshot.", this);

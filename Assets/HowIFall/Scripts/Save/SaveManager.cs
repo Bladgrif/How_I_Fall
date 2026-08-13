@@ -53,6 +53,16 @@ public sealed class SaveManager : MonoBehaviour
     public bool HasPendingSceneRestore => pendingSceneRestore;
     public int PendingSlotIndex => pendingSlotIndex;
 
+    /// <summary>Narrow PlayMode seam; null in normal runtime so player captures still use ScreenCapture.</summary>
+    public static Func<Texture2D> ScreenshotCaptureOverrideForTests { get; set; }
+
+    internal static Texture2D CaptureScreenshotForSave()
+    {
+        return ScreenshotCaptureOverrideForTests != null
+            ? ScreenshotCaptureOverrideForTests()
+            : ScreenCapture.CaptureScreenshotAsTexture();
+    }
+
     public static SaveManager EnsureInstance(DialogueSceneRegistry registry = null)
     {
         if (Instance == null)

@@ -1,7 +1,9 @@
 {
   "name": "HowIFall.PlayModeTests",
   "references": [
-    "HowIFall.Runtime"
+    "HowIFall.Runtime",
+    "Unity.TextMeshPro",
+    "Unity.ugui"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

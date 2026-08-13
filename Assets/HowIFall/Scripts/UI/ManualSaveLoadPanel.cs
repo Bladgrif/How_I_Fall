@@ -677,12 +677,21 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             canvasGroup.blocksRaycasts = false;
         }
 
-        yield return new WaitForEndOfFrame();
+        // WaitForEndOfFrame is not resumed by Unity's batch-mode PlayMode runner.
+        // A normal player build keeps the end-of-frame capture; CI advances one frame instead.
+        if (Application.isBatchMode)
+        {
+            yield return null;
+        }
+        else
+        {
+            yield return new WaitForEndOfFrame();
+        }
 
         Texture2D screenshot = null;
         try
         {
-            screenshot = ScreenCapture.CaptureScreenshotAsTexture();
+            screenshot = SaveManager.CaptureScreenshotForSave();
         }
         catch (System.Exception exception)
         {
