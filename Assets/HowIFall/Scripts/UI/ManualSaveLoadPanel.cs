@@ -70,6 +70,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void Awake()
     {
+        ApplyPlayerFacingPalette();
         if (canvasGroup == null)
         {
             canvasGroup = GetComponent<CanvasGroup>();
@@ -107,6 +108,24 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         SetConfirmationVisible(false, true);
         ApplySlotTypePresentation();
+    }
+
+    private void ApplyPlayerFacingPalette()
+    {
+        if (windowRect == null)
+        {
+            return;
+        }
+
+        Transform topAccent = windowRect.GetComponentsInChildren<Transform>(true)
+            .FirstOrDefault(transform => transform.name == "Red Accent");
+        Image accentImage = topAccent != null ? topAccent.GetComponent<Image>() : null;
+        if (accentImage != null)
+        {
+            accentImage.sprite = null;
+            accentImage.type = Image.Type.Simple;
+            accentImage.color = new Color(0.30f, 0.58f, 0.80f, 0.72f);
+        }
     }
 
     private void Update()

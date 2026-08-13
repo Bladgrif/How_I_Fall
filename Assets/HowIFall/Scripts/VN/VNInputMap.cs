@@ -78,19 +78,20 @@ public static class VNInputMap
 
     public static string BuildHelpText()
     {
-        var builder = new StringBuilder("\u0423\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435\n");
+        var builder = new StringBuilder("<b>\u0423\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435</b>\n\n");
         foreach (VNInputBinding binding in Bindings)
         {
             if (binding.ShowInHelp)
             {
-                builder.Append(binding.BindingDescription)
-                    .Append(" \u2014 ")
-                    .Append(binding.Label)
+                builder.Append(binding.Label)
+                    .Append("<pos=76%><b>")
+                    .Append(binding.BindingDescription)
+                    .Append("</b>")
                     .Append('\n');
             }
         }
 
-        builder.Append("\u041d\u0435\u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u043a\u043e\u043c\u0430\u043d\u0434\u044b \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b \u0432\u043e \u0432\u0440\u0435\u043c\u044f \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u0445 \u043e\u043a\u043e\u043d.");
+        builder.Append("\n<size=82%><color=#B8C9DA>\u041d\u0435\u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u043a\u043e\u043c\u0430\u043d\u0434\u044b \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b \u043f\u043e\u043a\u0430 \u043e\u0442\u043a\u0440\u044b\u0442\u043e \u0434\u0440\u0443\u0433\u043e\u0435 \u043e\u043a\u043d\u043e.</color></size>");
         return builder.ToString();
     }
 

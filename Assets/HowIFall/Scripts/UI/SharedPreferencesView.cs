@@ -39,7 +39,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     private static readonly Color WindowColor = new Color(0.018f, 0.035f, 0.075f, 0.985f);
     private static readonly Color RowColor = new Color(0.035f, 0.07f, 0.13f, 0.82f);
     private static readonly Color ControlColor = new Color(0.07f, 0.12f, 0.20f, 0.98f);
-    private static readonly Color AccentColor = new Color(0.72f, 0.16f, 0.18f, 1f);
+    private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
     private static readonly Color MutedTextColor = new Color(0.76f, 0.82f, 0.90f, 1f);
 
     private readonly Dictionary<string, Slider> sliders = new Dictionary<string, Slider>();
@@ -318,7 +318,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     private void AddSection(Transform parent, string title)
     {
         TextMeshProUGUI text = CreateText(parent, $"Section {title}", title, 20f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
-        text.color = new Color(0.92f, 0.55f, 0.56f, 1f);
+        text.color = new Color(0.70f, 0.84f, 0.95f, 1f);
         LayoutElement layout = text.gameObject.AddComponent<LayoutElement>();
         layout.minHeight = 42f;
         layout.preferredHeight = 42f;
@@ -589,9 +589,9 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
         colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1f, 0.76f, 0.80f, 1f);
-        colors.pressedColor = new Color(0.76f, 0.32f, 0.38f, 1f);
-        colors.selectedColor = new Color(1f, 0.70f, 0.76f, 1f);
+        colors.highlightedColor = new Color(0.80f, 0.91f, 1f, 1f);
+        colors.pressedColor = new Color(0.52f, 0.72f, 0.88f, 1f);
+        colors.selectedColor = new Color(0.72f, 0.86f, 0.98f, 1f);
         colors.disabledColor = new Color(0.45f, 0.48f, 0.54f, 0.68f);
         colors.colorMultiplier = 1f;
         return colors;

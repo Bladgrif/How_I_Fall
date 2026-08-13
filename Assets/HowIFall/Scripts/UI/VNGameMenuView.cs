@@ -20,10 +20,10 @@ public enum VNGameMenuAction
 /// <summary>Runtime-built, scene-local presentation for the gameplay navigation menu.</summary>
 public sealed class VNGameMenuView : MonoBehaviour
 {
-    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.82f);
+    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.94f);
     private static readonly Color LeftWashColor = new Color(0.008f, 0.024f, 0.050f, 0.76f);
     private static readonly Color NavigationColor = new Color(0.025f, 0.060f, 0.105f, 0.94f);
-    private static readonly Color AccentColor = new Color(0.72f, 0.10f, 0.16f, 1f);
+    private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
 
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
     private readonly Dictionary<VNGameMenuAction, GameObject> activeMarkers = new Dictionary<VNGameMenuAction, GameObject>();
@@ -256,7 +256,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         returnAreaRect.offsetMin = new Vector2(20f, 18f);
         returnAreaRect.offsetMax = new Vector2(-20f, -8f);
 
-        GameObject separator = CreateSurface(returnArea.transform, "Separator", new Color(0.72f, 0.10f, 0.16f, 0.62f));
+        GameObject separator = CreateSurface(returnArea.transform, "Separator", new Color(0.30f, 0.58f, 0.80f, 0.62f));
         RectTransform separatorRect = separator.GetComponent<RectTransform>();
         separatorRect.anchorMin = new Vector2(0f, 1f);
         separatorRect.anchorMax = Vector2.one;
@@ -282,7 +282,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         windowRect.anchorMin = windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.sizeDelta = new Vector2(620f, 264f);
         Outline outline = window.AddComponent<Outline>();
-        outline.effectColor = new Color(0.68f, 0.16f, 0.22f, 0.72f);
+        outline.effectColor = new Color(0.30f, 0.58f, 0.80f, 0.72f);
         outline.effectDistance = new Vector2(2f, -2f);
 
         confirmationText = CreateText(window.transform, "Prompt", string.Empty, 22f, FontStyles.Normal, TextAlignmentOptions.Center, Color.white);
@@ -408,9 +408,9 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
         colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1f, 0.78f, 0.82f, 1f);
-        colors.pressedColor = new Color(0.78f, 0.30f, 0.34f, 1f);
-        colors.selectedColor = new Color(1f, 0.72f, 0.76f, 1f);
+        colors.highlightedColor = new Color(0.80f, 0.91f, 1f, 1f);
+        colors.pressedColor = new Color(0.52f, 0.72f, 0.88f, 1f);
+        colors.selectedColor = new Color(0.72f, 0.86f, 0.98f, 1f);
         colors.disabledColor = new Color(0.45f, 0.48f, 0.52f, 0.72f);
         colors.colorMultiplier = 1f;
         return colors;

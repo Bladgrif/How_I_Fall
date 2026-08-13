@@ -72,6 +72,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         IsOpen = true;
         childContext = ChildContext.None;
         localConfirmationAction = LocalConfirmationAction.None;
+        dialogueController.TrySuppressDialogueShell(this);
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
         view.SetVisible(true);
         dialogueController.OnGameMenuOpened();
@@ -89,6 +90,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         view?.SetVisible(false);
         localConfirmationAction = LocalConfirmationAction.None;
         IsOpen = false;
+        dialogueController?.ReleaseDialogueShellSuppression(this);
         dialogueController?.OnGameMenuClosed();
         return true;
     }
@@ -192,6 +194,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         }
 
         dialogueController.OpenSettings();
+        dialogueController.TrySuppressDialogueShell(this);
         if (!dialogueController.IsPreferencesOpen)
         {
             RestoreFromChild(ChildContext.Preferences);
@@ -206,6 +209,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         }
 
         dialogueController.ShowBacklog();
+        dialogueController.TrySuppressDialogueShell(this);
         if (dialogueController.backlogPanel == null || !dialogueController.backlogPanel.activeSelf)
         {
             RestoreFromChild(ChildContext.History);
@@ -222,7 +226,10 @@ public sealed class VNGameMenuController : MonoBehaviour
         if (!dialogueController.OpenCharacterHub())
         {
             RestoreFromChild(ChildContext.Characters);
+            return;
         }
+
+        dialogueController.TrySuppressDialogueShell(this);
     }
 
     private void OpenSave()
@@ -267,6 +274,8 @@ public sealed class VNGameMenuController : MonoBehaviour
         {
             panel.OpenLoad();
         }
+
+        dialogueController.TrySuppressDialogueShell(this);
 
         if (!panel.IsOpen)
         {
@@ -336,6 +345,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         }
 
         dialogueController.ShowConfirmExitFromGameMenu();
+        dialogueController.TrySuppressDialogueShell(this);
         if (dialogueController.confirmExitPanel == null || !dialogueController.confirmExitPanel.activeSelf)
         {
             RestoreFromChild(ChildContext.MainMenuConfirmation);
@@ -421,6 +431,7 @@ public sealed class VNGameMenuController : MonoBehaviour
     private void OnDestroy()
     {
         saveLoadAdapter.Unmount();
+        dialogueController?.ReleaseDialogueShellSuppression(this);
     }
 
     private void Bind(VNGameMenuAction action, UnityEngine.Events.UnityAction callback)

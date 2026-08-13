@@ -57,6 +57,8 @@ public static class CharacterHubSmokeTests
             state.trustArtem = 5;
             state.leraInterest = 6;
             VNDialogueController dialogue = controllerObject.AddComponent<VNDialogueController>();
+            dialogue.dialogueUiRoot = new GameObject("CharacterHubSmokeDialogueRoot");
+            dialogue.dialogueUiRoot.transform.SetParent(controllerObject.transform, false);
             CharacterHubController hub = CharacterHubController.TryCreateRuntime(dialogue);
             Require(hub != null && hub.dialogueController == dialogue, "Runtime bootstrap must create one Character Hub.");
             dialogue.characterHubController = hub;
@@ -68,6 +70,8 @@ public static class CharacterHubSmokeTests
             Require(CharacterHubController.TryCreateRuntime(dialogue) == hub, "Repeated initialization must reuse the existing hub.");
             Require(UnityEngine.Object.FindObjectsByType<CharacterHubController>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 1, "Runtime bootstrap must create exactly one hub.");
             Require(dialogue.OpenCharacterHub(), "Hub must open with the technical config.");
+            Require(dialogue.IsDialogueShellSuppressed && !dialogue.dialogueUiRoot.activeSelf,
+                "Character Hub left the ordinary dialogue shell visible beneath its presentation.");
             Require(!dialogue.CanAdvanceDialogue && !dialogue.CanSave && !dialogue.CanLoad, "Open Hub must block dialogue advance and save/load eligibility.");
             Require(hub.centralPanel != null && hub.centralPanel.transform.parent == hub.panel.transform, "Runtime Hub must use a central content panel above the dim overlay.");
             Require(hub.portraitPlaceholder != null && hub.portraitPlaceholder.transform.parent == hub.centralPanel.transform, "Runtime Hub must use its own portrait placeholder frame.");
@@ -80,6 +84,8 @@ public static class CharacterHubSmokeTests
             Require(hub.selectedNameText.text == "LOCKED" && hub.biographyText.text == "Biography: LOCKED" && hub.relationshipText.text == "Relationship: LOCKED", "Locked profile must hide biography and relationship.");
             dialogue.CloseCharacterHub();
             Require(!hub.IsOpen && dialogue.CanAdvanceDialogue, "Hub close must restore normal eligibility.");
+            Require(!dialogue.IsDialogueShellSuppressed && dialogue.dialogueUiRoot.activeSelf,
+                "Character Hub close did not restore the ordinary dialogue shell.");
             VerifyQuickMenuVisibilityOwnership(dialogue, hub, runtimeQuickMenu, quickMenuRoot);
             Require(state.trustMasha == 9 && state.trustArtem == 5 && state.leraInterest == 6, "Hub must not mutate GameState.");
             Require(hub.panel != null && hub.closeButton != null && hub.selectedNameText != null && hub.biographyText != null && hub.relationshipText != null, "Runtime Hub UI references are required.");

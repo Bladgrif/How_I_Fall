@@ -604,6 +604,7 @@ public class VNDialogueController : MonoBehaviour
             return false;
         }
 
+        TrySuppressDialogueShell(characterHubController);
         StopAutoForwardTimer();
         StopSkipTimer();
         return true;
@@ -627,6 +628,11 @@ public class VNDialogueController : MonoBehaviour
 
         if (dialogueShellSuppressionOwner == owner)
         {
+            if (dialogueUiRoot != null && dialogueUiRoot.activeSelf)
+            {
+                dialogueUiRoot.SetActive(false);
+            }
+
             return true;
         }
 
@@ -664,6 +670,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
+        ReleaseDialogueShellSuppression(characterHubController);
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
         gameMenuController?.NotifyCharactersClosed();
@@ -1733,8 +1740,28 @@ public class VNDialogueController : MonoBehaviour
 
         backlogText.text = backlog.BuildRichText();
         StopAutoForwardTimer();
+        ApplyBacklogPlayerFacingPalette();
         SetBacklogOverlayActive(true);
         backlogPanel.SetActive(true);
+    }
+
+    private void ApplyBacklogPlayerFacingPalette()
+    {
+        if (backlogPanel == null)
+        {
+            return;
+        }
+
+        foreach (Image image in backlogPanel.GetComponentsInChildren<Image>(true))
+        {
+            Color color = image.color;
+            if (image.GetComponentInParent<Button>(true) == null
+                && color.r > color.g * 1.4f
+                && color.r > color.b * 1.2f)
+            {
+                image.color = new Color(0.30f, 0.58f, 0.80f, color.a);
+            }
+        }
     }
 
     public void HideBacklog()

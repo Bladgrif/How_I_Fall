@@ -337,11 +337,15 @@ public static class GameMenuSmokeTests
             Require(harness.Dialogue.HandleEscapePressed(), "Stable ordinary dialogue Escape was not handled.");
             Require(harness.Menu.IsOpen && harness.Menu.IsPresentationVisible, "Stable ordinary dialogue Escape did not open Game Menu.");
             Require(!harness.Dialogue.CanAdvanceDialogue, "Game Menu did not block dialogue advance.");
+            Require(harness.Dialogue.IsDialogueShellSuppressed && !harness.Dialogue.dialogueUiRoot.activeSelf,
+                "Game Menu left the ordinary dialogue shell visible beneath its presentation.");
             Require(GetPrivate<bool>(harness.QuickMenu, "hiddenByGameMenuModal"), "Game Menu did not acquire its Quick Menu blocker.");
             Require(!harness.QuickRoot.activeSelf, "Quick Menu remained visible under Game Menu.");
 
             Require(harness.Dialogue.HandleEscapePressed(), "Second Escape was not handled.");
             Require(!harness.Menu.IsOpen, "Second Escape did not close Game Menu.");
+            Require(!harness.Dialogue.IsDialogueShellSuppressed && harness.Dialogue.dialogueUiRoot.activeSelf,
+                "Closing Game Menu did not restore the ordinary dialogue shell it suppressed.");
             Require(GetPrivate<int>(harness.Dialogue, "currentLineIndex") == lineBefore, "Open/Return advanced the dialogue line.");
             Require(!GetPrivate<bool>(harness.QuickMenu, "hiddenByGameMenuModal"), "Closing Game Menu did not remove its own blocker.");
 
@@ -418,6 +422,8 @@ public static class GameMenuSmokeTests
             harness.Menu.View.GetButton(VNGameMenuAction.Preferences).onClick.Invoke();
             Require(preferences.IsOpen && adapter.SharedView.IsVisible, "Game Menu did not open the existing SharedPreferencesView.");
             Require(harness.Menu.IsOpen && !harness.Menu.IsPresentationVisible, "Preferences did not become the top owner over Game Menu.");
+            Require(harness.Dialogue.IsDialogueShellSuppressed && !harness.Dialogue.dialogueUiRoot.activeSelf,
+                "Gameplay Preferences left the ordinary dialogue shell visible beneath its presentation.");
             adapter.SharedView.GetButton("back").onClick.Invoke();
             Require(!preferences.IsOpen && harness.Menu.IsPresentationVisible, "Preferences Back did not return to Game Menu.");
 
@@ -445,11 +451,14 @@ public static class GameMenuSmokeTests
                 && harness.Menu.View.IsSaveLoadContentVisible
                 && harness.Menu.View.IsActionActive(VNGameMenuAction.Save),
                 "Game Menu Save was not mounted into the shared content area with active Save state.");
+            harness.Dialogue.dialogueUiRoot.SetActive(true);
             harness.Menu.View.GetButton(VNGameMenuAction.Load).onClick.Invoke();
             Require(saveLoad.IsOpen && !saveLoad.IsSaveMode
                 && harness.Menu.View.IsActionActive(VNGameMenuAction.Load)
                 && !harness.Menu.View.IsActionActive(VNGameMenuAction.Save),
                 "Save and Load did not switch within the same content area.");
+            Require(!harness.Dialogue.dialogueUiRoot.activeSelf,
+                "Embedded Save/Load did not reassert Game Menu dialogue-shell suppression.");
 
             VNGameMenuAction[] embeddedNavigation =
             {

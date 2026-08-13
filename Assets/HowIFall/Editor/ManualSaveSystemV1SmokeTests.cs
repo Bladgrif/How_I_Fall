@@ -147,6 +147,17 @@ public static class ManualSaveSystemV1SmokeTests
                     || button.name == "Quick Tab Button") == 3,
                 "Shared prefab contains duplicate or missing tab objects.");
 
+            MethodInfo paletteMethod = typeof(ManualSaveLoadPanel).GetMethod(
+                "ApplyPlayerFacingPalette",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Require(paletteMethod != null, "Save/Load player-facing palette method is missing.");
+            paletteMethod.Invoke(panel, null);
+            Transform topAccent = panel.windowRect.GetComponentsInChildren<Transform>(true)
+                .Single(transform => transform.name == "Red Accent");
+            Color accentColor = topAccent.GetComponent<UnityEngine.UI.Image>().color;
+            Require(accentColor.b > accentColor.r && accentColor.g > accentColor.r,
+                "Save/Load top accent must use the shared blue-gray palette.");
+
             for (int i = 0; i < panel.slotViews.Length; i++)
             {
                 panel.slotViews[i].Initialize(panel, i + 1);

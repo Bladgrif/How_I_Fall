@@ -279,11 +279,25 @@ public sealed class MainMenuController : MonoBehaviour
         }
 
         Outline outline = window.GetComponent<Outline>() ?? window.gameObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.72f, 0.10f, 0.16f, 0.88f);
+        outline.effectColor = new Color(0.30f, 0.58f, 0.80f, 0.72f);
         outline.effectDistance = new Vector2(1.5f, -1.5f);
         Shadow shadow = window.GetComponent<Shadow>() ?? window.gameObject.AddComponent<Shadow>();
         shadow.effectColor = new Color(0f, 0f, 0f, 0.72f);
         shadow.effectDistance = new Vector2(5f, -5f);
+
+        foreach (Image accent in window.GetComponentsInChildren<Image>(true))
+        {
+            RectTransform accentRect = accent.rectTransform;
+            if (accent.transform != window
+                && accent.GetComponentInParent<Button>(true) == null
+                && Mathf.Abs(accentRect.sizeDelta.y) <= 12f
+                && accentRect.sizeDelta.x > 40f)
+            {
+                accent.sprite = null;
+                accent.type = Image.Type.Simple;
+                accent.color = new Color(0.30f, 0.58f, 0.80f, 0.92f);
+            }
+        }
 
         TextMeshProUGUI[] textElements = window.GetComponentsInChildren<TextMeshProUGUI>(true);
         TextMeshProUGUI title = textElements
@@ -304,15 +318,16 @@ public sealed class MainMenuController : MonoBehaviour
             }
 
             RectTransform textRect = text.rectTransform;
-            textRect.anchorMin = new Vector2(0.08f, 0.24f);
-            textRect.anchorMax = new Vector2(0.92f, 0.66f);
+            textRect.anchorMin = new Vector2(0.08f, 0.17f);
+            textRect.anchorMax = new Vector2(0.92f, 0.70f);
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
             text.enableWordWrapping = true;
-            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.overflowMode = TextOverflowModes.Overflow;
             text.enableAutoSizing = true;
-            text.fontSizeMin = 20f;
-            text.fontSizeMax = 31f;
+            text.fontSizeMin = 17f;
+            text.fontSizeMax = 25f;
+            text.lineSpacing = 5f;
             text.color = new Color(0.90f, 0.94f, 1f, 0.96f);
         }
 

@@ -48,7 +48,8 @@ public static class HideUiSmokeTests
         VNInputBinding binding = VNInputMap.AllBindings.Single(candidate => candidate.Action == VNInputAction.ToggleInterfaceVisibility);
         Require(binding.BindingDescription == "H", "Clean view must use H.");
         Require(binding.ShowInHelp, "Clean view must be visible in Help.");
-        Require(VNInputMap.BuildHelpText().Contains("H \u2014 \u0421\u043a\u0440\u044b\u0442\u044c / \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441"), "Help must include the H clean-view binding.");
+        string helpText = VNInputMap.BuildHelpText();
+        Require(helpText.Contains("\u0421\u043a\u0440\u044b\u0442\u044c / \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441") && helpText.Contains(">H</b>"), "Help must include the H clean-view row.");
         Require(!VNInputMap.AllBindings.Single(candidate => candidate.Action == VNInputAction.ToggleDebugStatsView).ShowInHelp, "F2 must remain hidden from Help.");
         Require(!VNInputMap.AllBindings.Single(candidate => candidate.Action == VNInputAction.ToggleDebugStatsPanel).ShowInHelp, "F3 must remain hidden from Help.");
     }
@@ -76,6 +77,14 @@ public static class HideUiSmokeTests
             controller.dialogueUiRoot = dialogueRoot;
             controller.choicePanel = choice;
             controller.backlogPanel = backlog;
+            GameObject backlogAccent = new GameObject("Backlog Accent", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            backlogAccent.transform.SetParent(backlog.transform, false);
+            UnityEngine.UI.Image backlogAccentImage = backlogAccent.GetComponent<UnityEngine.UI.Image>();
+            backlogAccentImage.color = new Color(0.72f, 0.10f, 0.16f, 0.65f);
+            typeof(VNDialogueController).GetMethod("ApplyBacklogPlayerFacingPalette", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(controller, null);
+            Require(backlogAccentImage.color.b > backlogAccentImage.color.r,
+                "Backlog decorative accent did not use the shared blue player-facing palette.");
             controller.vnSettingsPanel = settings;
             controller.confirmExitPanel = confirm;
             controller.notificationPanel = notification;

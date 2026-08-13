@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 public static class Phase5SaveLoadQaLauncher
 {
     private const string ScenePath = "Assets/HowIFall/Scenes/VNPrototype.unity";
-    private const string PendingKey = "HowIFall.Phase6PlayerShellQa.Pending";
+    private const string PendingKey = "HowIFall.PlayerUiQa.GameplayVariant";
     private const double TimeoutSeconds = 10d;
     private static double startedAt;
 
@@ -17,8 +17,59 @@ public static class Phase5SaveLoadQaLauncher
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
     }
 
+    private enum GameplayVariant
+    {
+        GameMenu,
+        EmbeddedSave,
+        EmbeddedLoad,
+        Preferences,
+        History,
+        CharacterHub
+    }
+
+    [MenuItem("How I Fall/QA/Player UI/Game Menu")]
+    public static void OpenGameMenuQa()
+    {
+        OpenGameplayQa(GameplayVariant.GameMenu);
+    }
+
+    [MenuItem("How I Fall/QA/Player UI/Character Hub")]
+    public static void OpenCharacterHubQa()
+    {
+        OpenGameplayQa(GameplayVariant.CharacterHub);
+    }
+
     [MenuItem("How I Fall/QA/Phase 6 Player Shell")]
     public static void OpenEmbeddedSaveLoadQa()
+    {
+        OpenGameplayQa(GameplayVariant.EmbeddedSave);
+    }
+
+    [MenuItem("How I Fall/QA/Player UI/Game Menu - Save")]
+    public static void OpenEmbeddedSaveQa()
+    {
+        OpenGameplayQa(GameplayVariant.EmbeddedSave);
+    }
+
+    [MenuItem("How I Fall/QA/Player UI/Game Menu - Load")]
+    public static void OpenEmbeddedLoadQa()
+    {
+        OpenGameplayQa(GameplayVariant.EmbeddedLoad);
+    }
+
+    [MenuItem("How I Fall/QA/Player UI/Gameplay Preferences")]
+    public static void OpenGameplayPreferencesQa()
+    {
+        OpenGameplayQa(GameplayVariant.Preferences);
+    }
+
+    [MenuItem("How I Fall/QA/Player UI/Backlog")]
+    public static void OpenBacklogQa()
+    {
+        OpenGameplayQa(GameplayVariant.History);
+    }
+
+    private static void OpenGameplayQa(GameplayVariant variant)
     {
         if (!EditorApplication.isPlaying && EditorApplication.isPlayingOrWillChangePlaymode)
         {
@@ -26,7 +77,7 @@ public static class Phase5SaveLoadQaLauncher
             return;
         }
 
-        SessionState.SetBool(PendingKey, true);
+        SessionState.SetInt(PendingKey, (int)variant);
         if (!EditorApplication.isPlaying)
         {
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
@@ -44,7 +95,7 @@ public static class Phase5SaveLoadQaLauncher
 
     private static void OnPlayModeStateChanged(PlayModeStateChange state)
     {
-        if (state == PlayModeStateChange.EnteredPlayMode && SessionState.GetBool(PendingKey, false))
+        if (state == PlayModeStateChange.EnteredPlayMode && SessionState.GetInt(PendingKey, -1) >= 0)
         {
             QueueOpen();
         }
@@ -63,7 +114,7 @@ public static class Phase5SaveLoadQaLauncher
 
     private static void TryOpen()
     {
-        if (!EditorApplication.isPlaying || !SessionState.GetBool(PendingKey, false))
+        if (!EditorApplication.isPlaying || SessionState.GetInt(PendingKey, -1) < 0)
         {
             StopWaiting();
             return;
@@ -72,15 +123,46 @@ public static class Phase5SaveLoadQaLauncher
         VNDialogueController dialogue = VNDialogueController.Instance;
         if (dialogue != null && dialogue.IsRuntimeReady && dialogue.GameMenuController != null)
         {
-            if (dialogue.OpenGameMenu())
+            GameplayVariant variant = (GameplayVariant)SessionState.GetInt(PendingKey, (int)GameplayVariant.GameMenu);
+            if (variant == GameplayVariant.CharacterHub && dialogue.OpenCharacterHub())
             {
-                ButtonClick(dialogue.GameMenuController.View, VNGameMenuAction.Save);
-                if (dialogue.manualSaveLoadPanel != null && dialogue.manualSaveLoadPanel.IsOpen)
+                Debug.Log("[PLAYER UI QA] Character Hub is ready.");
+                StopWaiting();
+                return;
+            }
+
+            if (variant != GameplayVariant.CharacterHub && dialogue.OpenGameMenu())
+            {
+                if (variant == GameplayVariant.EmbeddedSave || variant == GameplayVariant.EmbeddedLoad)
                 {
-                    Debug.Log("[PHASE 6 QA] Embedded Game Menu Save state is ready. Inspect Save/Load, Preferences and confirmations; change Game View resolution manually.");
-                    StopWaiting();
-                    return;
+                    ButtonClick(dialogue.GameMenuController.View, variant == GameplayVariant.EmbeddedSave
+                        ? VNGameMenuAction.Save
+                        : VNGameMenuAction.Load);
+                    if (dialogue.manualSaveLoadPanel == null || !dialogue.manualSaveLoadPanel.IsOpen)
+                    {
+                        return;
+                    }
                 }
+                else if (variant == GameplayVariant.Preferences)
+                {
+                    ButtonClick(dialogue.GameMenuController.View, VNGameMenuAction.Preferences);
+                    if (!dialogue.IsPreferencesOpen)
+                    {
+                        return;
+                    }
+                }
+                else if (variant == GameplayVariant.History)
+                {
+                    ButtonClick(dialogue.GameMenuController.View, VNGameMenuAction.History);
+                    if (dialogue.backlogPanel == null || !dialogue.backlogPanel.activeSelf)
+                    {
+                        return;
+                    }
+                }
+
+                Debug.Log("[PLAYER UI QA] Gameplay state is ready: " + variant + ".");
+                StopWaiting();
+                return;
             }
         }
 
@@ -99,6 +181,6 @@ public static class Phase5SaveLoadQaLauncher
     private static void StopWaiting()
     {
         EditorApplication.update -= TryOpen;
-        SessionState.SetBool(PendingKey, false);
+        SessionState.EraseInt(PendingKey);
     }
 }
