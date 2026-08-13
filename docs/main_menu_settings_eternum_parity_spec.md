@@ -1,12 +1,12 @@
 # How I Fall — Eternum Main Menu / Game Menu / Preferences parity spec
 
-**Status:** active parity roadmap; Phases 1-5 are complete. Phase 6 Visual polish and regression closure is the only next step.
+**Status:** parity shell complete; Phases 1-6 are DONE.
 
 **Reference priority:** runtime observations in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md) first, then proven HIF safety improvements; source-only assumptions are secondary.
 
 **Dependency owner:** existing `GameSettings` + `SettingsManager`.
 
-**Last reviewed functional commit:** `1279766130cd14ea584424a4cfaf38039e2438df`.
+**Last reviewed functional commit:** `952093db8f268e2cdcd6849b49d6376264c122a9`.
 
 ## 1. Target principles
 
@@ -448,11 +448,13 @@ Global rules:
 
 ### Phase 6 — Visual polish and regression closure
 
-- **Goal:** original HIF skin, consistent confirmations, focus/audio/transition polish.
-- **Likely files:** UI prefabs/assets/styles and QA scripts; no backend redesign.
-- **Risk:** MEDIUM.
-- **Model/session:** Codex App, GPT-5.6 Terra or Sol, High, new session selected before start.
-- **Manual QA:** mandatory four-resolution full matrix.
+- **Status:** **DONE** at `952093db8f268e2cdcd6849b49d6376264c122a9`.
+- **Implementation:** one HIF navy/red player shell now covers Main Menu, shared Preferences, Quick Menu, Game Menu, embedded Save/Load and shared confirmations. Hover/pressed/selected/disabled states are consistent. Shared destructive confirmations use a red primary action, navy Cancel action, centered dimmed treatment and Cancel as the default keyboard focus. Existing safe panel fade/confirmation transitions are preserved; no audio behavior was added.
+- **Embedded Save/Load:** it remains a Game Menu content section. The persistent left navigation keeps Save, Load, Preferences, Main Menu, Quit and Return available; confirmation and operation-in-progress states block underlying navigation. Replay restrictions, confirmation-first Esc behavior and standalone Main Menu Load are unchanged.
+- **Safety:** `SaveManager`/Save backend and `SaveData` v3 are unchanged. Phase 6 did not change scenes, prefabs or ProjectSettings; authored background art and established navigation semantics remain intact.
+- **Regression:** focused Game Menu/layout regression, relevant UI smoke tests, `HowIFallCiSmokeTests.RunAll`, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`.
+- **QA launcher:** `How I Fall/QA/Phase 6 Player Shell` opens the embedded Game Menu Save state in Play Mode.
+- **Manual QA:** PASS at 1280×720, 1920×1080, 2560×1440 and 3840×2160.
 - **Dependencies:** Phases 1–5.
 
 Each phase must leave the game shippable and truthful; hidden future controls are preferable to fake placeholders.
@@ -529,4 +531,4 @@ Parity shell is DONE only when:
 
 ## 16. Roadmap continuation
 
-Proceed with **Phase 5 - Save/Load shell integration**. Keep the existing Save backend unchanged and integrate presentation/routing only through the approved Game Menu shell.
+Phase 6 is closed. Choose any future feature separately; keep the existing Save backend unchanged and do not broaden visual polish into new gameplay or settings work.
