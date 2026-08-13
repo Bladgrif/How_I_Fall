@@ -23,6 +23,7 @@ public sealed class VNGameMenuController : MonoBehaviour
 
     private VNDialogueController dialogueController;
     private VNGameMenuView view;
+    private readonly VNGameMenuSaveLoadAdapter saveLoadAdapter = new VNGameMenuSaveLoadAdapter();
     private ChildContext childContext;
     private LocalConfirmationAction localConfirmationAction;
 
@@ -132,7 +133,7 @@ public sealed class VNGameMenuController : MonoBehaviour
     {
         dialogueController = controller;
         view = runtimeView;
-        Bind(VNGameMenuAction.Return, () => Close());
+        Bind(VNGameMenuAction.Return, HandleReturn);
         Bind(VNGameMenuAction.Save, OpenSave);
         Bind(VNGameMenuAction.Load, OpenLoad);
         Bind(VNGameMenuAction.Preferences, OpenPreferences);
@@ -165,7 +166,18 @@ public sealed class VNGameMenuController : MonoBehaviour
         ManualSaveLoadPanel panel = dialogueController != null ? dialogueController.manualSaveLoadPanel : null;
         if (panel == null || !panel.IsOpen)
         {
-            RestoreFromChild(ChildContext.SaveLoad);
+            CloseSaveLoadSection();
+            return;
+        }
+
+        view.SetSaveLoadSection(panel.IsSaveMode ? VNGameMenuAction.Save : VNGameMenuAction.Load, panel.IsConfirmationOpen);
+    }
+
+    private void LateUpdate()
+    {
+        if (IsOpen && childContext == ChildContext.SaveLoad)
+        {
+            saveLoadAdapter.RefreshLayout();
         }
     }
 
@@ -223,9 +235,25 @@ public sealed class VNGameMenuController : MonoBehaviour
     private void OpenSaveLoad(bool save)
     {
         ManualSaveLoadPanel panel = dialogueController != null ? dialogueController.manualSaveLoadPanel : null;
-        if (panel == null || !HideForChild(ChildContext.SaveLoad))
+        if (panel == null || view == null || view.SaveLoadContentHost == null)
         {
             return;
+        }
+
+        if (childContext != ChildContext.None && childContext != ChildContext.SaveLoad)
+        {
+            return;
+        }
+
+        if (childContext == ChildContext.None)
+        {
+            if (!IsPresentationVisible || IsLocalConfirmationOpen || !saveLoadAdapter.Mount(panel, view.SaveLoadContentHost))
+            {
+                return;
+            }
+
+            childContext = ChildContext.SaveLoad;
+            view.SetSaveLoadSection(save ? VNGameMenuAction.Save : VNGameMenuAction.Load);
         }
 
         if (save)
@@ -239,8 +267,43 @@ public sealed class VNGameMenuController : MonoBehaviour
 
         if (!panel.IsOpen)
         {
-            RestoreFromChild(ChildContext.SaveLoad);
+            CloseSaveLoadSection();
+            return;
         }
+
+        view.SetSaveLoadSection(save ? VNGameMenuAction.Save : VNGameMenuAction.Load, panel.IsConfirmationOpen);
+    }
+
+    private void HandleReturn()
+    {
+        if (childContext == ChildContext.SaveLoad)
+        {
+            ManualSaveLoadPanel panel = saveLoadAdapter.Panel;
+            if (panel != null && panel.IsOpen)
+            {
+                panel.HandleEscape();
+            }
+            else
+            {
+                CloseSaveLoadSection();
+            }
+
+            return;
+        }
+
+        Close();
+    }
+
+    private void CloseSaveLoadSection()
+    {
+        if (childContext != ChildContext.SaveLoad)
+        {
+            return;
+        }
+
+        saveLoadAdapter.Unmount();
+        childContext = ChildContext.None;
+        view?.SetSaveLoadSection(null);
     }
 
     private void OpenMainMenuConfirmation()
@@ -331,6 +394,11 @@ public sealed class VNGameMenuController : MonoBehaviour
 
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
         view.SetVisible(true);
+    }
+
+    private void OnDestroy()
+    {
+        saveLoadAdapter.Unmount();
     }
 
     private void Bind(VNGameMenuAction action, UnityEngine.Events.UnityAction callback)

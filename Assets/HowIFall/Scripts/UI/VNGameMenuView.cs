@@ -25,7 +25,9 @@ public sealed class VNGameMenuView : MonoBehaviour
     private static readonly Color AccentColor = new Color(0.72f, 0.10f, 0.16f, 1f);
 
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
+    private readonly Dictionary<VNGameMenuAction, GameObject> activeMarkers = new Dictionary<VNGameMenuAction, GameObject>();
     private GameObject root;
+    private RectTransform saveLoadContentHost;
     private GameObject confirmationRoot;
     private TextMeshProUGUI confirmationText;
     private Button confirmationYesButton;
@@ -35,6 +37,8 @@ public sealed class VNGameMenuView : MonoBehaviour
     public bool IsConfirmationVisible => confirmationRoot != null && confirmationRoot.activeSelf;
     public Button ConfirmationYesButton => confirmationYesButton;
     public Button ConfirmationNoButton => confirmationNoButton;
+    public RectTransform SaveLoadContentHost => saveLoadContentHost;
+    public bool IsSaveLoadContentVisible => saveLoadContentHost != null && saveLoadContentHost.gameObject.activeSelf;
 
     public static VNGameMenuView Create(Transform contextTransform)
     {
@@ -70,6 +74,11 @@ public sealed class VNGameMenuView : MonoBehaviour
         return button != null && button.gameObject.activeSelf;
     }
 
+    public bool IsActionActive(VNGameMenuAction action)
+    {
+        return activeMarkers.TryGetValue(action, out GameObject marker) && marker.activeSelf;
+    }
+
     public void SetReplayMode(bool replay)
     {
         SetActionVisible(VNGameMenuAction.Save, !replay);
@@ -95,6 +104,28 @@ public sealed class VNGameMenuView : MonoBehaviour
         else
         {
             HideConfirmation();
+        }
+    }
+
+    public void SetSaveLoadSection(VNGameMenuAction? activeAction, bool confirmationOpen = false)
+    {
+        bool hasSection = activeAction == VNGameMenuAction.Save || activeAction == VNGameMenuAction.Load;
+        if (saveLoadContentHost != null)
+        {
+            saveLoadContentHost.gameObject.SetActive(hasSection);
+        }
+
+        foreach (KeyValuePair<VNGameMenuAction, Button> pair in buttons)
+        {
+            bool isActive = hasSection && pair.Key == activeAction.Value;
+            if (activeMarkers.TryGetValue(pair.Key, out GameObject marker))
+            {
+                marker.SetActive(isActive);
+            }
+
+            pair.Value.interactable = !hasSection
+                || (!confirmationOpen && (pair.Key == VNGameMenuAction.Save || pair.Key == VNGameMenuAction.Load))
+                || pair.Key == VNGameMenuAction.Return;
         }
     }
 
@@ -140,8 +171,21 @@ public sealed class VNGameMenuView : MonoBehaviour
 
         CreateHeader(window.transform);
         CreateNavigation(window.transform);
+        CreateSaveLoadContentHost(window.transform);
         CreateConfirmation(root.transform);
         root.SetActive(false);
+    }
+
+    private void CreateSaveLoadContentHost(Transform window)
+    {
+        GameObject host = CreateUiObject(window, "Save Load Content Host");
+        saveLoadContentHost = host.GetComponent<RectTransform>();
+        saveLoadContentHost.anchorMin = new Vector2(0.31f, 0.02f);
+        saveLoadContentHost.anchorMax = new Vector2(1f, 0.98f);
+        saveLoadContentHost.offsetMin = Vector2.zero;
+        saveLoadContentHost.offsetMax = Vector2.zero;
+        host.AddComponent<RectMask2D>();
+        host.SetActive(false);
     }
 
     private void CreateHeader(Transform window)
@@ -264,7 +308,15 @@ public sealed class VNGameMenuView : MonoBehaviour
 
         TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 19f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft, Color.white);
         Stretch(text.rectTransform, 18f, 18f, 0f, 0f);
+        GameObject activeMarker = CreateSurface(buttonObject.transform, "Active Marker", AccentColor);
+        RectTransform markerRect = activeMarker.GetComponent<RectTransform>();
+        markerRect.anchorMin = Vector2.zero;
+        markerRect.anchorMax = new Vector2(0f, 1f);
+        markerRect.pivot = new Vector2(0f, 0.5f);
+        markerRect.sizeDelta = new Vector2(5f, 0f);
+        activeMarker.SetActive(false);
         buttons[action] = button;
+        activeMarkers[action] = activeMarker;
     }
 
     private static Button CreateConfirmationButton(Transform parent, string label, Vector2 anchor)
