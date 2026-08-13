@@ -1,12 +1,12 @@
 # How I Fall — Eternum Main Menu / Game Menu / Preferences parity spec
 
-**Status:** active parity roadmap; Phases 1-4 are complete. Phase 5 Save/Load shell integration is the only next step.
+**Status:** active parity roadmap; Phases 1-5 are complete. Phase 6 Visual polish and regression closure is the only next step.
 
 **Reference priority:** runtime observations in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md) first, then proven HIF safety improvements; source-only assumptions are secondary.
 
 **Dependency owner:** existing `GameSettings` + `SettingsManager`.
 
-**Last reviewed functional commit:** `91f1f8f5bd1b70e7c29663b35b6f2d44c9733b9d`.
+**Last reviewed functional commit:** `1279766130cd14ea584424a4cfaf38039e2438df`.
 
 ## 1. Target principles
 
@@ -437,12 +437,14 @@ Global rules:
 
 ### Phase 5 — Save/Load shell integration
 
-- **Goal:** consistent Return/back/modal destinations under Game Menu without backend rewrite.
-- **Likely files:** `ManualSaveLoadPanel` presentation/routing adapter and tests.
-- **Risk:** MEDIUM/HIGH.
-- **Model/session:** Codex App, GPT-5.6 Sol, High, new session.
-- **Manual QA:** existing graphical E2E plus navigation stack.
-- **Dependency:** Phase 3.
+- **Status:** **DONE** at `1279766130cd14ea584424a4cfaf38039e2438df`; manual QA PASS.
+- The existing `ManualSaveLoadPanel` is embedded through `VNGameMenuSaveLoadAdapter`; no second Save/Load implementation or backend ownership was added.
+- Save and Load share one Game Menu content area while the compact left navigation remains visible and marks the active section.
+- The existing fixed six-slot grid remains 3 columns by 2 rows. Uniform aspect-fit presentation preserves preview proportions and fits the content bounds at 1280×720, 1920×1080, 2560×1440 and 3840×2160; responsive smoke tests cover all four sizes.
+- Standalone Main Menu Load remains unchanged. Detaching restores the panel's original parent/layout and its standalone Back control.
+- Esc/Return closes exactly one layer: confirmation → Save/Load → Game Menu → gameplay.
+- Focused regression, `HowIFallCiSmokeTests.RunAll`, ProjectValidator and scene validation PASS; `missingScripts=0`, `invalidEvents=0`.
+- `SaveManager`, the Save backend, `SaveData` v3, `MainMenu.unity` and `VNPrototype.unity` are unchanged.
 
 ### Phase 6 — Visual polish and regression closure
 
