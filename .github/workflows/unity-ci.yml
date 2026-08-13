@@ -16,6 +16,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  unity-tests:
+    name: Unity Test Framework
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          lfs: true
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: unity-tests-Library-${{ runner.os }}-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            unity-tests-Library-${{ runner.os }}-
+
+      - name: Run Unity Test Framework
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: auto
+          testMode: all
+          artifactsPath: unity-test-artifacts
+
+      - name: Upload Unity Test Framework results and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-test-results-${{ github.run_number }}
+          path: unity-test-artifacts
+          if-no-files-found: warn
+          retention-days: 7
+
   smoke-tests:
     name: Unity smoke tests
     runs-on: ubuntu-latest
