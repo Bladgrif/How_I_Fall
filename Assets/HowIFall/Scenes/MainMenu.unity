@@ -1137,7 +1137,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &88392628
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5043,7 +5043,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!225 &457039908
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -25126,10 +25126,10 @@ MonoBehaviour:
   backgroundTransform: {fileID: 151126908}
   backgroundOverlay: {fileID: 0}
   fadeDuration: 1.2
-  backgroundZoomAmount: 0.025
-  backgroundMoveAmount: 10
-  backgroundMotionSpeed: 0.12
-  overlayPulseSpeed: 0.45
+  backgroundZoomAmount: 0
+  backgroundMoveAmount: 0
+  backgroundMotionSpeed: 0
+  overlayPulseSpeed: 0
   overlayAlphaBase: 0.25
   overlayAlphaAmount: 0.04
 --- !u!1 &2109763165

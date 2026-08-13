@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -9,6 +9,7 @@ using System.Linq;
 public sealed class MainMenuController : MonoBehaviour
 {
     private const float NotificationDurationSeconds = 2f;
+    private const string NavigationPanelName = "Main Menu Navigation Panel";
     private static readonly string[] TargetActionRoutes =
     {
         nameof(ContinueFromLatestSave),
@@ -106,39 +107,9 @@ public sealed class MainMenuController : MonoBehaviour
             return false;
         }
 
-        List<Transform> currentRows = orderedRows.OrderBy(row => row.GetSiblingIndex()).ToList();
-        List<RectLayoutSnapshot> visualSlots = currentRows
-            .Select(row => new RectLayoutSnapshot(row as RectTransform))
-            .ToList();
         for (int index = 0; index < orderedRows.Length; index++)
         {
-            visualSlots[index].Apply(orderedRows[index] as RectTransform);
             SetButtonLabel(orderedButtons[index], TargetActionLabels[index]);
-        }
-
-        List<Transform> separators = new List<Transform>();
-        for (int index = 0; index < menuContent.childCount; index++)
-        {
-            Transform child = menuContent.GetChild(index);
-            if (!orderedRows.Contains(child))
-            {
-                separators.Add(child);
-            }
-        }
-
-        var finalHierarchy = new List<Transform>();
-        for (int index = 0; index < orderedRows.Length; index++)
-        {
-            finalHierarchy.Add(orderedRows[index]);
-            if (index < orderedRows.Length - 1 && index < separators.Count)
-            {
-                finalHierarchy.Add(separators[index]);
-            }
-        }
-
-        foreach (Transform child in finalHierarchy)
-        {
-            child.SetSiblingIndex(finalHierarchy.IndexOf(child));
         }
 
         Button galleryEntry = FindPersistentButton(this, nameof(OpenGallery));
@@ -149,13 +120,215 @@ public sealed class MainMenuController : MonoBehaviour
 
         playerFacingActionButtons.Clear();
         playerFacingActionButtons.AddRange(orderedButtons);
-        foreach (Button button in playerFacingActionButtons)
+        HideMainMenuLogo();
+        ApplyMainNavigationLayout(orderedRows);
+        ApplyActionPresentation(continueButton != null && continueButton.interactable);
+        HideLegacyPrompt();
+        ApplyModalPresentation();
+        return true;
+    }
+
+    private void ApplyMainNavigationLayout(Transform[] orderedRows)
+    {
+        float[] verticalPositions = { 176f, 102f, 28f, -66f, -136f, -206f, -306f };
+        for (int index = 0; index < orderedRows.Length; index++)
         {
-            ApplyMainMenuButtonPresentation(button);
+            RectTransform row = orderedRows[index] as RectTransform;
+            if (row == null)
+            {
+                continue;
+            }
+
+            row.anchorMin = row.anchorMax = new Vector2(0f, 0.5f);
+            row.pivot = new Vector2(0f, 0.5f);
+            row.anchoredPosition = new Vector2(200f, verticalPositions[index]);
+            row.sizeDelta = new Vector2(540f, 64f);
+
+            RectTransform buttonRect = playerFacingActionButtons[index].transform as RectTransform;
+            if (buttonRect != null)
+            {
+                buttonRect.anchorMin = Vector2.zero;
+                buttonRect.anchorMax = Vector2.one;
+                buttonRect.offsetMin = Vector2.zero;
+                buttonRect.offsetMax = Vector2.zero;
+            }
         }
 
-        ApplyExitConfirmationPresentation();
-        return true;
+        Transform menuContent = orderedRows[0].parent;
+        Image[] separators = menuContent.GetComponentsInChildren<Image>(true)
+            .Where(image => image.transform.parent == menuContent && image.gameObject.name.Contains("Separator"))
+            .ToArray();
+        foreach (Image separator in separators)
+        {
+            separator.gameObject.SetActive(false);
+        }
+
+        ApplyNavigationPanel(menuContent);
+    }
+
+    private static void ApplyNavigationPanel(Transform menuContent)
+    {
+        RectTransform panel = menuContent.Find(NavigationPanelName) as RectTransform;
+        if (panel == null)
+        {
+            GameObject panelObject = new GameObject(
+                NavigationPanelName,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Outline),
+                typeof(Shadow));
+            panel = panelObject.GetComponent<RectTransform>();
+            panel.SetParent(menuContent, false);
+        }
+
+        panel.SetAsFirstSibling();
+        panel.anchorMin = panel.anchorMax = new Vector2(0f, 0.5f);
+        panel.pivot = new Vector2(0f, 0.5f);
+        panel.anchoredPosition = new Vector2(176f, -64f);
+        panel.sizeDelta = new Vector2(588f, 660f);
+
+        Image panelImage = panel.GetComponent<Image>();
+        panelImage.sprite = null;
+        panelImage.type = Image.Type.Simple;
+        panelImage.color = Color.clear;
+        panelImage.raycastTarget = false;
+
+        Outline outline = panel.GetComponent<Outline>();
+        outline.enabled = false;
+
+        Shadow shadow = panel.GetComponent<Shadow>();
+        shadow.enabled = false;
+    }
+
+    private void ApplyActionPresentation(bool hasCompatibleSave)
+    {
+        for (int index = 0; index < playerFacingActionButtons.Count; index++)
+        {
+            Button button = playerFacingActionButtons[index];
+            MainMenuButtonVisualRole role = index == 6
+                ? MainMenuButtonVisualRole.Destructive
+                : (hasCompatibleSave ? index == 0 : index == 1)
+                    ? MainMenuButtonVisualRole.Primary
+                    : MainMenuButtonVisualRole.Secondary;
+            ApplyMainMenuButtonPresentation(button, role);
+        }
+    }
+
+    private void HideMainMenuLogo()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
+        Transform logo = canvas != null
+            ? canvas.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(transform => transform.name == "Game Logo")
+            : null;
+        if (logo != null)
+        {
+            logo.gameObject.SetActive(false);
+        }
+    }
+
+    private void HideLegacyPrompt()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
+        Transform legacyPrompt = canvas != null
+            ? canvas.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(transform => transform.name == "Press Any Button")
+            : null;
+        if (legacyPrompt != null)
+        {
+            legacyPrompt.gameObject.SetActive(false);
+        }
+    }
+
+    private void ApplyModalPresentation()
+    {
+        RestyleModalPanel(helpPanel, helpText, false);
+        RestyleModalPanel(aboutPanel, null, false);
+        RestyleModalPanel(exitConfirmPanel, null, true);
+    }
+
+    private static void RestyleModalPanel(GameObject panel, TextMeshProUGUI knownBodyText, bool destructive)
+    {
+        if (panel == null)
+        {
+            return;
+        }
+
+        Image dimmer = panel.GetComponentsInChildren<Image>(true)
+            .FirstOrDefault(image => image.transform.parent == panel.transform);
+        if (dimmer != null)
+        {
+            dimmer.color = new Color(0.004f, 0.008f, 0.018f, 0.78f);
+            dimmer.raycastTarget = true;
+        }
+
+        RectTransform window = panel.GetComponentsInChildren<RectTransform>(true)
+            .FirstOrDefault(rect => rect.transform.parent == panel.transform && rect.gameObject.name.Contains("Window"));
+        if (window == null)
+        {
+            return;
+        }
+
+        Image windowImage = window.GetComponent<Image>();
+        if (windowImage != null)
+        {
+            windowImage.sprite = null;
+            windowImage.type = Image.Type.Simple;
+            windowImage.color = new Color(0.018f, 0.055f, 0.10f, 0.97f);
+        }
+
+        Outline outline = window.GetComponent<Outline>() ?? window.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.72f, 0.10f, 0.16f, 0.88f);
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
+        Shadow shadow = window.GetComponent<Shadow>() ?? window.gameObject.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.72f);
+        shadow.effectDistance = new Vector2(5f, -5f);
+
+        TextMeshProUGUI[] textElements = window.GetComponentsInChildren<TextMeshProUGUI>(true);
+        TextMeshProUGUI title = textElements
+            .Where(text => text.GetComponentInParent<Button>(true) == null)
+            .OrderByDescending(text => text.fontSize)
+            .FirstOrDefault();
+        if (title != null)
+        {
+            title.color = Color.white;
+            title.enableWordWrapping = true;
+        }
+
+        foreach (TextMeshProUGUI text in textElements)
+        {
+            if (text == title || text.GetComponentInParent<Button>(true) != null)
+            {
+                continue;
+            }
+
+            RectTransform textRect = text.rectTransform;
+            textRect.anchorMin = new Vector2(0.08f, 0.24f);
+            textRect.anchorMax = new Vector2(0.92f, 0.66f);
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            text.enableWordWrapping = true;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            text.enableAutoSizing = true;
+            text.fontSizeMin = 20f;
+            text.fontSizeMax = 31f;
+            text.color = new Color(0.90f, 0.94f, 1f, 0.96f);
+        }
+
+        if (knownBodyText != null)
+        {
+            knownBodyText.enableWordWrapping = true;
+            knownBodyText.overflowMode = TextOverflowModes.Ellipsis;
+        }
+
+        foreach (Button button in window.GetComponentsInChildren<Button>(true))
+        {
+            bool isDestructiveButton = destructive
+                && Enumerable.Range(0, button.onClick.GetPersistentEventCount())
+                    .Any(index => button.onClick.GetPersistentMethodName(index) == nameof(ConfirmExit));
+            ApplyModalButtonPresentation(button, isDestructiveButton);
+        }
     }
 
     private Button FindPersistentButton(Object target, string methodName)
@@ -206,38 +379,6 @@ public sealed class MainMenuController : MonoBehaviour
         if (legacyLabel != null)
         {
             legacyLabel.text = value;
-        }
-    }
-
-    private readonly struct RectLayoutSnapshot
-    {
-        private readonly Vector2 anchorMin;
-        private readonly Vector2 anchorMax;
-        private readonly Vector2 anchoredPosition;
-        private readonly Vector2 sizeDelta;
-        private readonly Vector2 pivot;
-
-        public RectLayoutSnapshot(RectTransform source)
-        {
-            anchorMin = source != null ? source.anchorMin : Vector2.zero;
-            anchorMax = source != null ? source.anchorMax : Vector2.zero;
-            anchoredPosition = source != null ? source.anchoredPosition : Vector2.zero;
-            sizeDelta = source != null ? source.sizeDelta : Vector2.zero;
-            pivot = source != null ? source.pivot : Vector2.zero;
-        }
-
-        public void Apply(RectTransform target)
-        {
-            if (target == null)
-            {
-                return;
-            }
-
-            target.anchorMin = anchorMin;
-            target.anchorMax = anchorMax;
-            target.anchoredPosition = anchoredPosition;
-            target.sizeDelta = sizeDelta;
-            target.pivot = pivot;
         }
     }
 
@@ -292,7 +433,9 @@ public sealed class MainMenuController : MonoBehaviour
         }
 
         SaveManager saveManager = SaveManager.EnsureInstance(dialogueRegistry);
-        continueButton.interactable = saveManager.HasAnyValidSave();
+        bool hasCompatibleSave = saveManager.HasAnyValidSave();
+        continueButton.interactable = hasCompatibleSave;
+        ApplyActionPresentation(hasCompatibleSave);
     }
 
     public void OpenSettings()
@@ -409,7 +552,7 @@ public sealed class MainMenuController : MonoBehaviour
         notificationCoroutine = null;
     }
 
-    private static void ApplyMainMenuButtonPresentation(Button button)
+    private static void ApplyMainMenuButtonPresentation(Button button, MainMenuButtonVisualRole role)
     {
         if (button == null)
         {
@@ -421,44 +564,103 @@ public sealed class MainMenuController : MonoBehaviour
             button.targetGraphic = image;
         }
 
-        ColorBlock colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1f, 0.76f, 0.80f, 1f);
-        colors.pressedColor = new Color(0.76f, 0.30f, 0.36f, 1f);
-        colors.selectedColor = new Color(1f, 0.70f, 0.76f, 1f);
-        colors.disabledColor = new Color(0.45f, 0.48f, 0.54f, 0.68f);
-        colors.colorMultiplier = 1f;
-        button.colors = colors;
+        if (button.targetGraphic is Image targetImage)
+        {
+            targetImage.sprite = null;
+            targetImage.type = Image.Type.Simple;
+        }
+
+        ApplyMainMenuButtonTypography(button);
+        button.transition = Selectable.Transition.None;
 
         Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.24f);
+        outline.effectColor = role == MainMenuButtonVisualRole.Primary
+            ? new Color(0.62f, 0.76f, 0.88f, 0.72f)
+            : new Color(0.38f, 0.57f, 0.76f, 0.34f);
         outline.effectDistance = new Vector2(1f, -1f);
+
+        MainMenuButtonHoverEffect hoverEffect = button.GetComponent<MainMenuButtonHoverEffect>();
+        if (hoverEffect != null)
+        {
+            hoverEffect.Configure(role);
+        }
     }
 
-    private void ApplyExitConfirmationPresentation()
+    private static void ApplyMainMenuButtonTypography(Button button)
     {
-        if (exitConfirmPanel == null)
+        TextMeshProUGUI tmpLabel = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (tmpLabel != null)
+        {
+            tmpLabel.alignment = TextAlignmentOptions.MidlineLeft;
+            tmpLabel.fontSize = 24f;
+            tmpLabel.enableAutoSizing = false;
+            ApplyLabelPadding(tmpLabel.rectTransform);
+            return;
+        }
+
+        Text label = button.GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+            label.alignment = TextAnchor.MiddleLeft;
+            label.fontSize = 24;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            ApplyLabelPadding(label.rectTransform);
+        }
+    }
+
+    private static void ApplyLabelPadding(RectTransform labelRect)
+    {
+        if (labelRect == null)
         {
             return;
         }
 
-        Image dim = exitConfirmPanel.GetComponent<Image>();
-        if (dim != null)
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = new Vector2(24f, 0f);
+        labelRect.offsetMax = new Vector2(-24f, 0f);
+    }
+
+    private static void ApplyModalButtonPresentation(Button button, bool destructive)
+    {
+        if (button == null)
         {
-            dim.color = new Color(0.004f, 0.007f, 0.016f, 0.82f);
-            dim.raycastTarget = true;
+            return;
         }
 
-        foreach (Button button in exitConfirmPanel.GetComponentsInChildren<Button>(true))
+        if (button.targetGraphic == null && button.TryGetComponent(out Image image))
         {
-            bool destructive = HasPersistentRoute(button, nameof(ConfirmExit));
-            ApplyMainMenuButtonPresentation(button);
-            if (button.targetGraphic is Image image)
-            {
-                image.color = destructive
-                    ? new Color(0.34f, 0.075f, 0.105f, 1f)
-                    : new Color(0.075f, 0.11f, 0.17f, 1f);
-            }
+            button.targetGraphic = image;
+        }
+
+        button.transition = Selectable.Transition.ColorTint;
+        ColorBlock colors = ColorBlock.defaultColorBlock;
+        colors.normalColor = destructive
+            ? new Color(0.43f, 0.07f, 0.11f, 1f)
+            : new Color(0.08f, 0.14f, 0.22f, 1f);
+        colors.highlightedColor = destructive
+            ? new Color(0.67f, 0.10f, 0.16f, 1f)
+            : new Color(0.13f, 0.25f, 0.37f, 1f);
+        colors.pressedColor = destructive
+            ? new Color(0.28f, 0.03f, 0.06f, 1f)
+            : new Color(0.035f, 0.08f, 0.14f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.18f, 0.21f, 0.26f, 0.72f);
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+
+        Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
+        outline.effectColor = destructive
+            ? new Color(0.96f, 0.20f, 0.27f, 0.58f)
+            : new Color(0.42f, 0.60f, 0.80f, 0.42f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        if (button.targetGraphic is Image targetImage)
+        {
+            targetImage.sprite = null;
+            targetImage.type = Image.Type.Simple;
+            targetImage.color = colors.normalColor;
         }
     }
 
