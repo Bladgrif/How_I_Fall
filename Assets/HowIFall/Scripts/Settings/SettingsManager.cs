@@ -45,8 +45,10 @@ public class SettingsManager : MonoBehaviour
     private const string AutoForwardKey = "hif_auto_forward";
     private const string AutoSaveKey = "hif_auto_save";
     private const string ShowHintsKey = "hif_show_hints";
+    private const string ShowQuickMenuKey = "hif_show_quick_menu";
     private const string FullscreenKey = "hif_fullscreen";
 
+    public static event System.Action QuickMenuVisibilityChanged;
     public static event System.Action DialoguePresentationChanged;
 
     private void Awake()
@@ -100,9 +102,11 @@ public class SettingsManager : MonoBehaviour
         settings.autoForward = PlayerPrefs.GetInt(AutoForwardKey, 0) == 1;
         settings.autoSave = PlayerPrefs.GetInt(AutoSaveKey, 1) == 1;
         settings.showHints = PlayerPrefs.GetInt(ShowHintsKey, 1) == 1;
+        settings.showQuickMenu = PlayerPrefs.GetInt(ShowQuickMenuKey, 1) == 1;
         settings.fullscreen = IsFullscreenScreenMode(settings.screenMode);
         ApplySettings();
         AudioManager.Instance?.ApplySettingsVolume();
+        QuickMenuVisibilityChanged?.Invoke();
         DialoguePresentationChanged?.Invoke();
     }
 
@@ -138,6 +142,7 @@ public class SettingsManager : MonoBehaviour
         PlayerPrefs.SetInt(AutoForwardKey, settings.autoForward ? 1 : 0);
         PlayerPrefs.SetInt(AutoSaveKey, settings.autoSave ? 1 : 0);
         PlayerPrefs.SetInt(ShowHintsKey, settings.showHints ? 1 : 0);
+        PlayerPrefs.SetInt(ShowQuickMenuKey, settings.showQuickMenu ? 1 : 0);
         PlayerPrefs.SetInt(FullscreenKey, settings.fullscreen ? 1 : 0);
         PlayerPrefs.Save();
     }
@@ -148,6 +153,7 @@ public class SettingsManager : MonoBehaviour
         ApplySettings();
         SaveSettings();
         AudioManager.Instance?.ApplySettingsVolume();
+        QuickMenuVisibilityChanged?.Invoke();
         DialoguePresentationChanged?.Invoke();
     }
 
@@ -324,6 +330,13 @@ public class SettingsManager : MonoBehaviour
     {
         settings.showHints = value;
         SaveSettings();
+    }
+
+    public void SetShowQuickMenu(bool value)
+    {
+        settings.showQuickMenu = value;
+        SaveSettings();
+        QuickMenuVisibilityChanged?.Invoke();
     }
 
     public void SetFullscreen(bool value)

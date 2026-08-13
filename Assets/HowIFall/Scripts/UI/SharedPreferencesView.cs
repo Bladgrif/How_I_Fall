@@ -25,6 +25,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     public const string AutosaveId = "autosave";
     public const string TextSizeId = "text_size";
     public const string TextboxOpacityId = "textbox_opacity";
+    public const string ShowQuickMenuId = "show_quick_menu";
 
     private static readonly string[] ControlIds =
     {
@@ -32,7 +33,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         MuteAllId, MasterVolumeId, MusicVolumeId, SfxVolumeId,
         TextSpeedId, AutoForwardDelayId,
         SkipUnseenId, SkipAfterChoicesId, SkipSpeedId, AutosaveId,
-        TextSizeId, TextboxOpacityId
+        TextSizeId, TextboxOpacityId, ShowQuickMenuId
     };
 
     private static readonly Color WindowColor = new Color(0.018f, 0.035f, 0.075f, 0.985f);
@@ -117,6 +118,8 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         toggles[SkipAfterChoicesId].onValueChanged.AddListener(value => SetToggle(SkipAfterChoicesId, value));
         toggles[AutosaveId].onValueChanged.AddListener(controller.SetAutoSave);
         toggles[AutosaveId].onValueChanged.AddListener(value => SetToggle(AutosaveId, value));
+        toggles[ShowQuickMenuId].onValueChanged.AddListener(controller.SetShowQuickMenu);
+        toggles[ShowQuickMenuId].onValueChanged.AddListener(value => SetToggle(ShowQuickMenuId, value));
 
         sliders[MasterVolumeId].onValueChanged.AddListener(controller.SetMasterVolume);
         sliders[MasterVolumeId].onValueChanged.AddListener(value => SetSliderValueText(MasterVolumeId, PreferencesFormatting.Percent(value)));
@@ -161,6 +164,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         SetToggle(SkipUnseenId, settings.skipMode == "Всё", settings.skipMode == "Всё" ? "Вкл. — можно всё" : "Выкл. — только виденное");
         SetToggle(SkipAfterChoicesId, settings.skipAfterChoices);
         SetToggle(AutosaveId, settings.autoSave);
+        SetToggle(ShowQuickMenuId, settings.showQuickMenu);
 
         SetSlider(MasterVolumeId, settings.masterVolume, PreferencesFormatting.Percent(settings.masterVolume));
         SetSlider(MusicVolumeId, settings.musicVolume, PreferencesFormatting.Percent(settings.musicVolume));
@@ -308,6 +312,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         AddSection(content.transform, "ДОСТУПНОСТЬ И ИНТЕРФЕЙС");
         AddSliderRow(content.transform, TextSizeId, "Размер текста диалога", 0.85f, 1.25f);
         AddSliderRow(content.transform, TextboxOpacityId, "Непрозрачность текстового окна", 0f, 1f);
+        AddToggleRow(content.transform, ShowQuickMenuId, "Показывать быстрое меню");
     }
 
     private void AddSection(Transform parent, string title)

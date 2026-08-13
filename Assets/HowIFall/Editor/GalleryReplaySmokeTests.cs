@@ -188,7 +188,7 @@ public static class GalleryReplaySmokeTests
             Require(quick.historyButton.gameObject.activeSelf && quick.skipButton.gameObject.activeSelf
                 && quick.autoButton.gameObject.activeSelf && quick.settingsButton.gameObject.activeSelf,
                 "Replay Quick Menu hid an allowed action.");
-            Require(quick.mainMenuButton.GetComponentInChildren<TextMeshProUGUI>().text == "End Replay", "Main Menu action did not become End Replay.");
+            Require(quick.mainMenuButton.GetComponentInChildren<TextMeshProUGUI>().text == "Меню", "Replay Quick Menu did not keep the Game Menu route.");
 
             session.BeginEnding();
             session.RestoreCampaignState(state);
@@ -196,8 +196,8 @@ public static class GalleryReplaySmokeTests
             SetPrivateField(flow, "replaySession", null);
             AssertStateEquals(expected, state);
             quick.RefreshReplayPresentation();
-            Require(quick.saveButton.gameObject.activeSelf && quick.loadButton.gameObject.activeSelf, "Quick Menu did not restore normal Save/Load actions.");
-            Require(quick.mainMenuButton.GetComponentInChildren<TextMeshProUGUI>().text == "Main Menu", "Quick Menu did not restore Main Menu label.");
+            Require(quick.saveButton.gameObject.activeSelf && !quick.loadButton.gameObject.activeSelf, "Quick Menu did not restore Save while keeping manual Load removed.");
+            Require(quick.mainMenuButton.GetComponentInChildren<TextMeshProUGUI>().text == "Меню", "Quick Menu did not preserve the Menu label.");
 
             SetStaticInstance(typeof(VNDialogueController), null);
             SetStaticInstance(typeof(SceneFlowManager), null);

@@ -30,5 +30,6 @@ public class GameSettings
     public bool autoForward = false;
     public bool autoSave = true;
     public bool showHints = true;
+    public bool showQuickMenu = true;
     public bool fullscreen = true;
 }

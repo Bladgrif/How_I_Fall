@@ -22,6 +22,8 @@ public static class HowIFallCiSmokeTests
             Run("Shared Preferences foundation", SharedPreferencesFoundationSmokeTests.RunBatchMode);
             Run("Preferences UI parity Phase 2", PreferencesUiParitySmokeTests.RunBatchMode);
             Run("Settings truth", SettingsTruthSmokeTests.RunBatchMode);
+            Run("Quick Menu visibility B03", QuickMenuVisibilitySmokeTests.RunBatchMode);
+            Run("Main Menu and Quick Menu cleanup Phase 4", Phase4UiSmokeTests.RunBatchMode);
             Run("Audio ambience", AudioAmbienceSmokeTests.RunBatchMode);
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
             Run("Game Menu navigation Phase 3", GameMenuSmokeTests.RunBatchMode);

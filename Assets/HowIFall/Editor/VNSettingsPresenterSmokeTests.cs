@@ -127,6 +127,7 @@ public static class VNSettingsPresenterSmokeTests
         public void SetSkipAfterChoices(bool value) => Source.skipAfterChoices = value;
         public void SetAutoForward(bool value) => Source.autoForward = value;
         public void SetAutoSave(bool value) => Source.autoSave = value;
+        public void SetShowQuickMenu(bool value) => Source.showQuickMenu = value;
 
         private static GameSettings CreateNonDefaultSettings()
         {

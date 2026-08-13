@@ -101,6 +101,7 @@ public sealed class PreferencesController
     public void SetSkipAfterChoices(bool value) => service?.SetSkipAfterChoices(value);
     public void SetAutoForward(bool value) => service?.SetAutoForward(value);
     public void SetAutoSave(bool value) => service?.SetAutoSave(value);
+    public void SetShowQuickMenu(bool value) => service?.SetShowQuickMenu(value);
 
     public void SetSkipUnseen(bool value)
     {

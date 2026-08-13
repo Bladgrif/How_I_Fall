@@ -57,7 +57,8 @@ public static class PreferencesUiParitySmokeTests
                 SharedPreferencesView.MuteAllId, SharedPreferencesView.MasterVolumeId, SharedPreferencesView.MusicVolumeId,
                 SharedPreferencesView.SfxVolumeId, SharedPreferencesView.TextSpeedId, SharedPreferencesView.AutoForwardDelayId,
                 SharedPreferencesView.SkipUnseenId, SharedPreferencesView.SkipAfterChoicesId, SharedPreferencesView.SkipSpeedId,
-                SharedPreferencesView.AutosaveId, SharedPreferencesView.TextSizeId, SharedPreferencesView.TextboxOpacityId
+                SharedPreferencesView.AutosaveId, SharedPreferencesView.TextSizeId, SharedPreferencesView.TextboxOpacityId,
+                SharedPreferencesView.ShowQuickMenuId
             };
             Require(SharedPreferencesView.VisibleControlIds.SequenceEqual(expected), "Shared Preferences visible control order changed unexpectedly.");
             Require(expected.All(id => mainView.HasControl(id) && gameplayView.HasControl(id)),
@@ -67,7 +68,7 @@ public static class PreferencesUiParitySmokeTests
             {
                 "refresh_rate", "game_look", "interface_style", "rewind_vhs_filter", "character_animations",
                 "background_animations", "language", "font_size_mode", "show_hints", "auto_enabled",
-                "show_quick_menu", "ambient_volume", "music_during_pause", "text_outline", "textbox_width", "textbox_height"
+                "ambient_volume", "music_during_pause", "text_outline", "textbox_width", "textbox_height"
             };
             Require(prohibited.All(id => !mainView.HasControl(id) && !gameplayView.HasControl(id)),
                 "A fake, deferred, or B03 control leaked into the Phase 2 player-facing view.");
@@ -116,12 +117,15 @@ public static class PreferencesUiParitySmokeTests
             view.GetSlider(SharedPreferencesView.MasterVolumeId).value = 0.23f;
             view.GetSlider(SharedPreferencesView.TextSizeId).value = 1.2f;
             view.GetSlider(SharedPreferencesView.TextboxOpacityId).value = 0.35f;
+            view.GetToggle(SharedPreferencesView.ShowQuickMenuId).isOn = false;
+            Require(!service.Source.showQuickMenu, "Show Quick Menu did not update the shared settings truth immediately.");
             view.GetButton("reset").onClick.Invoke();
             GameSettings defaults = new GameSettings();
             Require(service.ResetCount == 1, "Reset action did not use the shared service.");
             Require(Mathf.Approximately(view.GetSlider(SharedPreferencesView.MasterVolumeId).value, defaults.masterVolume)
                 && Mathf.Approximately(view.GetSlider(SharedPreferencesView.TextSizeId).value, defaults.dialogueTextScale)
-                && Mathf.Approximately(view.GetSlider(SharedPreferencesView.TextboxOpacityId).value, defaults.textboxOpacity),
+                && Mathf.Approximately(view.GetSlider(SharedPreferencesView.TextboxOpacityId).value, defaults.textboxOpacity)
+                && view.GetToggle(SharedPreferencesView.ShowQuickMenuId).isOn,
                 "Reset did not refresh all newly visible controls to canonical defaults.");
 
             view.GetButton("back").onClick.Invoke();
@@ -241,5 +245,6 @@ public static class PreferencesUiParitySmokeTests
         public void SetSkipAfterChoices(bool value) => Source.skipAfterChoices = value;
         public void SetAutoForward(bool value) => Source.autoForward = value;
         public void SetAutoSave(bool value) => Source.autoSave = value;
+        public void SetShowQuickMenu(bool value) => Source.showQuickMenu = value;
     }
 }

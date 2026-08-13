@@ -36,10 +36,13 @@ public static class CharacterHubSmokeTests
         EditorSceneManager.OpenScene("Assets/HowIFall/Scenes/VNPrototype.unity");
         VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
         Require(quickMenu != null, "VNPrototype must provide the existing Quick Menu for runtime augmentation.");
-        Require(quickMenu.EnsureCharactersButton(), "Runtime initialization must add the Characters button once.");
+        Require(quickMenu.EnsureCharactersButton(), "Runtime initialization must add the dedicated Character Hub launcher once.");
         Button runtimeCharactersButton = quickMenu.charactersButton;
-        Require(runtimeCharactersButton != null && runtimeCharactersButton.name == "Characters Runtime Button", "Characters button must clone the existing Quick Menu style.");
-        Require(!quickMenu.EnsureCharactersButton(), "Repeated Quick Menu initialization must not add duplicate Characters buttons.");
+        Require(runtimeCharactersButton != null
+            && runtimeCharactersButton.name == "Character Hub Launcher"
+            && !runtimeCharactersButton.transform.IsChildOf(quickMenu.root.transform),
+            "Characters access must be a dedicated original HIF launcher outside the Quick Menu strip.");
+        Require(!quickMenu.EnsureCharactersButton(), "Repeated launcher initialization must not add duplicates.");
         UnityEngine.Object.DestroyImmediate(runtimeCharactersButton.gameObject);
         quickMenu.charactersButton = null;
 

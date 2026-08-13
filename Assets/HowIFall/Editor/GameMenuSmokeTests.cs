@@ -149,12 +149,13 @@ public static class GameMenuSmokeTests
             Require(harness.Dialogue.HandleEscapePressed(), "Character Hub Escape was not handled.");
             Require(!hub.IsOpen && !harness.Menu.IsOpen, "Character Hub Escape also opened Game Menu on the same press.");
 
-            MethodInfo quickMenuRoute = typeof(VNQuickMenu).GetMethod("HandleMainMenuAction", PrivateInstance);
+            MethodInfo quickMenuRoute = typeof(VNQuickMenu).GetMethod("HandleMenuAction", PrivateInstance);
             Require(quickMenuRoute != null, "Quick Menu Menu route was not found.");
             Require(harness.QuickMenu.historyButton != null && harness.QuickMenu.historyButton.gameObject.activeSelf,
                 "Normal Game Menu cleanup removed Quick Menu History access.");
-            Require(harness.QuickMenu.charactersButton != null && harness.QuickMenu.charactersButton.gameObject.activeSelf,
-                "Normal Game Menu cleanup removed the existing Characters access route.");
+            Require(harness.QuickMenu.charactersButton != null
+                && !harness.QuickMenu.charactersButton.transform.IsChildOf(harness.QuickRoot.transform),
+                "Characters access must use the dedicated launcher outside the Quick Menu strip.");
 
             quickMenuRoute.Invoke(harness.QuickMenu, null);
             Require(harness.Menu.IsOpen, "Quick Menu Menu route did not open the new Game Menu.");
@@ -276,8 +277,8 @@ public static class GameMenuSmokeTests
         quickMenu.root = quickRoot;
         quickMenu.historyButton = CreateButton(quickRoot.transform, "History");
         quickMenu.settingsButton = CreateButton(quickRoot.transform, "Settings");
-        quickMenu.charactersButton = CreateButton(quickRoot.transform, "Characters");
         quickMenu.mainMenuButton = CreateButton(quickRoot.transform, "Menu");
+        Require(quickMenu.EnsureCharacterHubLauncher(), "Dedicated Character Hub launcher fixture was not created.");
         quickOwner.SetActive(true);
         quickMenu.RefreshSpecialModeVisibility();
 
@@ -408,5 +409,6 @@ public static class GameMenuSmokeTests
         public void SetSkipAfterChoices(bool value) => settings.skipAfterChoices = value;
         public void SetAutoForward(bool value) => settings.autoForward = value;
         public void SetAutoSave(bool value) => settings.autoSave = value;
+        public void SetShowQuickMenu(bool value) => settings.showQuickMenu = value;
     }
 }

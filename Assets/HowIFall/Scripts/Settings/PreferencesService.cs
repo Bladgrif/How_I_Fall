@@ -16,6 +16,7 @@ public readonly struct PreferencesState
     public readonly bool skipAfterChoices;
     public readonly bool autoForward;
     public readonly bool autoSave;
+    public readonly bool showQuickMenu;
 
     public PreferencesState(GameSettings settings)
     {
@@ -36,6 +37,7 @@ public readonly struct PreferencesState
         skipAfterChoices = source.skipAfterChoices;
         autoForward = source.autoForward;
         autoSave = source.autoSave;
+        showQuickMenu = source.showQuickMenu;
     }
 }
 
@@ -61,6 +63,7 @@ public interface IPreferencesService
     void SetSkipAfterChoices(bool value);
     void SetAutoForward(bool value);
     void SetAutoSave(bool value);
+    void SetShowQuickMenu(bool value);
 }
 
 /// <summary>
@@ -105,4 +108,5 @@ public sealed class PreferencesService : IPreferencesService
     public void SetSkipAfterChoices(bool value) => Manager?.SetSkipAfterChoices(value);
     public void SetAutoForward(bool value) => Manager?.SetAutoForward(value);
     public void SetAutoSave(bool value) => Manager?.SetAutoSave(value);
+    public void SetShowQuickMenu(bool value) => Manager?.SetShowQuickMenu(value);
 }

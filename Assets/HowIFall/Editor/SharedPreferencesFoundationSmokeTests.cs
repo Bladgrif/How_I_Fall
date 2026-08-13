@@ -34,6 +34,7 @@ public static class SharedPreferencesFoundationSmokeTests
     private const string AutoForwardKey = "hif_auto_forward";
     private const string AutoSaveKey = "hif_auto_save";
     private const string ShowHintsKey = "hif_show_hints";
+    private const string ShowQuickMenuKey = "hif_show_quick_menu";
     private const string FullscreenKey = "hif_fullscreen";
 
     private static readonly string[] TestKeys =
@@ -65,6 +66,7 @@ public static class SharedPreferencesFoundationSmokeTests
         AutoForwardKey,
         AutoSaveKey,
         ShowHintsKey,
+        ShowQuickMenuKey,
         FullscreenKey
     };
 
@@ -108,9 +110,9 @@ public static class SharedPreferencesFoundationSmokeTests
                 $"Fake/unused field '{name}' must not be exposed through PreferencesState.");
         }
 
-        Require(!memberNames.Any(memberName => memberName.IndexOf("ShowQuickMenu", StringComparison.OrdinalIgnoreCase) >= 0)
-            && !stateNames.Any(memberName => memberName.IndexOf("showQuickMenu", StringComparison.OrdinalIgnoreCase) >= 0),
-            "Paused B03 Quick Menu visibility must remain outside the Phase 1 shared contract.");
+        Require(memberNames.Any(memberName => memberName == "SetShowQuickMenu")
+            && stateNames.Any(memberName => memberName == "showQuickMenu"),
+            "Phase 4 B03 must be part of the shared Preferences contract and state.");
         Require(!memberNames.Any(memberName => memberName.IndexOf("AmbientVolume", StringComparison.OrdinalIgnoreCase) >= 0
                 || memberName.IndexOf("MusicDuringPause", StringComparison.OrdinalIgnoreCase) >= 0)
             && !stateNames.Any(memberName => memberName.IndexOf("ambientVolume", StringComparison.OrdinalIgnoreCase) >= 0
@@ -130,6 +132,7 @@ public static class SharedPreferencesFoundationSmokeTests
         Require(contract.GetMethod("SetSkipAfterChoices") != null, "Approved Skip After Choices must be exposed.");
         Require(contract.GetMethod("SetAutoForward") != null, "Approved Auto Forward must be exposed.");
         Require(contract.GetMethod("SetAutoSave") != null, "Approved Autosave must be exposed.");
+        Require(contract.GetMethod("SetShowQuickMenu") != null, "Approved Show Quick Menu must be exposed.");
         Require(contract.GetMethod("SetFullscreen") == null, "Legacy fullscreen must not be a second shared-service truth.");
     }
 
@@ -164,10 +167,12 @@ public static class SharedPreferencesFoundationSmokeTests
             gameplayController.SetTextSpeed(73f);
             gameplayController.SetDialogueTextScale(1.15f);
             gameplayController.SetTextboxOpacity(0.44f);
+            gameplayController.SetShowQuickMenu(false);
             mainController.Refresh();
             Require(Mathf.Approximately(mainView.LastSettings.textSpeed, 73f), "Main Menu must see a gameplay change on refresh.");
             Require(Mathf.Approximately(mainView.LastSettings.dialogueTextScale, 1.15f), "Main Menu must see gameplay Text Size changes.");
             Require(Mathf.Approximately(mainView.LastSettings.textboxOpacity, 0.44f), "Main Menu must see gameplay Textbox Opacity changes.");
+            Require(!mainView.LastSettings.showQuickMenu, "Main Menu must see gameplay Show Quick Menu changes.");
 
             gameplayController.Reset();
             mainController.Refresh();
@@ -206,6 +211,7 @@ public static class SharedPreferencesFoundationSmokeTests
             service.SetSkipAfterChoices(true);
             service.SetAutoForward(true);
             service.SetAutoSave(false);
+            service.SetShowQuickMenu(false);
 
             manager.settings = null;
             manager.LoadSettings();
@@ -226,6 +232,7 @@ public static class SharedPreferencesFoundationSmokeTests
             Require(loaded.skipAfterChoices, "Skip After Choices persistence roundtrip failed.");
             Require(loaded.autoForward, "Auto Forward persistence roundtrip failed.");
             Require(!loaded.autoSave, "Autosave persistence roundtrip failed.");
+            Require(!loaded.showQuickMenu, "Show Quick Menu persistence roundtrip failed.");
 
             PlayerPrefs.SetString(ScreenModeKey, SettingsOptionValues.Windowed);
             PlayerPrefs.SetInt(FullscreenKey, 1);
@@ -255,6 +262,7 @@ public static class SharedPreferencesFoundationSmokeTests
             Require(manager.CurrentSettings.skipAfterChoices == defaults.skipAfterChoices, "Reset must restore Skip After Choices default.");
             Require(manager.CurrentSettings.autoForward == defaults.autoForward, "Reset must restore Auto Forward default.");
             Require(manager.CurrentSettings.autoSave == defaults.autoSave, "Reset must restore Autosave default.");
+            Require(manager.CurrentSettings.showQuickMenu, "Reset must restore Show Quick Menu to ON.");
         }
         finally
         {
