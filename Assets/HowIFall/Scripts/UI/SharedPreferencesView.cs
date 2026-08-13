@@ -340,6 +340,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         background.color = ControlColor;
         Toggle toggle = toggleObject.AddComponent<Toggle>();
         toggle.targetGraphic = background;
+        toggle.colors = CreateToggleColors();
         LayoutElement layout = toggleObject.AddComponent<LayoutElement>();
         layout.preferredWidth = 360f;
         layout.minHeight = 44f;
@@ -404,10 +405,12 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
         LayoutElement rowLayout = row.AddComponent<LayoutElement>();
-        rowLayout.minHeight = 58f;
-        rowLayout.preferredHeight = 58f;
+        rowLayout.minHeight = 66f;
+        rowLayout.preferredHeight = 66f;
 
         TextMeshProUGUI labelText = CreateText(row.transform, "Label", label, 18f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
+        labelText.enableWordWrapping = true;
+        labelText.overflowMode = TextOverflowModes.Overflow;
         LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>();
         labelLayout.minWidth = 300f;
         labelLayout.flexibleWidth = 1f;
@@ -586,10 +589,19 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
         colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
-        colors.pressedColor = new Color(0.78f, 0.78f, 0.78f, 1f);
-        colors.selectedColor = Color.white;
-        colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.65f);
+        colors.highlightedColor = new Color(1f, 0.76f, 0.80f, 1f);
+        colors.pressedColor = new Color(0.76f, 0.32f, 0.38f, 1f);
+        colors.selectedColor = new Color(1f, 0.70f, 0.76f, 1f);
+        colors.disabledColor = new Color(0.45f, 0.48f, 0.54f, 0.68f);
+        colors.colorMultiplier = 1f;
+        return colors;
+    }
+
+    private static ColorBlock CreateToggleColors()
+    {
+        ColorBlock colors = CreateButtonColors();
+        colors.highlightedColor = new Color(0.92f, 0.96f, 1f, 1f);
+        colors.pressedColor = new Color(0.72f, 0.80f, 0.90f, 1f);
         return colors;
     }
 

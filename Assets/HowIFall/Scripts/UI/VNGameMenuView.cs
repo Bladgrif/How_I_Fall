@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public enum VNGameMenuAction
@@ -107,7 +108,10 @@ public sealed class VNGameMenuView : MonoBehaviour
         }
     }
 
-    public void SetSaveLoadSection(VNGameMenuAction? activeAction, bool confirmationOpen = false)
+    public void SetSaveLoadSection(
+        VNGameMenuAction? activeAction,
+        bool confirmationOpen = false,
+        bool operationInProgress = false)
     {
         bool hasSection = activeAction == VNGameMenuAction.Save || activeAction == VNGameMenuAction.Load;
         if (saveLoadContentHost != null)
@@ -123,9 +127,7 @@ public sealed class VNGameMenuView : MonoBehaviour
                 marker.SetActive(isActive);
             }
 
-            pair.Value.interactable = !hasSection
-                || (!confirmationOpen && (pair.Key == VNGameMenuAction.Save || pair.Key == VNGameMenuAction.Load))
-                || pair.Key == VNGameMenuAction.Return;
+            pair.Value.interactable = !hasSection || (!confirmationOpen && !operationInProgress);
         }
     }
 
@@ -139,6 +141,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         confirmationText.text = message ?? string.Empty;
         confirmationRoot.SetActive(true);
         confirmationRoot.transform.SetAsLastSibling();
+        FocusConfirmationCancel();
     }
 
     public void HideConfirmation()
@@ -277,19 +280,27 @@ public sealed class VNGameMenuView : MonoBehaviour
         GameObject window = CreateSurface(confirmationRoot.transform, "Confirmation Window", new Color(0.025f, 0.055f, 0.095f, 1f));
         RectTransform windowRect = window.GetComponent<RectTransform>();
         windowRect.anchorMin = windowRect.anchorMax = new Vector2(0.5f, 0.5f);
-        windowRect.sizeDelta = new Vector2(560f, 230f);
+        windowRect.sizeDelta = new Vector2(620f, 264f);
         Outline outline = window.AddComponent<Outline>();
         outline.effectColor = new Color(0.68f, 0.16f, 0.22f, 0.72f);
         outline.effectDistance = new Vector2(2f, -2f);
 
         confirmationText = CreateText(window.transform, "Prompt", string.Empty, 22f, FontStyles.Normal, TextAlignmentOptions.Center, Color.white);
-        confirmationText.rectTransform.anchorMin = new Vector2(0f, 0.42f);
+        confirmationText.rectTransform.anchorMin = new Vector2(0f, 0.40f);
         confirmationText.rectTransform.anchorMax = Vector2.one;
         confirmationText.rectTransform.offsetMin = new Vector2(34f, 0f);
-        confirmationText.rectTransform.offsetMax = new Vector2(-34f, -22f);
+        confirmationText.rectTransform.offsetMax = new Vector2(-34f, -26f);
 
-        confirmationYesButton = CreateConfirmationButton(window.transform, "Да", new Vector2(0.35f, 0.20f));
-        confirmationNoButton = CreateConfirmationButton(window.transform, "Нет", new Vector2(0.65f, 0.20f));
+        GameObject accent = CreateSurface(window.transform, "Confirmation Accent", AccentColor);
+        RectTransform accentRect = accent.GetComponent<RectTransform>();
+        accentRect.anchorMin = new Vector2(0f, 1f);
+        accentRect.anchorMax = Vector2.one;
+        accentRect.pivot = new Vector2(0.5f, 1f);
+        accentRect.sizeDelta = new Vector2(0f, 3f);
+        accent.GetComponent<Image>().raycastTarget = false;
+
+        confirmationYesButton = CreateConfirmationButton(window.transform, "Да", new Vector2(0.35f, 0.20f), true);
+        confirmationNoButton = CreateConfirmationButton(window.transform, "Нет", new Vector2(0.65f, 0.20f), false);
         confirmationRoot.SetActive(false);
     }
 
@@ -319,9 +330,12 @@ public sealed class VNGameMenuView : MonoBehaviour
         activeMarkers[action] = activeMarker;
     }
 
-    private static Button CreateConfirmationButton(Transform parent, string label, Vector2 anchor)
+    private static Button CreateConfirmationButton(Transform parent, string label, Vector2 anchor, bool destructive)
     {
-        GameObject buttonObject = CreateSurface(parent, label + " Button", new Color(0.10f, 0.24f, 0.34f, 1f));
+        GameObject buttonObject = CreateSurface(
+            parent,
+            label + " Button",
+            destructive ? new Color(0.34f, 0.075f, 0.105f, 1f) : new Color(0.075f, 0.11f, 0.17f, 1f));
         RectTransform rect = buttonObject.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = anchor;
         rect.sizeDelta = new Vector2(150f, 48f);
@@ -331,6 +345,15 @@ public sealed class VNGameMenuView : MonoBehaviour
         TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 19f, FontStyles.Bold, TextAlignmentOptions.Center, Color.white);
         Stretch(text.rectTransform);
         return button;
+    }
+
+    private void FocusConfirmationCancel()
+    {
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        if (confirmationNoButton != null && eventSystem != null)
+        {
+            eventSystem.SetSelectedGameObject(confirmationNoButton.gameObject);
+        }
     }
 
     private void SetActionVisible(VNGameMenuAction action, bool visible)

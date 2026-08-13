@@ -170,7 +170,10 @@ public sealed class VNGameMenuController : MonoBehaviour
             return;
         }
 
-        view.SetSaveLoadSection(panel.IsSaveMode ? VNGameMenuAction.Save : VNGameMenuAction.Load, panel.IsConfirmationOpen);
+        view.SetSaveLoadSection(
+            panel.IsSaveMode ? VNGameMenuAction.Save : VNGameMenuAction.Load,
+            panel.IsConfirmationOpen,
+            panel.IsOperationInProgress);
     }
 
     private void LateUpdate()
@@ -183,7 +186,7 @@ public sealed class VNGameMenuController : MonoBehaviour
 
     private void OpenPreferences()
     {
-        if (!HideForChild(ChildContext.Preferences))
+        if (!TryLeaveSaveLoadSection() || !HideForChild(ChildContext.Preferences))
         {
             return;
         }
@@ -197,7 +200,7 @@ public sealed class VNGameMenuController : MonoBehaviour
 
     private void OpenHistory()
     {
-        if (!HideForChild(ChildContext.History))
+        if (!TryLeaveSaveLoadSection() || !HideForChild(ChildContext.History))
         {
             return;
         }
@@ -211,7 +214,7 @@ public sealed class VNGameMenuController : MonoBehaviour
 
     private void OpenCharacters()
     {
-        if (!HideForChild(ChildContext.Characters))
+        if (!TryLeaveSaveLoadSection() || !HideForChild(ChildContext.Characters))
         {
             return;
         }
@@ -271,23 +274,20 @@ public sealed class VNGameMenuController : MonoBehaviour
             return;
         }
 
-        view.SetSaveLoadSection(save ? VNGameMenuAction.Save : VNGameMenuAction.Load, panel.IsConfirmationOpen);
+        view.SetSaveLoadSection(
+            save ? VNGameMenuAction.Save : VNGameMenuAction.Load,
+            panel.IsConfirmationOpen,
+            panel.IsOperationInProgress);
     }
 
     private void HandleReturn()
     {
         if (childContext == ChildContext.SaveLoad)
         {
-            ManualSaveLoadPanel panel = saveLoadAdapter.Panel;
-            if (panel != null && panel.IsOpen)
+            if (TryLeaveSaveLoadSection())
             {
-                panel.HandleEscape();
+                Close();
             }
-            else
-            {
-                CloseSaveLoadSection();
-            }
-
             return;
         }
 
@@ -306,9 +306,31 @@ public sealed class VNGameMenuController : MonoBehaviour
         view?.SetSaveLoadSection(null);
     }
 
+    private bool TryLeaveSaveLoadSection()
+    {
+        if (childContext != ChildContext.SaveLoad)
+        {
+            return childContext == ChildContext.None;
+        }
+
+        ManualSaveLoadPanel panel = saveLoadAdapter.Panel;
+        if (panel != null && panel.IsOpen)
+        {
+            if (panel.IsConfirmationOpen || panel.IsOperationInProgress)
+            {
+                return false;
+            }
+
+            panel.Close();
+        }
+
+        CloseSaveLoadSection();
+        return true;
+    }
+
     private void OpenMainMenuConfirmation()
     {
-        if (!HideForChild(ChildContext.MainMenuConfirmation))
+        if (!TryLeaveSaveLoadSection() || !HideForChild(ChildContext.MainMenuConfirmation))
         {
             return;
         }
@@ -333,7 +355,7 @@ public sealed class VNGameMenuController : MonoBehaviour
 
     private void ConfirmQuit()
     {
-        if (!IsPresentationVisible)
+        if (!TryLeaveSaveLoadSection() || !IsPresentationVisible)
         {
             return;
         }

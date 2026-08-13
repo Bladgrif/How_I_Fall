@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 public static class Phase5SaveLoadQaLauncher
 {
     private const string ScenePath = "Assets/HowIFall/Scenes/VNPrototype.unity";
-    private const string PendingKey = "HowIFall.Phase5SaveLoadQa.Pending";
+    private const string PendingKey = "HowIFall.Phase6PlayerShellQa.Pending";
     private const double TimeoutSeconds = 10d;
     private static double startedAt;
 
@@ -17,12 +17,12 @@ public static class Phase5SaveLoadQaLauncher
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
     }
 
-    [MenuItem("How I Fall/QA/Phase 5 Save Load")]
+    [MenuItem("How I Fall/QA/Phase 6 Player Shell")]
     public static void OpenEmbeddedSaveLoadQa()
     {
         if (!EditorApplication.isPlaying && EditorApplication.isPlayingOrWillChangePlaymode)
         {
-            Debug.LogWarning("[PHASE 5 QA] Wait for the current Play Mode transition and run the QA entry again.");
+            Debug.LogWarning("[PHASE 6 QA] Wait for the current Play Mode transition and run the QA entry again.");
             return;
         }
 
@@ -77,7 +77,7 @@ public static class Phase5SaveLoadQaLauncher
                 ButtonClick(dialogue.GameMenuController.View, VNGameMenuAction.Save);
                 if (dialogue.manualSaveLoadPanel != null && dialogue.manualSaveLoadPanel.IsOpen)
                 {
-                    Debug.Log("[PHASE 5 QA] Embedded Game Menu Save state is ready. Change Game View resolution manually; no GameViewSizes reflection is used.");
+                    Debug.Log("[PHASE 6 QA] Embedded Game Menu Save state is ready. Inspect Save/Load, Preferences and confirmations; change Game View resolution manually.");
                     StopWaiting();
                     return;
                 }
@@ -86,7 +86,7 @@ public static class Phase5SaveLoadQaLauncher
 
         if (EditorApplication.timeSinceStartup - startedAt > TimeoutSeconds)
         {
-            Debug.LogError("[PHASE 5 QA] Timed out while opening the embedded Save/Load state.");
+            Debug.LogError("[PHASE 6 QA] Timed out while opening the embedded Save/Load state.");
             StopWaiting();
         }
     }

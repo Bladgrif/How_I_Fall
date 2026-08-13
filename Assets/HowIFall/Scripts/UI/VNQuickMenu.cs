@@ -19,8 +19,8 @@ public sealed class VNQuickMenu : MonoBehaviour
     public Button mainMenuButton;
 
     private const float MinimumDialogueSpacing = 12f;
-    private static readonly Color NormalColor = new Color(0.035f, 0.07f, 0.11f, 0.82f);
-    private static readonly Color ActiveColor = new Color(0.12f, 0.31f, 0.43f, 0.96f);
+    private static readonly Color NormalColor = new Color(0.035f, 0.07f, 0.11f, 0.90f);
+    private static readonly Color ActiveColor = new Color(0.34f, 0.075f, 0.105f, 0.96f);
 
     private bool hiddenBySpecialMode;
     private bool hiddenByPlayer;
@@ -147,6 +147,7 @@ public sealed class VNQuickMenu : MonoBehaviour
         for (int index = 0; index < ordered.Length; index++)
         {
             Button button = ordered[index];
+            ApplyButtonPresentation(button);
             if (button != null && root != null && button.transform.parent == root.transform)
             {
                 button.transform.SetSiblingIndex(index);
@@ -356,10 +357,29 @@ public sealed class VNQuickMenu : MonoBehaviour
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
         colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1f, 0.72f, 0.76f, 1f);
-        colors.pressedColor = new Color(0.78f, 0.30f, 0.34f, 1f);
-        colors.selectedColor = colors.highlightedColor;
+        colors.highlightedColor = new Color(1f, 0.76f, 0.80f, 1f);
+        colors.pressedColor = new Color(0.76f, 0.30f, 0.36f, 1f);
+        colors.selectedColor = new Color(1f, 0.70f, 0.76f, 1f);
         colors.disabledColor = new Color(0.45f, 0.48f, 0.52f, 0.72f);
+        colors.colorMultiplier = 1f;
         return colors;
+    }
+
+    private static void ApplyButtonPresentation(Button button)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        button.colors = CreateButtonColors();
+        if (button.targetGraphic == null && button.TryGetComponent(out Image image))
+        {
+            button.targetGraphic = image;
+        }
+
+        Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.24f);
+        outline.effectDistance = new Vector2(1f, -1f);
     }
 }

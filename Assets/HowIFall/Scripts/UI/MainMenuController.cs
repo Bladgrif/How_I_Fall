@@ -1,6 +1,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System.Linq;
@@ -148,6 +149,12 @@ public sealed class MainMenuController : MonoBehaviour
 
         playerFacingActionButtons.Clear();
         playerFacingActionButtons.AddRange(orderedButtons);
+        foreach (Button button in playerFacingActionButtons)
+        {
+            ApplyMainMenuButtonPresentation(button);
+        }
+
+        ApplyExitConfirmationPresentation();
         return true;
     }
 
@@ -346,6 +353,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (exitConfirmPanel != null)
         {
             exitConfirmPanel.SetActive(true);
+            FocusExitConfirmationCancel();
             return;
         }
 
@@ -399,6 +407,91 @@ public sealed class MainMenuController : MonoBehaviour
         }
 
         notificationCoroutine = null;
+    }
+
+    private static void ApplyMainMenuButtonPresentation(Button button)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        if (button.targetGraphic == null && button.TryGetComponent(out Image image))
+        {
+            button.targetGraphic = image;
+        }
+
+        ColorBlock colors = ColorBlock.defaultColorBlock;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1f, 0.76f, 0.80f, 1f);
+        colors.pressedColor = new Color(0.76f, 0.30f, 0.36f, 1f);
+        colors.selectedColor = new Color(1f, 0.70f, 0.76f, 1f);
+        colors.disabledColor = new Color(0.45f, 0.48f, 0.54f, 0.68f);
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
+
+        Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.24f);
+        outline.effectDistance = new Vector2(1f, -1f);
+    }
+
+    private void ApplyExitConfirmationPresentation()
+    {
+        if (exitConfirmPanel == null)
+        {
+            return;
+        }
+
+        Image dim = exitConfirmPanel.GetComponent<Image>();
+        if (dim != null)
+        {
+            dim.color = new Color(0.004f, 0.007f, 0.016f, 0.82f);
+            dim.raycastTarget = true;
+        }
+
+        foreach (Button button in exitConfirmPanel.GetComponentsInChildren<Button>(true))
+        {
+            bool destructive = HasPersistentRoute(button, nameof(ConfirmExit));
+            ApplyMainMenuButtonPresentation(button);
+            if (button.targetGraphic is Image image)
+            {
+                image.color = destructive
+                    ? new Color(0.34f, 0.075f, 0.105f, 1f)
+                    : new Color(0.075f, 0.11f, 0.17f, 1f);
+            }
+        }
+    }
+
+    private void FocusExitConfirmationCancel()
+    {
+        Button cancel = exitConfirmPanel == null
+            ? null
+            : exitConfirmPanel.GetComponentsInChildren<Button>(true)
+                .FirstOrDefault(button => HasPersistentRoute(button, nameof(CloseExitConfirm)));
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        if (cancel != null && eventSystem != null)
+        {
+            eventSystem.SetSelectedGameObject(cancel.gameObject);
+        }
+    }
+
+    private bool HasPersistentRoute(Button button, string methodName)
+    {
+        if (button == null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < button.onClick.GetPersistentEventCount(); index++)
+        {
+            if (button.onClick.GetPersistentTarget(index) == this
+                && button.onClick.GetPersistentMethodName(index) == methodName)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void OpenGallery()

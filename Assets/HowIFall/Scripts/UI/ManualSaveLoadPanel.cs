@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public sealed class ManualSaveLoadPanel : MonoBehaviour
@@ -62,6 +63,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     public bool IsConfirmationOpen => confirmationRoot != null && confirmationRoot.activeSelf;
     public SaveSlotType CurrentSlotType => currentSlotType;
     public bool IsSaveMode => mode == PanelMode.Save;
+    public bool IsOperationInProgress => saveInProgress || loadInProgress;
     public bool LoadInProgress => loadInProgress;
     public SaveSlotType? PendingConfirmationSlotType => pendingConfirmationSlotType;
     public int PendingConfirmationSlot => pendingConfirmationSlot;
@@ -206,7 +208,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void Close()
     {
-        if (IsOperationInProgress() || !gameObject.activeSelf)
+        if (HasOperationInProgress() || !gameObject.activeSelf)
         {
             return;
         }
@@ -218,7 +220,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public bool HandleEscape()
     {
-        if (!gameObject.activeSelf || IsOperationInProgress())
+        if (!gameObject.activeSelf || HasOperationInProgress())
         {
             return false;
         }
@@ -240,7 +242,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             return;
         }
 
-        if (IsOperationInProgress() || IsConfirmationOpen)
+        if (HasOperationInProgress() || IsConfirmationOpen)
         {
             return;
         }
@@ -295,7 +297,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     public void OnDeleteRequested(int slotIndex)
     {
-        if (IsOperationInProgress() || IsConfirmationOpen)
+        if (HasOperationInProgress() || IsConfirmationOpen)
         {
             return;
         }
@@ -707,7 +709,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void SelectSlotType(SaveSlotType slotType)
     {
-        if (IsOperationInProgress() || IsConfirmationOpen || currentSlotType == slotType)
+        if (HasOperationInProgress() || IsConfirmationOpen || currentSlotType == slotType)
         {
             return;
         }
@@ -791,10 +793,12 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             }
 
             confirmationRoot.SetActive(visible);
+            FocusConfirmationCancel(visible);
             return;
         }
 
         confirmationRoot.SetActive(true);
+        FocusConfirmationCancel(true);
         confirmationAnimation = StartCoroutine(AnimateConfirmation());
     }
 
@@ -844,9 +848,18 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         confirmationAnimation = null;
     }
 
-    private bool IsOperationInProgress()
+    private bool HasOperationInProgress()
     {
-        return saveInProgress || loadInProgress;
+        return IsOperationInProgress;
+    }
+
+    private void FocusConfirmationCancel(bool visible)
+    {
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        if (visible && confirmationNoButton != null && eventSystem != null)
+        {
+            eventSystem.SetSelectedGameObject(confirmationNoButton.gameObject);
+        }
     }
 
     private bool RejectReplayOperation(string operation)

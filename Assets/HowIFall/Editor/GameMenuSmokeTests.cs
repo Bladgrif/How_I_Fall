@@ -5,6 +5,7 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public static class GameMenuSmokeTests
@@ -23,6 +24,7 @@ public static class GameMenuSmokeTests
         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         VerifyActionSetsAndResponsiveStructure();
         VerifyResponsiveEmbeddedSaveLoadLayout();
+        VerifyConfirmationPresentationContract();
         VerifyEscapeBlockingAndQuickMenuOwnership();
         VerifyExistingPanelRoutingAndConfirmations();
         VerifySaveAndPersistentStateIsolation();
@@ -171,6 +173,60 @@ public static class GameMenuSmokeTests
         }
     }
 
+    private static void VerifyConfirmationPresentationContract()
+    {
+        Vector2[] resolutions =
+        {
+            new Vector2(1280f, 720f),
+            new Vector2(1920f, 1080f),
+            new Vector2(2560f, 1440f),
+            new Vector2(3840f, 2160f)
+        };
+        GameObject canvasObject = new GameObject("Phase 6 Confirmation Canvas", typeof(RectTransform), typeof(Canvas));
+        GameObject eventSystemObject = new GameObject(
+            "Phase 6 Confirmation Event System",
+            typeof(EventSystem),
+            typeof(StandaloneInputModule));
+        try
+        {
+            Canvas canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            RectTransform canvasRect = canvasObject.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = resolutions[0];
+            EventSystem eventSystem = eventSystemObject.GetComponent<EventSystem>();
+            VNGameMenuView view = VNGameMenuView.Create(canvasObject.transform);
+            Require(view != null, "Phase 6 confirmation view could not be created.");
+            view.SetVisible(true);
+            view.ShowConfirmation("Confirm destructive action?");
+
+            Require(view.IsConfirmationVisible, "Game Menu confirmation did not open.");
+            Require(eventSystem.currentSelectedGameObject == view.ConfirmationNoButton.gameObject,
+                "Destructive confirmation must default keyboard focus to Cancel.");
+            Require(view.ConfirmationYesButton.targetGraphic is Image yesImage
+                && view.ConfirmationNoButton.targetGraphic is Image noImage
+                && yesImage.color.r > yesImage.color.b
+                && noImage.color.b > noImage.color.r,
+                "Confirmation actions must keep the shared red destructive / navy cancel presentation.");
+
+            RectTransform confirmationWindow = view.transform.Find("Game Menu Confirmation/Confirmation Window") as RectTransform;
+            Require(confirmationWindow != null, "Game Menu confirmation window is missing.");
+            foreach (Vector2 resolution in resolutions)
+            {
+                canvasRect.sizeDelta = resolution;
+                Canvas.ForceUpdateCanvases();
+                Rect rootBounds = GetRectInSpace(view.transform as RectTransform, view.transform as RectTransform);
+                Rect confirmationBounds = GetRectInSpace(view.transform as RectTransform, confirmationWindow);
+                Require(IsFinitePositive(confirmationBounds) && Contains(rootBounds, confirmationBounds),
+                    $"{resolution}: confirmation is not fully contained in the Game Menu safe area.");
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(eventSystemObject);
+            UnityEngine.Object.DestroyImmediate(canvasObject);
+        }
+    }
+
     private static void VerifyActionSetsAndResponsiveStructure()
     {
         GameObject canvasObject = new GameObject("Game Menu View Canvas", typeof(RectTransform), typeof(Canvas));
@@ -247,14 +303,19 @@ public static class GameMenuSmokeTests
                 "Save section did not expose the shared content area and active navigation state.");
             Require(view.GetButton(VNGameMenuAction.Save).interactable
                 && view.GetButton(VNGameMenuAction.Load).interactable
-                && view.GetButton(VNGameMenuAction.Return).interactable
-                && !view.GetButton(VNGameMenuAction.Preferences).interactable,
-                "Save/Load section did not limit navigation to section switching and one-layer Return.");
+                && view.GetButton(VNGameMenuAction.Preferences).interactable
+                && view.GetButton(VNGameMenuAction.MainMenu).interactable
+                && view.GetButton(VNGameMenuAction.Quit).interactable
+                && view.GetButton(VNGameMenuAction.Return).interactable,
+                "Embedded Save/Load did not retain the persistent Game Menu navigation.");
             view.SetSaveLoadSection(VNGameMenuAction.Load, confirmationOpen: true);
             Require(!view.GetButton(VNGameMenuAction.Save).interactable
                 && !view.GetButton(VNGameMenuAction.Load).interactable
-                && view.GetButton(VNGameMenuAction.Return).interactable,
-                "Nested confirmation did not block section switching while preserving one-layer Return.");
+                && !view.GetButton(VNGameMenuAction.Preferences).interactable
+                && !view.GetButton(VNGameMenuAction.MainMenu).interactable
+                && !view.GetButton(VNGameMenuAction.Quit).interactable
+                && !view.GetButton(VNGameMenuAction.Return).interactable,
+                "Nested confirmation did not block the underlying Game Menu navigation.");
             view.SetSaveLoadSection(null);
             Require(!view.IsSaveLoadContentVisible
                 && !view.IsActionActive(VNGameMenuAction.Save)
@@ -390,41 +451,64 @@ public static class GameMenuSmokeTests
                 && !harness.Menu.View.IsActionActive(VNGameMenuAction.Save),
                 "Save and Load did not switch within the same content area.");
 
+            VNGameMenuAction[] embeddedNavigation =
+            {
+                VNGameMenuAction.Save,
+                VNGameMenuAction.Load,
+                VNGameMenuAction.Preferences,
+                VNGameMenuAction.MainMenu,
+                VNGameMenuAction.Quit,
+                VNGameMenuAction.Return
+            };
+            Require(embeddedNavigation.All(action => harness.Menu.View.GetButton(action).interactable),
+                "Embedded Save/Load incorrectly disabled persistent Game Menu navigation.");
+
             confirmationRoot.SetActive(true);
             typeof(VNGameMenuController).GetMethod("Update", PrivateInstance)?.Invoke(harness.Menu, null);
             harness.Menu.View.GetButton(VNGameMenuAction.Return).onClick.Invoke();
-            Require(!saveLoad.IsConfirmationOpen && saveLoad.IsOpen && harness.Menu.IsOpen,
-                "Return did not cancel only the nested Save/Load confirmation layer.");
-            saveLoadObject.SetActive(false);
-            typeof(VNGameMenuController).GetMethod("Update", PrivateInstance)?.Invoke(harness.Menu, null);
-            Require(harness.Menu.IsPresentationVisible
-                && !harness.Menu.View.IsSaveLoadContentVisible
-                && saveLoad.transform.parent == harness.Canvas.transform
-                && saveLoadRect.anchorMin == new Vector2(0.12f, 0.14f)
-                && saveLoadRect.anchorMax == new Vector2(0.88f, 0.86f),
-                "Closing Save/Load did not restore the Game Menu parent and original panel presentation.");
-            harness.Menu.View.GetButton(VNGameMenuAction.Load).onClick.Invoke();
-            Require(saveLoad.IsOpen && !saveLoad.IsSaveMode && harness.Menu.IsPresentationVisible,
-                "Game Menu Load did not reuse the existing ManualSaveLoadPanel inside the shared shell.");
-            saveLoadObject.SetActive(false);
-            typeof(VNGameMenuController).GetMethod("Update", PrivateInstance)?.Invoke(harness.Menu, null);
-            Require(harness.Menu.IsPresentationVisible && !harness.Menu.View.IsSaveLoadContentVisible,
-                "Closing Load did not return to the Game Menu navigation layer.");
+            Require(embeddedNavigation.All(action => !harness.Menu.View.GetButton(action).interactable)
+                && saveLoad.IsConfirmationOpen && harness.Menu.IsOpen,
+                "Save/Load confirmation did not block its underlying Game Menu navigation.");
+            Require(saveLoad.HandleEscape() && !saveLoad.IsConfirmationOpen && harness.Menu.IsOpen,
+                "Escape did not cancel only the nested Save/Load confirmation layer.");
 
             harness.Dialogue.confirmExitPanel = new GameObject("Existing Main Menu Confirmation");
             harness.Dialogue.confirmExitPanel.transform.SetParent(harness.Canvas.transform, false);
             harness.Dialogue.confirmExitPanel.SetActive(false);
+
+            harness.Menu.View.GetButton(VNGameMenuAction.Preferences).onClick.Invoke();
+            Require(preferences.IsOpen && !harness.Menu.View.IsSaveLoadContentVisible
+                && saveLoad.transform.parent == harness.Canvas.transform
+                && saveLoadRect.anchorMin == new Vector2(0.12f, 0.14f)
+                && saveLoadRect.anchorMax == new Vector2(0.88f, 0.86f),
+                "Preferences from embedded Save/Load did not leave the content section cleanly.");
+            adapter.SharedView.GetButton("back").onClick.Invoke();
+            Require(!preferences.IsOpen && harness.Menu.IsPresentationVisible,
+                "Preferences from embedded Save/Load did not return to Game Menu.");
+
+            harness.Menu.View.GetButton(VNGameMenuAction.Save).onClick.Invoke();
             harness.Menu.View.GetButton(VNGameMenuAction.MainMenu).onClick.Invoke();
-            Require(harness.Dialogue.confirmExitPanel.activeSelf && !harness.Menu.IsPresentationVisible,
-                "Main Menu action bypassed or failed to use the existing confirmation.");
+            Require(harness.Dialogue.confirmExitPanel.activeSelf && !harness.Menu.IsPresentationVisible
+                && !harness.Menu.View.IsSaveLoadContentVisible
+                && saveLoad.transform.parent == harness.Canvas.transform,
+                "Main Menu from embedded Save/Load bypassed or failed to use the existing confirmation.");
             harness.Dialogue.HideConfirmExit();
             Require(!harness.Dialogue.confirmExitPanel.activeSelf && harness.Menu.IsPresentationVisible,
                 "Cancelling Main Menu confirmation did not return to Game Menu.");
 
+            harness.Menu.View.GetButton(VNGameMenuAction.Load).onClick.Invoke();
             harness.Menu.View.GetButton(VNGameMenuAction.Quit).onClick.Invoke();
-            Require(harness.Menu.IsLocalConfirmationOpen, "Quit did not require confirmation.");
+            Require(harness.Menu.IsLocalConfirmationOpen && !harness.Menu.View.IsSaveLoadContentVisible
+                && saveLoad.transform.parent == harness.Canvas.transform,
+                "Quit from embedded Save/Load did not leave the content section for its confirmation.");
             Require(harness.Menu.TryHandleEscape() && !harness.Menu.IsLocalConfirmationOpen && harness.Menu.IsOpen,
                 "Escape did not cancel Quit while retaining Game Menu.");
+
+            harness.Menu.View.GetButton(VNGameMenuAction.Save).onClick.Invoke();
+            harness.Menu.View.GetButton(VNGameMenuAction.Return).onClick.Invoke();
+            Require(!harness.Menu.IsOpen && !harness.Menu.View.IsSaveLoadContentVisible
+                && saveLoad.transform.parent == harness.Canvas.transform,
+                "Return from embedded Save/Load did not close Game Menu and restore the standalone panel parent.");
         }
         finally
         {
