@@ -19,6 +19,7 @@ public static class HowIFallCiSmokeTests
             Run("Special mode coordinator", SpecialModeCoordinatorSmokeTests.RunBatchMode);
             Run("Timed narrative beat", TimedNarrativeBeatSmokeTests.RunBatchMode);
             Run("Interactive hotspot", InteractiveHotspotSmokeTests.RunBatchMode);
+            Run("Map locations", MapLocationsSmokeTests.RunBatchMode);
             Run("Shared Preferences presenter", VNSettingsPresenterSmokeTests.RunBatchMode);
             Run("Shared Preferences foundation", SharedPreferencesFoundationSmokeTests.RunBatchMode);
             Run("Preferences UI parity Phase 2", PreferencesUiParitySmokeTests.RunBatchMode);

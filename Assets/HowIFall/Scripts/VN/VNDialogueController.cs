@@ -94,6 +94,7 @@ public class VNDialogueController : MonoBehaviour
     private SpecialModeCoordinator specialModeCoordinator;
     private ChatController chatController;
     private InteractiveSceneController interactiveSceneController;
+    private MapSceneController mapSceneController;
     private VNGameMenuController gameMenuController;
     private bool specialModeWasActive;
     private bool isInterfaceHidden;
@@ -111,6 +112,7 @@ public class VNDialogueController : MonoBehaviour
     public bool IsRuntimeReady => isRuntimeReady && isActiveAndEnabled;
     public ChatController ActiveChatController => chatController;
     public InteractiveSceneController ActiveInteractiveSceneController => interactiveSceneController;
+    public MapSceneController ActiveMapSceneController => mapSceneController;
     public bool HasActiveSpecialMode => specialModeCoordinator != null && specialModeCoordinator.HasActiveOwner;
     /// <summary>Generic backend guard for any active exclusive special interaction.</summary>
     public bool IsSpecialModeSaveLoadBlocked => specialModeCoordinator != null
@@ -752,6 +754,18 @@ public class VNDialogueController : MonoBehaviour
         if (HasActiveSpecialMode) { failureReason = "another special mode active"; return false; }
         if (interactiveSceneController == null && !InteractiveSceneController.TryCreateRuntime(this, out interactiveSceneController, out failureReason)) return false;
         return interactiveSceneController != null && interactiveSceneController.TryStart(scene, out failureReason);
+    }
+
+    /// <summary>Narrow story-facing entry point for authored map/location scenes.</summary>
+    public bool TryStartMapScene(MapSceneData map, out string failureReason)
+    {
+        failureReason = string.Empty;
+        if (!IsRuntimeReady) { failureReason = "controller not ready"; return false; }
+        if (map == null) { failureReason = "null map scene data"; return false; }
+        if (SceneFlowManager.IsReplayModeActive) { failureReason = "Replay active"; return false; }
+        if (HasActiveSpecialMode) { failureReason = "another special mode active"; return false; }
+        if (mapSceneController == null && !MapSceneController.TryCreateRuntime(this, out mapSceneController, out failureReason)) return false;
+        return mapSceneController != null && mapSceneController.TryStart(map, out failureReason);
     }
 
     private bool IsAnyOrdinaryModalOpen()
