@@ -16,14 +16,48 @@ namespace HowIFall.PlayModeTests
             new Vector2Int(1280, 720), new Vector2Int(1920, 1080), new Vector2Int(2560, 1440), new Vector2Int(3840, 2160), new Vector2Int(1024, 768)
         };
 
-        private bool originalAutoSave;
+        private const string AutoSavePreferenceKey = "hif_auto_save";
+        private bool originalAutoSavePreferenceExisted;
+        private int originalAutoSavePreferenceValue;
+
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            originalAutoSavePreferenceExisted = PlayerPrefs.HasKey(AutoSavePreferenceKey);
+            originalAutoSavePreferenceValue = PlayerPrefs.GetInt(AutoSavePreferenceKey, 1);
+
+            // VNPrototype can autosave during startup, before the test body runs.
+            SaveManager.ScreenshotCaptureOverrideForTests = CreatePreviewTexture;
+            PlayerPrefs.SetInt(AutoSavePreferenceKey, 0);
+            PlayerPrefs.Save();
+            SettingsManager.Instance?.SetAutoSave(false);
+
+            yield return null;
+        }
 
         [UnityTearDown]
         public IEnumerator TearDown()
         {
+            SaveManager.ScreenshotCaptureOverrideForTests = null;
+
+            if (originalAutoSavePreferenceExisted)
+            {
+                PlayerPrefs.SetInt(AutoSavePreferenceKey, originalAutoSavePreferenceValue);
+            }
+            else
+            {
+                PlayerPrefs.DeleteKey(AutoSavePreferenceKey);
+            }
+            PlayerPrefs.Save();
+
             if (SettingsManager.Instance != null)
             {
-                SettingsManager.Instance.SetAutoSave(originalAutoSave);
+                SettingsManager.Instance.LoadSettings();
+            }
+            if (!originalAutoSavePreferenceExisted)
+            {
+                PlayerPrefs.DeleteKey(AutoSavePreferenceKey);
+                PlayerPrefs.Save();
             }
             yield return null;
         }
@@ -34,8 +68,6 @@ namespace HowIFall.PlayModeTests
             yield return LoadScene("VNPrototype");
             yield return WaitFor(() => VNDialogueController.Instance != null && VNDialogueController.Instance.IsRuntimeReady, "VN runtime did not become ready.");
             VNDialogueController dialogue = VNDialogueController.Instance;
-            originalAutoSave = SettingsManager.Instance != null && SettingsManager.Instance.settings != null && SettingsManager.Instance.settings.autoSave;
-            SettingsManager.Instance?.SetAutoSave(false);
             InteractiveSceneData room = Resources.Load<InteractiveSceneData>("InteractiveHotspot/TechnicalInteractiveRoom");
             Assert.That(room, Is.Not.Null, "TECH Interactive Room resource is missing.");
             GameState state = GameState.EnsureInstance();
@@ -114,6 +146,19 @@ namespace HowIFall.PlayModeTests
         {
             Assert.That(button, Is.Not.Null.And.Property("interactable").True);
             ExecuteEvents.Execute<IPointerClickHandler>(button.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerClickHandler);
+        }
+
+        private static Texture2D CreatePreviewTexture()
+        {
+            var texture = new Texture2D(16, 9, TextureFormat.RGBA32, false);
+            Color[] pixels = new Color[16 * 9];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                pixels[i] = new Color(0.08f, 0.16f, 0.24f, 1f);
+            }
+            texture.SetPixels(pixels);
+            texture.Apply();
+            return texture;
         }
 
         private static void AssertHotspotsInsideImage(InteractiveSceneController interactive)
