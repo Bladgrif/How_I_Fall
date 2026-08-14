@@ -93,6 +93,7 @@ public class VNDialogueController : MonoBehaviour
     private DialogueLine displayedLine;
     private SpecialModeCoordinator specialModeCoordinator;
     private ChatController chatController;
+    private InteractiveSceneController interactiveSceneController;
     private VNGameMenuController gameMenuController;
     private bool specialModeWasActive;
     private bool isInterfaceHidden;
@@ -109,6 +110,7 @@ public class VNDialogueController : MonoBehaviour
     /// <summary>True only after this controller completed its scene-local Start initialization.</summary>
     public bool IsRuntimeReady => isRuntimeReady && isActiveAndEnabled;
     public ChatController ActiveChatController => chatController;
+    public InteractiveSceneController ActiveInteractiveSceneController => interactiveSceneController;
     public bool HasActiveSpecialMode => specialModeCoordinator != null && specialModeCoordinator.HasActiveOwner;
     /// <summary>Generic backend guard for any active exclusive special interaction.</summary>
     public bool IsSpecialModeSaveLoadBlocked => specialModeCoordinator != null
@@ -134,8 +136,8 @@ public class VNDialogueController : MonoBehaviour
     public bool CanOpenGameMenu => IsRuntimeReady
         && !IsGameMenuOpen
         && !isInterfaceHidden
-        && !IsDialogueShellSuppressed
-        && !HasActiveSpecialMode
+        && (!IsDialogueShellSuppressed || (specialModeCoordinator != null && specialModeCoordinator.CanOpenGameMenu))
+        && (!HasActiveSpecialMode || (specialModeCoordinator != null && specialModeCoordinator.CanOpenGameMenu))
         && !IsCharacterHubOpen
         && !showingChoice
         && !quickSaveInProgress
@@ -407,6 +409,16 @@ public class VNDialogueController : MonoBehaviour
 
         if (HasActiveSpecialMode)
         {
+            if (IsGameMenuOpen)
+            {
+                return gameMenuController.TryHandleEscape();
+            }
+
+            if (specialModeCoordinator != null && specialModeCoordinator.CanOpenGameMenu)
+            {
+                return OpenGameMenu();
+            }
+
             specialModeCoordinator.TryRequestEscapeCancel();
             return true;
         }
@@ -728,6 +740,18 @@ public class VNDialogueController : MonoBehaviour
         }
 
         return chatController.TryStartChat(chat, out failureReason);
+    }
+
+    /// <summary>Narrow story-facing entry point for authored interactive image scenes.</summary>
+    public bool TryStartInteractiveScene(InteractiveSceneData scene, out string failureReason)
+    {
+        failureReason = string.Empty;
+        if (!IsRuntimeReady) { failureReason = "controller not ready"; return false; }
+        if (scene == null) { failureReason = "null interactive scene data"; return false; }
+        if (SceneFlowManager.IsReplayModeActive) { failureReason = "Replay active"; return false; }
+        if (HasActiveSpecialMode) { failureReason = "another special mode active"; return false; }
+        if (interactiveSceneController == null && !InteractiveSceneController.TryCreateRuntime(this, out interactiveSceneController, out failureReason)) return false;
+        return interactiveSceneController != null && interactiveSceneController.TryStart(scene, out failureReason);
     }
 
     private bool IsAnyOrdinaryModalOpen()

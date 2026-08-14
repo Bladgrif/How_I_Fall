@@ -74,6 +74,8 @@ public sealed class VNGameMenuController : MonoBehaviour
         localConfirmationAction = LocalConfirmationAction.None;
         dialogueController.TrySuppressDialogueShell(this);
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
+        view.GetButton(VNGameMenuAction.Save).interactable = dialogueController.CanSave;
+        view.GetButton(VNGameMenuAction.Load).interactable = dialogueController.CanLoad;
         view.SetVisible(true);
         dialogueController.OnGameMenuOpened();
         return true;

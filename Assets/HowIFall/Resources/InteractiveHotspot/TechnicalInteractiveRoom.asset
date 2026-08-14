@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8ecb5d3457ae2a4e9c20bbf7494c0f5, type: 3}
+  m_Name: TechnicalInteractiveRoom
+  m_EditorClassIdentifier: HowIFall.Runtime::InteractiveSceneData
+  sceneId: interactive_room
+  displayName: "Interactive Room \u2014 TECH DEMO ONLY / NOT CANON"
+  background: {fileID: 0}
+  hotspots:
+  - hotspotId: test_laptop
+    displayName: TEST:Laptop
+    normalizedRect:
+      serializedVersion: 2
+      x: 0.12
+      y: 0.28
+      width: 0.22
+      height: 0.24
+    availabilityConditions: []
+    requiredCompletedHotspotIds: []
+    oneShot: 1
+    outcome:
+      stateChanges: []
+      feedbackText: TEST:computer_checked = true
+      completeScene: 0
+      nextScene: {fileID: 0}
+  - hotspotId: test_door
+    displayName: TEST:Door
+    normalizedRect:
+      serializedVersion: 2
+      x: 0.67
+      y: 0.18
+      width: 0.17
+      height: 0.56
+    availabilityConditions: []
+    requiredCompletedHotspotIds:
+    - test_laptop
+    oneShot: 0
+    outcome:
+      stateChanges: []
+      feedbackText: 'TEST: Door exit'
+      completeScene: 1
+      nextScene: {fileID: 0}
+  - hotspotId: test_window
+    displayName: TEST:Window
+    normalizedRect:
+      serializedVersion: 2
+      x: 0.4
+      y: 0.54
+      width: 0.2
+      height: 0.26
+    availabilityConditions: []
+    requiredCompletedHotspotIds: []
+    oneShot: 1
+    outcome:
+      stateChanges: []
+      feedbackText: TEST:window_checked = true
+      completeScene: 0
+      nextScene: {fileID: 0}
+  completionNextScene: {fileID: 11400000, guid: 4fbec9c4f05d6e1478b0b50bbd6a2c58, type: 2}

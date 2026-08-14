@@ -19,7 +19,8 @@ public readonly struct SpecialModePolicy
         bool allowsBacklog,
         bool allowsSettings,
         bool allowsEscapeCancel,
-        bool allowsReturnToMainMenu)
+        bool allowsReturnToMainMenu,
+        bool allowsGameMenu)
     {
         isInitialized = true;
         BlocksDialogueAdvance = blocksDialogueAdvance;
@@ -32,6 +33,7 @@ public readonly struct SpecialModePolicy
         AllowsSettings = allowsSettings;
         AllowsEscapeCancel = allowsEscapeCancel;
         AllowsReturnToMainMenu = allowsReturnToMainMenu;
+        AllowsGameMenu = allowsGameMenu;
     }
 
     public bool IsValid => isInitialized;
@@ -45,6 +47,7 @@ public readonly struct SpecialModePolicy
     public bool AllowsSettings { get; }
     public bool AllowsEscapeCancel { get; }
     public bool AllowsReturnToMainMenu { get; }
+    public bool AllowsGameMenu { get; }
 
     public static SpecialModePolicy BlockingExclusive => new SpecialModePolicy(
         blocksDialogueAdvance: true,
@@ -56,7 +59,22 @@ public readonly struct SpecialModePolicy
         allowsBacklog: false,
         allowsSettings: false,
         allowsEscapeCancel: false,
-        allowsReturnToMainMenu: false);
+        allowsReturnToMainMenu: false,
+        allowsGameMenu: false);
+
+    /// <summary>Exclusive hotspot presentation: blocks narrative input while allowing the existing Game Menu round-trip.</summary>
+    public static SpecialModePolicy InteractiveScene => new SpecialModePolicy(
+        blocksDialogueAdvance: true,
+        blocksAuto: true,
+        blocksSkip: true,
+        allowsSave: false,
+        allowsLoad: false,
+        allowsQuickMenu: false,
+        allowsBacklog: false,
+        allowsSettings: false,
+        allowsEscapeCancel: false,
+        allowsReturnToMainMenu: false,
+        allowsGameMenu: true);
 }
 
 /// <summary>Optional typed contract for a special mode that explicitly permits Escape cancellation.</summary>
@@ -121,6 +139,7 @@ public sealed class SpecialModeCoordinator
     public bool CanOpenBacklog => !HasActiveOwner || activePolicy.AllowsBacklog;
     public bool CanOpenSettings => !HasActiveOwner || activePolicy.AllowsSettings;
     public bool CanReturnToMainMenu => !HasActiveOwner || activePolicy.AllowsReturnToMainMenu;
+    public bool CanOpenGameMenu => !HasActiveOwner || activePolicy.AllowsGameMenu;
 
     public bool TryEnter(UnityEngine.Object owner, SpecialModePolicy policy, out SpecialModeLease lease)
     {
