@@ -1,8 +1,6 @@
 ---
 name: hif-visual-qa
 description: Run How I Fall player-visible visual QA with existing Unity launchers and graphical E2E.
-metadata:
-  invocation: implicit
 ---
 
 # How I Fall visual QA
