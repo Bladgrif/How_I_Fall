@@ -29,12 +29,7 @@ public static class SaveBackendV2PlayModeE2ERunner
     private const string AutoFilesSignatureKey = "HowIFall.SaveBackendV2E2E.AutoFilesSignature";
     private const string ResultPath = "save_backend_v2_playmode_result.txt";
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
-    private const string TabsScreenshotFolder = "GraphicalScreenshots";
-    private static readonly Vector2Int[] TabsUiResolutions =
-    {
-        new Vector2Int(1920, 1080),
-        new Vector2Int(1280, 720)
-    };
+    private static readonly Vector2Int TabsUiResolution = new Vector2Int(1920, 1080);
 
     static SaveBackendV2PlayModeE2ERunner()
     {
@@ -612,25 +607,23 @@ public static class SaveBackendV2PlayModeE2ERunner
         VerifyTabPresentation(panel, manager, SaveSlotType.Manual, false);
         Require(panel.CurrentSlotType == SaveSlotType.Manual, "OpenLoad did not reset the panel to Manual.");
 
-        foreach (Vector2Int resolution in TabsUiResolutions)
+        Vector2Int resolution = TabsUiResolution;
+        ConfigureGameViewResolution(resolution);
+        for (int frame = 0; frame < 40 && (Screen.width != resolution.x || Screen.height != resolution.y); frame++)
         {
-            ConfigureGameViewResolution(resolution);
-            for (int frame = 0; frame < 40 && (Screen.width != resolution.x || Screen.height != resolution.y); frame++)
-            {
-                yield return null;
-            }
+            yield return null;
+        }
 
-            Require(Screen.width == resolution.x && Screen.height == resolution.y, $"Game View did not switch to {resolution.x}x{resolution.y}.");
+        Require(Screen.width == resolution.x && Screen.height == resolution.y, $"Game View did not switch to {resolution.x}x{resolution.y}.");
 
-            foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
-            {
-                SelectTab(panel, type);
-                yield return new WaitForSecondsRealtime(0.12f);
-                VerifyTabPresentation(panel, manager, type, false);
-                VerifyTabsLayout(panel, resolution);
-                yield return new WaitForEndOfFrame();
-                CaptureTabsScreenshot(type, resolution);
-            }
+        foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
+        {
+            SelectTab(panel, type);
+            yield return new WaitForSecondsRealtime(0.12f);
+            VerifyTabPresentation(panel, manager, type, false);
+            VerifyTabsLayout(panel, resolution);
+            yield return new WaitForEndOfFrame();
+            CaptureTabsScreenshot(type, resolution);
         }
 
         panel.OpenSave();
@@ -859,8 +852,10 @@ public static class SaveBackendV2PlayModeE2ERunner
     {
         string typeName = type.ToString().ToLowerInvariant();
         return Path.GetFullPath(Path.Combine(
-            SessionState.GetString(DirectoryKey, string.Empty),
-            TabsScreenshotFolder,
+            Path.GetDirectoryName(Application.dataPath),
+            "QAArtifacts",
+            "GraphicalE2E",
+            "SaveBackendV2",
             $"save_load_{typeName}_{resolution.x}x{resolution.y}.png"));
     }
 
@@ -1773,17 +1768,6 @@ public static class SaveBackendV2PlayModeE2ERunner
 
         Directory.Delete(fullPath, true);
         Debug.Log($"[SAVE BACKEND E2E] Temporary save directory removed: '{fullPath}'.");
-    }
-
-    private static void CleanTabsScreenshots()
-    {
-        foreach (Vector2Int resolution in TabsUiResolutions)
-        {
-            foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
-            {
-                DeleteIfExists(GetTabsScreenshotPath(type, resolution));
-            }
-        }
     }
 
     private static void WriteResult(string status, string details)

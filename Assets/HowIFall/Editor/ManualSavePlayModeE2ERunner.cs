@@ -23,16 +23,8 @@ public static class ManualSavePlayModeE2ERunner
     private const string InitialCreatedAtKey = "HowIFall.SaveE2E.InitialCreatedAt";
     private const string ErrorsKey = "HowIFall.SaveE2E.Errors";
     private const string DirectoryKey = "HowIFall.SaveE2E.Directory";
-    private const string UiResolutionIndexKey = "HowIFall.SaveE2E.UiResolutionIndex";
     private const string ResultPath = "manual_save_playmode_result.txt";
-    private const string ScreenshotFolder = "GraphicalScreenshots";
-
-    private static readonly Vector2Int[] UiResolutions =
-    {
-        new Vector2Int(1920, 1080),
-        new Vector2Int(2560, 1440),
-        new Vector2Int(1280, 720)
-    };
+    private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
 
     static ManualSavePlayModeE2ERunner()
     {
@@ -72,7 +64,6 @@ public static class ManualSavePlayModeE2ERunner
         SessionState.SetString(InitialCreatedAtKey, string.Empty);
         SessionState.SetString(ErrorsKey, string.Empty);
         SessionState.SetString(DirectoryKey, directory);
-        SessionState.SetInt(UiResolutionIndexKey, 0);
         SetDelay(1.0d);
 
         EditorSceneManager.OpenScene("Assets/HowIFall/Scenes/MainMenu.unity", OpenSceneMode.Single);
@@ -294,7 +285,6 @@ public static class ManualSavePlayModeE2ERunner
         SessionState.SetString(InitialCreatedAtKey, slot.Data.createdAtUtc);
         Pass("Slot 1 JSON and screenshot written");
 
-        SessionState.SetInt(UiResolutionIndexKey, 0);
         SessionState.SetString(StageKey, "SetUiResolution");
         SessionState.SetInt(CounterKey, 0);
         SetDelay(0.2d);
@@ -302,9 +292,7 @@ public static class ManualSavePlayModeE2ERunner
 
     private static void SetUiResolution()
     {
-        int index = SessionState.GetInt(UiResolutionIndexKey, 0);
-        Require(index >= 0 && index < UiResolutions.Length, "UI resolution index is invalid.");
-        Vector2Int resolution = UiResolutions[index];
+        Vector2Int resolution = QaResolution;
         ConfigureGameViewResolution(resolution);
         SessionState.SetInt(CounterKey, 0);
         SessionState.SetString(StageKey, "CaptureUiResolution");
@@ -313,8 +301,7 @@ public static class ManualSavePlayModeE2ERunner
 
     private static void CaptureUiResolution()
     {
-        int index = SessionState.GetInt(UiResolutionIndexKey, 0);
-        Vector2Int resolution = UiResolutions[index];
+        Vector2Int resolution = QaResolution;
         if (Screen.width != resolution.x || Screen.height != resolution.y)
         {
             int attempts = SessionState.GetInt(CounterKey, 0) + 1;
@@ -336,6 +323,7 @@ public static class ManualSavePlayModeE2ERunner
             File.Delete(path);
         }
 
+        // The open panel and its layout were verified above; Unity captures this queued screenshot at frame end.
         ScreenCapture.CaptureScreenshot(path);
         SessionState.SetInt(CounterKey, 0);
         SessionState.SetString(StageKey, "WaitUiScreenshot");
@@ -344,8 +332,7 @@ public static class ManualSavePlayModeE2ERunner
 
     private static void WaitUiScreenshot()
     {
-        int index = SessionState.GetInt(UiResolutionIndexKey, 0);
-        Vector2Int resolution = UiResolutions[index];
+        Vector2Int resolution = QaResolution;
         string path = GetUiScreenshotPath(resolution);
         if (!File.Exists(path) || new FileInfo(path).Length == 0)
         {
@@ -359,16 +346,7 @@ public static class ManualSavePlayModeE2ERunner
         VerifyImageDimensions(path, resolution.x, resolution.y, "UI screenshot");
         Pass($"Save UI layout and screenshot {resolution.x}x{resolution.y}");
 
-        index++;
-        if (index < UiResolutions.Length)
-        {
-            SessionState.SetInt(UiResolutionIndexKey, index);
-            SessionState.SetString(StageKey, "SetUiResolution");
-            SetDelay(0.15d);
-            return;
-        }
-
-        ConfigureGameViewResolution(new Vector2Int(1920, 1080));
+        ConfigureGameViewResolution(QaResolution);
         VNDialogueController.Instance.manualSaveLoadPanel.Close();
         SessionState.SetString(StageKey, "AdvanceAfterSave");
         SessionState.SetInt(CounterKey, 0);
@@ -793,8 +771,10 @@ public static class ManualSavePlayModeE2ERunner
     {
         string fileName = $"manual_save_{resolution.x}x{resolution.y}.png";
         return Path.GetFullPath(Path.Combine(
-            SessionState.GetString(DirectoryKey, string.Empty),
-            ScreenshotFolder,
+            Path.GetDirectoryName(Application.dataPath),
+            "QAArtifacts",
+            "GraphicalE2E",
+            "ManualSave",
             fileName));
     }
 
@@ -890,18 +870,6 @@ public static class ManualSavePlayModeE2ERunner
         }
 
         Screen.SetResolution(resolution.x, resolution.y, FullScreenMode.Windowed);
-    }
-
-    private static void CleanUiScreenshots()
-    {
-        foreach (Vector2Int resolution in UiResolutions)
-        {
-            string path = GetUiScreenshotPath(resolution);
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
     }
 
     private static string GetButtonLabel(Button button)

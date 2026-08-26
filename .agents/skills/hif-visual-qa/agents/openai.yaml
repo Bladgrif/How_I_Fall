@@ -1,0 +1,6 @@
+interface:
+  display_name: "How I Fall Visual QA"
+  short_description: "Run focused graphical QA at 1920x1080"
+  default_prompt: "Use the existing How I Fall QA launchers and graphical E2E, inspect available screenshot proof, and report only real results."
+policy:
+  invocation: implicit
