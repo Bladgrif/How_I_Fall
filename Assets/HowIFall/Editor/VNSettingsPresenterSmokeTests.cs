@@ -49,11 +49,9 @@ public static class VNSettingsPresenterSmokeTests
             Require(Mathf.Approximately(view.SharedView.GetSlider(SharedPreferencesView.AutoForwardDelayId).value, 2.5f), "Auto-forward delay was not converted to seconds.");
 
             view.SharedView.GetSlider(SharedPreferencesView.MasterVolumeId).value = 0.35f;
-            view.SharedView.GetToggle(SharedPreferencesView.MuteAllId).isOn = true;
             view.SharedView.GetSlider(SharedPreferencesView.AutoForwardDelayId).value = 4f;
             view.SharedView.GetToggle(SharedPreferencesView.SkipUnseenId).isOn = true;
             Require(Mathf.Approximately(service.Source.masterVolume, 0.35f), "Master volume change was not forwarded.");
-            Require(service.Source.muteAll, "Mute All change was not forwarded.");
             Require(Mathf.Approximately(service.Source.autoForwardDelay, 400f), "Auto-forward delay change was not forwarded.");
             Require(service.Source.skipMode == "Всё", "Skip unseen toggle was not forwarded truthfully.");
 

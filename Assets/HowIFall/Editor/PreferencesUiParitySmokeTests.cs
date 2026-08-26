@@ -53,12 +53,11 @@ public static class PreferencesUiParitySmokeTests
 
             string[] expected =
             {
-                SharedPreferencesView.ScreenModeId, SharedPreferencesView.ResolutionId, SharedPreferencesView.RunInBackgroundId,
-                SharedPreferencesView.MuteAllId, SharedPreferencesView.MasterVolumeId, SharedPreferencesView.MusicVolumeId,
+                SharedPreferencesView.ScreenModeId, SharedPreferencesView.ResolutionId,
+                SharedPreferencesView.MasterVolumeId, SharedPreferencesView.MusicVolumeId,
                 SharedPreferencesView.SfxVolumeId, SharedPreferencesView.TextSpeedId, SharedPreferencesView.AutoForwardDelayId,
-                SharedPreferencesView.SkipUnseenId, SharedPreferencesView.SkipAfterChoicesId, SharedPreferencesView.SkipSpeedId,
-                SharedPreferencesView.AutosaveId, SharedPreferencesView.TextSizeId, SharedPreferencesView.TextboxOpacityId,
-                SharedPreferencesView.ShowQuickMenuId
+                SharedPreferencesView.TextSizeId, SharedPreferencesView.TextboxOpacityId, SharedPreferencesView.SkipUnseenId,
+                SharedPreferencesView.SkipAfterChoicesId, SharedPreferencesView.AutosaveId, SharedPreferencesView.ShowQuickMenuId
             };
             Require(SharedPreferencesView.VisibleControlIds.SequenceEqual(expected), "Shared Preferences visible control order changed unexpectedly.");
             Require(expected.All(id => mainView.HasControl(id) && gameplayView.HasControl(id)),
@@ -68,13 +67,14 @@ public static class PreferencesUiParitySmokeTests
             {
                 "refresh_rate", "game_look", "interface_style", "rewind_vhs_filter", "character_animations",
                 "background_animations", "language", "font_size_mode", "show_hints", "auto_enabled",
-                "ambient_volume", "music_during_pause", "text_outline", "textbox_width", "textbox_height"
+                "ambient_volume", "music_during_pause", "text_outline", "textbox_width", "textbox_height",
+                "run_in_background", "mute_all", "skip_speed"
             };
             Require(prohibited.All(id => !mainView.HasControl(id) && !gameplayView.HasControl(id)),
                 "A fake, deferred, or B03 control leaked into the Phase 2 player-facing view.");
-            Require(mainView.GetComponentsInChildren<ScrollRect>(true).Length == 1
-                && gameplayView.GetComponentsInChildren<ScrollRect>(true).Length == 1,
-                "Each shared Preferences instance must have exactly one scroll context.");
+            Require(mainView.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 1
+                && gameplayView.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 1,
+                "Each shared Preferences instance must have exactly one primary scroll context.");
             Require(!mainLegacy.activeSelf && !gameplayPanel.activeSelf && !gameplayOverlay.activeSelf,
                 "Legacy settings surfaces must remain unreachable and hidden.");
         }
@@ -105,6 +105,16 @@ public static class PreferencesUiParitySmokeTests
             Require(autoDelayText.Contains("сек.") && !autoDelayText.Contains("%"),
                 "Auto delay must display seconds instead of legacy percent.");
 
+            TMP_Dropdown screenMode = view.GetDropdown(SharedPreferencesView.ScreenModeId);
+            TMP_Dropdown resolution = view.GetDropdown(SharedPreferencesView.ResolutionId);
+            Require(screenMode != null && resolution != null, "Screen Mode and Resolution must use real TMP dropdown controls.");
+            Require(view.GetButton(SharedPreferencesView.ScreenModeId) == null && view.GetButton(SharedPreferencesView.ResolutionId) == null,
+                "Display options must not fall back to cycle-on-click buttons.");
+            screenMode.value = screenMode.options.FindIndex(option => option.text == SettingsOptionValues.Borderless);
+            resolution.value = resolution.options.FindIndex(option => option.text == "1600x900");
+            Require(service.Source.screenMode == SettingsOptionValues.Borderless && service.Source.resolution == "1600x900",
+                "Selecting a dropdown option must apply the existing shared setting.");
+
             view.GetSlider(SharedPreferencesView.AutoForwardDelayId).value = 3.7f;
             Require(Mathf.Approximately(service.Source.autoForwardDelay, 370f), "Auto delay seconds did not roundtrip to legacy storage safely.");
             Require(Mathf.Approximately(PreferencesFormatting.AutoForwardDelaySeconds(service.Source.autoForwardDelay), 3.7f),
@@ -119,6 +129,10 @@ public static class PreferencesUiParitySmokeTests
             view.GetSlider(SharedPreferencesView.TextboxOpacityId).value = 0.35f;
             view.GetToggle(SharedPreferencesView.ShowQuickMenuId).isOn = false;
             Require(!service.Source.showQuickMenu, "Show Quick Menu did not update the shared settings truth immediately.");
+            Require(string.IsNullOrEmpty(view.GetDisplayedValue(SharedPreferencesView.MasterVolumeId))
+                && string.IsNullOrEmpty(view.GetDisplayedValue(SharedPreferencesView.MusicVolumeId))
+                && string.IsNullOrEmpty(view.GetDisplayedValue(SharedPreferencesView.SfxVolumeId)),
+                "Volume sliders must not display percent labels.");
             view.GetButton("reset").onClick.Invoke();
             GameSettings defaults = new GameSettings();
             Require(service.ResetCount == 1, "Reset action did not use the shared service.");

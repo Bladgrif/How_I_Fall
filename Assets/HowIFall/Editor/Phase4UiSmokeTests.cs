@@ -33,11 +33,11 @@ public static class Phase4UiSmokeTests
         Require(controller.ApplyPlayerFacingPresentation(), "Main Menu Phase 4 runtime wiring could not be applied.");
 
         Button[] buttons = controller.PlayerFacingActionButtons.ToArray();
-        Require(buttons.Length == 7, "Main Menu must expose exactly seven player-facing actions.");
+        Require(buttons.Length == 5, "Main Menu must expose exactly five player-facing actions.");
         string[] labels = buttons.Select(GetButtonLabel).ToArray();
-        string[] expectedLabels = { "Продолжить", "Новая игра", "Загрузить", "Настройки", "Помощь", "Об игре", "Выйти" };
+        string[] expectedLabels = { "Продолжить", "Новая игра", "Загрузить", "Настройки", "Выйти" };
         Require(labels.SequenceEqual(expectedLabels),
-            "Main Menu order must be Continue / New Game / Load / Preferences / Help / About / Quit. Actual: "
+            "Main Menu order must be Continue / New Game / Load / Preferences / Quit. Actual: "
             + string.Join(" / ", labels));
         Require(controller.continueButton == buttons[0], "Continue must be the first action and keep its existing button wiring.");
         Require(typeof(MainMenuController).GetMethod(nameof(MainMenuController.RefreshContinueAvailability)) != null,
@@ -52,8 +52,11 @@ public static class Phase4UiSmokeTests
         GameObject aboutPanel = GetPrivate<GameObject>(controller, "aboutPanel");
         GameObject helpPanel = GetPrivate<GameObject>(controller, "helpPanel");
         GameObject exitConfirmPanel = GetPrivate<GameObject>(controller, "exitConfirmPanel");
-        Require(helpPanel != null && aboutPanel != null, "Help/About must remain available.");
+        Require(helpPanel != null && aboutPanel != null, "Help/About technical panels must remain available.");
         Require(exitConfirmPanel != null, "Quit confirmation must remain preserved.");
+        Require(!FindButtonWithRoute(controller, nameof(MainMenuController.OpenHelp)).gameObject.activeInHierarchy
+            && !FindButtonWithRoute(controller, nameof(MainMenuController.OpenAbout)).gameObject.activeInHierarchy,
+            "Help/About must not remain player-facing Main Menu entries.");
 
         Transform commonContent = buttons[0].transform.parent.parent;
         Require(buttons.All(button => button.transform.parent.parent == commonContent),
@@ -177,6 +180,14 @@ public static class Phase4UiSmokeTests
             .FirstOrDefault(text => text.gameObject.name == "Text")
             ?? button.GetComponentInChildren<Text>(true);
         return legacyLabel != null ? legacyLabel.text : string.Empty;
+    }
+
+    private static Button FindButtonWithRoute(MainMenuController controller, string methodName)
+    {
+        return UnityEngine.Object.FindObjectsByType<Button>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(button => Enumerable.Range(0, button.onClick.GetPersistentEventCount())
+                .Any(index => button.onClick.GetPersistentTarget(index) == controller
+                    && button.onClick.GetPersistentMethodName(index) == methodName));
     }
 
     private static GameObject CreateRect(Transform parent, string name)

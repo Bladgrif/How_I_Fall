@@ -16,8 +16,6 @@ public sealed class MainMenuController : MonoBehaviour
         nameof(StartGame),
         nameof(OpenManualLoad),
         nameof(OpenSettings),
-        nameof(OpenHelp),
-        nameof(OpenAbout),
         nameof(OpenExitConfirm)
     };
 
@@ -27,8 +25,6 @@ public sealed class MainMenuController : MonoBehaviour
         "Новая игра",
         "Загрузить",
         "Настройки",
-        "Помощь",
-        "Об игре",
         "Выйти"
     };
 
@@ -52,6 +48,7 @@ public sealed class MainMenuController : MonoBehaviour
 
     private Coroutine notificationCoroutine;
     private readonly List<Button> playerFacingActionButtons = new List<Button>();
+    private Button modalFocusRestoreButton;
 
     public TextMeshProUGUI HelpText => helpText;
     public GameObject GalleryPanel => galleryPanel;
@@ -74,6 +71,15 @@ public sealed class MainMenuController : MonoBehaviour
         SaveManager.EnsureInstance(dialogueRegistry);
         RefreshContinueAvailability();
         RefreshGallery();
+        FocusDefaultAction();
+    }
+
+    private void Update()
+    {
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
+        {
+            TryHandleCloseOrCancel();
+        }
     }
 
     /// <summary>
@@ -88,8 +94,6 @@ public sealed class MainMenuController : MonoBehaviour
             FindPersistentButton(this, nameof(StartGame)),
             FindPersistentButton(this, nameof(OpenManualLoad)) ?? FindPersistentButton(manualSaveLoadPanel, nameof(ManualSaveLoadPanel.OpenLoad)),
             FindPersistentButton(this, nameof(OpenSettings)),
-            FindPersistentButton(this, nameof(OpenHelp)),
-            FindPersistentButton(this, nameof(OpenAbout)),
             FindPersistentButton(this, nameof(OpenExitConfirm))
         };
 
@@ -113,10 +117,9 @@ public sealed class MainMenuController : MonoBehaviour
         }
 
         Button galleryEntry = FindPersistentButton(this, nameof(OpenGallery));
-        if (galleryEntry != null && galleryEntry.transform.parent != null && galleryEntry.transform.parent.parent == menuContent)
-        {
-            galleryEntry.transform.parent.gameObject.SetActive(false);
-        }
+        SetPlayerFacingRowVisible(FindPersistentButton(this, nameof(OpenHelp)), menuContent, false);
+        SetPlayerFacingRowVisible(FindPersistentButton(this, nameof(OpenAbout)), menuContent, false);
+        SetPlayerFacingRowVisible(galleryEntry, menuContent, false);
 
         playerFacingActionButtons.Clear();
         playerFacingActionButtons.AddRange(orderedButtons);
@@ -130,7 +133,7 @@ public sealed class MainMenuController : MonoBehaviour
 
     private void ApplyMainNavigationLayout(Transform[] orderedRows)
     {
-        float[] verticalPositions = { 176f, 102f, 28f, -66f, -136f, -206f, -306f };
+        float[] verticalPositions = { 156f, 96f, 36f, -24f, -116f };
         for (int index = 0; index < orderedRows.Length; index++)
         {
             RectTransform row = orderedRows[index] as RectTransform;
@@ -141,8 +144,8 @@ public sealed class MainMenuController : MonoBehaviour
 
             row.anchorMin = row.anchorMax = new Vector2(0f, 0.5f);
             row.pivot = new Vector2(0f, 0.5f);
-            row.anchoredPosition = new Vector2(200f, verticalPositions[index]);
-            row.sizeDelta = new Vector2(540f, 64f);
+            row.anchoredPosition = new Vector2(220f, verticalPositions[index]);
+            row.sizeDelta = new Vector2(320f, 48f);
 
             RectTransform buttonRect = playerFacingActionButtons[index].transform as RectTransform;
             if (buttonRect != null)
@@ -185,8 +188,8 @@ public sealed class MainMenuController : MonoBehaviour
         panel.SetAsFirstSibling();
         panel.anchorMin = panel.anchorMax = new Vector2(0f, 0.5f);
         panel.pivot = new Vector2(0f, 0.5f);
-        panel.anchoredPosition = new Vector2(176f, -64f);
-        panel.sizeDelta = new Vector2(588f, 660f);
+        panel.anchoredPosition = new Vector2(196f, 16f);
+        panel.sizeDelta = new Vector2(368f, 380f);
 
         Image panelImage = panel.GetComponent<Image>();
         panelImage.sprite = null;
@@ -206,7 +209,7 @@ public sealed class MainMenuController : MonoBehaviour
         for (int index = 0; index < playerFacingActionButtons.Count; index++)
         {
             Button button = playerFacingActionButtons[index];
-            MainMenuButtonVisualRole role = index == 6
+            MainMenuButtonVisualRole role = index == playerFacingActionButtons.Count - 1
                 ? MainMenuButtonVisualRole.Destructive
                 : (hasCompatibleSave ? index == 0 : index == 1)
                     ? MainMenuButtonVisualRole.Primary
@@ -238,6 +241,15 @@ public sealed class MainMenuController : MonoBehaviour
         if (legacyPrompt != null)
         {
             legacyPrompt.gameObject.SetActive(false);
+        }
+    }
+
+    private static void SetPlayerFacingRowVisible(Button button, Transform menuContent, bool visible)
+    {
+        Transform row = button != null ? button.transform.parent : null;
+        if (row != null && row.parent == menuContent)
+        {
+            row.gameObject.SetActive(visible);
         }
     }
 
@@ -451,6 +463,11 @@ public sealed class MainMenuController : MonoBehaviour
         bool hasCompatibleSave = saveManager.HasAnyValidSave();
         continueButton.interactable = hasCompatibleSave;
         ApplyActionPresentation(hasCompatibleSave);
+
+        if (!hasCompatibleSave && GetEventSystem()?.currentSelectedGameObject == continueButton.gameObject)
+        {
+            FocusDefaultAction();
+        }
     }
 
     public void OpenSettings()
@@ -468,7 +485,9 @@ public sealed class MainMenuController : MonoBehaviour
     {
         if (aboutPanel != null)
         {
+            CaptureModalFocusRestoreTarget(FindPersistentButton(this, nameof(OpenAbout)));
             aboutPanel.SetActive(true);
+            FocusButton(FindPersistentButton(this, nameof(CloseAbout)));
         }
     }
 
@@ -478,7 +497,9 @@ public sealed class MainMenuController : MonoBehaviour
 
         if (helpPanel != null)
         {
+            CaptureModalFocusRestoreTarget(FindPersistentButton(this, nameof(OpenHelp)));
             helpPanel.SetActive(true);
+            FocusButton(FindPersistentButton(this, nameof(CloseHelp)));
         }
     }
 
@@ -495,6 +516,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (aboutPanel != null)
         {
             aboutPanel.SetActive(false);
+            RestoreFocusAfterModal();
         }
     }
 
@@ -503,6 +525,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (helpPanel != null)
         {
             helpPanel.SetActive(false);
+            RestoreFocusAfterModal();
         }
     }
 
@@ -510,6 +533,7 @@ public sealed class MainMenuController : MonoBehaviour
     {
         if (exitConfirmPanel != null)
         {
+            CaptureModalFocusRestoreTarget(FindPersistentButton(this, nameof(OpenExitConfirm)));
             exitConfirmPanel.SetActive(true);
             FocusExitConfirmationCancel();
             return;
@@ -523,7 +547,41 @@ public sealed class MainMenuController : MonoBehaviour
         if (exitConfirmPanel != null)
         {
             exitConfirmPanel.SetActive(false);
+            RestoreFocusAfterModal();
         }
+    }
+
+    /// <summary>Applies the Main Menu default selection without relying on serialized EventSystem state.</summary>
+    public void FocusDefaultAction()
+    {
+        Button fallback = continueButton != null && continueButton.isActiveAndEnabled && continueButton.interactable
+            ? continueButton
+            : playerFacingActionButtons.Count > 1 ? playerFacingActionButtons[1] : null;
+        FocusButton(fallback);
+    }
+
+    /// <summary>Handles only Main Menu-owned modal cancellation. Child screens keep their own Back/Esc ownership.</summary>
+    public bool TryHandleCloseOrCancel()
+    {
+        if (exitConfirmPanel != null && exitConfirmPanel.activeSelf)
+        {
+            CloseExitConfirm();
+            return true;
+        }
+
+        if (helpPanel != null && helpPanel.activeSelf)
+        {
+            CloseHelp();
+            return true;
+        }
+
+        if (aboutPanel != null && aboutPanel.activeSelf)
+        {
+            CloseAbout();
+            return true;
+        }
+
+        return false;
     }
 
     public void ConfirmExit()
@@ -607,7 +665,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (tmpLabel != null)
         {
             tmpLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            tmpLabel.fontSize = 24f;
+            tmpLabel.fontSize = 20f;
             tmpLabel.enableAutoSizing = false;
             ApplyLabelPadding(tmpLabel.rectTransform);
             return;
@@ -617,7 +675,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (label != null)
         {
             label.alignment = TextAnchor.MiddleLeft;
-            label.fontSize = 24;
+            label.fontSize = 20;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
             ApplyLabelPadding(label.rectTransform);
@@ -633,8 +691,8 @@ public sealed class MainMenuController : MonoBehaviour
 
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(24f, 0f);
-        labelRect.offsetMax = new Vector2(-24f, 0f);
+        labelRect.offsetMin = new Vector2(18f, 0f);
+        labelRect.offsetMax = new Vector2(-18f, 0f);
     }
 
     private static void ApplyModalButtonPresentation(Button button, bool destructive)
@@ -679,13 +737,57 @@ public sealed class MainMenuController : MonoBehaviour
         }
     }
 
+    private void CaptureModalFocusRestoreTarget(Button fallback)
+    {
+        EventSystem eventSystem = GetEventSystem();
+        Button selected = eventSystem != null && eventSystem.currentSelectedGameObject != null
+            ? eventSystem.currentSelectedGameObject.GetComponent<Button>()
+            : null;
+        modalFocusRestoreButton = IsPlayerFacingAction(selected) ? selected : fallback;
+    }
+
+    private void RestoreFocusAfterModal()
+    {
+        Button restoreTarget = modalFocusRestoreButton;
+        modalFocusRestoreButton = null;
+        if (IsPlayerFacingAction(restoreTarget) && restoreTarget.interactable)
+        {
+            FocusButton(restoreTarget);
+            return;
+        }
+
+        FocusDefaultAction();
+    }
+
+    private bool IsPlayerFacingAction(Button button)
+    {
+        return button != null
+            && button.isActiveAndEnabled
+            && playerFacingActionButtons.Contains(button);
+    }
+
+    private void FocusButton(Button button)
+    {
+        if (button == null || !button.isActiveAndEnabled || !button.interactable)
+        {
+            return;
+        }
+
+        GetEventSystem()?.SetSelectedGameObject(button.gameObject);
+    }
+
+    private EventSystem GetEventSystem()
+    {
+        return EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+    }
+
     private void FocusExitConfirmationCancel()
     {
         Button cancel = exitConfirmPanel == null
             ? null
             : exitConfirmPanel.GetComponentsInChildren<Button>(true)
                 .FirstOrDefault(button => HasPersistentRoute(button, nameof(CloseExitConfirm)));
-        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        EventSystem eventSystem = GetEventSystem();
         if (cancel != null && eventSystem != null)
         {
             eventSystem.SetSelectedGameObject(cancel.gameObject);

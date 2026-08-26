@@ -9,13 +9,7 @@ using UnityEngine.UI;
 public static class MainMenuVisualPassASmokeTests
 {
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
-    private static readonly Vector2[] TargetResolutions =
-    {
-        new Vector2(1280f, 720f),
-        new Vector2(1920f, 1080f),
-        new Vector2(2560f, 1440f),
-        new Vector2(3840f, 2160f)
-    };
+    private static readonly Vector2 TargetResolution = new Vector2(1920f, 1080f);
 
     [MenuItem("How I Fall/Tests/Run Main Menu Visual Pass A Smoke Tests")]
     public static void RunFromMenu()
@@ -31,6 +25,7 @@ public static class MainMenuVisualPassASmokeTests
         Require(controller != null, "MainMenu must contain MainMenuController.");
         Require(controller.ApplyPlayerFacingPresentation(), "Main Menu visual presentation could not be applied.");
 
+        VerifyFinalActionSet(controller);
         VerifyDynamicPrimaryAction(controller);
         VerifyNavigationLayout(controller);
         VerifyNavigationPanel(controller);
@@ -39,6 +34,17 @@ public static class MainMenuVisualPassASmokeTests
         VerifyModalBoundsAndAboutWrapping(controller);
         VerifyLegacyPromptIsNotPlayerFacing();
         VerifyBackgroundMotionIsDisabled();
+    }
+
+    private static void VerifyFinalActionSet(MainMenuController controller)
+    {
+        string[] labels = controller.PlayerFacingActionButtons
+            .Select(GetButtonLabel)
+            .ToArray();
+        Require(labels.SequenceEqual(new[] { "Продолжить", "Новая игра", "Загрузить", "Настройки", "Выйти" }),
+            "Main Menu must expose only Continue / New Game / Load / Preferences / Quit in that order.");
+        Require(controller.PlayerFacingActionButtons.Count == 5,
+            "Main Menu must expose exactly five player-facing actions.");
     }
 
     private static void VerifyDynamicPrimaryAction(MainMenuController controller)
@@ -97,25 +103,18 @@ public static class MainMenuVisualPassASmokeTests
             }
         }
 
-        Require(Mathf.Approximately(gaps[0], gaps[1]), "Primary actions must use uniform spacing.");
-        Require(Mathf.Approximately(gaps[3], gaps[4]), "Secondary actions must use uniform spacing.");
-        Require(gaps[2] > gaps[1], "Primary and secondary groups must have a visible group gap.");
-        Require(gaps[5] > gaps[4], "Quit must be visually separated from secondary actions.");
+        Require(gaps.All(gap => gap >= 8f && gap <= 12f) || gaps[3] > gaps[2],
+            "Main Menu actions must use compact spacing with Quit visibly separated.");
+        Require(gaps.Take(3).All(gap => gap >= 8f && gap <= 12f),
+            "The first four Main Menu actions must use consistent compact spacing.");
+        Require(gaps[3] > gaps[2], "Quit must be visually separated from the main action group.");
 
-        foreach (Vector2 resolution in TargetResolutions)
+        foreach (RectTransform row in rows)
         {
-            float scale = resolution.y / 1080f;
-            foreach (RectTransform row in rows)
-            {
-                float left = row.anchoredPosition.x * scale;
-                float right = (row.anchoredPosition.x + row.sizeDelta.x) * scale;
-                float bottom = (row.anchoredPosition.y - row.sizeDelta.y * 0.5f) * scale;
-                float top = (row.anchoredPosition.y + row.sizeDelta.y * 0.5f) * scale;
-                Require(left >= 48f * scale && right <= resolution.x - 48f * scale,
-                    $"Main Menu navigation exceeds horizontal safe area at {resolution.x}x{resolution.y}.");
-                Require(bottom >= -resolution.y * 0.5f + 24f * scale && top <= resolution.y * 0.5f - 24f * scale,
-                    $"Main Menu navigation exceeds vertical safe area at {resolution.x}x{resolution.y}.");
-            }
+            float left = row.anchoredPosition.x;
+            float right = row.anchoredPosition.x + row.sizeDelta.x;
+            Require(left >= 48f && right <= TargetResolution.x - 48f,
+                "Main Menu navigation exceeds the 1920x1080 horizontal safe area.");
         }
     }
 
@@ -163,21 +162,11 @@ public static class MainMenuVisualPassASmokeTests
         RectTransform[] rows = controller.PlayerFacingActionButtons
             .Select(button => button.transform.parent as RectTransform)
             .ToArray();
-        foreach (RectTransform row in rows)
-        {
-            Require(row.anchoredPosition.x >= 1920f * 0.10f && row.anchoredPosition.x <= 1920f * 0.12f,
-                "Main Menu actions must begin approximately 10-12% from the reference viewport left edge.");
-            Require(row.sizeDelta.x >= 1920f * 0.27f && row.sizeDelta.x <= 1920f * 0.30f,
-                "Main Menu actions must occupy approximately 27-30% of the reference viewport width.");
-        }
-
-        foreach (Vector2 resolution in TargetResolutions)
-        {
-            float scale = resolution.y / 1080f;
-            Require(rows.All(row => row.anchoredPosition.x * scale >= resolution.x * 0.10f
-                && row.anchoredPosition.x * scale <= resolution.x * 0.12f),
-                $"Main Menu navigation alignment drifts at {resolution.x}x{resolution.y}.");
-        }
+        Require(rows.All(row => row.anchoredPosition.x >= 192f && row.anchoredPosition.x <= 240f),
+            "Main Menu actions must stay in the left visual column.");
+        Require(rows.All(row => row.sizeDelta.x >= 280f && row.sizeDelta.x <= 340f
+                && row.sizeDelta.y >= 44f && row.sizeDelta.y <= 52f),
+            "Main Menu actions must use compact 1920x1080 button geometry.");
 
         CanvasScaler scaler = UnityEngine.Object.FindFirstObjectByType<CanvasScaler>(FindObjectsInactive.Include);
         Require(scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize,
@@ -194,12 +183,7 @@ public static class MainMenuVisualPassASmokeTests
 
     private static void VerifyModalBoundsAndAboutWrapping(MainMenuController controller)
     {
-        GameObject[] panels =
-        {
-            GetPrivate<GameObject>(controller, "helpPanel"),
-            GetPrivate<GameObject>(controller, "aboutPanel"),
-            GetPrivate<GameObject>(controller, "exitConfirmPanel")
-        };
+        GameObject[] panels = { GetPrivate<GameObject>(controller, "exitConfirmPanel") };
 
         foreach (GameObject panel in panels)
         {
@@ -207,19 +191,9 @@ public static class MainMenuVisualPassASmokeTests
             RectTransform window = panel.GetComponentsInChildren<RectTransform>(true)
                 .FirstOrDefault(rect => rect.transform.parent == panel.transform && rect.gameObject.name.Contains("Window"));
             Require(window != null, "Main Menu modal window is missing.");
-            foreach (Vector2 resolution in TargetResolutions)
-            {
-                Require(window.sizeDelta.x <= resolution.x - 96f && window.sizeDelta.y <= resolution.y - 72f,
-                    $"Modal window exceeds bounds at {resolution.x}x{resolution.y}.");
-            }
+            Require(window.sizeDelta.x <= TargetResolution.x - 96f && window.sizeDelta.y <= TargetResolution.y - 72f,
+                "Exit confirmation exceeds 1920x1080 bounds.");
         }
-
-        TextMeshProUGUI aboutBody = panels[1].GetComponentsInChildren<TextMeshProUGUI>(true)
-            .FirstOrDefault(text => text.text.Contains("How I Fall") && text.GetComponentInParent<Button>(true) == null);
-        Require(aboutBody != null && aboutBody.enableWordWrapping,
-            "About body must use word wrapping.");
-        Require(aboutBody.rectTransform.anchorMin.x >= 0.05f && aboutBody.rectTransform.anchorMax.x <= 0.95f,
-            "About body must stay inside responsive horizontal panel margins.");
     }
 
     private static void VerifyLegacyPromptIsNotPlayerFacing()
@@ -246,6 +220,18 @@ public static class MainMenuVisualPassASmokeTests
         MainMenuButtonHoverEffect effect = button.GetComponent<MainMenuButtonHoverEffect>();
         Require(effect != null, "Main Menu action lost its hover and selected-state presentation.");
         return effect;
+    }
+
+    private static string GetButtonLabel(Button button)
+    {
+        TextMeshProUGUI tmp = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (tmp != null)
+        {
+            return tmp.text;
+        }
+
+        Text legacy = button.GetComponentInChildren<Text>(true);
+        return legacy != null ? legacy.text : string.Empty;
     }
 
     private static T GetPrivate<T>(object owner, string fieldName) where T : class

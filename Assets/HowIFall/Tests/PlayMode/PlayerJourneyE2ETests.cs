@@ -113,32 +113,11 @@ namespace HowIFall.PlayModeTests
         }
 
         [UnityTest]
-        public IEnumerator MainMenuJourney_HelpAboutPreferencesQuitAndEmptyLoadReturnToMenu()
+        public IEnumerator MainMenuJourney_PreferencesQuitAndEmptyLoadReturnToMenu()
         {
             MainMenuController menu = FindObject<MainMenuController>();
             Assert.That(menu, Is.Not.Null);
-            Assert.That(menu.PlayerFacingActionButtons.Count, Is.EqualTo(7));
-
-            Click(menu.PlayerFacingActionButtons[4], "Main Menu Help");
-            yield return null;
-            GameObject helpPanel = FindSceneObject("Help Panel");
-            Assert.That(helpPanel, Is.Not.Null.And.Property("activeSelf").True, "Help did not become visible.");
-            Assert.That(menu.HelpText, Is.Not.Null);
-            Assert.That(menu.HelpText.text, Is.EqualTo(VNInputMap.BuildHelpText()), "Help is not showing the current player bindings.");
-            StringAssert.DoesNotContain("F2", menu.HelpText.text);
-            StringAssert.DoesNotContain("F3", menu.HelpText.text);
-            Click(FindButtonWithRoute(menu, nameof(MainMenuController.CloseHelp)), "Help Back");
-            yield return null;
-            Assert.That(helpPanel.activeSelf, Is.False, "Help Back did not return to Main Menu.");
-
-            Click(menu.PlayerFacingActionButtons[5], "Main Menu About");
-            yield return null;
-            GameObject aboutPanel = FindSceneObject("About Panel");
-            Assert.That(aboutPanel, Is.Not.Null.And.Property("activeSelf").True, "About did not become visible.");
-            AssertAboutBodyInsideWindow(aboutPanel);
-            Click(FindButtonWithRoute(menu, nameof(MainMenuController.CloseAbout)), "About Back");
-            yield return null;
-            Assert.That(aboutPanel.activeSelf, Is.False, "About Back did not return to Main Menu.");
+            Assert.That(menu.PlayerFacingActionButtons.Count, Is.EqualTo(5));
 
             Click(menu.PlayerFacingActionButtons[3], "Main Menu Preferences");
             yield return WaitForCondition(
@@ -166,7 +145,7 @@ namespace HowIFall.PlayModeTests
             Click(preferences.GetButton("back"), "Preferences Back after Reset");
             yield return null;
 
-            Click(menu.PlayerFacingActionButtons[6], "Main Menu Quit");
+            Click(menu.PlayerFacingActionButtons[4], "Main Menu Quit");
             yield return null;
             GameObject exitPanel = FindSceneObject("Exit Confirm Panel");
             Assert.That(exitPanel, Is.Not.Null.And.Property("activeSelf").True, "Quit confirmation did not open.");
