@@ -24,6 +24,20 @@
 
 **Status:** APPROVED
 
+## 2026-08-27 — Benchmark-first visual research
+
+**Decision:** Для значимых UI/UX visual decisions внешнее исследование начинается
+с нескольких сильных benchmark-референсов — прежде всего признанных/top-tier VN
+и качественных релевантных игр. Затем добавляются task-specific examples и при
+необходимости общий UX/accessibility guidance. Случайный набор малоизвестных
+примеров не используется как основной benchmark.
+
+**Why:** Сначала нужен высокий quality bar жанра, а затем — лучшие решения именно
+для конкретного экрана. Известность игры не означает, что каждый её UI-screen
+следует копировать; решения оцениваются и адаптируются под HIF.
+
+**Status:** APPROVED
+
 ## 2026-08-27 — Main Menu demo scope
 
 **Decision:**

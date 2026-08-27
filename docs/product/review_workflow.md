@@ -62,11 +62,28 @@ Baselines не являются final art или automatic aesthetic approval.
 
 ## Research-first
 
-Для крупных UI/UX/product решений порядок такой: repository knowledge base →
-external research/references → сравнение нескольких вариантов → рекомендация
-для HIF → фиксация принятого решения в repository docs. Internet даёт идеи и
-паттерны, repository docs содержат утверждённые решения How I Fall. Чужие
-copyrighted assets, code и layout one-to-one не копируются.
+Для крупных UI/UX/product решений порядок такой:
+
+1. сначала прочитать relevant repository knowledge base;
+2. затем выбрать несколько сильных benchmark-референсов — прежде всего
+   признанные/top-tier visual novels и качественные релевантные игры, а не
+   случайные примеры;
+3. после этого найти task-specific references, которые особенно хорошо решают
+   именно текущую задачу (Main Menu, Preferences, Save/Load, Backlog и т. п.);
+4. при необходимости добавить общий game UX/accessibility guidance;
+5. сравнить варианты по конкретным критериям и рекомендовать один основной
+   подход для HIF;
+6. после принятия зафиксировать reusable вывод в repository docs.
+
+Top-tier benchmark задаёт высокий уровень качества, но не является автоматическим
+образцом для каждого отдельного экрана. Reviewer должен оценивать конкретное
+решение, а не копировать его из-за известности игры. Для visual review важны
+composition, hierarchy, spacing, readability, visual weight, consistency и
+interaction states.
+
+Internet даёт идеи, patterns и external references. Repository docs содержат
+утверждённые решения How I Fall. Чужие copyrighted assets, code и уникальный
+layout one-to-one не копируются.
 
 ## Standard workflow
 
