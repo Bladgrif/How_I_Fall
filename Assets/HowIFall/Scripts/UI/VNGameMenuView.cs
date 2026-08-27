@@ -101,6 +101,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         if (visible)
         {
             root.transform.SetAsLastSibling();
+            FocusDefaultAction();
         }
         else
         {
@@ -142,6 +143,16 @@ public sealed class VNGameMenuView : MonoBehaviour
         confirmationRoot.SetActive(true);
         confirmationRoot.transform.SetAsLastSibling();
         FocusConfirmationCancel();
+    }
+
+    public void FocusDefaultAction()
+    {
+        Button fallback = GetButton(VNGameMenuAction.Return);
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        if (fallback != null && fallback.isActiveAndEnabled && fallback.interactable)
+        {
+            eventSystem?.SetSelectedGameObject(fallback.gameObject);
+        }
     }
 
     public void HideConfirmation()

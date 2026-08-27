@@ -123,6 +123,14 @@ public static class PlayerUiGraphicalE2ERunner
             Retry("Main Menu fade-in did not complete.");
             return;
         }
+
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null, "MainMenuController disappeared before the initial-focus capture.");
+        foreach (MainMenuButtonHoverEffect effect in UnityEngine.Object.FindObjectsByType<MainMenuButtonHoverEffect>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            effect.OnPointerExit(null);
+        }
+        menu.FocusDefaultAction();
         Capture("main_menu_1920x1080.png", "OpenMainPreferences");
     }
 

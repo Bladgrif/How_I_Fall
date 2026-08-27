@@ -352,6 +352,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         ApplySlotTypePresentation();
         Refresh();
+        FocusDefaultControl();
         if (wasAlreadyOpen)
         {
             ShowImmediately();
@@ -587,8 +588,10 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void CancelConfirmation()
     {
+        int slotIndex = pendingConfirmationSlot;
         ClearPendingConfirmation();
         SetConfirmationVisible(false, true);
+        FocusSlotOrDefault(slotIndex);
     }
 
     private void OpenConfirmation(ConfirmationAction action, SaveSlotType slotType, int slotIndex)
@@ -716,6 +719,26 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         saveInProgress = false;
         SetStatus(saved ? $"Слот {slotIndex} сохранён" : "Не удалось сохранить слот", !saved);
         Refresh();
+    }
+
+    private void FocusDefaultControl()
+    {
+        FocusSlotOrDefault(1);
+    }
+
+    private void FocusSlotOrDefault(int slotIndex)
+    {
+        Button slotButton = slotViews != null && slotIndex > 0 && slotIndex <= slotViews.Length
+            ? slotViews[slotIndex - 1]?.button
+            : null;
+        Button target = slotButton != null && slotButton.isActiveAndEnabled && slotButton.interactable
+            ? slotButton
+            : closeButton;
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        if (target != null && target.isActiveAndEnabled && target.interactable)
+        {
+            eventSystem?.SetSelectedGameObject(target.gameObject);
+        }
     }
 
     private void Refresh()

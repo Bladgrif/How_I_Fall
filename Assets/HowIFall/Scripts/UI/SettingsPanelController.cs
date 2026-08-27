@@ -55,6 +55,7 @@ public class SettingsPanelController : MonoBehaviour, IPreferencesView
     private PreferencesController preferencesController;
     private SharedPreferencesView sharedView;
     private bool sharedViewInitialized;
+    private bool sharedViewWasVisible;
 
     public PreferencesController SharedController
     {
@@ -90,6 +91,8 @@ public class SettingsPanelController : MonoBehaviour, IPreferencesView
         SharedController.Refresh();
     }
 
+    public bool IsSharedDropdownCancel => sharedView != null && sharedView.IsHandlingDropdownCancel;
+
     public void ResetSettings()
     {
         SharedController.Reset();
@@ -111,6 +114,12 @@ public class SettingsPanelController : MonoBehaviour, IPreferencesView
 
         EnsureSharedView();
         sharedView?.SetVisible(visible);
+        if (!visible && sharedViewWasVisible)
+        {
+            FindFirstObjectByType<MainMenuController>()?.FocusSettingsAction();
+        }
+
+        sharedViewWasVisible = visible;
     }
 
     void IPreferencesView.Refresh(PreferencesState settings)

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 /// <summary>Scene-local navigation owner. Existing gameplay systems retain their own data and behavior.</summary>
 public sealed class VNGameMenuController : MonoBehaviour
@@ -90,6 +91,7 @@ public sealed class VNGameMenuController : MonoBehaviour
 
         view?.HideConfirmation();
         view?.SetVisible(false);
+        (EventSystem.current ?? FindFirstObjectByType<EventSystem>())?.SetSelectedGameObject(null);
         localConfirmationAction = LocalConfirmationAction.None;
         IsOpen = false;
         dialogueController?.ReleaseDialogueShellSuppression(this);

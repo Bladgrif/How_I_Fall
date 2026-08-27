@@ -69,7 +69,7 @@ public static class VNInputMap
             VNInputAction.OpenLoad => keyboard.f9Key.wasPressedThisFrame,
             VNInputAction.ShowBacklog => keyboard.bKey.wasPressedThisFrame,
             VNInputAction.ToggleInterfaceVisibility => keyboard.hKey.wasPressedThisFrame,
-            VNInputAction.CloseOrCancel => keyboard.escapeKey.wasPressedThisFrame,
+            VNInputAction.CloseOrCancel => keyboard.escapeKey.wasPressedThisFrame || (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame),
             VNInputAction.ToggleDebugStatsView => keyboard.f2Key.wasPressedThisFrame,
             VNInputAction.ToggleDebugStatsPanel => keyboard.f3Key.wasPressedThisFrame,
             _ => false

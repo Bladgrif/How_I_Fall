@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
+using UnityEngine.EventSystems;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -44,11 +46,16 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     private readonly Dictionary<string, TMP_Dropdown> dropdowns = new Dictionary<string, TMP_Dropdown>();
     private GameObject root;
     private PreferencesController controller;
+    private TMP_Dropdown activeDropdown;
+    private int dropdownClosedFrame = -1;
     private bool isBound;
 
     public string ContextId { get; private set; }
     public static IReadOnlyList<string> VisibleControlIds => ControlIds;
     public bool IsVisible => root != null && root.activeSelf;
+    public bool IsAnyDropdownExpanded => dropdowns.Values.Any(dropdown => dropdown != null && dropdown.IsExpanded);
+    /// <summary>Prevents a Back press that closes a dropdown from also closing the parent modal.</summary>
+    public bool IsHandlingDropdownCancel => IsAnyDropdownExpanded || Time.frameCount == dropdownClosedFrame;
 
     public static SharedPreferencesView Create(Transform contextTransform, string contextId)
     {
@@ -82,6 +89,23 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
             ? dropdown.options[dropdown.value].text : string.Empty;
     }
 
+    private void Update()
+    {
+        TMP_Dropdown expanded = dropdowns.Values.FirstOrDefault(dropdown => dropdown != null && dropdown.IsExpanded);
+        if (expanded != null)
+        {
+            activeDropdown = expanded;
+            return;
+        }
+
+        if (activeDropdown != null)
+        {
+            Focus(activeDropdown);
+            activeDropdown = null;
+            dropdownClosedFrame = Time.frameCount;
+        }
+    }
+
     public void Bind(PreferencesController sharedController)
     {
         controller = sharedController;
@@ -110,7 +134,28 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     {
         if (root == null) return;
         root.SetActive(visible);
-        if (visible) root.transform.SetAsLastSibling();
+        if (visible)
+        {
+            root.transform.SetAsLastSibling();
+            FocusDefaultControl();
+        }
+    }
+
+    /// <summary>Assigns deterministic keyboard/controller focus when this modal opens.</summary>
+    public void FocusDefaultControl()
+    {
+        Focus(GetDropdown(ScreenModeId));
+    }
+
+    private static void Focus(Selectable control)
+    {
+        if (control == null || !control.isActiveAndEnabled || !control.interactable)
+        {
+            return;
+        }
+
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        eventSystem?.SetSelectedGameObject(control.gameObject);
     }
 
     public void Refresh(PreferencesState settings)

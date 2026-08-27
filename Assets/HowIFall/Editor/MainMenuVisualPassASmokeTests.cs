@@ -67,8 +67,10 @@ public static class MainMenuVisualPassASmokeTests
                 "Disabled Continue must not retain primary CTA treatment.");
             Require(GetHoverEffect(newGameButton).Role == MainMenuButtonVisualRole.Primary,
                 "New Game must become the primary CTA when Continue is unavailable.");
-            Require(GetHoverEffect(continueButton).CurrentLabelColor.a >= 0.75f,
-                "Disabled Continue must remain readable.");
+            MainMenuButtonHoverEffect disabledContinue = GetHoverEffect(continueButton);
+            disabledContinue.OnSelect(null);
+            Require(disabledContinue.CurrentLabelColor.a >= 0.75f && !disabledContinue.IsFocusAccentVisible,
+                "Disabled Continue must remain readable and must not present a misleading focus marker.");
         }
         finally
         {
@@ -144,12 +146,26 @@ public static class MainMenuVisualPassASmokeTests
                 "Main Menu button presentation must not use a red accent.");
 
             MainMenuButtonHoverEffect effect = GetHoverEffect(button);
-            float normalAlpha = effect.highlightImage != null ? effect.highlightImage.color.a : 0f;
-            effect.OnSelect(null);
-            Require((effect.highlightImage == null || effect.highlightImage.color.a > normalAlpha)
-                    && button.transform.Find("Focus Accent")?.gameObject.activeSelf == true,
-                "Main Menu focus must be visibly stronger than the normal text-led state.");
             effect.OnDeselect(null);
+            Require(!effect.IsFocusAccentVisible,
+                "Main Menu normal navigation must not retain a focus marker.");
+
+            effect.OnPointerEnter(null);
+            Require(effect.IsFocusAccentVisible && effect.FocusAccentColor.a >= 0.9f,
+                "Pointer hover must use the same clearly visible focus marker.");
+            effect.OnPointerExit(null);
+            Require(!effect.IsFocusAccentVisible,
+                "Pointer exit must restore the transparent normal state.");
+
+            effect.OnSelect(null);
+            Require(effect.IsFocusAccentVisible
+                    && effect.FocusAccentColor.g > effect.FocusAccentColor.r
+                && effect.FocusAccentSize.x >= 60f
+                && effect.FocusAccentSize.y >= 5f,
+                "Keyboard/controller focus must expose a clearly visible cyan Focus Accent.");
+            effect.OnDeselect(null);
+            Require(!effect.IsFocusAccentVisible,
+                "Deselect must remove the Main Menu focus marker.");
         }
     }
 

@@ -76,7 +76,7 @@ public sealed class MainMenuController : MonoBehaviour
 
     private void Update()
     {
-        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel) && !(settingsPanel != null && settingsPanel.IsSharedDropdownCancel))
         {
             TryHandleCloseOrCancel();
         }
@@ -637,6 +637,11 @@ public sealed class MainMenuController : MonoBehaviour
             ? continueButton
             : playerFacingActionButtons.Count > 1 ? playerFacingActionButtons[1] : null;
         FocusButton(fallback);
+    }
+
+    public void FocusSettingsAction()
+    {
+        FocusButton(FindPersistentButton(this, nameof(OpenSettings)));
     }
 
     /// <summary>Handles only Main Menu-owned modal cancellation. Child screens keep their own Back/Esc ownership.</summary>

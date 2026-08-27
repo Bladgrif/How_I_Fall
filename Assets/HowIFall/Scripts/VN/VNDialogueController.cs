@@ -325,7 +325,7 @@ public class VNDialogueController : MonoBehaviour
         RefreshSpecialModeOwnerLifecycle();
         RefreshAutoForwardState();
 
-        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
+        if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel) && !IsHandlingPreferencesDropdownCancel())
         {
             HandleEscapePressed();
             return;
@@ -387,6 +387,17 @@ public class VNDialogueController : MonoBehaviour
             ShowBacklog();
         }
 
+    }
+
+    private bool IsHandlingPreferencesDropdownCancel()
+    {
+        if (!IsPreferencesOpen)
+        {
+            return false;
+        }
+
+        SharedPreferencesView view = FindFirstObjectByType<SharedPreferencesView>(FindObjectsInactive.Include);
+        return view != null && view.IsVisible && view.IsHandlingDropdownCancel;
     }
 
     /// <summary>Canonical single-owner Escape routing. Returns after exactly one owner handles the press.</summary>

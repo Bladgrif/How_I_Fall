@@ -39,6 +39,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     public MainMenuButtonVisualRole Role => role;
     public Color CurrentLabelColor => labelGraphic != null ? labelGraphic.color : Color.clear;
+    public bool IsFocusAccentVisible => focusAccent != null && focusAccent.gameObject.activeSelf;
+    public Color FocusAccentColor => focusAccent != null ? focusAccent.color : Color.clear;
+    public Vector2 FocusAccentSize => focusAccent != null ? focusAccent.rectTransform.sizeDelta : Vector2.zero;
 
     private void Awake()
     {
@@ -68,18 +71,23 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             {
                 GameObject accent = new GameObject("Focus Accent", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 accent.transform.SetParent(transform, false);
-                RectTransform accentRect = accent.GetComponent<RectTransform>();
-                accentRect.anchorMin = new Vector2(0f, 0f);
-                accentRect.anchorMax = new Vector2(0f, 1f);
-                accentRect.pivot = new Vector2(0f, 0.5f);
-                accentRect.sizeDelta = new Vector2(3f, 0f);
                 focusAccent = accent.GetComponent<Image>();
-                focusAccent.raycastTarget = false;
             }
             else
             {
                 focusAccent = existingAccent.GetComponent<Image>();
             }
+        }
+
+        if (focusAccent != null)
+        {
+            RectTransform accentRect = focusAccent.rectTransform;
+            accentRect.anchorMin = new Vector2(0f, 0f);
+            accentRect.anchorMax = new Vector2(0f, 0f);
+            accentRect.pivot = new Vector2(0f, 0f);
+            accentRect.anchoredPosition = new Vector2(0f, 6f);
+            accentRect.sizeDelta = new Vector2(64f, 5f);
+            focusAccent.raycastTarget = false;
         }
     }
 
@@ -156,7 +164,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private void ApplyHoverState()
     {
-        Apply(RoleHoverBackground(), Color.white);
+        Apply(Color.clear, Color.white);
     }
 
     private void ApplyPressedState()
@@ -167,6 +175,16 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     private void ApplyDisabledState()
     {
         Apply(Color.clear, new Color(0.64f, 0.70f, 0.76f, 0.84f));
+
+        if (outline != null)
+        {
+            outline.enabled = false;
+        }
+
+        if (focusAccent != null)
+        {
+            focusAccent.gameObject.SetActive(false);
+        }
     }
 
     private void Apply(Color background, Color text)
