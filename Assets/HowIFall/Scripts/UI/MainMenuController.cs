@@ -63,7 +63,6 @@ public sealed class MainMenuController : MonoBehaviour
     private void Awake()
     {
         ApplyPlayerFacingPresentation();
-        ApplyTemporaryBackground();
     }
 
     private void Start()
@@ -124,10 +123,13 @@ public sealed class MainMenuController : MonoBehaviour
 
         playerFacingActionButtons.Clear();
         playerFacingActionButtons.AddRange(orderedButtons);
-        HideMainMenuLogo();
         ApplyMainNavigationLayout(orderedRows);
-        ApplyTemporaryBackground();
-        ApplyMainMenuTitle();
+        if (!ApplyAuthoredBackground() || !ApplyAuthoredLogo())
+        {
+            return false;
+        }
+
+        RemoveObsoleteRuntimePresentation();
         ApplyActionPresentation(continueButton != null && continueButton.interactable);
         HideLegacyPrompt();
         ApplyModalPresentation();
@@ -172,99 +174,43 @@ public sealed class MainMenuController : MonoBehaviour
         ApplyNavigationPanel(menuContent);
     }
 
-    /// <summary>
-    /// Keeps the functional demo art-independent until a non-canon illustration is approved.
-    /// The flat layered shapes deliberately avoid a scene, character, or external image asset.
-    /// </summary>
-    private void ApplyTemporaryBackground()
+    private bool ApplyAuthoredBackground()
     {
         Canvas canvas = GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
         if (canvas == null)
         {
-            return;
+            Debug.LogError("[MAIN MENU] SCENE WIRING BLOCKER: Canvas is missing.", this);
+            return false;
         }
 
-        Transform existing = canvas.transform.Find("Temporary Main Menu Background");
-        GameObject background = existing != null
-            ? existing.gameObject
-            : new GameObject("Temporary Main Menu Background", typeof(RectTransform));
-        background.transform.SetParent(canvas.transform, false);
-        background.transform.SetAsFirstSibling();
-        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        Transform authoredBackground = canvas.transform.Find("Background");
+        if (authoredBackground == null || !authoredBackground.TryGetComponent(out Image authoredImage)
+            || authoredImage.sprite == null)
+        {
+            Debug.LogError("[MAIN MENU] SCENE WIRING BLOCKER: authored Background with a sprite is required.", this);
+            return false;
+        }
+
+        authoredBackground.gameObject.SetActive(true);
+        authoredBackground.SetAsFirstSibling();
+        RectTransform backgroundRect = authoredBackground as RectTransform;
         backgroundRect.anchorMin = Vector2.zero;
         backgroundRect.anchorMax = Vector2.one;
         backgroundRect.offsetMin = Vector2.zero;
         backgroundRect.offsetMax = Vector2.zero;
+        authoredImage.color = Color.white;
+        authoredImage.preserveAspect = false;
+        authoredImage.raycastTarget = false;
 
-        Transform authoredBackground = canvas.transform.Find("Background");
-        if (authoredBackground != null && authoredBackground.TryGetComponent(out Image authoredImage))
+        Transform gradient = canvas.transform.Find("Left Gradient Overlay");
+        if (gradient != null && gradient.TryGetComponent(out Image gradientImage) && gradientImage.sprite != null)
         {
-            authoredImage.sprite = null;
-            authoredImage.color = Color.clear;
-            authoredImage.raycastTarget = false;
+            gradient.gameObject.SetActive(true);
+            gradientImage.color = new Color(1f, 1f, 1f, 0.72f);
+            gradientImage.raycastTarget = false;
         }
 
-        CreateBackgroundLayer(background.transform, "Sky", new Vector2(0f, 0f), new Vector2(1f, 1f), new Color(0.22f, 0.50f, 0.70f, 1f));
-        CreateBackgroundLayer(background.transform, "Sunlight", new Vector2(0.58f, 0.56f), new Vector2(1f, 1f), new Color(0.94f, 0.84f, 0.58f, 0.30f));
-        CreateBackgroundLayer(background.transform, "Soft Clouds", new Vector2(0f, 0.63f), new Vector2(1f, 1f), new Color(0.76f, 0.90f, 0.95f, 0.34f));
-        CreateBackgroundLayer(background.transform, "Campus Horizon", new Vector2(0f, 0.36f), new Vector2(1f, 0.60f), new Color(0.49f, 0.63f, 0.66f, 0.82f));
-        CreateBackgroundLayer(background.transform, "Greenery", new Vector2(0f, 0f), new Vector2(1f, 0.41f), new Color(0.16f, 0.38f, 0.32f, 1f));
-        CreateBackgroundLayer(background.transform, "Walkway", new Vector2(0.43f, 0f), new Vector2(0.78f, 0.41f), new Color(0.68f, 0.72f, 0.66f, 0.56f));
-        CreateBackgroundLayer(background.transform, "Menu Contrast", new Vector2(0f, 0f), new Vector2(0.44f, 1f), new Color(0.015f, 0.04f, 0.07f, 0.52f));
-    }
-
-    private void ApplyMainMenuTitle()
-    {
-        Canvas canvas = GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
-        if (canvas == null)
-        {
-            return;
-        }
-
-        Transform oldSubtitle = canvas.transform.Find("Main Menu Subtitle");
-        if (oldSubtitle != null)
-        {
-            Destroy(oldSubtitle.gameObject);
-        }
-
-        CreateMainMenuTitleText(canvas.transform, "Main Menu Title", "HOW I FALL", new Vector2(192f, -132f), 34f, FontStyles.Bold, new Color(0.96f, 0.99f, 1f, 1f));
-    }
-
-    private static void CreateMainMenuTitleText(Transform parent, string name, string value, Vector2 position, float size, FontStyles style, Color color)
-    {
-        Transform existing = parent.Find(name);
-        GameObject owner = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-        owner.transform.SetParent(parent, false);
-        owner.transform.SetSiblingIndex(1);
-        RectTransform rect = owner.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
-        rect.pivot = new Vector2(0f, 1f);
-        rect.anchoredPosition = position;
-        rect.sizeDelta = new Vector2(420f, 36f);
-        TextMeshProUGUI text = owner.GetComponent<TextMeshProUGUI>();
-        text.text = value;
-        text.fontSize = size;
-        text.fontStyle = style;
-        text.alignment = TextAlignmentOptions.MidlineLeft;
-        text.color = color;
-        text.raycastTarget = false;
-    }
-
-    private static void CreateBackgroundLayer(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Color color)
-    {
-        Transform existing = parent.Find(name);
-        GameObject layer = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        layer.transform.SetParent(parent, false);
-        RectTransform rect = layer.GetComponent<RectTransform>();
-        rect.anchorMin = anchorMin;
-        rect.anchorMax = anchorMax;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
-        Image image = layer.GetComponent<Image>();
-        image.sprite = null;
-        image.type = Image.Type.Simple;
-        image.color = color;
-        image.raycastTarget = false;
+        return true;
     }
 
     private static void ApplyNavigationPanel(Transform menuContent)
@@ -316,16 +262,51 @@ public sealed class MainMenuController : MonoBehaviour
         }
     }
 
-    private void HideMainMenuLogo()
+    private bool ApplyAuthoredLogo()
     {
         Canvas canvas = GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
         Transform logo = canvas != null
             ? canvas.GetComponentsInChildren<Transform>(true)
                 .FirstOrDefault(transform => transform.name == "Game Logo")
             : null;
-        if (logo != null)
+        if (logo == null || !logo.TryGetComponent(out Image logoImage) || logoImage.sprite == null)
         {
-            logo.gameObject.SetActive(false);
+            Debug.LogError("[MAIN MENU] SCENE WIRING BLOCKER: authored Game Logo with a sprite is required.", this);
+            return false;
+        }
+
+        logo.gameObject.SetActive(true);
+        RectTransform logoRect = logo as RectTransform;
+        logoRect.anchorMin = logoRect.anchorMax = new Vector2(0f, 1f);
+        logoRect.pivot = new Vector2(0f, 1f);
+        logoRect.anchoredPosition = new Vector2(190f, -60f);
+        logoRect.sizeDelta = new Vector2(400f, 180f);
+        logoRect.localRotation = Quaternion.identity;
+        logoImage.color = Color.white;
+        logoImage.preserveAspect = true;
+        logoImage.raycastTarget = false;
+        return true;
+    }
+
+    private static void RemoveObsoleteRuntimePresentation()
+    {
+        foreach (string name in new[] { "Temporary Main Menu Background", "Main Menu Title", "Main Menu Subtitle" })
+        {
+            GameObject obsolete = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .FirstOrDefault(transform => transform.name == name)?.gameObject;
+            if (obsolete == null)
+            {
+                continue;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(obsolete);
+            }
+            else
+            {
+                DestroyImmediate(obsolete);
+            }
         }
     }
 

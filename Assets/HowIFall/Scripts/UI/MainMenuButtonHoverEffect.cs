@@ -50,35 +50,36 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         button ??= GetComponent<Button>();
         outline ??= GetComponent<Outline>();
-        if (labelGraphic != null)
-        {
-            return;
-        }
-
-        if (labelText != null)
+        if (labelGraphic == null && labelText != null)
         {
             labelGraphic = labelText;
-            return;
         }
 
-        TMP_Text tmpLabel = GetComponentInChildren<TMP_Text>(true);
-        labelGraphic = tmpLabel != null ? tmpLabel : GetComponentInChildren<Text>(true);
-        Transform existingAccent = transform.Find("Focus Accent");
-        if (existingAccent == null)
+        if (labelGraphic == null)
         {
-            GameObject accent = new GameObject("Focus Accent", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            accent.transform.SetParent(transform, false);
-            RectTransform accentRect = accent.GetComponent<RectTransform>();
-            accentRect.anchorMin = new Vector2(0f, 0f);
-            accentRect.anchorMax = new Vector2(0f, 1f);
-            accentRect.pivot = new Vector2(0f, 0.5f);
-            accentRect.sizeDelta = new Vector2(3f, 0f);
-            focusAccent = accent.GetComponent<Image>();
-            focusAccent.raycastTarget = false;
+            TMP_Text tmpLabel = GetComponentInChildren<TMP_Text>(true);
+            labelGraphic = tmpLabel != null ? tmpLabel : GetComponentInChildren<Text>(true);
         }
-        else
+
+        if (focusAccent == null)
         {
-            focusAccent = existingAccent.GetComponent<Image>();
+            Transform existingAccent = transform.Find("Focus Accent");
+            if (existingAccent == null)
+            {
+                GameObject accent = new GameObject("Focus Accent", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                accent.transform.SetParent(transform, false);
+                RectTransform accentRect = accent.GetComponent<RectTransform>();
+                accentRect.anchorMin = new Vector2(0f, 0f);
+                accentRect.anchorMax = new Vector2(0f, 1f);
+                accentRect.pivot = new Vector2(0f, 0.5f);
+                accentRect.sizeDelta = new Vector2(3f, 0f);
+                focusAccent = accent.GetComponent<Image>();
+                focusAccent.raycastTarget = false;
+            }
+            else
+            {
+                focusAccent = existingAccent.GetComponent<Image>();
+            }
         }
     }
 
@@ -165,7 +166,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private void ApplyDisabledState()
     {
-        Apply(new Color(0.02f, 0.05f, 0.08f, 0.20f), new Color(0.64f, 0.70f, 0.76f, 0.84f));
+        Apply(Color.clear, new Color(0.64f, 0.70f, 0.76f, 0.84f));
     }
 
     private void Apply(Color background, Color text)
@@ -182,11 +183,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
         if (outline != null)
         {
-            bool activeAccent = isPointerInside || isSelected;
-            outline.effectColor = activeAccent
-                ? new Color(0.43f, 0.85f, 0.96f, 0.88f)
-                : new Color(0.22f, 0.48f, 0.62f, 0.18f);
-            outline.effectDistance = activeAccent ? new Vector2(3f, 0f) : new Vector2(1f, 0f);
+            outline.enabled = isPointerInside || isSelected;
+            outline.effectColor = new Color(0.43f, 0.85f, 0.96f, 0.88f);
+            outline.effectDistance = new Vector2(1f, 0f);
         }
 
         if (playIndicator != null)
@@ -205,9 +204,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         return role switch
         {
-            MainMenuButtonVisualRole.Primary => new Color(0.08f, 0.20f, 0.28f, 0.18f),
-            MainMenuButtonVisualRole.Destructive => new Color(0.025f, 0.06f, 0.10f, 0.12f),
-            _ => new Color(0.02f, 0.06f, 0.10f, 0.10f)
+            _ => Color.clear
         };
     }
 
@@ -215,9 +212,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         return role switch
         {
-            MainMenuButtonVisualRole.Primary => new Color(0.12f, 0.30f, 0.40f, 0.62f),
-            MainMenuButtonVisualRole.Destructive => new Color(0.08f, 0.18f, 0.24f, 0.46f),
-            _ => new Color(0.08f, 0.20f, 0.28f, 0.52f)
+            MainMenuButtonVisualRole.Primary => new Color(0.12f, 0.30f, 0.40f, 0.28f),
+            MainMenuButtonVisualRole.Destructive => new Color(0.08f, 0.18f, 0.24f, 0.22f),
+            _ => new Color(0.08f, 0.20f, 0.28f, 0.24f)
         };
     }
 
@@ -225,9 +222,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         return role switch
         {
-            MainMenuButtonVisualRole.Primary => new Color(0.05f, 0.15f, 0.21f, 0.74f),
-            MainMenuButtonVisualRole.Destructive => new Color(0.04f, 0.11f, 0.16f, 0.64f),
-            _ => new Color(0.04f, 0.12f, 0.18f, 0.68f)
+            MainMenuButtonVisualRole.Primary => new Color(0.05f, 0.15f, 0.21f, 0.40f),
+            MainMenuButtonVisualRole.Destructive => new Color(0.04f, 0.11f, 0.16f, 0.34f),
+            _ => new Color(0.04f, 0.12f, 0.18f, 0.36f)
         };
     }
 

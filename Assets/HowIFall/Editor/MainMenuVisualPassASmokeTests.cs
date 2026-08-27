@@ -30,12 +30,10 @@ public static class MainMenuVisualPassASmokeTests
         VerifyNavigationLayout(controller);
         VerifyNavigationPanel(controller);
         VerifySimpleButtonPresentation(controller);
-        VerifyMainMenuLogoIsNotPlayerFacing();
         VerifyModalBoundsAndAboutWrapping(controller);
         VerifyLegacyPromptIsNotPlayerFacing();
         VerifyBackgroundMotionIsDisabled();
-        VerifyTemporaryBackground();
-        VerifyTitleAndNavigationDoNotOverlap(controller);
+        VerifyAuthoredBackgroundAndLogo(controller);
     }
 
     private static void VerifyFinalActionSet(MainMenuController controller)
@@ -126,7 +124,9 @@ public static class MainMenuVisualPassASmokeTests
         {
             Image image = button.targetGraphic as Image;
             Require(image != null && image.sprite == null && image.type == Image.Type.Simple,
-                "Main Menu actions must use plain rectangular UI buttons without decorative sprites.");
+                "Main Menu actions must not replace the authored menu art with decorative button sprites.");
+            Require(image.color.a <= 0.01f,
+                "Main Menu normal navigation must not use permanent filled button rectangles.");
         }
 
         Image[] separators = controller.PlayerFacingActionButtons[0].transform.parent.parent
@@ -139,10 +139,17 @@ public static class MainMenuVisualPassASmokeTests
 
         foreach (Button button in controller.PlayerFacingActionButtons)
         {
-            Image image = button.targetGraphic as Image;
             Outline outline = button.GetComponent<Outline>();
-            Require(image.color.b >= image.color.r && (outline == null || outline.effectColor.b >= outline.effectColor.r),
+            Require(outline == null || outline.effectColor.b >= outline.effectColor.r,
                 "Main Menu button presentation must not use a red accent.");
+
+            MainMenuButtonHoverEffect effect = GetHoverEffect(button);
+            float normalAlpha = effect.highlightImage != null ? effect.highlightImage.color.a : 0f;
+            effect.OnSelect(null);
+            Require((effect.highlightImage == null || effect.highlightImage.color.a > normalAlpha)
+                    && button.transform.Find("Focus Accent")?.gameObject.activeSelf == true,
+                "Main Menu focus must be visibly stronger than the normal text-led state.");
+            effect.OnDeselect(null);
         }
     }
 
@@ -173,14 +180,6 @@ public static class MainMenuVisualPassASmokeTests
         CanvasScaler scaler = UnityEngine.Object.FindFirstObjectByType<CanvasScaler>(FindObjectsInactive.Include);
         Require(scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize,
             "Main Menu panel must scale with the screen.");
-    }
-
-    private static void VerifyMainMenuLogoIsNotPlayerFacing()
-    {
-        RectTransform logo = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-            .FirstOrDefault(rect => rect.gameObject.name == "Game Logo");
-        Require(logo == null || !logo.gameObject.activeSelf,
-            "The Main Menu logo must not be player-facing.");
     }
 
     private static void VerifyModalBoundsAndAboutWrapping(MainMenuController controller)
@@ -217,41 +216,41 @@ public static class MainMenuVisualPassASmokeTests
             "Main Menu background motion must be disabled.");
     }
 
-    private static void VerifyTemporaryBackground()
+    private static void VerifyAuthoredBackgroundAndLogo(MainMenuController controller)
     {
-        RectTransform background = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-            .FirstOrDefault(rect => rect.gameObject.name == "Temporary Main Menu Background");
-        Require(background != null && background.childCount >= 5,
-            "Main Menu must provide an art-independent temporary layered background.");
+        Canvas canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+        Require(canvas != null, "Main Menu Canvas is missing.");
+        RectTransform background = canvas.transform.Find("Background") as RectTransform;
+        Image backgroundImage = background != null ? background.GetComponent<Image>() : null;
+        Require(background != null && background.gameObject.activeSelf && backgroundImage != null && backgroundImage.sprite != null,
+            "Main Menu must use its authored Background sprite as the visible visual source.");
         Require(background.anchorMin == Vector2.zero && background.anchorMax == Vector2.one
                 && background.offsetMin == Vector2.zero && background.offsetMax == Vector2.zero,
-            "Temporary Main Menu background root must stretch to the full Canvas.");
-        Require(background.GetComponentsInChildren<Image>(true).All(image => image.sprite == null),
-            "Temporary Main Menu background must not depend on external image assets.");
-        Image authoredBackground = background.parent.Find("Background")?.GetComponent<Image>();
-        Require(authoredBackground == null || authoredBackground.color.a <= 0.01f,
-            "The authored white placeholder background must not cover the temporary visual background.");
-        Require(UnityEngine.Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-                .Any(text => text.gameObject.name == "Main Menu Title" && text.text == "HOW I FALL"),
-            "Main Menu must expose a compact title area above its navigation.");
+            "Authored Main Menu background must stretch to the full Canvas.");
+        Require(!UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Any(transform => transform.name == "Temporary Main Menu Background"),
+            "Procedural Temporary Main Menu Background must not remain a visual source.");
+
+        Image gradient = canvas.transform.Find("Left Gradient Overlay")?.GetComponent<Image>();
+        Require(gradient != null && gradient.gameObject.activeSelf && gradient.sprite != null,
+            "Authored left gradient overlay must remain available for menu readability.");
+
+        RectTransform logo = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(rect => rect.gameObject.name == "Game Logo");
+        Image logoImage = logo != null ? logo.GetComponent<Image>() : null;
+        Require(logo != null && logo.gameObject.activeSelf && logoImage != null && logoImage.sprite != null,
+            "Authored Game Logo must be the player-facing title area.");
+        Require(!UnityEngine.Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Any(text => text.gameObject.name == "Main Menu Title"),
+            "Runtime-generated Main Menu Title must not duplicate the authored logo.");
         Require(!UnityEngine.Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include, FindObjectsSortMode.None)
                 .Any(text => text.gameObject.name == "Main Menu Subtitle"),
             "Main Menu must not expose a player-facing TECH DEMO subtitle.");
-    }
-
-    private static void VerifyTitleAndNavigationDoNotOverlap(MainMenuController controller)
-    {
-        RectTransform title = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
-            .FirstOrDefault(rect => rect.gameObject.name == "Main Menu Title");
-        Require(title != null, "Main Menu title is missing.");
         foreach (Button button in controller.PlayerFacingActionButtons)
         {
             RectTransform row = button.transform.parent as RectTransform;
-            Require(row != null && !RectsOverlap(title, row),
-                "Main Menu title must not overlap a navigation item.");
-            Image image = button.targetGraphic as Image;
-            Require(image != null && image.color.a <= 0.20f,
-                "Main Menu normal navigation backgrounds must remain lightweight.");
+            Require(row != null && !RectsOverlap(logo, row),
+                "Authored Game Logo must not overlap a navigation item.");
         }
     }
 
