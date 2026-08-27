@@ -3,7 +3,9 @@
   "references": [
     "HowIFall.Runtime",
     "Unity.TextMeshPro",
-    "Unity.ugui"
+    "Unity.ugui",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

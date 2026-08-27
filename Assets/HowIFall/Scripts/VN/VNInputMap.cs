@@ -54,7 +54,17 @@ public static class VNInputMap
 
     public static bool WasPressedThisFrame(VNInputAction action, Keyboard keyboard = null)
     {
-        keyboard ??= Keyboard.current;
+        return WasPressedThisFrame(action, keyboard ?? Keyboard.current, Gamepad.current);
+    }
+
+    /// <summary>Checks an action against explicit devices for narrow runtime and input-device tests.</summary>
+    public static bool WasPressedThisFrame(VNInputAction action, Keyboard keyboard, Gamepad gamepad)
+    {
+        if (action == VNInputAction.CloseOrCancel && gamepad != null && gamepad.buttonEast.wasPressedThisFrame)
+        {
+            return true;
+        }
+
         if (keyboard == null)
         {
             return false;
@@ -69,7 +79,7 @@ public static class VNInputMap
             VNInputAction.OpenLoad => keyboard.f9Key.wasPressedThisFrame,
             VNInputAction.ShowBacklog => keyboard.bKey.wasPressedThisFrame,
             VNInputAction.ToggleInterfaceVisibility => keyboard.hKey.wasPressedThisFrame,
-            VNInputAction.CloseOrCancel => keyboard.escapeKey.wasPressedThisFrame || (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame),
+            VNInputAction.CloseOrCancel => keyboard.escapeKey.wasPressedThisFrame,
             VNInputAction.ToggleDebugStatsView => keyboard.f2Key.wasPressedThisFrame,
             VNInputAction.ToggleDebugStatsPanel => keyboard.f3Key.wasPressedThisFrame,
             _ => false
