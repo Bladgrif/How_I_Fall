@@ -56,9 +56,9 @@ Research не разрешает implementation автоматически. Но
 | Backlog / History | Core recovery/readability | DONE, save-scoped restore | Keep; protect v3 compatibility. |
 | Quick menu | Fast access to reading controls | DONE | Polish only. |
 | Shared Preferences | Predictable settings entry from multiple contexts | DONE | Keep one shared implementation. |
-| Keyboard/gamepad parity | Reduces friction and accessibility issues | Foundation exists | **NOW candidate:** full end-to-end controller/input UX audit. |
+| Keyboard/gamepad parity | Reduces friction and accessibility issues | Controller/input audit covered by `VNInputMapControllerTests`, player-journey coverage and Main Menu focus coverage | **DONE:** preserve tested focus, cancel and input routes; extend only for a concrete gap. |
 | Autosave checkpoint around important choices | Reduces fear of irreversible branch mistakes | Autosave exists, authored points are content-dependent | **LATER candidate:** define policy once real choices exist; avoid speculative route logic now. |
-| Suspend/resume on app exit | Strong low-friction return UX | Continue exists, but no explicit transient session-resume contract | **NOW/LATER research candidate:** audit whether value justifies Save-system risk before implementation. |
+| Suspend/resume on app exit | Strong low-friction return UX | Continue selects newest valid Manual/Auto/Quick; no explicit transient session-resume contract | **DEFER:** audit completed; prioritize future content-informed autosave policy over a new shutdown persistence contract. |
 | Story Flowchart / Story Chart | Excellent for mystery/branch-heavy VN; enables route navigation and replay from meaningful points | Not implemented | **DEFER UNTIL STORY.** Requires the real story graph and unlock semantics. |
 | Chapter / scene replay | Reduces replay friction | Gallery/Replay technical foundation exists | **DEFER UNTIL STORY.** Author real replay entries only from actual content. |
 | Glossary / Tips / Files | Helps dense mystery terminology and character recall | Character Hub foundation exists; no general glossary | **DEFER UNTIL CONTENT.** Do not invent terms/characters now. |
@@ -68,9 +68,9 @@ Research не разрешает implementation автоматически. Но
 
 ## NOW — useful before story
 
-### 1. Full controller / input UX audit
+### 1. Full controller / input UX audit — DONE
 
-Recommended next functionality-quality pass after current Main Menu work.
+Completed baseline: input mapping, player journey and Main Menu focus coverage establish the current controller/input contract. Preserve it; do not start a new broad pass without a concrete gap.
 
 Check one continuous player journey with keyboard and gamepad:
 
@@ -88,9 +88,9 @@ Acceptance focus:
 
 This does not depend on story content and directly improves demo quality.
 
-### 2. Suspend/resume feasibility audit
+### 2. Suspend/resume feasibility audit — DEFER
 
-Do **not** implement immediately. First compare against current `Continue` + SaveData v3.
+Completed in [suspend_resume_feasibility.md](suspend_resume_feasibility.md). Do **not** implement: current Continue is robust for valid checkpoints, while shutdown persistence adds disproportionate lifecycle and special-mode recovery risk.
 
 Questions:
 
@@ -144,7 +144,7 @@ Current HIF functional coverage is already broad. The highest-value pre-story wo
 Recommended order after the current Main Menu visual work:
 
 1. **Controller/input player-journey audit + regression/graphical coverage.**
-2. **Suspend/resume feasibility audit** — implement only if it clearly beats existing Continue without destabilizing saves.
+2. **Content-informed autosave policy** when real choices exist; suspend/resume remains **DEFERRED** unless a later product need clearly beats existing Continue without destabilizing saves.
 3. Continue polishing existing Save/Load, Preferences, Game Menu and Quick Menu when concrete UX defects are found.
 4. Keep flowchart, glossary, chapter select, ending list and authored replay content deferred until real story material exists.
 
