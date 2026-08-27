@@ -34,6 +34,8 @@ public static class MainMenuVisualPassASmokeTests
         VerifyModalBoundsAndAboutWrapping(controller);
         VerifyLegacyPromptIsNotPlayerFacing();
         VerifyBackgroundMotionIsDisabled();
+        VerifyTemporaryBackground();
+        VerifyTitleAndNavigationDoNotOverlap(controller);
     }
 
     private static void VerifyFinalActionSet(MainMenuController controller)
@@ -213,6 +215,52 @@ public static class MainMenuVisualPassASmokeTests
                 && Mathf.Approximately(animator.backgroundMotionSpeed, 0f)
                 && Mathf.Approximately(animator.overlayPulseSpeed, 0f),
             "Main Menu background motion must be disabled.");
+    }
+
+    private static void VerifyTemporaryBackground()
+    {
+        RectTransform background = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(rect => rect.gameObject.name == "Temporary Main Menu Background");
+        Require(background != null && background.childCount >= 5,
+            "Main Menu must provide an art-independent temporary layered background.");
+        Require(background.anchorMin == Vector2.zero && background.anchorMax == Vector2.one
+                && background.offsetMin == Vector2.zero && background.offsetMax == Vector2.zero,
+            "Temporary Main Menu background root must stretch to the full Canvas.");
+        Require(background.GetComponentsInChildren<Image>(true).All(image => image.sprite == null),
+            "Temporary Main Menu background must not depend on external image assets.");
+        Image authoredBackground = background.parent.Find("Background")?.GetComponent<Image>();
+        Require(authoredBackground == null || authoredBackground.color.a <= 0.01f,
+            "The authored white placeholder background must not cover the temporary visual background.");
+        Require(UnityEngine.Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Any(text => text.gameObject.name == "Main Menu Title" && text.text == "HOW I FALL"),
+            "Main Menu must expose a compact title area above its navigation.");
+        Require(!UnityEngine.Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .Any(text => text.gameObject.name == "Main Menu Subtitle"),
+            "Main Menu must not expose a player-facing TECH DEMO subtitle.");
+    }
+
+    private static void VerifyTitleAndNavigationDoNotOverlap(MainMenuController controller)
+    {
+        RectTransform title = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(rect => rect.gameObject.name == "Main Menu Title");
+        Require(title != null, "Main Menu title is missing.");
+        foreach (Button button in controller.PlayerFacingActionButtons)
+        {
+            RectTransform row = button.transform.parent as RectTransform;
+            Require(row != null && !RectsOverlap(title, row),
+                "Main Menu title must not overlap a navigation item.");
+            Image image = button.targetGraphic as Image;
+            Require(image != null && image.color.a <= 0.20f,
+                "Main Menu normal navigation backgrounds must remain lightweight.");
+        }
+    }
+
+    private static bool RectsOverlap(RectTransform left, RectTransform right)
+    {
+        Vector3[] leftCorners = new Vector3[4]; Vector3[] rightCorners = new Vector3[4];
+        left.GetWorldCorners(leftCorners); right.GetWorldCorners(rightCorners);
+        return leftCorners[0].x < rightCorners[2].x && leftCorners[2].x > rightCorners[0].x
+            && leftCorners[0].y < rightCorners[2].y && leftCorners[2].y > rightCorners[0].y;
     }
 
     private static MainMenuButtonHoverEffect GetHoverEffect(Button button)

@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('ManualSave', 'SaveBackendV2')]
+    [ValidateSet('ManualSave', 'SaveBackendV2', 'PlayerUi')]
     [string]$Scenario
 )
 
@@ -18,6 +18,7 @@ if (-not (Test-Path -LiteralPath $unityPath -PathType Leaf)) { throw "Unity $uni
 $entryPoints = @{
     ManualSave = @{ Method = 'ManualSavePlayModeE2ERunner.StartAutomatedPlayMode'; Sentinel = 'manual_save_playmode_result.txt'; ProofFiles = @('manual_save_1920x1080.png') }
     SaveBackendV2 = @{ Method = 'SaveBackendV2PlayModeE2ERunner.StartAutomatedPlayMode'; Sentinel = 'save_backend_v2_playmode_result.txt'; ProofFiles = @('save_load_manual_1920x1080.png', 'save_load_auto_1920x1080.png', 'save_load_quick_1920x1080.png') }
+    PlayerUi = @{ Method = 'PlayerUiGraphicalE2ERunner.StartAutomatedPlayMode'; Sentinel = 'player_ui_graphical_result.txt'; ProofFiles = @('main_menu_1920x1080.png', 'main_menu_preferences_1920x1080.png', 'main_menu_preferences_screen_mode_open_1920x1080.png', 'main_menu_preferences_resolution_open_1920x1080.png', 'gameplay_preferences_1920x1080.png') }
 }
 $entryPoint = $entryPoints[$Scenario]
 $outputDirectory = Join-Path $projectRoot 'Temp/CodexTests'
@@ -42,6 +43,8 @@ if ($sentinel -notmatch '(?m)^status=PASS\s*$') { Write-Error "Graphical E2E rep
 foreach ($proofFile in $entryPoint.ProofFiles) {
     $proofPath = Join-Path $proofDirectory $proofFile
     if (-not (Test-Path -LiteralPath $proofPath -PathType Leaf)) { Write-Error "Graphical E2E passed without current screenshot proof: $proofPath"; exit 1 }
-    if ((Get-Item -LiteralPath $proofPath).LastWriteTimeUtc -lt $runStartedUtc) { Write-Error "Screenshot proof predates this run: $proofPath"; exit 1 }
+    $proof = Get-Item -LiteralPath $proofPath
+    if ($proof.LastWriteTimeUtc -lt $runStartedUtc) { Write-Error "Screenshot proof predates this run: $proofPath"; exit 1 }
+    if ($proof.Length -le 0) { Write-Error "Screenshot proof is empty: $proofPath"; exit 1 }
 }
 exit 0

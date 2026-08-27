@@ -63,6 +63,7 @@ public sealed class MainMenuController : MonoBehaviour
     private void Awake()
     {
         ApplyPlayerFacingPresentation();
+        ApplyTemporaryBackground();
     }
 
     private void Start()
@@ -125,6 +126,8 @@ public sealed class MainMenuController : MonoBehaviour
         playerFacingActionButtons.AddRange(orderedButtons);
         HideMainMenuLogo();
         ApplyMainNavigationLayout(orderedRows);
+        ApplyTemporaryBackground();
+        ApplyMainMenuTitle();
         ApplyActionPresentation(continueButton != null && continueButton.interactable);
         HideLegacyPrompt();
         ApplyModalPresentation();
@@ -167,6 +170,101 @@ public sealed class MainMenuController : MonoBehaviour
         }
 
         ApplyNavigationPanel(menuContent);
+    }
+
+    /// <summary>
+    /// Keeps the functional demo art-independent until a non-canon illustration is approved.
+    /// The flat layered shapes deliberately avoid a scene, character, or external image asset.
+    /// </summary>
+    private void ApplyTemporaryBackground()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        Transform existing = canvas.transform.Find("Temporary Main Menu Background");
+        GameObject background = existing != null
+            ? existing.gameObject
+            : new GameObject("Temporary Main Menu Background", typeof(RectTransform));
+        background.transform.SetParent(canvas.transform, false);
+        background.transform.SetAsFirstSibling();
+        RectTransform backgroundRect = background.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = Vector2.zero;
+        backgroundRect.anchorMax = Vector2.one;
+        backgroundRect.offsetMin = Vector2.zero;
+        backgroundRect.offsetMax = Vector2.zero;
+
+        Transform authoredBackground = canvas.transform.Find("Background");
+        if (authoredBackground != null && authoredBackground.TryGetComponent(out Image authoredImage))
+        {
+            authoredImage.sprite = null;
+            authoredImage.color = Color.clear;
+            authoredImage.raycastTarget = false;
+        }
+
+        CreateBackgroundLayer(background.transform, "Sky", new Vector2(0f, 0f), new Vector2(1f, 1f), new Color(0.22f, 0.50f, 0.70f, 1f));
+        CreateBackgroundLayer(background.transform, "Sunlight", new Vector2(0.58f, 0.56f), new Vector2(1f, 1f), new Color(0.94f, 0.84f, 0.58f, 0.30f));
+        CreateBackgroundLayer(background.transform, "Soft Clouds", new Vector2(0f, 0.63f), new Vector2(1f, 1f), new Color(0.76f, 0.90f, 0.95f, 0.34f));
+        CreateBackgroundLayer(background.transform, "Campus Horizon", new Vector2(0f, 0.36f), new Vector2(1f, 0.60f), new Color(0.49f, 0.63f, 0.66f, 0.82f));
+        CreateBackgroundLayer(background.transform, "Greenery", new Vector2(0f, 0f), new Vector2(1f, 0.41f), new Color(0.16f, 0.38f, 0.32f, 1f));
+        CreateBackgroundLayer(background.transform, "Walkway", new Vector2(0.43f, 0f), new Vector2(0.78f, 0.41f), new Color(0.68f, 0.72f, 0.66f, 0.56f));
+        CreateBackgroundLayer(background.transform, "Menu Contrast", new Vector2(0f, 0f), new Vector2(0.44f, 1f), new Color(0.015f, 0.04f, 0.07f, 0.52f));
+    }
+
+    private void ApplyMainMenuTitle()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
+        if (canvas == null)
+        {
+            return;
+        }
+
+        Transform oldSubtitle = canvas.transform.Find("Main Menu Subtitle");
+        if (oldSubtitle != null)
+        {
+            Destroy(oldSubtitle.gameObject);
+        }
+
+        CreateMainMenuTitleText(canvas.transform, "Main Menu Title", "HOW I FALL", new Vector2(192f, -132f), 34f, FontStyles.Bold, new Color(0.96f, 0.99f, 1f, 1f));
+    }
+
+    private static void CreateMainMenuTitleText(Transform parent, string name, string value, Vector2 position, float size, FontStyles style, Color color)
+    {
+        Transform existing = parent.Find(name);
+        GameObject owner = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        owner.transform.SetParent(parent, false);
+        owner.transform.SetSiblingIndex(1);
+        RectTransform rect = owner.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = new Vector2(420f, 36f);
+        TextMeshProUGUI text = owner.GetComponent<TextMeshProUGUI>();
+        text.text = value;
+        text.fontSize = size;
+        text.fontStyle = style;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.color = color;
+        text.raycastTarget = false;
+    }
+
+    private static void CreateBackgroundLayer(Transform parent, string name, Vector2 anchorMin, Vector2 anchorMax, Color color)
+    {
+        Transform existing = parent.Find(name);
+        GameObject layer = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        layer.transform.SetParent(parent, false);
+        RectTransform rect = layer.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+        Image image = layer.GetComponent<Image>();
+        image.sprite = null;
+        image.type = Image.Type.Simple;
+        image.color = color;
+        image.raycastTarget = false;
     }
 
     private static void ApplyNavigationPanel(Transform menuContent)
@@ -641,6 +739,7 @@ public sealed class MainMenuController : MonoBehaviour
         {
             targetImage.sprite = null;
             targetImage.type = Image.Type.Simple;
+            targetImage.color = Color.clear;
         }
 
         ApplyMainMenuButtonTypography(button);

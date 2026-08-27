@@ -29,6 +29,8 @@ public static class PreferencesUiParitySmokeTests
         GameObject canvasObject = new GameObject("PreferencesParityCanvas", typeof(RectTransform), typeof(Canvas));
         try
         {
+            canvasObject.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            canvasObject.GetComponent<RectTransform>().sizeDelta = new Vector2(1920f, 1080f);
             GameObject mainLegacy = CreateUiObject(canvasObject.transform, "Main Menu Legacy Settings");
             SettingsPanelController mainAdapter = mainLegacy.AddComponent<SettingsPanelController>();
             mainAdapter.Show();
@@ -50,6 +52,8 @@ public static class PreferencesUiParitySmokeTests
                 "Main Menu and gameplay must use the same concrete view implementation.");
             Require(mainView.ContextId == "MainMenu" && gameplayView.ContextId == "Gameplay",
                 "Only context identity may differ between shared view instances.");
+            VerifySpaciousLayout(mainView);
+            VerifySpaciousLayout(gameplayView);
 
             string[] expected =
             {
@@ -72,9 +76,9 @@ public static class PreferencesUiParitySmokeTests
             };
             Require(prohibited.All(id => !mainView.HasControl(id) && !gameplayView.HasControl(id)),
                 "A fake, deferred, or B03 control leaked into the Phase 2 player-facing view.");
-            Require(mainView.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 1
-                && gameplayView.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 1,
-                "Each shared Preferences instance must have exactly one primary scroll context.");
+            Require(mainView.GetComponentsInChildren<RectTransform>(true).Count(rect => rect.gameObject.name == "Preferences Columns") == 1
+                && gameplayView.GetComponentsInChildren<RectTransform>(true).Count(rect => rect.gameObject.name == "Preferences Columns") == 1,
+                "Each shared Preferences instance must have exactly one two-column content context.");
             Require(!mainLegacy.activeSelf && !gameplayPanel.activeSelf && !gameplayOverlay.activeSelf,
                 "Legacy settings surfaces must remain unreachable and hidden.");
         }
@@ -82,6 +86,74 @@ public static class PreferencesUiParitySmokeTests
         {
             UnityEngine.Object.DestroyImmediate(canvasObject);
         }
+    }
+
+    private static void VerifySpaciousLayout(SharedPreferencesView view)
+    {
+        view.SetVisible(true);
+        Canvas.ForceUpdateCanvases();
+        RectTransform window = view.GetComponentsInChildren<RectTransform>(true)
+            .FirstOrDefault(rect => rect.gameObject.name == "Preferences Window");
+        Require(window != null
+                && window.anchorMin == new Vector2(0f, 0f)
+                && window.anchorMax == new Vector2(1f, 1f)
+                && window.offsetMin.x >= 44f
+                && window.offsetMax.x <= -44f,
+            "Shared Preferences window must use a wide safe-area layout rather than a narrow fixed card.");
+
+        Require(view.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 0,
+            "All Preferences controls fit at 1920x1080 and must not be hidden behind a scroll viewport mask.");
+        RectTransform columns = view.GetComponentsInChildren<RectTransform>(true)
+            .FirstOrDefault(rect => rect.gameObject.name == "Preferences Columns");
+        Require(columns != null && columns.childCount == 2,
+            "Shared Preferences must use two balanced columns at 1920x1080.");
+        LayoutRebuilder.ForceRebuildLayoutImmediate(columns);
+        RectTransform[] columnRects = columns.Cast<Transform>().Select(transform => transform as RectTransform).ToArray();
+        Require(!Overlaps(columnRects[0], columnRects[1]), $"Preferences columns must not overlap. left={columnRects[0].rect}, right={columnRects[1].rect}");
+
+        RectTransform viewport = window;
+        foreach (TextMeshProUGUI heading in view.GetComponentsInChildren<TextMeshProUGUI>(true)
+                     .Where(text => text.gameObject.name.StartsWith("Section ") || text.gameObject.name == "Label"))
+        {
+            Require(IsFullyInside(heading.rectTransform, viewport),
+                $"Preferences heading or row label '{heading.text}' is clipped by its effective window.");
+        }
+        foreach (string id in SharedPreferencesView.VisibleControlIds)
+        {
+            RectTransform control = view.GetDropdown(id)?.GetComponent<RectTransform>()
+                ?? view.GetSlider(id)?.GetComponent<RectTransform>()
+                ?? view.GetToggle(id)?.GetComponent<RectTransform>();
+            Require(control != null && IsFullyInside(control, viewport),
+                $"Preferences control '{id}' leaves the effective window.");
+        }
+        Require(IsFullyInside(view.GetButton("reset").GetComponent<RectTransform>(), window)
+                && IsFullyInside(view.GetButton("back").GetComponent<RectTransform>(), window),
+            "Preferences footer controls must remain inside the window.");
+
+        Require(SharedPreferencesView.VisibleControlIds
+                .Select(id => view.GetDropdown(id) != null ? view.GetDropdown(id).GetComponent<LayoutElement>() : null)
+                .Where(layout => layout != null)
+                .All(layout => layout.preferredWidth >= 280f),
+            "Preferences dropdown controls must retain a readable aligned width.");
+        Require(view.GetComponentsInChildren<TMP_Dropdown>(true).Count() == 2,
+            "Screen mode and resolution must remain real TMP dropdown controls.");
+    }
+
+    private static bool IsFullyInside(RectTransform child, RectTransform parent)
+    {
+        Vector3[] childCorners = new Vector3[4]; Vector3[] parentCorners = new Vector3[4];
+        child.GetWorldCorners(childCorners); parent.GetWorldCorners(parentCorners);
+        const float tolerance = 0.5f;
+        return childCorners.All(corner => corner.x >= parentCorners[0].x - tolerance && corner.x <= parentCorners[2].x + tolerance
+            && corner.y >= parentCorners[0].y - tolerance && corner.y <= parentCorners[2].y + tolerance);
+    }
+
+    private static bool Overlaps(RectTransform left, RectTransform right)
+    {
+        Vector3[] leftCorners = new Vector3[4]; Vector3[] rightCorners = new Vector3[4];
+        left.GetWorldCorners(leftCorners); right.GetWorldCorners(rightCorners);
+        return leftCorners[0].x < rightCorners[2].x && leftCorners[2].x > rightCorners[0].x
+            && leftCorners[0].y < rightCorners[2].y && leftCorners[2].y > rightCorners[0].y;
     }
 
     private static void VerifyTruthfulControlsAndConversions()

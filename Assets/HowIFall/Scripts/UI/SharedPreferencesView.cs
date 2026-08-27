@@ -28,10 +28,10 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         SkipUnseenId, SkipAfterChoicesId, AutosaveId, ShowQuickMenuId
     };
 
-    private static readonly Color WindowColor = new Color(0.105f, 0.12f, 0.145f, 0.99f);
-    private static readonly Color HeaderColor = new Color(0.13f, 0.15f, 0.18f, 1f);
-    private static readonly Color RowColor = new Color(0.165f, 0.19f, 0.225f, 1f);
-    private static readonly Color ControlColor = new Color(0.22f, 0.255f, 0.30f, 1f);
+    private static readonly Color WindowColor = new Color(0.12f, 0.145f, 0.165f, 0.99f);
+    private static readonly Color HeaderColor = new Color(0.15f, 0.18f, 0.205f, 1f);
+    private static readonly Color RowColor = Color.clear;
+    private static readonly Color ControlColor = new Color(0.18f, 0.22f, 0.25f, 0.94f);
     private static readonly Color AccentColor = new Color(0.30f, 0.64f, 0.94f, 1f);
     private static readonly Color PrimaryText = new Color(0.97f, 0.98f, 1f, 1f);
     private static readonly Color SecondaryText = new Color(0.74f, 0.80f, 0.88f, 1f);
@@ -141,9 +141,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
 
         GameObject window = CreateUi(root.transform, "Preferences Window");
         RectTransform windowRect = window.GetComponent<RectTransform>();
-        windowRect.anchorMin = windowRect.anchorMax = new Vector2(0.5f, 0.5f);
-        windowRect.pivot = new Vector2(0.5f, 0.5f);
-        windowRect.sizeDelta = new Vector2(1040f, 900f);
+        Stretch(windowRect, 58f, 58f, 44f, 44f);
         window.AddComponent<Image>().color = WindowColor;
         Outline outline = window.AddComponent<Outline>();
         outline.effectColor = new Color(0.45f, 0.62f, 0.82f, 0.48f);
@@ -180,40 +178,42 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
 
     private void CreateContent(Transform window)
     {
-        GameObject viewport = CreateUi(window, "Single Scroll Viewport");
-        Stretch(viewport.GetComponent<RectTransform>(), 26f, 54f, 78f, 76f);
-        Image viewportImage = viewport.AddComponent<Image>(); viewportImage.color = new Color(0f, 0f, 0f, 0.001f); viewportImage.raycastTarget = true;
-        viewport.AddComponent<RectMask2D>();
-        GameObject content = CreateUi(viewport.transform, "Preferences Content");
-        RectTransform contentRect = content.GetComponent<RectTransform>();
-        contentRect.anchorMin = new Vector2(0f, 1f); contentRect.anchorMax = Vector2.one; contentRect.pivot = new Vector2(0.5f, 1f);
-        VerticalLayoutGroup layout = content.AddComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(8, 14, 8, 80); layout.spacing = 7f; layout.childAlignment = TextAnchor.UpperCenter;
-        layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
-        content.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        Scrollbar scrollbar = CreateScrollbar(window);
-        ScrollRect scrollRect = viewport.AddComponent<ScrollRect>();
-        scrollRect.content = contentRect; scrollRect.viewport = viewport.GetComponent<RectTransform>(); scrollRect.horizontal = false; scrollRect.vertical = true;
-        scrollRect.movementType = ScrollRect.MovementType.Clamped; scrollRect.scrollSensitivity = 32f; scrollRect.verticalScrollbar = scrollbar;
-        scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport; scrollRect.verticalScrollbarSpacing = 8f;
+        GameObject columns = CreateUi(window, "Preferences Columns");
+        Stretch(columns.GetComponent<RectTransform>(), 42f, 42f, 82f, 86f);
+        HorizontalLayoutGroup layout = columns.AddComponent<HorizontalLayoutGroup>();
+        layout.padding = new RectOffset(0, 0, 0, 0); layout.spacing = 36f; layout.childAlignment = TextAnchor.UpperCenter;
+        layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = true; layout.childForceExpandHeight = true;
 
-        Section(content.transform, "ЭКРАН");
-        DropdownRow(content.transform, ScreenModeId, "Режим экрана", PreferencesOptions.ScreenModes);
-        DropdownRow(content.transform, ResolutionId, "Разрешение", PreferencesOptions.Resolutions);
-        Section(content.transform, "ЗВУК");
-        SliderRow(content.transform, MasterVolumeId, "Общая громкость", 0f, 1f, false, false);
-        SliderRow(content.transform, MusicVolumeId, "Музыка", 0f, 1f, false, false);
-        SliderRow(content.transform, SfxVolumeId, "Эффекты", 0f, 1f, false, false);
-        Section(content.transform, "ТЕКСТ");
-        SliderRow(content.transform, TextSpeedId, "Скорость текста", 20f, 100f, true, true);
-        SliderRow(content.transform, AutoForwardDelayId, "Скорость авто", 0.5f, 5f, false, true);
-        SliderRow(content.transform, TextSizeId, "Размер текста", 0.85f, 1.25f, false, true);
-        SliderRow(content.transform, TextboxOpacityId, "Прозрачность окна", 0f, 1f, false, true);
-        Section(content.transform, "ИГРА");
-        ToggleRow(content.transform, SkipUnseenId, "Пропуск непрочитанного");
-        ToggleRow(content.transform, SkipAfterChoicesId, "Продолжать пропуск после выбора");
-        ToggleRow(content.transform, AutosaveId, "Автосохранение");
-        ToggleRow(content.transform, ShowQuickMenuId, "Показывать быстрое меню");
+        Transform left = CreateColumn(columns.transform, "Left Preferences Column");
+        Section(left, "ЭКРАН");
+        DropdownRow(left, ScreenModeId, "Режим экрана", PreferencesOptions.ScreenModes);
+        DropdownRow(left, ResolutionId, "Разрешение", PreferencesOptions.Resolutions);
+        Section(left, "ЗВУК");
+        SliderRow(left, MasterVolumeId, "Общая громкость", 0f, 1f, false, false);
+        SliderRow(left, MusicVolumeId, "Музыка", 0f, 1f, false, false);
+        SliderRow(left, SfxVolumeId, "Эффекты", 0f, 1f, false, false);
+
+        Transform right = CreateColumn(columns.transform, "Right Preferences Column");
+        Section(right, "ТЕКСТ");
+        SliderRow(right, TextSpeedId, "Скорость текста", 20f, 100f, true, true);
+        SliderRow(right, AutoForwardDelayId, "Скорость авто", 0.5f, 5f, false, true);
+        SliderRow(right, TextSizeId, "Размер текста", 0.85f, 1.25f, false, true);
+        SliderRow(right, TextboxOpacityId, "Прозрачность окна", 0f, 1f, false, true);
+        Section(right, "ИГРА");
+        ToggleRow(right, SkipUnseenId, "Пропуск непрочитанного");
+        ToggleRow(right, SkipAfterChoicesId, "Продолжать пропуск после выбора");
+        ToggleRow(right, AutosaveId, "Автосохранение");
+        ToggleRow(right, ShowQuickMenuId, "Показывать быстрое меню");
+    }
+
+    private static Transform CreateColumn(Transform parent, string name)
+    {
+        GameObject column = CreateUi(parent, name);
+        VerticalLayoutGroup layout = column.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(0, 0, 0, 0); layout.spacing = 6f; layout.childAlignment = TextAnchor.UpperCenter;
+        layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
+        LayoutElement element = column.AddComponent<LayoutElement>(); element.flexibleWidth = 1f; element.flexibleHeight = 1f;
+        return column.transform;
     }
 
     private void Section(Transform parent, string value)
@@ -231,7 +231,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         GameObject owner = CreateUi(control, id + " Toggle");
         Image background = owner.AddComponent<Image>(); background.color = ControlColor;
         Toggle toggle = owner.AddComponent<Toggle>(); toggle.targetGraphic = background; toggle.colors = Colors();
-        LayoutElement layout = owner.AddComponent<LayoutElement>(); layout.preferredWidth = 330f; layout.minHeight = 40f; layout.preferredHeight = 40f;
+        LayoutElement layout = owner.AddComponent<LayoutElement>(); layout.preferredWidth = 300f; layout.minHeight = 40f; layout.preferredHeight = 40f;
         GameObject mark = CreateUi(owner.transform, "Mark");
         RectTransform markRect = mark.GetComponent<RectTransform>(); markRect.anchorMin = markRect.anchorMax = new Vector2(0f, 0.5f); markRect.pivot = new Vector2(0f, 0.5f); markRect.anchoredPosition = new Vector2(12f, 0f); markRect.sizeDelta = new Vector2(18f, 18f);
         Image markImage = mark.AddComponent<Image>(); markImage.color = AccentColor; toggle.graphic = markImage;
@@ -245,27 +245,31 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         GameObject owner = CreateUi(control, id + " Slider");
         HorizontalLayoutGroup layout = owner.AddComponent<HorizontalLayoutGroup>();
         layout.spacing = 12f; layout.childAlignment = TextAnchor.MiddleRight; layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = false; layout.childForceExpandHeight = false;
-        LayoutElement ownerLayout = owner.AddComponent<LayoutElement>(); ownerLayout.preferredWidth = 330f; ownerLayout.minHeight = 40f;
+        LayoutElement ownerLayout = owner.AddComponent<LayoutElement>(); ownerLayout.preferredWidth = 300f; ownerLayout.minHeight = 40f;
         Slider slider = CreateSlider(owner.transform, min, max, wholeNumbers);
-        LayoutElement sliderLayout = slider.gameObject.AddComponent<LayoutElement>(); sliderLayout.preferredWidth = showValue ? 220f : 330f; sliderLayout.minHeight = 28f;
+        LayoutElement sliderLayout = slider.gameObject.AddComponent<LayoutElement>(); sliderLayout.preferredWidth = showValue ? 214f : 300f; sliderLayout.minHeight = 28f;
         sliders[id] = slider;
         if (!showValue) return;
         TextMeshProUGUI value = Text(owner.transform, "Value", "—", 16f, FontStyles.Normal, TextAlignmentOptions.MidlineRight); value.color = SecondaryText;
-        LayoutElement valueLayout = value.gameObject.AddComponent<LayoutElement>(); valueLayout.preferredWidth = 98f; valueLayout.minHeight = 34f; sliderValues[id] = value;
+        LayoutElement valueLayout = value.gameObject.AddComponent<LayoutElement>(); valueLayout.preferredWidth = 74f; valueLayout.minHeight = 34f; sliderValues[id] = value;
     }
 
     private Transform Row(Transform parent, string id, string label)
     {
         GameObject row = CreateUi(parent, "Row [" + id + "]"); row.AddComponent<Image>().color = RowColor;
         HorizontalLayoutGroup layout = row.AddComponent<HorizontalLayoutGroup>();
-        layout.padding = new RectOffset(18, 18, 7, 7); layout.spacing = 18f; layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.padding = new RectOffset(16, 16, 7, 7); layout.spacing = 18f; layout.childAlignment = TextAnchor.MiddleCenter;
         layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = false; layout.childForceExpandHeight = false;
         LayoutElement rowLayout = row.AddComponent<LayoutElement>(); rowLayout.minHeight = 54f; rowLayout.preferredHeight = 54f;
         TextMeshProUGUI labelText = Text(row.transform, "Label", label, 17f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); labelText.color = PrimaryText; labelText.enableWordWrapping = true; labelText.overflowMode = TextOverflowModes.Ellipsis;
-        LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>(); labelLayout.minWidth = 360f; labelLayout.flexibleWidth = 1f;
+        LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>(); labelLayout.minWidth = 210f; labelLayout.flexibleWidth = 1f;
         GameObject control = CreateUi(row.transform, "Control");
         HorizontalLayoutGroup controlLayout = control.AddComponent<HorizontalLayoutGroup>(); controlLayout.childAlignment = TextAnchor.MiddleRight; controlLayout.childControlWidth = true; controlLayout.childControlHeight = true; controlLayout.childForceExpandWidth = false; controlLayout.childForceExpandHeight = false;
-        LayoutElement width = control.AddComponent<LayoutElement>(); width.preferredWidth = 330f; width.minWidth = 330f;
+        LayoutElement width = control.AddComponent<LayoutElement>(); width.preferredWidth = 300f; width.minWidth = 300f;
+        GameObject separator = CreateUi(row.transform, "Row Separator");
+        RectTransform separatorRect = separator.GetComponent<RectTransform>(); separatorRect.anchorMin = new Vector2(0f, 0f); separatorRect.anchorMax = new Vector2(1f, 0f); separatorRect.offsetMin = new Vector2(22f, 0f); separatorRect.offsetMax = new Vector2(-22f, 1f);
+        separator.AddComponent<Image>().color = new Color(0.43f, 0.58f, 0.68f, 0.22f);
+        separator.AddComponent<LayoutElement>().ignoreLayout = true;
         return control.transform;
     }
 
@@ -289,14 +293,31 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     {
         GameObject owner = CreateUi(parent, id + " Dropdown"); Image image = owner.AddComponent<Image>(); image.color = ControlColor;
         TMP_Dropdown dropdown = owner.AddComponent<TMP_Dropdown>(); dropdown.targetGraphic = image; dropdown.colors = Colors();
-        LayoutElement layout = owner.AddComponent<LayoutElement>(); layout.preferredWidth = 330f; layout.minHeight = 40f; layout.preferredHeight = 40f;
+        LayoutElement layout = owner.AddComponent<LayoutElement>(); layout.preferredWidth = 300f; layout.minHeight = 40f; layout.preferredHeight = 40f;
         TextMeshProUGUI caption = Text(owner.transform, "Label", "—", 16f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); caption.color = PrimaryText; Stretch(caption.rectTransform, 14f, 40f);
-        TextMeshProUGUI arrow = Text(owner.transform, "Arrow", "⌄", 20f, FontStyles.Bold, TextAlignmentOptions.Center); arrow.color = SecondaryText;
-        RectTransform arrowRect = arrow.rectTransform; arrowRect.anchorMin = new Vector2(1f, 0f); arrowRect.anchorMax = Vector2.one; arrowRect.pivot = new Vector2(1f, 0.5f); arrowRect.sizeDelta = new Vector2(34f, 0f);
+        CreateDropdownChevron(owner.transform);
         RectTransform template = DropdownTemplate(owner.transform);
         dropdown.template = template; dropdown.captionText = caption; dropdown.itemText = template.GetComponentInChildren<TextMeshProUGUI>(true);
         List<TMP_Dropdown.OptionData> optionData = new List<TMP_Dropdown.OptionData>(); foreach (string option in options) optionData.Add(new TMP_Dropdown.OptionData(option));
         dropdown.AddOptions(optionData); return dropdown;
+    }
+
+    private static void CreateDropdownChevron(Transform parent)
+    {
+        GameObject owner = CreateUi(parent, "Dropdown Chevron");
+        RectTransform ownerRect = owner.GetComponent<RectTransform>();
+        ownerRect.anchorMin = new Vector2(1f, 0.5f); ownerRect.anchorMax = new Vector2(1f, 0.5f);
+        ownerRect.pivot = new Vector2(1f, 0.5f); ownerRect.anchoredPosition = new Vector2(-18f, 0f); ownerRect.sizeDelta = new Vector2(18f, 12f);
+        CreateChevronArm(owner.transform, "Left Arm", new Vector2(4.5f, 7f), -42f);
+        CreateChevronArm(owner.transform, "Right Arm", new Vector2(13.5f, 7f), 42f);
+    }
+
+    private static void CreateChevronArm(Transform parent, string name, Vector2 position, float angle)
+    {
+        GameObject arm = CreateUi(parent, name); RectTransform rect = arm.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0f, 0f); rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position; rect.sizeDelta = new Vector2(9f, 2f); rect.localEulerAngles = new Vector3(0f, 0f, angle);
+        Image image = arm.AddComponent<Image>(); image.color = SecondaryText; image.raycastTarget = false;
     }
 
     private RectTransform DropdownTemplate(Transform parent)
@@ -304,7 +325,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         GameObject owner = CreateUi(parent, "Template"); RectTransform template = owner.GetComponent<RectTransform>();
         template.anchorMin = new Vector2(0f, 0f); template.anchorMax = new Vector2(1f, 0f); template.pivot = new Vector2(0.5f, 1f); template.anchoredPosition = new Vector2(0f, -4f); template.sizeDelta = new Vector2(0f, 156f);
         owner.AddComponent<Image>().color = new Color(0.18f, 0.21f, 0.25f, 1f); ScrollRect scroll = owner.AddComponent<ScrollRect>();
-        GameObject viewport = CreateUi(owner.transform, "Viewport"); Stretch(viewport.GetComponent<RectTransform>(), 3f, 3f, 3f, 3f); viewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.001f); viewport.AddComponent<RectMask2D>();
+        GameObject viewport = CreateUi(owner.transform, "Viewport"); Stretch(viewport.GetComponent<RectTransform>(), 3f, 3f, 3f, 3f); viewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.001f);
         GameObject content = CreateUi(viewport.transform, "Content"); RectTransform contentRect = content.GetComponent<RectTransform>(); contentRect.anchorMin = new Vector2(0f, 1f); contentRect.anchorMax = new Vector2(1f, 1f); contentRect.pivot = new Vector2(0.5f, 1f);
         VerticalLayoutGroup contentLayout = content.AddComponent<VerticalLayoutGroup>(); contentLayout.childControlWidth = true; contentLayout.childControlHeight = true; contentLayout.childForceExpandWidth = true; contentLayout.childForceExpandHeight = false;
         content.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize; scroll.viewport = viewport.GetComponent<RectTransform>(); scroll.content = contentRect; scroll.horizontal = false;
