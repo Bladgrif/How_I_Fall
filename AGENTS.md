@@ -7,6 +7,7 @@
 - Prefer ordinary Unity Test Framework NUnit tests. Use custom graphical/runtime E2E only for real runtime flows, Game View, screenshots, or Editor lifecycle.
 - After implementation: check compile errors, run a narrow targeted test, then relevant regression/smoke checks. For player-visible work, run runtime/E2E proof when the environment supports it, inspect available visual proof, fix clear task-scoped defects, and repeat the relevant check.
 - Compile success is not proof of correct behaviour. Never claim a test passed unless it was actually run; mark unexecuted validation `NOT RUN`.
+- For the complete review contract, including player-facing graphical proof and visual baselines, follow `docs/product/review_workflow.md`.
 
 ## Visual and manual QA
 

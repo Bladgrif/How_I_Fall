@@ -11,3 +11,4 @@ description: Run How I Fall player-visible visual QA with existing Unity launche
 4. Obtain and inspect its screenshots for missing sprites/textures, clipping, overlap, incorrect visibility, malformed dropdowns, broken anchors/layout, and clear runtime/UI defects.
 5. Fix a task-scoped objective defect and repeat the relevant proof. Mark graphical proof `NOT RUN` only when it was attempted but failed because of environment/infrastructure, or no objective automation exists for the area.
 6. Ask for human manual QA only for subjective visual/taste, atmosphere, final aesthetic approval, or truly non-automatable interaction. Automated objective proof is not a human QA pass.
+7. After a significant visual pass and successful graphical E2E, prepare the relevant curated screenshots in `docs/visual-baselines/` for reviewer visual review; do not copy all `QAArtifacts`.

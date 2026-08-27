@@ -69,4 +69,20 @@ Preferences:
 
 **Why:** Долг важен для будущей подачи, но не блокирует текущий functional demo.
 
-**Status:** DEFERRED
+**Status:** SUPERSEDED/RESOLVED
+
+**Resolution:** Main Menu/Preferences structural polish выполнен. Дальнейшие
+aesthetic passes проходят через новый visual-review workflow.
+
+## 2026-08-27 — Visual review workflow
+
+**Decision:** Для player-facing visual review используются Codex graphical proof,
+свежие committed visual baselines и reviewer visual comparison. Objective UI
+defects исправляются в correction pass; baselines не означают финальное art или
+автоматическое aesthetic approval.
+
+**Why:** Reviewer должен иметь доступ к реальному runtime proof и небольшому
+набору screenshots, а subjective aesthetic approval должна оставаться отдельной
+ответственностью пользователя.
+
+**Status:** APPROVED
