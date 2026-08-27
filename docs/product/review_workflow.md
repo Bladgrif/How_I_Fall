@@ -50,13 +50,37 @@ hierarchy, spacing, readability, consistency, visual weight, interaction states
 
 Baselines не являются final art или automatic aesthetic approval.
 
+## Google Drive visual-review mirror
+
+GitHub repository остаётся source of truth для code, docs и curated visual
+baselines. Для удобного human/reviewer visual inspection используется отдельный
+Google Drive mirror:
+
+`How I Fall/Visual Review/`
+
+- `Current Screens/` — свежие review screenshots по конкретным UI areas;
+- `References/` — внешние visual references для сравнения;
+- `Archive/` — старые review-кандидаты при необходимости.
+
+Для значимого visual pass fresh screenshots должны быть доступны reviewer'у не
+только как текстовый report. Codex обязан создать и inspect-ить runtime proof.
+Если в его текущем environment есть уже настроенный авторизованный способ загрузки
+в Google Drive mirror, screenshots следует туда скопировать. Если такого доступа
+нет, Drive upload не является причиной считать graphical QA failed: в отчёте он
+помечается `NOT RUN / reviewer handoff required`, а repository baseline и
+`QAArtifacts` всё равно обновляются/сохраняются по обычным правилам.
+
+Google Drive mirror не заменяет repository baseline, tests, graphical E2E или CI
+и не является source of truth.
+
 ## Разделение ролей
 
 - **Codex:** implementation, automated tests, objective graphical QA и
-  screenshot proof.
+  screenshot proof; при доступном настроенном канале — доставка review screenshots
+  в Google Drive mirror.
 - **Reviewer (ChatGPT):** diff/scope/risk review, проверка test evidence,
-  visual baselines, внешних references при необходимости, GitHub CI и решение
-  о correction pass.
+  visual baselines и Drive review screenshots, внешних references при необходимости,
+  GitHub CI и решение о correction pass.
 - **User:** финальное субъективное aesthetic approval, когда оно действительно
   нужно.
 
@@ -89,6 +113,7 @@ layout one-to-one не копируются.
 
 `Task` → research/decision при необходимости → implementation → targeted tests →
 regression/smokes → graphical E2E для player-facing UI → screenshot inspection →
-обновление baselines → scoped review-candidate commit/push → review реального
-commit и screenshots → correction pass при необходимости → обязательные GitHub
-CI `GREEN` → user aesthetic approval при genuinely subjective вопросе → `DONE`.
+обновление baselines → optional Drive visual-review mirror → scoped
+review-candidate commit/push → review реального commit и screenshots → correction
+pass при необходимости → обязательные GitHub CI `GREEN` → user aesthetic approval
+при genuinely subjective вопросе → `DONE`.
