@@ -133,6 +133,9 @@ public static class ManualSavePlayModeE2ERunner
             case "WaitLoadConfirmationScreenshot":
                 WaitLoadConfirmationScreenshot();
                 break;
+            case "WaitLoadConfirmationReady":
+                WaitLoadConfirmationReady();
+                break;
             case "WaitInPlaceLoadUiClosed":
                 WaitInPlaceLoadUiClosed();
                 break;
@@ -534,6 +537,46 @@ public static class ManualSavePlayModeE2ERunner
             "Load confirmation left the parent Save/Load content interactive.");
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
             "Load confirmation did not focus the safe Cancel action.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "WaitLoadConfirmationReady");
+        SetDelay(0.02d);
+    }
+
+    private static void WaitLoadConfirmationReady()
+    {
+        VNDialogueController controller = VNDialogueController.Instance;
+        ManualSaveLoadPanel panel = controller != null ? controller.manualSaveLoadPanel : null;
+        bool ready = panel != null
+            && panel.IsConfirmationOpen
+            && panel.confirmationCanvasGroup != null
+            && panel.confirmationCanvasGroup.alpha >= 0.99f
+            && panel.confirmationCanvasGroup.interactable
+            && panel.confirmationCanvasGroup.blocksRaycasts
+            && panel.confirmationWindow != null
+            && Vector3.Distance(panel.confirmationWindow.localScale, Vector3.one) <= 0.01f
+            && panel.contentCanvasGroup != null
+            && !panel.contentCanvasGroup.interactable
+            && EventSystem.current != null
+            && panel.confirmationNoButton != null
+            && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject;
+
+        if (!ready)
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 100,
+                $"Load confirmation did not reach steady state before screenshot capture. "
+                + $"open={panel != null && panel.IsConfirmationOpen}, "
+                + $"group={(panel != null && panel.confirmationCanvasGroup != null ? panel.confirmationCanvasGroup.alpha.ToString(CultureInfo.InvariantCulture) : "null")}, "
+                + $"interactable={panel != null && panel.confirmationCanvasGroup != null && panel.confirmationCanvasGroup.interactable}, "
+                + $"raycasts={panel != null && panel.confirmationCanvasGroup != null && panel.confirmationCanvasGroup.blocksRaycasts}, "
+                + $"scale={(panel != null && panel.confirmationWindow != null ? panel.confirmationWindow.localScale.ToString() : "null")}, "
+                + $"content={panel != null && panel.contentCanvasGroup != null && panel.contentCanvasGroup.interactable}, "
+                + $"selected={EventSystem.current != null && panel != null && panel.confirmationNoButton != null && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject}");
+            SetDelay(0.02d);
+            return;
+        }
+
         CaptureProofScreenshot(LoadConfirmationProofFileName, "WaitLoadConfirmationScreenshot");
     }
 
