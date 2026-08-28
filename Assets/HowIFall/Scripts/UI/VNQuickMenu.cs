@@ -20,7 +20,7 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private const float MinimumDialogueSpacing = 12f;
     private static readonly Color NormalColor = new Color(0.035f, 0.07f, 0.11f, 0.90f);
-    private static readonly Color ActiveColor = new Color(0.10f, 0.31f, 0.46f, 0.96f);
+    private static readonly Color ActiveColor = new Color(0.055f, 0.16f, 0.23f, 0.96f);
 
     private bool hiddenBySpecialMode;
     private bool hiddenByPlayer;
@@ -32,6 +32,10 @@ public sealed class VNQuickMenu : MonoBehaviour
     private float dialogueSpacing;
     private RectTransform dialogueRect;
     private RectTransform quickMenuRect;
+    private bool skipPresentationInitialized;
+    private bool autoPresentationInitialized;
+    private bool presentedSkipState;
+    private bool presentedAutoState;
 
     public float QuickMenuSafeAreaReserve { get; private set; }
     public bool IsEffectivelyVisible => effectiveVisible;
@@ -129,6 +133,7 @@ public sealed class VNQuickMenu : MonoBehaviour
     public void ApplyPlayerFacingPresentation()
     {
         EnsureCharacterHubLauncher();
+        SetButtonVisible(charactersButton, false);
         SetButtonVisible(loadButton, false);
         SetButtonLabel(settingsButton, "Настройки");
         SetButtonLabel(mainMenuButton, "Меню");
@@ -159,8 +164,16 @@ public sealed class VNQuickMenu : MonoBehaviour
     {
         RefreshEffectiveVisibility();
         RefreshReplayPresentation();
-        UpdateActiveState(skipButton, dialogueController != null && dialogueController.IsSkipEnabled);
-        UpdateActiveState(autoButton, dialogueController != null && dialogueController.IsAutoForwardEnabledState);
+        RefreshActionPresentation(
+            skipButton,
+            dialogueController != null && dialogueController.IsSkipEnabled,
+            ref skipPresentationInitialized,
+            ref presentedSkipState);
+        RefreshActionPresentation(
+            autoButton,
+            dialogueController != null && dialogueController.IsAutoForwardEnabledState,
+            ref autoPresentationInitialized,
+            ref presentedAutoState);
         RefreshCharacterHubLauncherVisibility();
     }
 
@@ -294,13 +307,9 @@ public sealed class VNQuickMenu : MonoBehaviour
             return;
         }
 
-        bool visible = dialogueController != null
-            && dialogueController.CanOpenCharacterHub
-            && !hiddenByPlayer
-            && !hiddenBySpecialMode
-            && !hiddenByPreferencesModal
-            && !hiddenByGameMenuModal
-            && !SceneFlowManager.IsReplayModeActive;
+        // Character Hub remains available to its technical/runtime owners, but its
+        // launcher is intentionally deferred from the ordinary player-facing demo.
+        bool visible = false;
         SetButtonVisible(charactersButton, visible);
         charactersButton.interactable = visible;
     }
@@ -328,11 +337,28 @@ public sealed class VNQuickMenu : MonoBehaviour
         }
     }
 
-    private static void UpdateActiveState(Button button, bool active)
+    private static void RefreshActionPresentation(Button button, bool active, ref bool initialized, ref bool previousState)
     {
-        if (button != null && button.targetGraphic is Image image)
+        if (button == null || (initialized && previousState == active))
         {
-            image.color = active ? ActiveColor : NormalColor;
+            return;
+        }
+
+        initialized = true;
+        previousState = active;
+        ColorBlock colors = CreateButtonColors(active);
+        button.colors = colors;
+        if (button.targetGraphic is Image image)
+        {
+            image.color = colors.normalColor;
+        }
+
+        Outline outline = button.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.effectColor = active
+                ? new Color(0.40f, 0.82f, 1f, 0.72f)
+                : new Color(0.46f, 0.60f, 0.76f, 0.24f);
         }
     }
 
@@ -353,13 +379,17 @@ public sealed class VNQuickMenu : MonoBehaviour
         }
     }
 
-    private static ColorBlock CreateButtonColors()
+    private static ColorBlock CreateButtonColors(bool active = false)
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(0.80f, 0.91f, 1f, 1f);
-        colors.pressedColor = new Color(0.52f, 0.72f, 0.88f, 1f);
-        colors.selectedColor = new Color(0.72f, 0.86f, 0.98f, 1f);
+        colors.normalColor = active ? ActiveColor : NormalColor;
+        colors.highlightedColor = active
+            ? new Color(0.10f, 0.27f, 0.36f, 0.98f)
+            : new Color(0.08f, 0.16f, 0.22f, 0.96f);
+        colors.pressedColor = new Color(0.12f, 0.32f, 0.42f, 1f);
+        colors.selectedColor = active
+            ? new Color(0.12f, 0.31f, 0.40f, 1f)
+            : new Color(0.10f, 0.25f, 0.34f, 0.98f);
         colors.disabledColor = new Color(0.45f, 0.48f, 0.52f, 0.72f);
         colors.colorMultiplier = 1f;
         return colors;
@@ -381,5 +411,18 @@ public sealed class VNQuickMenu : MonoBehaviour
         Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
         outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.24f);
         outline.effectDistance = new Vector2(1f, -1f);
+
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.fontSize = Mathf.Max(label.fontSize, 16f);
+            label.fontStyle = FontStyles.Bold;
+            RectTransform rect = button.transform as RectTransform;
+            if (rect != null)
+            {
+                float width = Mathf.Clamp(label.GetPreferredValues(label.text).x + 28f, 88f, 142f);
+                rect.sizeDelta = new Vector2(width, rect.sizeDelta.y);
+            }
+        }
     }
 }

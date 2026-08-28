@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('EditMode', 'PlayMode')]
+    [ValidateSet('EditMode', 'PlayMode', 'Smoke')]
     [string]$Mode,
     [string]$TestFilter
 )
@@ -23,8 +23,14 @@ $resultPath = Join-Path $outputDirectory "${Mode}_${filterSuffix}_results.xml"
 $logPath = Join-Path $outputDirectory "${Mode}_${filterSuffix}.log"
 Remove-Item -LiteralPath $resultPath,$logPath -Force -ErrorAction SilentlyContinue
 
-$arguments = @('-batchmode', '-projectPath', $projectRoot, '-runTests', '-testPlatform', $Mode, '-testResults', $resultPath, '-logFile', $logPath)
-if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { $arguments += @('-testFilter', $TestFilter) }
+if ($Mode -eq 'Smoke') {
+    if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { throw 'TestFilter is not supported with Smoke mode.' }
+    # The smoke runner controls EditorApplication.Exit after reporting every check.
+    $arguments = @('-batchmode', '-projectPath', $projectRoot, '-executeMethod', 'HowIFallCiSmokeTests.RunAll', '-logFile', $logPath)
+} else {
+    $arguments = @('-batchmode', '-projectPath', $projectRoot, '-runTests', '-testPlatform', $Mode, '-testResults', $resultPath, '-logFile', $logPath)
+    if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { $arguments += @('-testFilter', $TestFilter) }
+}
 $argumentLine = ($arguments | ForEach-Object {
     if ($_ -match '[\s"]') { '"' + $_.Replace('"', '\"') + '"' } else { $_ }
 }) -join ' '

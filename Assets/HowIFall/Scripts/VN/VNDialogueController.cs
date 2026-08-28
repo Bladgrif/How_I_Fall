@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class VNDialogueController : MonoBehaviour
@@ -86,6 +87,9 @@ public class VNDialogueController : MonoBehaviour
     private PreferencesController preferencesController;
     private float dialogueBaseFontSize;
     private Image dialogueBoxBackground;
+    private Vector2 dialogueBaseBoxSize;
+    private Vector2 dialogueBaseTextSize;
+    private bool readingPresentationInitialized;
     private bool observedAutoForward;
     private bool skipEnabled;
     private DialogueReadHistory readHistory;
@@ -324,6 +328,7 @@ public class VNDialogueController : MonoBehaviour
     {
         RefreshSpecialModeOwnerLifecycle();
         RefreshAutoForwardState();
+        RefreshChoiceFocusPresentation();
 
         if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel) && !IsHandlingPreferencesDropdownCancel())
         {
@@ -1633,6 +1638,9 @@ public class VNDialogueController : MonoBehaviour
             }
         }
 
+        ApplyChoicePresentation();
+        FocusFirstVisibleChoice();
+
         if (requestAutoSave)
         {
             RequestAutoSave();
@@ -1641,7 +1649,10 @@ public class VNDialogueController : MonoBehaviour
 
     private void Choose(int displaySlot)
     {
-        if (!ConditionalChoiceEvaluator.TryGetVisibleChoice(visibleChoices, displaySlot, out VisibleChoice visibleChoice))
+        if (!showingChoice
+            || choicePanel == null
+            || !choicePanel.activeInHierarchy
+            || !ConditionalChoiceEvaluator.TryGetVisibleChoice(visibleChoices, displaySlot, out VisibleChoice visibleChoice))
         {
             return;
         }
@@ -1799,8 +1810,17 @@ public class VNDialogueController : MonoBehaviour
         backlogText.text = backlog.BuildRichText();
         StopAutoForwardTimer();
         ApplyBacklogPlayerFacingPalette();
+        ApplyBacklogPresentation();
         SetBacklogOverlayActive(true);
         backlogPanel.SetActive(true);
+        Canvas.ForceUpdateCanvases();
+        ScrollRect scrollRect = backlogPanel.GetComponentInChildren<ScrollRect>(true);
+        if (scrollRect != null)
+        {
+            scrollRect.verticalNormalizedPosition = 0f;
+        }
+
+        Focus(backlogCloseButton);
     }
 
     private void ApplyBacklogPlayerFacingPalette()
@@ -1841,6 +1861,186 @@ public class VNDialogueController : MonoBehaviour
         {
             backlogDimOverlay.SetActive(isActive);
         }
+    }
+
+    private void ApplyBacklogPresentation()
+    {
+        if (backlogText == null)
+        {
+            return;
+        }
+
+        backlogText.alignment = TextAlignmentOptions.TopLeft;
+        backlogText.margin = new Vector4(10f, 12f, 40f, 12f);
+        backlogText.lineSpacing = 8f;
+        backlogText.enableWordWrapping = true;
+        backlogText.overflowMode = TextOverflowModes.Overflow;
+
+        if (backlogCloseButton != null)
+        {
+            ColorBlock colors = backlogCloseButton.colors;
+            colors.normalColor = new Color(0.04f, 0.14f, 0.21f, 0.94f);
+            colors.highlightedColor = new Color(0.10f, 0.27f, 0.36f, 0.98f);
+            colors.pressedColor = new Color(0.12f, 0.32f, 0.42f, 1f);
+            colors.selectedColor = new Color(0.10f, 0.27f, 0.36f, 0.98f);
+            colors.colorMultiplier = 1f;
+            backlogCloseButton.colors = colors;
+            if (backlogCloseButton.targetGraphic is Image image)
+            {
+                image.color = colors.normalColor;
+            }
+        }
+    }
+
+    private void ApplyChoicePresentation()
+    {
+        if (choiceButtons == null)
+        {
+            return;
+        }
+
+        const float topEdge = 61f;
+        const float spacing = 10f;
+        float currentTop = topEdge;
+
+        for (int i = 0; i < choiceButtons.Length; i++)
+        {
+            Button button = choiceButtons[i];
+            if (button == null || !button.gameObject.activeSelf)
+            {
+                continue;
+            }
+
+            TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (label != null)
+            {
+                label.alignment = TextAlignmentOptions.MidlineLeft;
+                label.margin = new Vector4(28f, 8f, 28f, 8f);
+                label.enableWordWrapping = true;
+                label.overflowMode = TextOverflowModes.Overflow;
+                label.fontSize = Mathf.Max(label.fontSize, 20f);
+            }
+
+            RectTransform rect = button.transform as RectTransform;
+            if (rect != null && label != null)
+            {
+                float textWidth = Mathf.Max(1f, rect.sizeDelta.x - label.margin.x - label.margin.z);
+                float preferredTextHeight = label.GetPreferredValues(label.text, textWidth, 0f).y;
+                float height = Mathf.Clamp(preferredTextHeight + label.margin.y + label.margin.w, 54f, 64f);
+                rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
+                rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, currentTop - height * 0.5f);
+                currentTop -= height + spacing;
+            }
+
+            ColorBlock colors = button.colors;
+            colors.normalColor = new Color(0.025f, 0.06f, 0.12f, 0.88f);
+            colors.highlightedColor = new Color(0.08f, 0.18f, 0.25f, 0.96f);
+            colors.pressedColor = new Color(0.12f, 0.30f, 0.40f, 1f);
+            colors.selectedColor = new Color(0.08f, 0.20f, 0.29f, 0.98f);
+            colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
+            colors.colorMultiplier = 1f;
+            button.colors = colors;
+
+            Outline outline = button.GetComponent<Outline>();
+            if (outline != null)
+            {
+                outline.effectColor = new Color(0.44f, 0.78f, 0.98f, 0.52f);
+                outline.effectDistance = new Vector2(1f, -1f);
+            }
+
+            foreach (Image image in button.GetComponentsInChildren<Image>(true))
+            {
+                if (image != button.targetGraphic && image.color.r > image.color.g * 1.3f)
+                {
+                    image.color = new Color(0.34f, 0.72f, 0.94f, image.color.a);
+                }
+            }
+        }
+
+        if (choicePanel != null)
+        {
+            foreach (Image image in choicePanel.GetComponentsInChildren<Image>(true))
+            {
+                if (image.GetComponentInParent<Button>(true) == null
+                    && image.color.r > image.color.g * 1.3f)
+                {
+                    image.color = new Color(0.30f, 0.66f, 0.90f, image.color.a);
+                }
+            }
+        }
+    }
+
+    private void FocusFirstVisibleChoice()
+    {
+        if (choiceButtons == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < choiceButtons.Length; i++)
+        {
+            Button button = choiceButtons[i];
+            if (button != null && button.gameObject.activeInHierarchy && button.interactable)
+            {
+                Focus(button);
+                return;
+            }
+        }
+    }
+
+    private void RefreshChoiceFocusPresentation()
+    {
+        if (!showingChoice || choiceButtons == null)
+        {
+            return;
+        }
+
+        EventSystem eventSystem = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+        GameObject selectedObject = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+        for (int i = 0; i < choiceButtons.Length; i++)
+        {
+            Button button = choiceButtons[i];
+            if (button == null || !button.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            bool selected = button.gameObject == selectedObject;
+            if (selected && button.targetGraphic is Image targetImage)
+            {
+                targetImage.color = new Color(0.08f, 0.23f, 0.32f, 0.98f);
+            }
+
+            Outline outline = button.GetComponent<Outline>();
+            if (outline != null)
+            {
+                outline.effectColor = selected
+                    ? new Color(0.58f, 0.90f, 1f, 0.96f)
+                    : new Color(0.44f, 0.78f, 0.98f, 0.32f);
+                outline.effectDistance = selected ? new Vector2(2f, -2f) : new Vector2(1f, -1f);
+            }
+
+            foreach (Image image in button.GetComponentsInChildren<Image>(true))
+            {
+                if (image != button.targetGraphic)
+                {
+                    image.color = selected
+                        ? new Color(0.48f, 0.86f, 1f, 1f)
+                        : new Color(0.34f, 0.72f, 0.94f, 0.72f);
+                }
+            }
+        }
+    }
+
+    private static void Focus(Selectable control)
+    {
+        if (control == null)
+        {
+            return;
+        }
+
+        EventSystem eventSystem = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+        eventSystem?.SetSelectedGameObject(control.gameObject);
     }
 
     public bool TryGetSavePosition(
@@ -1994,7 +2194,75 @@ public class VNDialogueController : MonoBehaviour
             dialogueBoxBackground = dialogueUiRoot.GetComponent<Image>();
         }
 
+        ApplyReadingShellPresentation();
         ApplyDialoguePresentation(dialogueText, dialogueBoxBackground, dialogueBaseFontSize, presentationSettings);
+    }
+
+    /// <summary>Keeps the ordinary reading shell readable at the supported text-scale range without serializing the scene.</summary>
+    private void ApplyReadingShellPresentation()
+    {
+        if (dialogueUiRoot == null || dialogueText == null)
+        {
+            return;
+        }
+
+        RectTransform boxRect = dialogueUiRoot.transform as RectTransform;
+        RectTransform textRect = dialogueText.rectTransform;
+        if (boxRect == null || textRect == null)
+        {
+            return;
+        }
+
+        if (!readingPresentationInitialized)
+        {
+            dialogueBaseBoxSize = boxRect.sizeDelta;
+            dialogueBaseTextSize = textRect.sizeDelta;
+            readingPresentationInitialized = true;
+        }
+
+        // The authored 90 px text area clips several ordinary lines at 125%.
+        // Reserve height rather than weakening the existing accessibility setting.
+        boxRect.sizeDelta = new Vector2(dialogueBaseBoxSize.x, Mathf.Max(dialogueBaseBoxSize.y, 360f));
+        textRect.sizeDelta = new Vector2(dialogueBaseTextSize.x, -80f);
+        dialogueText.margin = new Vector4(4f, 12f, 4f, 8f);
+        dialogueText.alignment = TextAlignmentOptions.TopLeft;
+        dialogueText.lineSpacing = 5f;
+        dialogueText.enableWordWrapping = true;
+        dialogueText.overflowMode = TextOverflowModes.Masking;
+
+        if (nameBox != null)
+        {
+            RectTransform nameRect = nameBox.transform as RectTransform;
+            if (nameRect != null)
+            {
+                nameRect.sizeDelta = new Vector2(280f, 52f);
+                nameRect.anchoredPosition = new Vector2(38f, 24f);
+            }
+
+            Image nameBackground = nameBox.GetComponent<Image>();
+            if (nameBackground != null)
+            {
+                nameBackground.color = new Color(0.035f, 0.09f, 0.14f, 0.94f);
+            }
+        }
+
+        if (speakerText != null)
+        {
+            speakerText.fontStyle = FontStyles.Bold;
+            speakerText.color = new Color(0.74f, 0.90f, 1f, 1f);
+            speakerText.alignment = TextAlignmentOptions.Left;
+        }
+
+        TextMeshProUGUI advanceIndicator = nextButton != null
+            ? nextButton.GetComponentInChildren<TextMeshProUGUI>(true)
+            : null;
+        if (advanceIndicator != null)
+        {
+            advanceIndicator.color = new Color(0.60f, 0.82f, 0.96f, 0.85f);
+        }
+
+        ApplyChoicePresentation();
+        ApplyBacklogPresentation();
     }
 
     public static void ApplyDialoguePresentation(

@@ -28,6 +28,7 @@ public static class HowIFallCiSmokeTests
             Run("Main Menu and Quick Menu cleanup Phase 4", Phase4UiSmokeTests.RunBatchMode);
             Run("Audio ambience", AudioAmbienceSmokeTests.RunBatchMode);
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
+            Run("Core reading experience", ReadingExperienceSmokeTests.RunBatchMode);
             Run("Game Menu navigation Phase 3", GameMenuSmokeTests.RunBatchMode);
             Run("Character Hub", CharacterHubSmokeTests.RunBatchMode);
             Run("Chat Phone", ChatPhoneSmokeTests.RunBatchMode);

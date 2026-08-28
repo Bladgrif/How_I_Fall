@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
@@ -6,6 +7,7 @@ using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
 [InitializeOnLoad]
@@ -22,6 +24,9 @@ public static class PlayerUiGraphicalE2ERunner
     private const string DirectoryKey = "HowIFall.PlayerUiE2E.Directory";
     private const string ResultPath = "player_ui_graphical_result.txt";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
+    private static readonly List<UnityEngine.Object> RuntimeFixtures = new List<UnityEngine.Object>();
+
+    private const string LongReadingFixtureText = "Это длинная нейтральная реплика для проверки чтения на 1920×1080. При масштабе текста 125 % она переносится на несколько строк, остаётся внутри окна и не сталкивается с быстрым меню.";
 
     static PlayerUiGraphicalE2ERunner()
     {
@@ -84,6 +89,13 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureDropdown": CaptureDropdown(); break;
                 case "StartGameplay": StartGameplay(); break;
                 case "WaitGameplay": WaitGameplay(); break;
+                case "PrepareLongDialogue": PrepareLongDialogue(); break;
+                case "OpenReadingChoices": OpenReadingChoices(); break;
+                case "PrepareBacklog": PrepareBacklog(); break;
+                case "PrepareAuto": PrepareAuto(); break;
+                case "PrepareSkip": PrepareSkip(); break;
+                case "PrepareHideUi": PrepareHideUi(); break;
+                case "RestoreAfterHideUi": RestoreAfterHideUi(); break;
                 case "WaitGameplayPreferences": WaitGameplayPreferences(); break;
                 case "WaitScreenshot": WaitScreenshot(); break;
             }
@@ -208,6 +220,98 @@ public static class PlayerUiGraphicalE2ERunner
         }
 
         Require(SaveManager.Instance != null, "Gameplay SaveManager is missing.");
+        CompleteTyping(dialogue);
+        Capture("gameplay_dialogue_standard_1920x1080.png", "PrepareLongDialogue");
+    }
+
+    private static void PrepareLongDialogue()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        LoadRuntimeFixture(dialogue, LongReadingFixtureText, new List<DialogueChoice>());
+        SettingsManager.Instance.SetDialogueTextScale(1.25f);
+        CompleteTyping(dialogue);
+        Capture("gameplay_dialogue_long_125pct_1920x1080.png", "OpenReadingChoices");
+    }
+
+    private static void OpenReadingChoices()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        LoadRuntimeFixture(dialogue, "Выбор остаётся отдельным читаемым действием.", new List<DialogueChoice>
+        {
+            new DialogueChoice { text = "Продолжить проверку с длинным вариантом, который корректно переносится на две строки." },
+            new DialogueChoice { text = "Открыть историю после проверки фокуса." },
+            new DialogueChoice { text = "Оставить режим чтения без изменения состояния." }
+        });
+        InvokePrivate(dialogue, "ShowChoices", false);
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
+            "The first visible choice did not receive EventSystem focus.");
+        Capture("gameplay_choice_focus_1920x1080.png", "PrepareBacklog");
+    }
+
+    private static void PrepareBacklog()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        List<DialogueLine> lines = new List<DialogueLine>();
+        for (int i = 1; i <= 12; i++)
+        {
+            lines.Add(new DialogueLine
+            {
+                lineId = "history_" + i,
+                speaker = i % 3 == 0 ? string.Empty : "Рассказчик",
+                text = "Нейтральная строка истории " + i + " проверяет читаемый перенос и вертикальную навигацию."
+            });
+        }
+
+        LoadRuntimeFixture(dialogue, lines, new List<DialogueChoice>());
+        for (int i = 1; i < lines.Count; i++)
+        {
+            CompleteTyping(dialogue);
+            dialogue.AdvanceDialogue();
+        }
+
+        CompleteTyping(dialogue);
+        dialogue.ShowBacklog();
+        Capture("gameplay_backlog_1920x1080.png", "PrepareAuto");
+    }
+
+    private static void PrepareAuto()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.HideBacklog();
+        LoadRuntimeFixture(dialogue, "Авто остаётся активным, но не меняет эту строку до истечения существующей задержки.", new List<DialogueChoice>());
+        CompleteTyping(dialogue);
+        dialogue.SetAutoForward(true);
+        Require(dialogue.IsAutoForwardEnabledState, "Auto did not become active for the reading proof.");
+        Capture("gameplay_auto_active_1920x1080.png", "PrepareSkip");
+    }
+
+    private static void PrepareSkip()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.SetAutoForward(false);
+        LoadRuntimeFixture(dialogue, "Пропуск включён и отображается до того, как существующий таймер продолжит чтение.", new List<DialogueChoice>());
+        CompleteTyping(dialogue);
+        SettingsManager.Instance.settings.skipMode = "Всё";
+        dialogue.SetSkip(true);
+        InvokePrivate(dialogue, "StopSkipTimer");
+        Require(dialogue.IsSkipEnabled, "Skip did not become active for the reading proof.");
+        Capture("gameplay_skip_active_1920x1080.png", "PrepareHideUi");
+    }
+
+    private static void PrepareHideUi()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.SetSkip(false);
+        SettingsManager.Instance.settings.skipMode = "Виденное";
+        Require(dialogue.TryHideInterface(), "Hide UI did not enter clean view from a stable reading state.");
+        Capture("gameplay_hide_ui_1920x1080.png", "RestoreAfterHideUi");
+    }
+
+    private static void RestoreAfterHideUi()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.RestoreInterface();
+        SettingsManager.Instance.SetDialogueTextScale(1f);
         if (!dialogue.IsGameMenuOpen) dialogue.OpenGameMenu();
         if (!dialogue.IsGameMenuOpen) { Retry("Gameplay menu did not open."); return; }
         VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
@@ -335,7 +439,8 @@ public static class PlayerUiGraphicalE2ERunner
     private static void Success()
     {
         Require(string.IsNullOrEmpty(SessionState.GetString(ErrorsKey, string.Empty)), "Unity Console contained errors:\n" + SessionState.GetString(ErrorsKey, string.Empty));
-        WriteResult("PASS", "all five PlayerUi screenshots captured at 1920x1080");
+        WriteResult("PASS", "all twelve PlayerUi screenshots captured at 1920x1080");
+        DestroyRuntimeFixtures();
         CleanupTestDirectory();
         SessionState.SetString(StageKey, "ExitSuccess");
         EditorApplication.isPlaying = false;
@@ -344,6 +449,7 @@ public static class PlayerUiGraphicalE2ERunner
     private static void Fail(string details)
     {
         WriteResult("FAIL", details);
+        DestroyRuntimeFixtures();
         CleanupTestDirectory();
         Debug.LogError("[PLAYER UI E2E] FAILURE: " + details);
         SessionState.SetString(StageKey, "ExitFailure");
@@ -379,6 +485,67 @@ public static class PlayerUiGraphicalE2ERunner
     {
         string directory = SessionState.GetString(DirectoryKey, string.Empty);
         if (!string.IsNullOrEmpty(directory) && Directory.Exists(directory)) Directory.Delete(directory, true);
+    }
+
+    private static VNDialogueController RequireGameplayDialogue()
+    {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        Require(dialogue != null && dialogue.IsRuntimeReady, "Gameplay dialogue runtime is unavailable for reading proof.");
+        return dialogue;
+    }
+
+    private static void LoadRuntimeFixture(VNDialogueController dialogue, string text, List<DialogueChoice> choices)
+    {
+        LoadRuntimeFixture(dialogue, new List<DialogueLine>
+        {
+            new DialogueLine { lineId = "reading_1", speaker = string.Empty, text = text }
+        }, choices);
+    }
+
+    private static void LoadRuntimeFixture(VNDialogueController dialogue, List<DialogueLine> lines, List<DialogueChoice> choices)
+    {
+        DialogueSceneData fixture = ScriptableObject.CreateInstance<DialogueSceneData>();
+        fixture.hideFlags = HideFlags.DontSave;
+        fixture.sceneId = "TECH_DEMO_CORE_READING"; // transient runtime fixture; never an authored DialogueSceneData asset.
+        fixture.lines = lines;
+        fixture.choices = choices;
+        RuntimeFixtures.Add(fixture);
+        InvokePrivate(dialogue, "LoadDialogueScene", fixture, 0, false);
+        CompleteTyping(dialogue);
+    }
+
+    private static void CompleteTyping(VNDialogueController dialogue)
+    {
+        InvokePrivate(dialogue, "CompleteTyping");
+    }
+
+    private static void InvokePrivate(VNDialogueController dialogue, string methodName, params object[] arguments)
+    {
+        MethodInfo method = null;
+        foreach (MethodInfo candidate in typeof(VNDialogueController).GetMethods(BindingFlags.Instance | BindingFlags.NonPublic))
+        {
+            if (candidate.Name == methodName && candidate.GetParameters().Length == arguments.Length)
+            {
+                method = candidate;
+                break;
+            }
+        }
+
+        Require(method != null, "VNDialogueController private method is missing: " + methodName);
+        method.Invoke(dialogue, arguments);
+    }
+
+    private static void DestroyRuntimeFixtures()
+    {
+        foreach (UnityEngine.Object fixture in RuntimeFixtures)
+        {
+            if (fixture != null)
+            {
+                UnityEngine.Object.Destroy(fixture);
+            }
+        }
+
+        RuntimeFixtures.Clear();
     }
 
     private static void Require(bool condition, string message)

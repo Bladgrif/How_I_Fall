@@ -21,3 +21,10 @@ These images are the current accepted/review baselines for key player-facing UI 
 - `save_load_manual.png` — gameplay Load / Manual with valid and empty slots.
 - `save_load_confirmation.png` — gameplay Load confirmation: Cancel safe default and blocked parent content.
 - `save_load_slot_types.png` — gameplay Load with a controlled invalid occupied slot, distinct from an empty slot. Auto and Quick are covered by fresh graphical E2E proof.
+
+## Core reading experience
+
+- `reading_dialogue_125.png` — long dialogue at the supported 125% text scale.
+- `reading_choice_focus.png` — wrapped choice labels and deterministic first focus.
+- `reading_backlog.png` — scrolled history with speaker/narration separation.
+- `reading_auto_active.png` — Auto active state in the persistent Quick Menu.
