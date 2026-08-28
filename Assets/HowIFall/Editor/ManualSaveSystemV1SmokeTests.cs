@@ -133,7 +133,7 @@ public static class ManualSaveSystemV1SmokeTests
         {
             ManualSaveLoadPanel panel = root.GetComponent<ManualSaveLoadPanel>();
             Require(panel != null, "Shared Save/Load prefab has no ManualSaveLoadPanel.");
-            Require(panel.visualVersion == 4, "Shared Save/Load prefab visual version was not upgraded for tabs.");
+            Require(panel.visualVersion == 6, "Shared Save/Load prefab visual version is not current.");
             Require(panel.subtitleText != null && panel.slotTypeHintText != null, "Tabbed panel subtitle or hint reference is missing.");
             Require(panel.manualTabButton != null && panel.autoTabButton != null && panel.quickTabButton != null, "One or more tab button references are missing.");
             Require(panel.slotViews != null && panel.slotViews.Length == SaveManager.SlotCount, "Tabbed panel does not contain six slot views.");
