@@ -101,6 +101,8 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareSkip": PrepareSkip(); break;
                 case "PrepareHideUi": PrepareHideUi(); break;
                 case "RestoreAfterHideUi": RestoreAfterHideUi(); break;
+                case "CaptureGameMenuAlternateFocus": CaptureGameMenuAlternateFocus(); break;
+                case "OpenGameplayPreferences": OpenGameplayPreferences(); break;
                 case "WaitGameplayPreferences": WaitGameplayPreferences(); break;
                 case "PrepareResponsivePreferences": PrepareResponsivePreferences(); break;
                 case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
@@ -318,10 +320,49 @@ public static class PlayerUiGraphicalE2ERunner
         if (!dialogue.IsGameMenuOpen) { Retry("Gameplay menu did not open."); return; }
         VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
         Require(view != null, "Gameplay menu view is missing.");
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
+        Require(!dialogue.dialogueUiRoot.activeSelf, "Game Menu did not suppress the dialogue shell.");
+        Require(quickMenu != null && !quickMenu.IsEffectivelyVisible, "Game Menu did not suppress the Quick Menu.");
+        Require(!view.IsConfirmationVisible, "Game Menu root unexpectedly opened a confirmation.");
+        Require(EventSystem.current != null
+            && EventSystem.current.currentSelectedGameObject == view.GetButton(VNGameMenuAction.Return).gameObject,
+            "Game Menu did not assign its deterministic Return focus.");
+        Require(IsFocusMarkerVisible(view, VNGameMenuAction.Return),
+            "Game Menu default Return focus has no visible focus marker.");
+        Capture("game_menu_root_1920x1080.png", "CaptureGameMenuAlternateFocus");
+    }
+
+    private static void CaptureGameMenuAlternateFocus()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Button preferences = view != null ? view.GetButton(VNGameMenuAction.Preferences) : null;
+        Require(preferences != null && preferences.isActiveAndEnabled && preferences.interactable,
+            "Game Menu Preferences action is unavailable for focus proof.");
+        preferences.Select();
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == preferences.gameObject,
+            "Game Menu alternate focus did not select Preferences.");
+        Require(IsFocusMarkerVisible(view, VNGameMenuAction.Preferences)
+            && !IsFocusMarkerVisible(view, VNGameMenuAction.Return),
+            "Game Menu focus marker did not move to Preferences.");
+        Capture("game_menu_alternate_focus_1920x1080.png", "OpenGameplayPreferences");
+    }
+
+    private static void OpenGameplayPreferences()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Require(view != null, "Game Menu view disappeared before opening Preferences.");
         view.GetButton(VNGameMenuAction.Preferences)?.onClick.Invoke();
         SessionState.SetString(StageKey, "WaitGameplayPreferences");
         ResetCounter();
         SetDelay(0.5d);
+    }
+
+    private static bool IsFocusMarkerVisible(VNGameMenuView view, VNGameMenuAction action)
+    {
+        Transform marker = view != null ? view.GetButton(action)?.transform.Find("Focus Marker") : null;
+        return marker != null && marker.gameObject.activeSelf;
     }
 
     private static void WaitGameplayPreferences()

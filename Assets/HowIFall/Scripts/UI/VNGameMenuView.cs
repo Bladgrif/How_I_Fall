@@ -337,8 +337,33 @@ public sealed class VNGameMenuView : MonoBehaviour
         markerRect.pivot = new Vector2(0f, 0.5f);
         markerRect.sizeDelta = new Vector2(5f, 0f);
         activeMarker.SetActive(false);
+
+        GameObject focusMarker = CreateSurface(buttonObject.transform, "Focus Marker", new Color(0.84f, 0.18f, 0.22f, 1f));
+        RectTransform focusMarkerRect = focusMarker.GetComponent<RectTransform>();
+        focusMarkerRect.anchorMin = new Vector2(1f, 0f);
+        focusMarkerRect.anchorMax = Vector2.one;
+        focusMarkerRect.pivot = new Vector2(1f, 0.5f);
+        focusMarkerRect.sizeDelta = new Vector2(5f, 0f);
+        focusMarker.SetActive(false);
+        AddFocusMarkerEvents(buttonObject, focusMarker);
+
         buttons[action] = button;
         activeMarkers[action] = activeMarker;
+    }
+
+    private static void AddFocusMarkerEvents(GameObject buttonObject, GameObject focusMarker)
+    {
+        EventTrigger trigger = buttonObject.AddComponent<EventTrigger>();
+        trigger.triggers = new List<EventTrigger.Entry>();
+        AddFocusMarkerEvent(trigger, EventTriggerType.Select, () => focusMarker.SetActive(true));
+        AddFocusMarkerEvent(trigger, EventTriggerType.Deselect, () => focusMarker.SetActive(false));
+    }
+
+    private static void AddFocusMarkerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction action)
+    {
+        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
+        entry.callback.AddListener(_ => action());
+        trigger.triggers.Add(entry);
     }
 
     private static Button CreateConfirmationButton(Transform parent, string label, Vector2 anchor, bool destructive)

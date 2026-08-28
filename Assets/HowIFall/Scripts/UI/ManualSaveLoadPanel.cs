@@ -163,6 +163,14 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void Update()
     {
+        // The panel can remain open while the Game View or player window changes size.
+        // Keep its existing viewport-fit presentation current instead of leaving the
+        // 1920x1080 scale in place at a smaller resolution.
+        if (IsOpen && panelAnimation == null && windowRect != null)
+        {
+            windowRect.localScale = GetWindowPresentationScale();
+        }
+
         if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel))
         {
             HandleEscape();
