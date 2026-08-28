@@ -9,6 +9,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 [InitializeOnLoad]
 public static class PlayerUiGraphicalE2ERunner
@@ -19,11 +20,14 @@ public static class PlayerUiGraphicalE2ERunner
     private const string CounterKey = "HowIFall.PlayerUiE2E.Counter";
     private const string NextStageKey = "HowIFall.PlayerUiE2E.NextStage";
     private const string CapturePathKey = "HowIFall.PlayerUiE2E.CapturePath";
+    private const string CaptureWidthKey = "HowIFall.PlayerUiE2E.CaptureWidth";
+    private const string CaptureHeightKey = "HowIFall.PlayerUiE2E.CaptureHeight";
     private const string RunStartedKey = "HowIFall.PlayerUiE2E.RunStartedUtc";
     private const string ErrorsKey = "HowIFall.PlayerUiE2E.Errors";
     private const string DirectoryKey = "HowIFall.PlayerUiE2E.Directory";
     private const string ResultPath = "player_ui_graphical_result.txt";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
+    private static readonly Vector2Int ResponsiveQaResolution = new Vector2Int(1280, 720);
     private static readonly List<UnityEngine.Object> RuntimeFixtures = new List<UnityEngine.Object>();
 
     private const string LongReadingFixtureText = "Это длинная нейтральная реплика для проверки чтения на 1920×1080. При масштабе текста 125 % она переносится на несколько строк, остаётся внутри окна и не сталкивается с быстрым меню.";
@@ -82,11 +86,12 @@ public static class PlayerUiGraphicalE2ERunner
             {
                 case "WaitMainMenu": WaitMainMenu(); break;
                 case "WaitMainMenuFade": WaitMainMenuFade(); break;
+                case "CaptureMainMenuAlternate": CaptureMainMenuAlternate(); break;
                 case "OpenMainPreferences": OpenMainPreferences(); break;
                 case "WaitMainPreferences": WaitMainPreferences(); break;
-                case "OpenScreenMode": OpenDropdown(SharedPreferencesView.ScreenModeId, "OpenResolution"); break;
-                case "OpenResolution": OpenDropdown(SharedPreferencesView.ResolutionId, "StartGameplay"); break;
-                case "CaptureDropdown": CaptureDropdown(); break;
+                case "OpenScreenMode": FocusSelector(SharedPreferencesView.ScreenModeId, "OpenResolution", "main_menu_preferences_screen_mode_selected_1920x1080.png"); break;
+                case "OpenResolution": FocusSelector(SharedPreferencesView.ResolutionId, "FocusSlider", "main_menu_preferences_resolution_selected_1920x1080.png"); break;
+                case "FocusSlider": FocusSlider(); break;
                 case "StartGameplay": StartGameplay(); break;
                 case "WaitGameplay": WaitGameplay(); break;
                 case "PrepareLongDialogue": PrepareLongDialogue(); break;
@@ -97,6 +102,8 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareHideUi": PrepareHideUi(); break;
                 case "RestoreAfterHideUi": RestoreAfterHideUi(); break;
                 case "WaitGameplayPreferences": WaitGameplayPreferences(); break;
+                case "PrepareResponsivePreferences": PrepareResponsivePreferences(); break;
+                case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
                 case "WaitScreenshot": WaitScreenshot(); break;
             }
         }
@@ -143,7 +150,15 @@ public static class PlayerUiGraphicalE2ERunner
             effect.OnPointerExit(null);
         }
         menu.FocusDefaultAction();
-        Capture("main_menu_1920x1080.png", "OpenMainPreferences");
+        Capture("main_menu_1920x1080.png", "CaptureMainMenuAlternate");
+    }
+
+    private static void CaptureMainMenuAlternate()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null, "MainMenuController disappeared before alternate-focus capture.");
+        menu.FocusSettingsAction();
+        Capture("main_menu_settings_focus_1920x1080.png", "OpenMainPreferences");
     }
 
     private static void OpenMainPreferences()
@@ -160,47 +175,34 @@ public static class PlayerUiGraphicalE2ERunner
     {
         SharedPreferencesView view = FindVisiblePreferences();
         if (view == null) { Retry("Main Menu Preferences did not become visible."); return; }
-        Require(view.GetDropdown(SharedPreferencesView.ScreenModeId) != null, "Screen Mode dropdown is missing.");
-        Require(view.GetDropdown(SharedPreferencesView.ResolutionId) != null, "Resolution dropdown is missing.");
+        Require(view.GetButton(SharedPreferencesView.ScreenModeId) != null, "Screen Mode selector is missing.");
+        Require(view.GetButton(SharedPreferencesView.ResolutionId) != null, "Resolution selector is missing.");
         Capture("main_menu_preferences_1920x1080.png", "OpenScreenMode");
     }
 
-    private static void OpenDropdown(string id, string nextStage)
+    private static void FocusSelector(string id, string nextStage, string fileName)
     {
         SharedPreferencesView view = FindVisiblePreferences();
-        Require(view != null, "Preferences closed before dropdown capture.");
-        if (id == SharedPreferencesView.ResolutionId)
-        {
-            view.GetDropdown(SharedPreferencesView.ScreenModeId)?.Hide();
-        }
-        TMP_Dropdown dropdown = view.GetDropdown(id);
-        Require(dropdown != null && dropdown.IsActive(), $"Dropdown '{id}' is unavailable.");
-        dropdown.Show();
-        SessionState.SetString(StageKey, "CaptureDropdown");
-        SessionState.SetString(NextStageKey, nextStage);
-        SessionState.SetString(CapturePathKey, id == SharedPreferencesView.ScreenModeId
-            ? "main_menu_preferences_screen_mode_open_1920x1080.png"
-            : "main_menu_preferences_resolution_open_1920x1080.png");
-        ResetCounter();
-        SetDelay(0.4d);
+        Require(view != null, "Preferences closed before selector capture.");
+        Button selector = view.GetButton(id);
+        Require(selector != null && selector.IsActive(), $"Selector '{id}' is unavailable.");
+        EventSystem.current.SetSelectedGameObject(selector.gameObject);
+        Capture(fileName, nextStage);
     }
 
-    private static void CaptureDropdown()
+    private static void FocusSlider()
     {
-        // Show() has opened the real TMP popup; the delay from OpenDropdown
-        // gives its layout a frame to rebuild before this queued capture.
-        Require(FindVisiblePreferences() != null, "Preferences closed before dropdown capture.");
-        string next = SessionState.GetString(NextStageKey, string.Empty);
-        string file = SessionState.GetString(CapturePathKey, string.Empty);
-        Require(!string.IsNullOrEmpty(file) && !string.IsNullOrEmpty(next), "Dropdown capture state is incomplete.");
-        Capture(file, next);
+        SharedPreferencesView view = FindVisiblePreferences();
+        Slider slider = view != null ? view.GetSlider(SharedPreferencesView.MasterVolumeId) : null;
+        Require(slider != null, "Master Volume slider is missing.");
+        EventSystem.current.SetSelectedGameObject(slider.gameObject);
+        Capture("main_menu_preferences_slider_focus_1920x1080.png", "StartGameplay");
     }
 
     private static void StartGameplay()
     {
         SharedPreferencesView view = FindVisiblePreferences();
         Require(view != null, "Preferences closed before gameplay transition.");
-        view.GetDropdown(SharedPreferencesView.ResolutionId)?.Hide();
         view.GetButton("back")?.onClick.Invoke();
         MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
         Require(menu != null, "MainMenuController is unavailable for gameplay transition.");
@@ -332,17 +334,37 @@ public static class PlayerUiGraphicalE2ERunner
             return;
         }
 
-        Capture("gameplay_preferences_1920x1080.png", "Complete");
+        Capture("gameplay_preferences_1920x1080.png", "PrepareResponsivePreferences");
+    }
+
+    private static void PrepareResponsivePreferences()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        SessionState.SetString(StageKey, "CaptureResponsivePreferences");
+        ResetCounter();
+        SetDelay(0.4d);
+    }
+
+    private static void CaptureResponsivePreferences()
+    {
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for Preferences responsive proof.");
+            return;
+        }
+        Capture("gameplay_preferences_1280x720.png", "Complete");
     }
 
     private static void Capture(string fileName, string nextStage)
     {
-        Require(IsQaResolutionReady(), $"Capture requires 1920x1080, actual {Screen.width}x{Screen.height}.");
+        Require(Screen.width > 0 && Screen.height > 0, "Capture requires a valid Game View size.");
         string path = Path.Combine(Directory.GetCurrentDirectory(), "QAArtifacts", "GraphicalE2E", "PlayerUi", fileName);
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         if (File.Exists(path)) File.Delete(path);
         ScreenCapture.CaptureScreenshot(path);
         SessionState.SetString(CapturePathKey, path);
+        SessionState.SetInt(CaptureWidthKey, Screen.width);
+        SessionState.SetInt(CaptureHeightKey, Screen.height);
         SessionState.SetString(NextStageKey, nextStage);
         SessionState.SetString(StageKey, "WaitScreenshot");
         ResetCounter();
@@ -355,7 +377,7 @@ public static class PlayerUiGraphicalE2ERunner
         if (!File.Exists(path) || new FileInfo(path).Length == 0) { Retry("Queued screenshot was not written: " + path); return; }
         DateTime runStarted = DateTime.Parse(SessionState.GetString(RunStartedKey, string.Empty), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
         Require(File.GetLastWriteTimeUtc(path) >= runStarted, "Screenshot predates this run: " + path);
-        VerifyImageDimensions(path, QaResolution.x, QaResolution.y);
+        VerifyImageDimensions(path, SessionState.GetInt(CaptureWidthKey, QaResolution.x), SessionState.GetInt(CaptureHeightKey, QaResolution.y));
         string next = SessionState.GetString(NextStageKey, string.Empty);
         if (next == "Complete") Success();
         else
@@ -439,7 +461,7 @@ public static class PlayerUiGraphicalE2ERunner
     private static void Success()
     {
         Require(string.IsNullOrEmpty(SessionState.GetString(ErrorsKey, string.Empty)), "Unity Console contained errors:\n" + SessionState.GetString(ErrorsKey, string.Empty));
-        WriteResult("PASS", "all twelve PlayerUi screenshots captured at 1920x1080");
+        WriteResult("PASS", "all required PlayerUi screenshots captured, including 1280x720 Preferences");
         DestroyRuntimeFixtures();
         CleanupTestDirectory();
         SessionState.SetString(StageKey, "ExitSuccess");

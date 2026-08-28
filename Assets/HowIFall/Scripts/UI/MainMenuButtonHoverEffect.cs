@@ -85,8 +85,8 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             accentRect.anchorMin = new Vector2(0f, 0f);
             accentRect.anchorMax = new Vector2(0f, 0f);
             accentRect.pivot = new Vector2(0f, 0f);
-            accentRect.anchoredPosition = new Vector2(0f, 6f);
-            accentRect.sizeDelta = new Vector2(64f, 5f);
+            accentRect.anchoredPosition = new Vector2(0f, 0f);
+            accentRect.sizeDelta = new Vector2(5f, 22f);
             focusAccent.raycastTarget = false;
         }
     }
@@ -202,8 +202,8 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (outline != null)
         {
             outline.enabled = isPointerInside || isSelected;
-            outline.effectColor = new Color(0.43f, 0.85f, 0.96f, 0.88f);
-            outline.effectDistance = new Vector2(1f, 0f);
+            outline.effectColor = new Color(0.72f, 0.20f, 0.24f, 0.78f);
+            outline.effectDistance = new Vector2(1f, -1f);
         }
 
         if (playIndicator != null)
@@ -213,7 +213,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
         if (focusAccent != null)
         {
-            focusAccent.color = new Color(0.43f, 0.85f, 0.96f, 0.96f);
+            focusAccent.color = new Color(0.78f, 0.18f, 0.22f, 0.96f);
             focusAccent.gameObject.SetActive(isPointerInside || isSelected);
         }
     }

@@ -95,11 +95,11 @@ public static class PreferencesUiParitySmokeTests
         RectTransform window = view.GetComponentsInChildren<RectTransform>(true)
             .FirstOrDefault(rect => rect.gameObject.name == "Preferences Window");
         Require(window != null
-                && window.anchorMin == new Vector2(0f, 0f)
-                && window.anchorMax == new Vector2(1f, 1f)
-                && window.offsetMin.x >= 44f
-                && window.offsetMax.x <= -44f,
-            "Shared Preferences window must use a wide safe-area layout rather than a narrow fixed card.");
+                && window.anchorMin == new Vector2(0.5f, 0.5f)
+                && window.anchorMax == new Vector2(0.5f, 0.5f)
+                && window.sizeDelta.x >= 1150f && window.sizeDelta.x <= 1250f
+                && window.sizeDelta.y >= 680f && window.sizeDelta.y <= 760f,
+            "Shared Preferences must use the compact centered modal geometry at 1920x1080.");
 
         Require(view.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 0,
             "All Preferences controls fit at 1920x1080 and must not be hidden behind a scroll viewport mask.");
@@ -120,7 +120,7 @@ public static class PreferencesUiParitySmokeTests
         }
         foreach (string id in SharedPreferencesView.VisibleControlIds)
         {
-            RectTransform control = view.GetDropdown(id)?.GetComponent<RectTransform>()
+            RectTransform control = view.GetButton(id)?.GetComponent<RectTransform>()
                 ?? view.GetSlider(id)?.GetComponent<RectTransform>()
                 ?? view.GetToggle(id)?.GetComponent<RectTransform>();
             Require(control != null && IsFullyInside(control, viewport),
@@ -130,13 +130,10 @@ public static class PreferencesUiParitySmokeTests
                 && IsFullyInside(view.GetButton("back").GetComponent<RectTransform>(), window),
             "Preferences footer controls must remain inside the window.");
 
-        Require(SharedPreferencesView.VisibleControlIds
-                .Select(id => view.GetDropdown(id) != null ? view.GetDropdown(id).GetComponent<LayoutElement>() : null)
-                .Where(layout => layout != null)
-                .All(layout => layout.preferredWidth >= 280f),
-            "Preferences dropdown controls must retain a readable aligned width.");
-        Require(view.GetComponentsInChildren<TMP_Dropdown>(true).Count() == 2,
-            "Screen mode and resolution must remain real TMP dropdown controls.");
+        Require(view.GetComponentsInChildren<TMP_Dropdown>(true).Count() == 0,
+            "Screen mode and resolution must use compact direct selectors, not TMP dropdown popups.");
+        Require(view.GetButton(SharedPreferencesView.ScreenModeId) != null && view.GetButton(SharedPreferencesView.ResolutionId) != null,
+            "Display selectors must remain keyboard/controller reachable buttons.");
     }
 
     private static bool IsFullyInside(RectTransform child, RectTransform parent)
@@ -169,23 +166,30 @@ public static class PreferencesUiParitySmokeTests
             controller.Open();
 
             Require(controller.IsOpen && view.IsVisible, "Shared Preferences did not open.");
-            Require(view.GetDisplayedValue(SharedPreferencesView.TextSpeedId) == "50 симв./сек.",
-                "Text Speed must use player-facing character-per-second units.");
+            Require(view.GetDisplayedValue(SharedPreferencesView.TextSpeedId) == "Обычно",
+                "Text Speed must use a player-facing semantic label.");
             Require(Mathf.Approximately(VNDialogueController.GetCharactersPerSecond(50f), 50f),
                 "Text Speed label and VN typewriter consumer must use the same character-per-second unit.");
             string autoDelayText = view.GetDisplayedValue(SharedPreferencesView.AutoForwardDelayId);
             Require(autoDelayText.Contains("сек.") && !autoDelayText.Contains("%"),
                 "Auto delay must display seconds instead of legacy percent.");
 
-            TMP_Dropdown screenMode = view.GetDropdown(SharedPreferencesView.ScreenModeId);
-            TMP_Dropdown resolution = view.GetDropdown(SharedPreferencesView.ResolutionId);
-            Require(screenMode != null && resolution != null, "Screen Mode and Resolution must use real TMP dropdown controls.");
-            Require(view.GetButton(SharedPreferencesView.ScreenModeId) == null && view.GetButton(SharedPreferencesView.ResolutionId) == null,
-                "Display options must not fall back to cycle-on-click buttons.");
-            screenMode.value = screenMode.options.FindIndex(option => option.text == SettingsOptionValues.Borderless);
-            resolution.value = resolution.options.FindIndex(option => option.text == "1600x900");
-            Require(service.Source.screenMode == SettingsOptionValues.Borderless && service.Source.resolution == "1600x900",
-                "Selecting a dropdown option must apply the existing shared setting.");
+            Button screenMode = view.GetButton(SharedPreferencesView.ScreenModeId);
+            Button resolution = view.GetButton(SharedPreferencesView.ResolutionId);
+            Require(screenMode != null && resolution != null && view.GetDropdown(SharedPreferencesView.ScreenModeId) == null,
+                "Screen Mode and Resolution must use compact direct selectors.");
+            screenMode.onClick.Invoke();
+            Require(service.Source.screenMode == SettingsOptionValues.Windowed, "Screen Mode must cycle Fullscreen to Windowed.");
+            screenMode.onClick.Invoke();
+            Require(service.Source.screenMode == SettingsOptionValues.Borderless, "Screen Mode must cycle Windowed to Borderless.");
+            screenMode.onClick.Invoke();
+            Require(service.Source.screenMode == SettingsOptionValues.Fullscreen, "Screen Mode must cycle Borderless to Fullscreen.");
+            view.GetCyclePreviousButton(SharedPreferencesView.ScreenModeId).onClick.Invoke();
+            Require(service.Source.screenMode == SettingsOptionValues.Borderless, "Screen Mode previous selector must cycle back deterministically.");
+            resolution.onClick.Invoke();
+            Require(service.Source.resolution == "2560x1440", "Resolution selector must apply the next supported value.");
+            for (int index = 0; index < PreferencesOptions.Resolutions.Count; index++) resolution.onClick.Invoke();
+            Require(service.Source.resolution == "2560x1440", "Resolution selector must wrap without an invalid index.");
 
             view.GetSlider(SharedPreferencesView.AutoForwardDelayId).value = 3.7f;
             Require(Mathf.Approximately(service.Source.autoForwardDelay, 370f), "Auto delay seconds did not roundtrip to legacy storage safely.");
@@ -197,7 +201,7 @@ public static class PreferencesUiParitySmokeTests
             Require(service.Source.skipMode == "Виденное", "Skip unseen OFF must map to seen-only behavior.");
 
             view.GetSlider(SharedPreferencesView.MasterVolumeId).value = 0.23f;
-            view.GetSlider(SharedPreferencesView.TextSizeId).value = 1.2f;
+            view.GetButton(SharedPreferencesView.TextSizeId).onClick.Invoke();
             view.GetSlider(SharedPreferencesView.TextboxOpacityId).value = 0.35f;
             view.GetToggle(SharedPreferencesView.ShowQuickMenuId).isOn = false;
             Require(!service.Source.showQuickMenu, "Show Quick Menu did not update the shared settings truth immediately.");
@@ -209,7 +213,7 @@ public static class PreferencesUiParitySmokeTests
             GameSettings defaults = new GameSettings();
             Require(service.ResetCount == 1, "Reset action did not use the shared service.");
             Require(Mathf.Approximately(view.GetSlider(SharedPreferencesView.MasterVolumeId).value, defaults.masterVolume)
-                && Mathf.Approximately(view.GetSlider(SharedPreferencesView.TextSizeId).value, defaults.dialogueTextScale)
+                && view.GetDisplayedValue(SharedPreferencesView.TextSizeId) == "Обычный"
                 && Mathf.Approximately(view.GetSlider(SharedPreferencesView.TextboxOpacityId).value, defaults.textboxOpacity)
                 && view.GetToggle(SharedPreferencesView.ShowQuickMenuId).isOn,
                 "Reset did not refresh all newly visible controls to canonical defaults.");

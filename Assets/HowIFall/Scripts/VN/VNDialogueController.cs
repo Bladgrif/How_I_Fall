@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using System.Linq;
 
 public class VNDialogueController : MonoBehaviour
 {
@@ -161,9 +162,22 @@ public class VNDialogueController : MonoBehaviour
         }
 
         Instance = this;
+        HideLegacyTopMenuButton();
         specialModeCoordinator = new SpecialModeCoordinator(GetSpecialModeEntryBlockerReason, message => Debug.LogWarning(message, this));
         EnsureReadHistory();
         SettingsManager.DialoguePresentationChanged += RefreshDialoguePresentation;
+    }
+
+    /// <summary>Quick Menu and Esc are the single ordinary Game Menu routes; hide the legacy scene button without serializing the scene.</summary>
+    private void HideLegacyTopMenuButton()
+    {
+        GameObject legacyButton = GameObject.Find("Top Menu Button");
+        if (legacyButton == null)
+        {
+            legacyButton = transform.root.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(item => item.name == "Top Menu Button")?.gameObject;
+        }
+        if (legacyButton != null) legacyButton.SetActive(false);
     }
 
     private void Start()
@@ -225,6 +239,7 @@ public class VNDialogueController : MonoBehaviour
             this);
         preferencesController.Initialize();
         gameMenuController = VNGameMenuController.TryCreateRuntime(this);
+        HideLegacyTopMenuButton();
         observedAutoForward = IsAutoForwardEnabled();
 
         if (backlogCloseButton != null)

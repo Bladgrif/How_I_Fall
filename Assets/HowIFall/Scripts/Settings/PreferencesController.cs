@@ -198,7 +198,10 @@ public static class PreferencesOptions
 
 public static class PreferencesFormatting
 {
-    public static string TextSpeed(float value) => $"{Mathf.RoundToInt(value)} симв./сек.";
+    public static string TextSpeed(float value) => value < 40f ? "Медленно" : value < 65f ? "Обычно" : value < 85f ? "Быстро" : "Очень быстро";
+    public static readonly string[] TextScaleLabels = { "Меньше", "Обычный", "Крупный", "Очень крупный" };
+    public static string TextScaleLabel(float value) => value < 0.925f ? TextScaleLabels[0] : value < 1.075f ? TextScaleLabels[1] : value < 1.2f ? TextScaleLabels[2] : TextScaleLabels[3];
+    public static float TextScaleValue(string label) => label == TextScaleLabels[0] ? 0.85f : label == TextScaleLabels[2] ? 1.15f : label == TextScaleLabels[3] ? 1.25f : 1f;
     public static float AutoForwardDelaySeconds(float storedValue) => Mathf.Clamp(storedValue / 100f, 0.5f, 5f);
     public static float AutoForwardDelayStored(float seconds) => Mathf.Clamp(seconds, 0.5f, 5f) * 100f;
     public static string AutoForwardDelay(float storedValue) => $"{AutoForwardDelaySeconds(storedValue):0.0} сек.";
