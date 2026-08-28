@@ -248,13 +248,12 @@ namespace HowIFall.PlayModeTests
             yield return WaitForCondition(() => !dialogue.backlogPanel.activeSelf, "History Back did not return to gameplay.");
             AssertGameplayShell(dialogue, quickMenu);
 
-            Assert.That(quickMenu.IsCharacterHubLauncherVisible, Is.True, "Character Hub player-facing route is unavailable.");
-            Click(quickMenu.charactersButton, "Character Hub");
-            yield return WaitForCondition(() => dialogue.IsCharacterHubOpen, "Character Hub did not open.");
-            Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.False, "Character Hub did not hide the dialogue shell.");
-            Assert.That(dialogue.HandleEscapePressed(), Is.True, "Character Hub Back/Esc was not handled.");
-            yield return WaitForCondition(() => !dialogue.IsCharacterHubOpen, "Character Hub Back did not return to gameplay.");
-            AssertGameplayShell(dialogue, quickMenu);
+            Assert.That(quickMenu.IsCharacterHubLauncherVisible, Is.False,
+                "Character Hub technical launcher must remain hidden from the current player-facing demo.");
+            Assert.That(quickMenu.charactersButton, Is.Not.Null,
+                "Character Hub technical runtime object must remain available to its foundation tests.");
+            Assert.That(quickMenu.charactersButton.gameObject.activeSelf, Is.False,
+                "Character Hub technical launcher must remain inactive in ordinary gameplay.");
 
             Assert.That(GameState.Instance.currentSceneId, Is.EqualTo(stableSceneId));
             Assert.That(GameState.Instance.currentLineIndex, Is.EqualTo(stableLineIndex),
