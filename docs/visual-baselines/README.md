@@ -1,4 +1,4 @@
-# Player UI visual baselines
+﻿# Player UI visual baselines
 
 These images are the current accepted/review baselines for key player-facing UI states.
 
@@ -14,3 +14,10 @@ These images are the current accepted/review baselines for key player-facing UI 
 - A UI + baseline push may be a `REVIEW CANDIDATE`, not final visual acceptance.
 - Reviewer should open the real images and compare them with the previous state; for a major redesign, external game/VN references may also be useful.
 - Baselines are not final art, pixel-perfect golden-image tests, or automatic aesthetic approval.
+
+## Save/Load
+
+- `save_load_save.png` — gameplay Save / Manual after a successful write.
+- `save_load_manual.png` — gameplay Load / Manual with valid and empty slots.
+- `save_load_confirmation.png` — gameplay Load confirmation: Cancel safe default and blocked parent content.
+- `save_load_slot_types.png` — gameplay Load with a controlled invalid occupied slot, distinct from an empty slot. Auto and Quick are covered by fresh graphical E2E proof.

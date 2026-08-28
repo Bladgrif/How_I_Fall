@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -24,6 +24,9 @@ public static class ManualSavePlayModeE2ERunner
     private const string ErrorsKey = "HowIFall.SaveE2E.Errors";
     private const string DirectoryKey = "HowIFall.SaveE2E.Directory";
     private const string ResultPath = "manual_save_playmode_result.txt";
+    private const string MainMenuLoadProofFileName = "main_menu_load_1920x1080.png";
+    private const string LoadConfirmationProofFileName = "gameplay_load_confirmation_1920x1080.png";
+    private const string InvalidSaveProofFileName = "gameplay_invalid_save_slot_1920x1080.png";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
 
     static ManualSavePlayModeE2ERunner()
@@ -118,6 +121,24 @@ public static class ManualSavePlayModeE2ERunner
             case "WaitUiScreenshot":
                 WaitUiScreenshot();
                 break;
+            case "WaitMainLoadScreenshot":
+                WaitMainLoadScreenshot();
+                break;
+            case "WaitMainLoadClosed":
+                WaitMainLoadClosed();
+                break;
+            case "WaitMainSlotLoadScreenshot":
+                WaitMainSlotLoadScreenshot();
+                break;
+            case "WaitLoadConfirmationScreenshot":
+                WaitLoadConfirmationScreenshot();
+                break;
+            case "WaitInPlaceLoadUiClosed":
+                WaitInPlaceLoadUiClosed();
+                break;
+            case "WaitInvalidSaveScreenshot":
+                WaitInvalidSaveScreenshot();
+                break;
             case "AdvanceAfterSave":
                 AdvanceAfterSave();
                 break;
@@ -191,8 +212,12 @@ public static class ManualSavePlayModeE2ERunner
         menu.manualSaveLoadPanel.OpenLoad();
         Require(menu.manualSaveLoadPanel.slotViews.Length == SaveManager.SlotCount, "Load panel does not contain six slots.");
         Require(!menu.manualSaveLoadPanel.slotViews[1].button.interactable, "Empty slot is interactable in Load mode.");
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == menu.manualSaveLoadPanel.closeButton.gameObject,
+            "Empty Main Menu Load did not select the safe Close control.");
+        Require(menu.manualSaveLoadPanel.manualTabButton.navigation.selectOnDown == menu.manualSaveLoadPanel.closeButton,
+            "Empty Main Menu Load tab navigation points at a disabled slot.");
         menu.manualSaveLoadPanel.Close();
-        Pass("Empty slot and six-slot Main Menu UI");
+        Pass("Empty slot, safe initial focus and six-slot Main Menu UI");
 
         SessionState.SetString(StageKey, "WaitVnNewGame");
         SetDelay(0.75d);
@@ -275,7 +300,9 @@ public static class ManualSavePlayModeE2ERunner
         Require(Path.GetFileName(slot.JsonPath) == "slot_01.json", "Unexpected JSON file name.");
         Require(Path.GetFileName(slot.PreviewPath) == "slot_01.png", "Unexpected preview file name.");
         VerifyPreviewDimensions(slot.PreviewPath);
-        VerifyOccupiedCard(VNDialogueController.Instance.manualSaveLoadPanel, slot);
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        VerifyOccupiedCard(panel, slot);
+        VerifyFocusedNavigation(panel);
         Require(slot.Data.version == 3 && slot.Data.backlogSnapshotAvailable, "Manual save did not persist a v3 backlog snapshot.");
         Require(slot.Data.backlogEntries != null && slot.Data.backlogEntries.Count > 0, "Manual save backlog snapshot is empty.");
         string savedResultText = slot.Data.backlogEntries[slot.Data.backlogEntries.Count - 1].text;
@@ -353,6 +380,115 @@ public static class ManualSavePlayModeE2ERunner
         SetDelay(0.3d);
     }
 
+    private static void WaitMainLoadScreenshot()
+    {
+        if (!WaitForProofScreenshot(MainMenuLoadProofFileName, "Main Menu Load screenshot"))
+        {
+            return;
+        }
+
+        MainMenuController menu = UnityEngine.Object.FindAnyObjectByType<MainMenuController>();
+        Require(menu != null && menu.manualSaveLoadPanel.IsOpen, "Main Menu Load closed before screenshot verification.");
+        menu.manualSaveLoadPanel.Close();
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "WaitMainLoadClosed");
+        SetDelay(0.1d);
+    }
+
+    private static void WaitMainLoadClosed()
+    {
+        MainMenuController menu = UnityEngine.Object.FindAnyObjectByType<MainMenuController>();
+        Require(menu != null, "MainMenuController disappeared after closing Main Menu Load.");
+        if (menu.manualSaveLoadPanel.IsOpen)
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 40, "Main Menu Load Back did not return to the Main Menu.");
+            SetDelay(0.05d);
+            return;
+        }
+
+        Pass("Main Menu Load screenshot, title, safe focus and Back route");
+        SessionState.SetString(StageKey, "WaitVnNewGame");
+        SetDelay(0.75d);
+        menu.StartGame();
+    }
+
+    private static void WaitLoadConfirmationScreenshot()
+    {
+        if (!WaitForProofScreenshot(LoadConfirmationProofFileName, "Load confirmation screenshot"))
+        {
+            return;
+        }
+
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsConfirmationOpen, "Load confirmation closed before screenshot verification.");
+        Require(panel.contentCanvasGroup != null && !panel.contentCanvasGroup.interactable,
+            "Load confirmation re-enabled the parent Save/Load content.");
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
+            "Load confirmation lost its safe Cancel focus before capture.");
+        Pass("Load confirmation screenshot with safe Cancel focus and inactive parent content");
+        panel.confirmationYesButton.onClick.Invoke();
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "WaitInPlaceLoadUiClosed");
+        SetDelay(0.1d);
+    }
+
+    private static void WaitInPlaceLoadUiClosed()
+    {
+        VNDialogueController controller = VNDialogueController.Instance;
+        Require(controller != null, "VNDialogueController disappeared while closing the in-place Load UI.");
+        ManualSaveLoadPanel panel = controller.manualSaveLoadPanel;
+        if (panel != null && (panel.IsOpen || panel.IsOperationInProgress))
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 80, "In-place Load UI did not finish closing after confirmation.");
+            SetDelay(0.05d);
+            return;
+        }
+
+        SessionState.SetString(StageKey, "VerifyInsideVn");
+        SetDelay(0.05d);
+    }
+
+    private static void WaitInvalidSaveScreenshot()
+    {
+        if (!WaitForProofScreenshot(InvalidSaveProofFileName, "Invalid save screenshot"))
+        {
+            return;
+        }
+
+        SaveManager manager = SaveManager.Instance;
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        ManualSaveSlotView invalidView = panel.slotViews[1];
+        string invalidJsonPath = manager.GetSlotJsonPath(2);
+        Require(manager.GetSlot(2).IsOccupied && !manager.GetSlot(2).IsLoadable,
+            "Invalid save fixture changed before screenshot cleanup.");
+        Require(!invalidView.button.interactable && invalidView.deleteButton.gameObject.activeSelf && invalidView.deleteButton.interactable,
+            "Invalid save controls changed before screenshot cleanup.");
+        Require(panel.statusText.text == "Сохранение недоступно", "Invalid save status changed before screenshot cleanup.");
+        ClickButtonThroughEventSystem(invalidView.deleteButton);
+        Require(panel.IsConfirmationOpen, "Unavailable slot Delete did not open confirmation.");
+        Require(EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
+            "Unavailable slot Delete did not default focus to Cancel.");
+        panel.confirmationYesButton.onClick.Invoke();
+        Require(!File.Exists(invalidJsonPath), "Deleting unavailable slot left corrupt JSON behind.");
+
+        DeleteAllAutoTestSlots();
+
+        ManualSaveSlotView slotView = panel.slotViews[0];
+        panel.OpenLoad();
+        Require(!slotView.button.interactable, "Deleted slot is interactable in Load mode.");
+        Require(!slotView.deleteButton.gameObject.activeSelf, "Deleted slot shows Delete in Load mode.");
+        Pass("Invalid save screenshot and delete cleanup refreshed Load mode");
+
+        panel.Close();
+        SessionState.SetString(StageKey, "WaitMainAfterDelete");
+        SetDelay(0.75d);
+        SceneFlowManager.EnsureInstance().ReturnToMainMenu();
+    }
+
     private static void AdvanceAfterSave()
     {
         int count = SessionState.GetInt(CounterKey, 0);
@@ -394,9 +530,11 @@ public static class ManualSavePlayModeE2ERunner
         Require(panel.IsConfirmationOpen, "VN Load did not open confirmation.");
         Require(panel.confirmationText.text == "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u044d\u0442\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435? \u041d\u0435\u0441\u043e\u0445\u0440\u0430\u043d\u0451\u043d\u043d\u044b\u0439 \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441 \u0431\u0443\u0434\u0435\u0442 \u043f\u043e\u0442\u0435\u0440\u044f\u043d.", "VN Load confirmation text is incorrect.");
         Require(GetButtonLabel(panel.confirmationYesButton) == "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c", "VN Load confirmation action label is incorrect.");
-        panel.confirmationYesButton.onClick.Invoke();
-        SessionState.SetString(StageKey, "VerifyInsideVn");
-        SetDelay(0.3d);
+        Require(panel.contentCanvasGroup != null && !panel.contentCanvasGroup.interactable,
+            "Load confirmation left the parent Save/Load content interactive.");
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
+            "Load confirmation did not focus the safe Cancel action.");
+        CaptureProofScreenshot(LoadConfirmationProofFileName, "WaitLoadConfirmationScreenshot");
     }
 
     private static void VerifyInsideVn()
@@ -446,8 +584,33 @@ public static class ManualSavePlayModeE2ERunner
 
         MainMenuController menu = UnityEngine.Object.FindAnyObjectByType<MainMenuController>();
         Require(menu != null, "MainMenuController missing after return from VN.");
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            ConfigureGameViewResolution(QaResolution);
+            SetDelay(0.2d);
+            return;
+        }
+
         menu.OpenManualLoad();
+        Require(menu.manualSaveLoadPanel.titleText != null && menu.manualSaveLoadPanel.titleText.text == "Загрузка", "Main Menu Load title is incorrect.");
         Require(menu.manualSaveLoadPanel.slotViews[0].button.interactable, "Slot 1 is disabled in Main Menu Load mode.");
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == menu.manualSaveLoadPanel.slotViews[0].button.gameObject,
+            "Main Menu Load did not select its first loadable slot.");
+        CaptureProofScreenshot(MainMenuLoadProofFileName, "WaitMainSlotLoadScreenshot");
+    }
+
+    private static void WaitMainSlotLoadScreenshot()
+    {
+        if (!WaitForProofScreenshot(MainMenuLoadProofFileName, "Main Menu Load screenshot"))
+        {
+            return;
+        }
+
+        MainMenuController menu = UnityEngine.Object.FindAnyObjectByType<MainMenuController>();
+        Require(menu != null && menu.manualSaveLoadPanel.IsOpen, "Main Menu Load closed before screenshot verification.");
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == menu.manualSaveLoadPanel.slotViews[0].button.gameObject,
+            "Main Menu Load lost its initial focus before capture.");
+        Pass("Main Menu Load screenshot, title and valid initial focus");
         menu.manualSaveLoadPanel.slotViews[0].button.onClick.Invoke();
         SessionState.SetString(StageKey, "WaitVnFromMainLoad");
         SetDelay(0.75d);
@@ -535,6 +698,9 @@ public static class ManualSavePlayModeE2ERunner
         Require(panel.HandleEscape(), "First Escape was not handled by Save UI.");
         Require(!panel.IsConfirmationOpen, "First Escape did not close confirmation.");
         Require(panel.IsOpen, "First Escape closed the whole Save UI together with confirmation.");
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.slotViews[0].button.gameObject,
+            "Cancelling confirmation did not restore focus to its originating slot.");
+        Require(panel.slotViews[0].HasEventSystemFocus, "Restored slot focus has no visible card state.");
 
         Require(panel.HandleEscape(), "Second Escape was not handled by Save UI.");
         SessionState.SetString(StageKey, "WaitEscapePanelClosed");
@@ -563,8 +729,12 @@ public static class ManualSavePlayModeE2ERunner
     {
         ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
         panel.OpenSave();
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.slotViews[0].button.gameObject,
+            "Opening Save did not select the first interactive slot.");
         panel.slotViews[0].button.onClick.Invoke();
         Require(panel.confirmationRoot != null && panel.confirmationRoot.activeSelf, "Occupied slot did not open overwrite confirmation.");
+        Require(EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
+            "Overwrite confirmation did not default focus to Cancel.");
         panel.confirmationNoButton.onClick.Invoke();
         Require(!panel.confirmationRoot.activeSelf, "No did not close overwrite confirmation.");
         Require(SaveManager.Instance.GetSlot(1).Data.createdAtUtc == SessionState.GetString(InitialCreatedAtKey, string.Empty), "No changed the occupied slot.");
@@ -657,17 +827,22 @@ public static class ManualSavePlayModeE2ERunner
         Require(slotView.emptyText.gameObject.activeSelf && slotView.emptyText.text == "Пустой слот", "Deleted card did not become empty.");
         Require(!slotView.deleteButton.gameObject.activeSelf, "Empty slot still shows the delete button.");
 
-        DeleteAllAutoTestSlots();
-
+        string invalidJsonPath = manager.GetSlotJsonPath(2);
+        File.WriteAllText(invalidJsonPath, "{ not valid json }");
         panel.OpenLoad();
-        Require(!slotView.button.interactable, "Deleted slot is interactable in Load mode.");
-        Require(!slotView.deleteButton.gameObject.activeSelf, "Deleted slot shows Delete in Load mode.");
-        Pass("Delete removed files and refreshed the slot in Load mode");
-
-        panel.Close();
-        SessionState.SetString(StageKey, "WaitMainAfterDelete");
-        SetDelay(0.75d);
-        SceneFlowManager.EnsureInstance().ReturnToMainMenu();
+        ManualSaveSlotView invalidView = panel.slotViews[1];
+        SaveSlotInfo invalidSlot = manager.GetSlot(2);
+        Require(invalidSlot.IsOccupied && !invalidSlot.IsLoadable, "Corrupt slot was not classified as occupied and unavailable.");
+        Require(!invalidView.button.interactable, "Unavailable slot is loadable.");
+        Require(invalidView.emptyText.gameObject.activeSelf && invalidView.emptyText.text == "Недоступное сохранение",
+            "Unavailable slot is visually indistinguishable from empty.");
+        Require(invalidView.deleteButton.gameObject.activeSelf && invalidView.deleteButton.interactable,
+            "Unavailable occupied slot cannot be deleted.");
+        panel.OnSlotSelected(2);
+        Require(panel.statusText.text == "Сохранение недоступно", "Unavailable slot surfaced a technical error message.");
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.closeButton.gameObject,
+            "Unavailable slot put focus on a disabled card.");
+        CaptureProofScreenshot(InvalidSaveProofFileName, "WaitInvalidSaveScreenshot");
     }
 
     private static void WaitMainAfterDelete()
@@ -729,6 +904,23 @@ public static class ManualSavePlayModeE2ERunner
         Require(!empty.deleteButton.gameObject.activeSelf, "Empty slot shows Delete.");
     }
 
+    private static void VerifyFocusedNavigation(ManualSaveLoadPanel panel)
+    {
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.slotViews[0].button.gameObject,
+            "Save panel has no deterministic selected card.");
+        Require(panel.slotViews[0].HasEventSystemFocus, "Selected card has no EventSystem focus state.");
+        Require(panel.manualTabButton.navigation.selectOnDown == panel.slotViews[0].button,
+            "Manual tab cannot reach the first save card.");
+        Require(panel.slotViews[0].button.navigation.selectOnRight == panel.slotViews[1].button,
+            "Save grid does not preserve predictable horizontal card navigation.");
+        Require(panel.slotViews[0].deleteButton.navigation.selectOnLeft == panel.slotViews[0].button,
+            "Secondary Delete control cannot return to its owning card.");
+        Require(panel.slotViews[0].button.navigation.selectOnDown == panel.slotViews[3].button,
+            "Save grid does not navigate predictably to the second row.");
+        Require(panel.slotViews[3].button.navigation.selectOnDown == panel.closeButton,
+            "Second save row cannot reach Close without a navigation trap.");
+    }
+
     private static void VerifyPanelLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
     {
         Require(Screen.width == resolution.x && Screen.height == resolution.y, "Layout validation resolution does not match Game View.");
@@ -765,6 +957,47 @@ public static class ManualSavePlayModeE2ERunner
         float minY = corners.Min(corner => corner.y);
         float maxY = corners.Max(corner => corner.y);
         return Rect.MinMaxRect(minX, minY, maxX, maxY);
+    }
+
+    private static void CaptureProofScreenshot(string fileName, string nextStage)
+    {
+        string path = GetProofScreenshotPath(fileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+
+        ScreenCapture.CaptureScreenshot(path);
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, nextStage);
+        SetDelay(0.25d);
+    }
+
+    private static bool WaitForProofScreenshot(string fileName, string label)
+    {
+        string path = GetProofScreenshotPath(fileName);
+        if (!File.Exists(path) || new FileInfo(path).Length == 0)
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 240, $"{label} was not written.");
+            SetDelay(0.1d);
+            return false;
+        }
+
+        VerifyImageDimensions(path, QaResolution.x, QaResolution.y, label);
+        return true;
+    }
+
+    private static string GetProofScreenshotPath(string fileName)
+    {
+        return Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(Application.dataPath),
+            "QAArtifacts",
+            "GraphicalE2E",
+            "ManualSave",
+            fileName));
     }
 
     private static string GetUiScreenshotPath(Vector2Int resolution)

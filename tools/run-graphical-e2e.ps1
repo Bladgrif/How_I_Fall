@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory)]
     [ValidateSet('ManualSave', 'SaveBackendV2', 'PlayerUi')]
@@ -16,7 +16,7 @@ $unityPath = if ($env:UNITY_EDITOR_PATH) { $env:UNITY_EDITOR_PATH } else { Join-
 if (-not (Test-Path -LiteralPath $unityPath -PathType Leaf)) { throw "Unity $unityVersion was not found. Set UNITY_EDITOR_PATH or install it through Unity Hub. Checked: $unityPath" }
 
 $entryPoints = @{
-    ManualSave = @{ Method = 'ManualSavePlayModeE2ERunner.StartAutomatedPlayMode'; Sentinel = 'manual_save_playmode_result.txt'; ProofFiles = @('manual_save_1920x1080.png') }
+    ManualSave = @{ Method = 'ManualSavePlayModeE2ERunner.StartAutomatedPlayMode'; Sentinel = 'manual_save_playmode_result.txt'; ProofFiles = @('manual_save_1920x1080.png', 'gameplay_load_confirmation_1920x1080.png', 'gameplay_invalid_save_slot_1920x1080.png', 'main_menu_load_1920x1080.png') }
     SaveBackendV2 = @{ Method = 'SaveBackendV2PlayModeE2ERunner.StartAutomatedPlayMode'; Sentinel = 'save_backend_v2_playmode_result.txt'; ProofFiles = @('save_load_manual_1920x1080.png', 'save_load_auto_1920x1080.png', 'save_load_quick_1920x1080.png') }
     PlayerUi = @{ Method = 'PlayerUiGraphicalE2ERunner.StartAutomatedPlayMode'; Sentinel = 'player_ui_graphical_result.txt'; ProofFiles = @('main_menu_1920x1080.png', 'main_menu_preferences_1920x1080.png', 'main_menu_preferences_screen_mode_open_1920x1080.png', 'main_menu_preferences_resolution_open_1920x1080.png', 'gameplay_preferences_1920x1080.png') }
 }

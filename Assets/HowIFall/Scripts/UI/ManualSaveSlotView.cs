@@ -9,7 +9,9 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     IPointerEnterHandler,
     IPointerExitHandler,
     IPointerDownHandler,
-    IPointerUpHandler
+    IPointerUpHandler,
+    ISelectHandler,
+    IDeselectHandler
 {
     private static readonly Color OccupiedColor = new Color(0.052f, 0.071f, 0.1f, 0.97f);
     private static readonly Color EmptySaveColor = new Color(0.052f, 0.063f, 0.082f, 0.82f);
@@ -41,6 +43,11 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     private bool isLoadable;
     private bool isOccupied;
     private float hoverAmount;
+    private bool hasEventSystemFocus;
+
+    public bool HasEventSystemFocus => hasEventSystemFocus;
+    public bool IsLoadable => isLoadable;
+    public bool IsOccupied => isOccupied;
 
     public void Initialize(ManualSaveLoadPanel owner, int index)
     {
@@ -158,6 +165,18 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
         };
     }
 
+    public void OnSelect(BaseEventData eventData)
+    {
+        hasEventSystemFocus = true;
+        ApplyVisualState(true);
+    }
+
+    public void OnDeselect(BaseEventData eventData)
+    {
+        hasEventSystemFocus = false;
+        ApplyVisualState(true);
+    }
+
     public void OnPointerEnter(PointerEventData eventData)
     {
         pointerInside = true;
@@ -186,6 +205,9 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     {
         float target = pointerInside && IsCardInteractive() ? 1f : 0f;
         hoverAmount = Mathf.MoveTowards(hoverAmount, target, Time.unscaledDeltaTime * 8f);
+        hasEventSystemFocus = button != null
+            && EventSystem.current != null
+            && EventSystem.current.currentSelectedGameObject == button.gameObject;
         ApplyVisualState(false);
     }
 
@@ -202,6 +224,9 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
             hoverAmount = pointerInside && interactive ? 1f : 0f;
         }
 
+        float focusAmount = hasEventSystemFocus && interactive ? 1f : 0f;
+        float emphasisAmount = Mathf.Max(hoverAmount, focusAmount);
+
         Color restingColor = isLoadable
             ? OccupiedColor
             : isOccupied
@@ -212,13 +237,13 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
 
         if (backgroundImage != null)
         {
-            backgroundImage.color = Color.Lerp(restingColor, HoverColor, hoverAmount);
+            backgroundImage.color = Color.Lerp(restingColor, HoverColor, emphasisAmount);
         }
 
         if (hoverAccentImage != null)
         {
             Color accent = hoverAccentImage.color;
-            accent.a = hoverAmount * 0.09f;
+            accent.a = Mathf.Max(hoverAmount * 0.09f, focusAmount * 0.18f);
             hoverAccentImage.color = accent;
         }
 
@@ -230,7 +255,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
                     ? new Color(0.48f, 0.18f, 0.23f, 0.42f)
                     : new Color(0.18f, 0.25f, 0.32f, interactive ? 0.34f : 0.23f);
             Color hoverOutline = new Color(0.33f, 0.58f, 0.79f, 0.74f);
-            cardOutline.effectColor = Color.Lerp(restingOutline, hoverOutline, hoverAmount);
+            cardOutline.effectColor = Color.Lerp(restingOutline, hoverOutline, emphasisAmount);
         }
 
         if (previewFrameImage != null)
@@ -241,14 +266,14 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
             previewFrameImage.color = Color.Lerp(
                 previewResting,
                 new Color(0.2f, 0.31f, 0.42f, 0.72f),
-                hoverAmount * 0.65f);
+                emphasisAmount * 0.8f);
         }
 
         if (cardRect != null)
         {
             float targetScale = pointerDown && interactive
                 ? 0.992f
-                : Mathf.Lerp(1f, 1.01f, hoverAmount);
+                : Mathf.Lerp(1f, 1.012f, emphasisAmount);
             cardRect.localScale = Vector3.one * targetScale;
         }
     }
@@ -311,6 +336,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
         pointerInside = false;
         pointerDown = false;
         hoverAmount = 0f;
+        hasEventSystemFocus = false;
         ApplyVisualState(true);
     }
 

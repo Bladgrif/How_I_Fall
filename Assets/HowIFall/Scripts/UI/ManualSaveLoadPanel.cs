@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -294,7 +294,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         SaveSlotInfo slotToLoad = saveManager.GetSlot(currentSlotType, slotIndex);
         if (!slotToLoad.IsLoadable)
         {
-            SetStatus(string.IsNullOrEmpty(slotToLoad.Error) ? "Не удалось загрузить слот" : slotToLoad.Error, true);
+            SetStatus(GetUnavailableSlotMessage(slotToLoad), true);
             Refresh();
             return;
         }
@@ -308,7 +308,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         if (!saveManager.LoadSlot(currentSlotType, slotIndex))
         {
             SaveSlotInfo slot = saveManager.GetSlot(currentSlotType, slotIndex);
-            SetStatus(string.IsNullOrEmpty(slot.Error) ? "Не удалось загрузить слот" : slot.Error, true);
+            SetStatus(GetUnavailableSlotMessage(slot), true);
             Refresh();
             return;
         }
@@ -448,7 +448,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
                 canvasGroup.interactable = true;
             }
 
-            SetContentInteractive(true);
+            SetContentInteractive(!IsConfirmationOpen);
             yield break;
         }
 
@@ -723,7 +723,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void FocusDefaultControl()
     {
-        FocusSlotOrDefault(1);
+        Button firstInteractiveSlot = FindFirstInteractiveSlotButton();
+        FocusButton(firstInteractiveSlot != null ? firstInteractiveSlot : closeButton);
     }
 
     private void FocusSlotOrDefault(int slotIndex)
@@ -731,14 +732,10 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         Button slotButton = slotViews != null && slotIndex > 0 && slotIndex <= slotViews.Length
             ? slotViews[slotIndex - 1]?.button
             : null;
-        Button target = slotButton != null && slotButton.isActiveAndEnabled && slotButton.interactable
+        Button target = IsInteractive(slotButton)
             ? slotButton
-            : closeButton;
-        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
-        if (target != null && target.isActiveAndEnabled && target.interactable)
-        {
-            eventSystem?.SetSelectedGameObject(target.gameObject);
-        }
+            : FindFirstInteractiveSlotButton() ?? closeButton;
+        FocusButton(target);
     }
 
     private void Refresh()
@@ -756,6 +753,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
                 : new SaveSlotInfo { SlotType = currentSlotType, SlotIndex = i + 1 };
             slotViews[i]?.Render(slot, mode == PanelMode.Save);
         }
+
+        ConfigureNavigation();
     }
 
     private void SelectSlotType(SaveSlotType slotType)
@@ -768,6 +767,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         currentSlotType = slotType;
         ApplySlotTypePresentation();
         Refresh();
+        FocusButton(GetTabButton(slotType));
     }
 
     private void ApplySlotTypePresentation()
@@ -799,6 +799,148 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         SetTabVisual(manualTabButton, currentSlotType == SaveSlotType.Manual);
         SetTabVisual(autoTabButton, currentSlotType == SaveSlotType.Auto);
         SetTabVisual(quickTabButton, currentSlotType == SaveSlotType.Quick);
+    }
+
+    private static string GetUnavailableSlotMessage(SaveSlotInfo slot)
+    {
+        if (slot == null || !slot.IsOccupied)
+        {
+            return "В этом слоте нет сохранения";
+        }
+
+        return "Сохранение недоступно";
+    }
+
+    private void ConfigureNavigation()
+    {
+        Button firstSlot = FindFirstInteractiveSlotButton();
+        Button gridEntry = firstSlot ?? closeButton;
+        SetNavigation(manualTabButton, closeButton, autoTabButton, gridEntry, gridEntry);
+        SetNavigation(autoTabButton, manualTabButton, quickTabButton, gridEntry, gridEntry);
+        SetNavigation(quickTabButton, autoTabButton, closeButton, gridEntry, gridEntry);
+        SetNavigation(closeButton, quickTabButton, manualTabButton, gridEntry, manualTabButton);
+
+        for (int index = 0; slotViews != null && index < slotViews.Length; index++)
+        {
+            ManualSaveSlotView view = slotViews[index];
+            Button slotButton = view != null ? view.button : null;
+            if (!IsInteractive(slotButton))
+            {
+                continue;
+            }
+
+            int column = index % 3;
+            int row = index / 3;
+            Button left = FindInteractiveSlotInDirection(index, -1, row, true) ?? GetTabButton(SaveSlotType.Manual);
+            Button right = FindInteractiveSlotInDirection(index, 1, row, true) ?? (view != null && IsInteractive(view.deleteButton) ? view.deleteButton : closeButton);
+            Button up = row == 0
+                ? GetTabButton((SaveSlotType)column)
+                : FindSlotButton(index - 3) ?? GetTabButton((SaveSlotType)column);
+            Button down = row == 0
+                ? FindSlotButton(index + 3) ?? closeButton
+                : closeButton;
+            SetNavigation(slotButton, left, right, up, down);
+
+            if (view != null && IsInteractive(view.deleteButton))
+            {
+                SetNavigation(view.deleteButton, slotButton, closeButton, slotButton, slotButton);
+            }
+        }
+    }
+
+    private Button FindInteractiveSlotInDirection(int startIndex, int direction, int row, bool sameRow)
+    {
+        for (int index = startIndex + direction;
+             slotViews != null && index >= 0 && index < slotViews.Length;
+             index += direction)
+        {
+            if (sameRow && index / 3 != row)
+            {
+                break;
+            }
+
+            Button candidate = FindSlotButton(index);
+            if (candidate != null)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private Button FindSlotButton(int index)
+    {
+        if (slotViews == null || index < 0 || index >= slotViews.Length)
+        {
+            return null;
+        }
+
+        Button candidate = slotViews[index] != null ? slotViews[index].button : null;
+        return IsInteractive(candidate) ? candidate : null;
+    }
+
+    private Button FindFirstInteractiveSlotButton()
+    {
+        if (slotViews == null)
+        {
+            return null;
+        }
+
+        for (int index = 0; index < slotViews.Length; index++)
+        {
+            Button candidate = FindSlotButton(index);
+            if (candidate != null)
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private Button GetTabButton(SaveSlotType slotType)
+    {
+        return slotType switch
+        {
+            SaveSlotType.Auto => autoTabButton,
+            SaveSlotType.Quick => quickTabButton,
+            _ => manualTabButton
+        };
+    }
+
+    private static bool IsInteractive(Button button)
+    {
+        return button != null && button.isActiveAndEnabled && button.interactable;
+    }
+
+    private static void SetNavigation(Button button, Button left, Button right, Button up, Button down)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        Navigation navigation = new Navigation
+        {
+            mode = Navigation.Mode.Explicit,
+            selectOnLeft = left,
+            selectOnRight = right,
+            selectOnUp = up,
+            selectOnDown = down
+        };
+        button.navigation = navigation;
+    }
+
+    private static void FocusButton(Button target)
+    {
+        if (!IsInteractive(target))
+        {
+            return;
+        }
+
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        eventSystem?.SetSelectedGameObject(target.gameObject);
     }
 
     private SaveManager ResolveSaveManager()

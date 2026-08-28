@@ -17,7 +17,7 @@ public static class ManualSaveSystemSceneInstaller
     private const string RegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
     private const string PrefabFolder = "Assets/HowIFall/Prefabs/UI";
     private const string PrefabPath = PrefabFolder + "/ManualSaveLoadPanel.prefab";
-    private const int PanelVisualVersion = 4;
+    private const int PanelVisualVersion = 6;
 
     private static readonly Color DimColor = new Color(0.008f, 0.014f, 0.03f, 0.72f);
     private static readonly Color CardColor = new Color(0.052f, 0.071f, 0.1f, 0.97f);
@@ -652,7 +652,7 @@ public static class ManualSaveSystemSceneInstaller
         GameObject window = CreateUiObject("Confirmation Window", confirmation.transform);
         RectTransform windowRect = window.GetComponent<RectTransform>();
         windowRect.anchorMin = windowRect.anchorMax = new Vector2(0.5f, 0.5f);
-        windowRect.sizeDelta = new Vector2(660f, 280f);
+        windowRect.sizeDelta = new Vector2(760f, 300f);
         Image windowImage = window.AddComponent<Image>();
         windowImage.color = Color.white;
         UiVerticalGradient confirmationGradient = window.AddComponent<UiVerticalGradient>();
@@ -684,8 +684,10 @@ public static class ManualSaveSystemSceneInstaller
             new Vector2(0.5f, 1f),
             new Vector2(0.5f, 1f),
             new Vector2(0f, -78f),
-            new Vector2(570f, 76f));
+            new Vector2(680f, 96f));
         panel.confirmationText.color = PrimaryText;
+        panel.confirmationText.enableWordWrapping = true;
+        panel.confirmationText.overflowMode = TextOverflowModes.Overflow;
 
         panel.confirmationYesButton = CreateButton(
             "Yes Button",

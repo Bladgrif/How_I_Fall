@@ -3555,7 +3555,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 660, y: 280}
+  m_SizeDelta: {x: 760, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2597499262514831805
 CanvasRenderer:
@@ -4935,7 +4935,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 1}
   m_AnchorMax: {x: 0.5, y: 1}
   m_AnchoredPosition: {x: 0, y: -78}
-  m_SizeDelta: {x: 570, y: 76}
+  m_SizeDelta: {x: 680, y: 96}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5823400494469691014
 CanvasRenderer:
@@ -5010,9 +5010,9 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_TextWrappingMode: 0
+  m_TextWrappingMode: 1
   m_wordWrappingRatios: 0.4
-  m_overflowMode: 0
+  m_overflowMode: 1
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
@@ -9691,7 +9691,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2504e28741d24c84e9c39f11b30e4d4c, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ManualSaveLoadPanel
-  visualVersion: 4
+  visualVersion: 6
   canvasGroup: {fileID: 6704452163709634426}
   contentCanvasGroup: {fileID: 597077801149989119}
   windowRect: {fileID: 2346698229212133482}
