@@ -278,12 +278,15 @@ namespace HowIFall.PlayModeTests
             yield return WaitForCondition(() => panel.IsOpen && panel.IsSaveMode, "Manual Save screen did not open.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(panel.slotViews[0].button.gameObject),
                 "Manual Save did not assign deterministic default focus.");
-            Click(panel.slotViews[0].button, "Manual Save slot 1");
+            panel.SelectManualPage(2);
+            yield return null;
+            Assert.That(panel.CurrentManualPage, Is.EqualTo(2));
+            Click(panel.slotViews[0].button, "Manual Save page 2 slot 1");
             yield return WaitForCondition(
-                () => !panel.IsOperationInProgress && SaveManager.Instance.GetSlot(SaveSlotType.Manual, 1).IsLoadable,
-                "Manual Save did not produce a filled, loadable slot.");
+                () => !panel.IsOperationInProgress && SaveManager.Instance.GetSlot(SaveSlotType.Manual, 7).IsLoadable,
+                "Manual Save did not produce a filled page-2 loadable slot.");
 
-            SaveSlotInfo savedSlot = SaveManager.Instance.GetSlot(SaveSlotType.Manual, 1);
+            SaveSlotInfo savedSlot = SaveManager.Instance.GetSlot(SaveSlotType.Manual, 7);
             Assert.That(savedSlot.Data.lust, Is.EqualTo(savedLust));
             Assert.That(File.Exists(savedSlot.JsonPath), Is.True, "Manual Save JSON was not written.");
             Assert.That(File.Exists(savedSlot.PreviewPath), Is.True, "Manual Save preview was not written.");
@@ -297,7 +300,10 @@ namespace HowIFall.PlayModeTests
                 "Closing Manual Save did not restore Game Menu.");
             Click(gameMenu.View.GetButton(VNGameMenuAction.Load), "Game Menu Load");
             yield return WaitForCondition(() => panel.IsOpen && !panel.IsSaveMode, "Manual Load screen did not open.");
-            Click(panel.slotViews[0].button, "Manual Load slot 1");
+            Assert.That(panel.CurrentManualPage, Is.EqualTo(1), "Opening Load must deterministically start on page 1.");
+            panel.SelectManualPage(2);
+            yield return null;
+            Click(panel.slotViews[0].button, "Manual Load page 2 slot 1");
             yield return WaitForCondition(() => panel.IsConfirmationOpen, "Manual Load confirmation did not open.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(panel.confirmationNoButton.gameObject),
                 "Manual Load confirmation did not focus the safe Cancel action.");

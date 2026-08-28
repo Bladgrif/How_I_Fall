@@ -17,7 +17,7 @@ public static class ManualSaveSystemSceneInstaller
     private const string RegistryPath = "Assets/HowIFall/Data/Dialogues/DialogueSceneRegistry.asset";
     private const string PrefabFolder = "Assets/HowIFall/Prefabs/UI";
     private const string PrefabPath = PrefabFolder + "/ManualSaveLoadPanel.prefab";
-    private const int PanelVisualVersion = 6;
+    private const int PanelVisualVersion = 7;
 
     private static readonly Color DimColor = new Color(0.008f, 0.014f, 0.03f, 0.72f);
     private static readonly Color CardColor = new Color(0.052f, 0.071f, 0.1f, 0.97f);
@@ -196,6 +196,11 @@ public static class ManualSaveSystemSceneInstaller
                 || panel.manualTabButton == null
                 || panel.autoTabButton == null
                 || panel.quickTabButton == null
+                || panel.manualPaginationRoot == null
+                || panel.previousManualPageButton == null
+                || panel.nextManualPageButton == null
+                || panel.manualPageButtons == null
+                || panel.manualPageButtons.Length != SaveManager.ManualPageCount
                 || panel.statusCanvasGroup == null
                 || panel.confirmationCanvasGroup == null
                 || panel.confirmationWindow == null
@@ -384,10 +389,10 @@ public static class ManualSaveSystemSceneInstaller
         GameObject gridObject = CreateUiObject("Slots Grid", window.transform);
         RectTransform gridRect = gridObject.GetComponent<RectTransform>();
         gridRect.anchorMin = gridRect.anchorMax = new Vector2(0.5f, 0.5f);
-        gridRect.anchoredPosition = new Vector2(0f, -64f);
-        gridRect.sizeDelta = new Vector2(1422f, 680f);
+        gridRect.anchoredPosition = new Vector2(0f, -28f);
+        gridRect.sizeDelta = new Vector2(1422f, 610f);
         GridLayoutGroup grid = gridObject.AddComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(458f, 330f);
+        grid.cellSize = new Vector2(458f, 295f);
         grid.spacing = new Vector2(24f, 20f);
         grid.padding = new RectOffset(0, 0, 0, 0);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -401,10 +406,11 @@ public static class ManualSaveSystemSceneInstaller
         }
 
         panel.slotViews = slotViews;
+        BuildManualPagination(window.transform, panel);
         GameObject statusToast = CreateUiObject("Status Toast", window.transform);
         RectTransform statusToastRect = statusToast.GetComponent<RectTransform>();
         statusToastRect.anchorMin = statusToastRect.anchorMax = new Vector2(0.5f, 0f);
-        statusToastRect.anchoredPosition = new Vector2(0f, 25f);
+        statusToastRect.anchoredPosition = new Vector2(0f, 18f);
         statusToastRect.sizeDelta = new Vector2(720f, 42f);
         Image statusToastImage = statusToast.AddComponent<Image>();
         statusToastImage.color = new Color(0.025f, 0.045f, 0.07f, 0.86f);
@@ -433,6 +439,37 @@ public static class ManualSaveSystemSceneInstaller
         panel.statusVisibleDuration = 1.75f;
 
         BuildConfirmation(panel, root);
+    }
+
+    private static void BuildManualPagination(Transform parent, ManualSaveLoadPanel panel)
+    {
+        GameObject root = CreateUiObject("Manual Pagination", parent);
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(0f, 70f);
+        rect.sizeDelta = new Vector2(650f, 38f);
+        panel.manualPaginationRoot = root;
+        panel.previousManualPageButton = CreatePageButton(root.transform, "Previous Page Button", "‹", -294f, 34f);
+        panel.nextManualPageButton = CreatePageButton(root.transform, "Next Page Button", "›", 294f, 34f);
+        panel.manualPageButtons = new Button[SaveManager.ManualPageCount];
+        for (int i = 0; i < panel.manualPageButtons.Length; i++)
+        {
+            panel.manualPageButtons[i] = CreatePageButton(root.transform, $"Manual Page {i + 1}", (i + 1).ToString(), -216f + i * 48f, 38f);
+        }
+    }
+
+    private static Button CreatePageButton(Transform parent, string name, string label, float x, float width)
+    {
+        Button button = CreateButton(name, parent, label, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(x, 0f), new Vector2(width, 34f));
+        StyleNavigationButton(button);
+        TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (text != null)
+        {
+            text.fontSize = 18f;
+            text.fontStyle = FontStyles.Bold;
+            text.color = SecondaryText;
+        }
+        return button;
     }
 
     private static void BuildSlotTypeTabs(Transform parent, ManualSaveLoadPanel panel)
@@ -919,6 +956,11 @@ public static class ManualSaveSystemSceneInstaller
              || panel.manualTabButton == null
              || panel.autoTabButton == null
              || panel.quickTabButton == null
+             || panel.manualPaginationRoot == null
+             || panel.previousManualPageButton == null
+             || panel.nextManualPageButton == null
+             || panel.manualPageButtons == null
+             || panel.manualPageButtons.Length != SaveManager.ManualPageCount
              || panel.statusText == null
             || panel.statusCanvasGroup == null
             || panel.closeButton == null

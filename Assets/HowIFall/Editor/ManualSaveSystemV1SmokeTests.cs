@@ -133,10 +133,14 @@ public static class ManualSaveSystemV1SmokeTests
         {
             ManualSaveLoadPanel panel = root.GetComponent<ManualSaveLoadPanel>();
             Require(panel != null, "Shared Save/Load prefab has no ManualSaveLoadPanel.");
-            Require(panel.visualVersion == 6, "Shared Save/Load prefab visual version is not current.");
+            Require(panel.visualVersion == 7, "Shared Save/Load prefab visual version is not current.");
             Require(panel.subtitleText != null && panel.slotTypeHintText != null, "Tabbed panel subtitle or hint reference is missing.");
             Require(panel.manualTabButton != null && panel.autoTabButton != null && panel.quickTabButton != null, "One or more tab button references are missing.");
-            Require(panel.slotViews != null && panel.slotViews.Length == SaveManager.SlotCount, "Tabbed panel does not contain six slot views.");
+            Require(panel.slotViews != null && panel.slotViews.Length == SaveManager.SlotsPerPage, "Tabbed panel does not contain six slot views.");
+            Require(panel.manualPaginationRoot != null && panel.previousManualPageButton != null && panel.nextManualPageButton != null,
+                "Manual pagination references are missing.");
+            Require(panel.manualPageButtons != null && panel.manualPageButtons.Length == SaveManager.ManualPageCount,
+                "Manual pagination must have ten direct page buttons.");
             Require(panel.CurrentSlotType == SaveSlotType.Manual, "Tabbed panel serialized default is not Manual.");
             Require(
                 new[] { panel.manualTabButton, panel.autoTabButton, panel.quickTabButton }.Distinct().Count() == 3,
@@ -166,23 +170,24 @@ public static class ManualSaveSystemV1SmokeTests
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, false);
             VerifyTabVisualState(panel, SaveSlotType.Manual);
             Require(panel.subtitleText.text == "РУЧНЫЕ СОХРАНЕНИЯ", "Manual subtitle is incorrect.");
-            Require(panel.slotViews[0].slotNumberText.text == "Слот 1", "Manual card label is incorrect.");
-            Require(panel.slotViews[1].emptyText.text == "Пустой слот", "Manual empty label is incorrect.");
+            Require(panel.slotViews[0].slotNumberText.text == "1", "Manual occupied local index is incorrect.");
+            Require(panel.slotViews[1].emptyText.text == "Пусто", "Manual empty label is incorrect.");
+            Require(!panel.slotViews[1].backgroundSlotNumberText.gameObject.activeSelf, "Empty cards must not display giant background slot numbers.");
             Require(panel.slotViews[0].button.interactable && !panel.slotViews[1].button.interactable, "Manual Load interaction is incorrect.");
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Auto, false);
             VerifyTabVisualState(panel, SaveSlotType.Auto);
             Require(panel.subtitleText.text == "АВТОСОХРАНЕНИЯ", "Auto subtitle is incorrect.");
-            Require(panel.slotViews[0].slotNumberText.text == "Авто 1", "Auto card label is incorrect.");
-            Require(panel.slotViews[2].emptyText.text == "Нет автосохранения", "Auto empty label is incorrect.");
+            Require(panel.slotViews[0].slotNumberText.text == "1", "Auto occupied local index is incorrect.");
+            Require(panel.slotViews[2].emptyText.text == "Пусто", "Auto empty label is incorrect.");
             Require(panel.slotViews[1].emptyText.text == "Недоступное сохранение", "Corrupt Auto card label is incorrect.");
             Require(!panel.slotViews[1].button.interactable && panel.slotViews[1].deleteButton.gameObject.activeSelf, "Corrupt Auto slot is not load-disabled/delete-enabled.");
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Quick, false);
             VerifyTabVisualState(panel, SaveSlotType.Quick);
             Require(panel.subtitleText.text == "БЫСТРЫЕ СОХРАНЕНИЯ", "Quick subtitle is incorrect.");
-            Require(panel.slotViews[0].slotNumberText.text == "Быстрое 1", "Quick card label is incorrect.");
-            Require(panel.slotViews[1].emptyText.text == "Нет быстрого сохранения", "Quick empty label is incorrect.");
+            Require(panel.slotViews[0].slotNumberText.text == "1", "Quick occupied local index is incorrect.");
+            Require(panel.slotViews[1].emptyText.text == "Пусто", "Quick empty label is incorrect.");
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, true);
             Require(panel.slotViews.All(view => view.button.interactable), "Manual cards are not writable in Save mode.");
@@ -250,7 +255,10 @@ public static class ManualSaveSystemV1SmokeTests
         presentationMethod.Invoke(panel, null);
         for (int i = 0; i < panel.slotViews.Length; i++)
         {
-            panel.slotViews[i].Render(manager.GetSlot(type, i + 1), saveMode);
+            int globalSlot = type == SaveSlotType.Manual
+                ? ManualSaveLoadPanel.GetGlobalManualSlot(panel.CurrentManualPage, i + 1)
+                : i + 1;
+            panel.slotViews[i].Render(manager.GetSlot(type, globalSlot), saveMode, i + 1);
         }
     }
 
@@ -569,7 +577,7 @@ public static class ManualSaveSystemV1SmokeTests
         WriteData(context, CreateValidData(1));
 
         Require(!context.Manager.DeleteSlot(0), "DeleteSlot accepted slot index 0.");
-        Require(!context.Manager.DeleteSlot(SaveManager.SlotCount + 1), "DeleteSlot accepted a slot index above SlotCount.");
+        Require(!context.Manager.DeleteSlot(SaveManager.ManualSlotCount + 1), "DeleteSlot accepted a slot index above the manual capacity.");
         Require(File.Exists(jsonPath), "Invalid DeleteSlot call changed a valid slot.");
     }
 
@@ -831,6 +839,9 @@ public static class ManualSaveSystemV1SmokeTests
         SaveData manual = CreateValidData(1, SaveSlotType.Manual);
         manual.createdAtUtc = "2026-01-01T00:00:00.0000000Z";
         WriteData(context, SaveSlotType.Manual, manual);
+        SaveData pageTwoManual = CreateValidData(7, SaveSlotType.Manual);
+        pageTwoManual.createdAtUtc = "2026-04-01T00:00:00.0000000Z";
+        WriteData(context, SaveSlotType.Manual, pageTwoManual);
         SaveData auto = CreateValidData(2, SaveSlotType.Auto);
         auto.createdAtUtc = "2026-03-01T00:00:00.0000000Z";
         WriteData(context, SaveSlotType.Auto, auto);
@@ -839,8 +850,11 @@ public static class ManualSaveSystemV1SmokeTests
         WriteData(context, SaveSlotType.Quick, quick);
 
         SaveSlotInfo latest = InvokeLatest(context);
-        Require(latest != null && latest.SlotType == SaveSlotType.Auto && latest.SlotIndex == 2, "Continue did not choose the newest valid save across all types.");
+        Require(latest != null && latest.SlotType == SaveSlotType.Manual && latest.SlotIndex == 7,
+            "Continue did not choose the newest valid Manual save beyond page 1.");
 
+        pageTwoManual.createdAtUtc = manual.createdAtUtc;
+        WriteData(context, SaveSlotType.Manual, pageTwoManual);
         auto.createdAtUtc = manual.createdAtUtc;
         quick.createdAtUtc = manual.createdAtUtc;
         WriteData(context, SaveSlotType.Auto, auto);
@@ -848,7 +862,8 @@ public static class ManualSaveSystemV1SmokeTests
         latest = InvokeLatest(context);
         Require(latest != null && latest.SlotType == SaveSlotType.Manual, "Continue tie-break did not prefer Manual over Quick and Auto.");
 
-        Require(context.Manager.DeleteSlot(SaveSlotType.Manual, 1), "Could not remove Manual while testing Continue tie-break.");
+        Require(context.Manager.DeleteSlot(SaveSlotType.Manual, 1), "Could not remove Manual slot 1 while testing Continue tie-break.");
+        Require(context.Manager.DeleteSlot(SaveSlotType.Manual, 7), "Could not remove Manual slot 7 while testing Continue tie-break.");
         latest = InvokeLatest(context);
         Require(latest != null && latest.SlotType == SaveSlotType.Quick, "Continue tie-break did not prefer Quick over Auto.");
 

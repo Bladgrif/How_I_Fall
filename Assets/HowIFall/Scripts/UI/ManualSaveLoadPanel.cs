@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -36,6 +36,10 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     public Button manualTabButton;
     public Button autoTabButton;
     public Button quickTabButton;
+    public GameObject manualPaginationRoot;
+    public Button previousManualPageButton;
+    public Button nextManualPageButton;
+    public Button[] manualPageButtons;
     public TextMeshProUGUI statusText;
     public CanvasGroup statusCanvasGroup;
     public float statusVisibleDuration = 1.75f;
@@ -50,6 +54,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private PanelMode mode;
     [SerializeField] private SaveSlotType currentSlotType = SaveSlotType.Manual;
+    [SerializeField] private int currentManualPage = 1;
     private ConfirmationAction pendingConfirmationAction;
     private SaveSlotType? pendingConfirmationSlotType;
     private int pendingConfirmationSlot;
@@ -67,6 +72,24 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     public bool LoadInProgress => loadInProgress;
     public SaveSlotType? PendingConfirmationSlotType => pendingConfirmationSlotType;
     public int PendingConfirmationSlot => pendingConfirmationSlot;
+    public int CurrentManualPage => currentManualPage;
+
+    public static int GetGlobalManualSlot(int pageIndex, int localSlotIndex)
+    {
+        if (pageIndex < 1 || pageIndex > SaveManager.ManualPageCount || localSlotIndex < 1 || localSlotIndex > SaveManager.SlotsPerPage) return 0;
+        return (pageIndex - 1) * SaveManager.SlotsPerPage + localSlotIndex;
+    }
+
+    public void SelectManualPage(int pageIndex)
+    {
+        int clampedPage = Mathf.Clamp(pageIndex, 1, SaveManager.ManualPageCount);
+        if (currentManualPage == clampedPage) return;
+        currentManualPage = clampedPage;
+        if (currentSlotType == SaveSlotType.Manual) { ApplySlotTypePresentation(); Refresh(); }
+    }
+
+    public void NextManualPage() => SelectManualPage(currentManualPage + 1);
+    public void PreviousManualPage() => SelectManualPage(currentManualPage - 1);
 
     private void Awake()
     {
@@ -85,6 +108,16 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         BindTabButton(manualTabButton, SelectManualTab);
         BindTabButton(autoTabButton, SelectAutoTab);
         BindTabButton(quickTabButton, SelectQuickTab);
+        BindTabButton(previousManualPageButton, PreviousManualPage);
+        BindTabButton(nextManualPageButton, NextManualPage);
+        if (manualPageButtons != null)
+        {
+            for (int i = 0; i < manualPageButtons.Length; i++)
+            {
+                int page = i + 1;
+                BindTabButton(manualPageButtons[i], () => SelectManualPage(page));
+            }
+        }
 
         if (confirmationYesButton != null)
         {
@@ -156,6 +189,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         mode = PanelMode.Save;
         currentSlotType = SaveSlotType.Manual;
+        currentManualPage = 1;
         Open();
     }
 
@@ -173,6 +207,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         mode = PanelMode.Load;
         currentSlotType = SaveSlotType.Manual;
+        currentManualPage = 1;
         Open();
     }
 
@@ -380,7 +415,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         if (windowRect != null)
         {
-            windowRect.localScale = Vector3.one;
+            windowRect.localScale = GetWindowPresentationScale();
         }
 
         SetContentInteractive(true);
@@ -407,10 +442,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         SetContentInteractive(opening);
         float startAlpha = canvasGroup != null ? canvasGroup.alpha : (opening ? 0f : 1f);
         float targetAlpha = opening ? 1f : 0f;
+        Vector3 presentationScale = GetWindowPresentationScale();
         Vector3 startScale = windowRect != null
             ? windowRect.localScale
-            : Vector3.one * (opening ? 0.985f : 1f);
-        Vector3 targetScale = Vector3.one * (opening ? 1f : 0.985f);
+            : presentationScale * (opening ? 0.985f : 1f);
+        Vector3 targetScale = presentationScale * (opening ? 1f : 0.985f);
         float elapsed = 0f;
 
         while (elapsed < PanelFadeDuration)
@@ -657,7 +693,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         if (windowRect != null)
         {
-            windowRect.localScale = Vector3.one;
+            windowRect.localScale = GetWindowPresentationScale();
         }
 
         if (canvasGroup != null)
@@ -748,10 +784,14 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         for (int i = 0; i < slotViews.Length; i++)
         {
+            int localSlotIndex = i + 1;
+            int globalSlotIndex = currentSlotType == SaveSlotType.Manual
+                ? GetGlobalManualSlot(currentManualPage, localSlotIndex)
+                : localSlotIndex;
             SaveSlotInfo slot = saveManager != null
-                ? saveManager.GetSlot(currentSlotType, i + 1)
-                : new SaveSlotInfo { SlotType = currentSlotType, SlotIndex = i + 1 };
-            slotViews[i]?.Render(slot, mode == PanelMode.Save);
+                ? saveManager.GetSlot(currentSlotType, globalSlotIndex)
+                : new SaveSlotInfo { SlotType = currentSlotType, SlotIndex = globalSlotIndex };
+            slotViews[i]?.Render(slot, mode == PanelMode.Save, localSlotIndex);
         }
 
         ConfigureNavigation();
@@ -796,7 +836,16 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             slotTypeHintText.gameObject.SetActive(!string.IsNullOrEmpty(hint));
         }
 
-        SetTabVisual(manualTabButton, currentSlotType == SaveSlotType.Manual);
+        bool manualActive = currentSlotType == SaveSlotType.Manual;
+        if (manualPaginationRoot != null) manualPaginationRoot.SetActive(manualActive);
+        if (previousManualPageButton != null) previousManualPageButton.interactable = currentManualPage > 1;
+        if (nextManualPageButton != null) nextManualPageButton.interactable = currentManualPage < SaveManager.ManualPageCount;
+        if (manualPageButtons != null)
+        {
+            for (int i = 0; i < manualPageButtons.Length; i++) SetPageVisual(manualPageButtons[i], i + 1 == currentManualPage);
+        }
+
+        SetTabVisual(manualTabButton, manualActive);
         SetTabVisual(autoTabButton, currentSlotType == SaveSlotType.Auto);
         SetTabVisual(quickTabButton, currentSlotType == SaveSlotType.Quick);
     }
@@ -815,10 +864,30 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     {
         Button firstSlot = FindFirstInteractiveSlotButton();
         Button gridEntry = firstSlot ?? closeButton;
-        SetNavigation(manualTabButton, closeButton, autoTabButton, gridEntry, gridEntry);
+        Button pageEntry = currentSlotType == SaveSlotType.Manual
+            && manualPageButtons != null
+            && manualPageButtons.Length > 0
+            && IsInteractive(manualPageButtons[0])
+            ? manualPageButtons[0]
+            : gridEntry;
+        SetNavigation(manualTabButton, closeButton, autoTabButton, gridEntry, pageEntry);
         SetNavigation(autoTabButton, manualTabButton, quickTabButton, gridEntry, gridEntry);
         SetNavigation(quickTabButton, autoTabButton, closeButton, gridEntry, gridEntry);
         SetNavigation(closeButton, quickTabButton, manualTabButton, gridEntry, manualTabButton);
+
+        if (currentSlotType == SaveSlotType.Manual && manualPageButtons != null)
+        {
+            Button previous = previousManualPageButton;
+            Button next = nextManualPageButton;
+            SetNavigation(previous, closeButton, manualPageButtons[0], firstSlot, manualTabButton);
+            for (int i = 0; i < manualPageButtons.Length; i++)
+            {
+                Button left = i == 0 ? previous : manualPageButtons[i - 1];
+                Button right = i == manualPageButtons.Length - 1 ? next : manualPageButtons[i + 1];
+                SetNavigation(manualPageButtons[i], left, right, firstSlot, manualTabButton);
+            }
+            SetNavigation(next, manualPageButtons[manualPageButtons.Length - 1], closeButton, firstSlot, manualTabButton);
+        }
 
         for (int index = 0; slotViews != null && index < slotViews.Length; index++)
         {
@@ -837,8 +906,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
                 ? GetTabButton((SaveSlotType)column)
                 : FindSlotButton(index - 3) ?? GetTabButton((SaveSlotType)column);
             Button down = row == 0
-                ? FindSlotButton(index + 3) ?? closeButton
-                : closeButton;
+                ? FindSlotButton(index + 3) ?? pageEntry
+                : pageEntry;
             SetNavigation(slotButton, left, right, up, down);
 
             if (view != null && IsInteractive(view.deleteButton))
@@ -1041,6 +1110,19 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         confirmationAnimation = null;
     }
 
+    private Vector3 GetWindowPresentationScale()
+    {
+        if (windowRect == null || Screen.width <= 0 || Screen.height <= 0)
+        {
+            return Vector3.one;
+        }
+
+        const float viewportMargin = 24f;
+        float widthScale = Mathf.Max(0.1f, (Screen.width - viewportMargin * 2f) / windowRect.rect.width);
+        float heightScale = Mathf.Max(0.1f, (Screen.height - viewportMargin * 2f) / windowRect.rect.height);
+        return Vector3.one * Mathf.Min(1f, widthScale, heightScale);
+    }
+
     private bool HasOperationInProgress()
     {
         return IsOperationInProgress;
@@ -1109,6 +1191,18 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         button.onClick.RemoveListener(action);
         button.onClick.AddListener(action);
+    }
+
+    private static void SetPageVisual(Button button, bool selected)
+    {
+        if (button == null || !(button.targetGraphic is Image background)) return;
+        background.color = selected ? new Color(0.22f, 0.08f, 0.11f, 0.92f) : new Color(0.03f, 0.055f, 0.085f, 0.54f);
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.color = selected ? new Color(1f, 0.9f, 0.91f, 1f) : new Color(0.52f, 0.62f, 0.73f, 0.9f);
+            label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
+        }
     }
 
     private static void SetTabVisual(Button button, bool active)

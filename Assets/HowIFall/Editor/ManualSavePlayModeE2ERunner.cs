@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -217,7 +217,9 @@ public static class ManualSavePlayModeE2ERunner
         Require(!menu.manualSaveLoadPanel.slotViews[1].button.interactable, "Empty slot is interactable in Load mode.");
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == menu.manualSaveLoadPanel.closeButton.gameObject,
             "Empty Main Menu Load did not select the safe Close control.");
-        Require(menu.manualSaveLoadPanel.manualTabButton.navigation.selectOnDown == menu.manualSaveLoadPanel.closeButton,
+        UnityEngine.UI.Selectable emptyLoadDown = menu.manualSaveLoadPanel.manualTabButton.navigation.selectOnDown;
+        Require(emptyLoadDown == menu.manualSaveLoadPanel.closeButton
+                || emptyLoadDown == menu.manualSaveLoadPanel.manualPageButtons[0],
             "Empty Main Menu Load tab navigation points at a disabled slot.");
         menu.manualSaveLoadPanel.Close();
         Pass("Empty slot, safe initial focus and six-slot Main Menu UI");
@@ -867,7 +869,7 @@ public static class ManualSavePlayModeE2ERunner
         Require(!File.Exists(previewPath + ".tmp"), "Confirmed Delete left the PNG temporary file.");
         Require(!manager.GetSlot(1).IsOccupied, "Deleted slot is still occupied.");
         Require(panel.statusText.text == "Слот 1 удалён", "Delete success status is incorrect.");
-        Require(slotView.emptyText.gameObject.activeSelf && slotView.emptyText.text == "Пустой слот", "Deleted card did not become empty.");
+        Require(slotView.emptyText.gameObject.activeSelf && slotView.emptyText.text == "Пусто", "Deleted card did not become empty.");
         Require(!slotView.deleteButton.gameObject.activeSelf, "Empty slot still shows the delete button.");
 
         string invalidJsonPath = manager.GetSlotJsonPath(2);
@@ -943,7 +945,7 @@ public static class ManualSavePlayModeE2ERunner
 
         ManualSaveSlotView empty = panel.slotViews[1];
         Require(empty.button.interactable, "Empty slot is disabled in Save mode.");
-        Require(empty.emptyText.gameObject.activeSelf && empty.emptyText.text == "Пустой слот", "Empty slot placeholder is incorrect.");
+        Require(empty.emptyText.gameObject.activeSelf && empty.emptyText.text == "Пусто", "Empty slot placeholder is incorrect.");
         Require(!empty.deleteButton.gameObject.activeSelf, "Empty slot shows Delete.");
     }
 
@@ -952,16 +954,18 @@ public static class ManualSavePlayModeE2ERunner
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.slotViews[0].button.gameObject,
             "Save panel has no deterministic selected card.");
         Require(panel.slotViews[0].HasEventSystemFocus, "Selected card has no EventSystem focus state.");
-        Require(panel.manualTabButton.navigation.selectOnDown == panel.slotViews[0].button,
-            "Manual tab cannot reach the first save card.");
+        Require(panel.manualTabButton.navigation.selectOnDown == panel.manualPageButtons[0],
+            "Manual tab cannot reach the pagination row.");
+        Require(panel.manualPageButtons[0].navigation.selectOnUp == panel.slotViews[0].button,
+            "Manual pagination cannot reach the first save card.");
         Require(panel.slotViews[0].button.navigation.selectOnRight == panel.slotViews[1].button,
             "Save grid does not preserve predictable horizontal card navigation.");
         Require(panel.slotViews[0].deleteButton.navigation.selectOnLeft == panel.slotViews[0].button,
             "Secondary Delete control cannot return to its owning card.");
         Require(panel.slotViews[0].button.navigation.selectOnDown == panel.slotViews[3].button,
             "Save grid does not navigate predictably to the second row.");
-        Require(panel.slotViews[3].button.navigation.selectOnDown == panel.closeButton,
-            "Second save row cannot reach Close without a navigation trap.");
+        Require(panel.slotViews[3].button.navigation.selectOnDown == panel.manualPageButtons[0],
+            "Second save row cannot reach Manual pagination without a navigation trap.");
     }
 
     private static void VerifyPanelLayout(ManualSaveLoadPanel panel, Vector2Int resolution)

@@ -24,7 +24,14 @@ public sealed class SaveSlotInfo
 
 public sealed class SaveManager : MonoBehaviour
 {
-    public const int SlotCount = 6;
+    public const int SlotsPerPage = 6;
+    public const int ManualPageCount = 10;
+    public const int ManualSlotCount = SlotsPerPage * ManualPageCount;
+    public const int AutoSlotCount = SlotsPerPage;
+    public const int QuickSlotCount = SlotsPerPage;
+
+    // Kept for existing six-card UI callers; use the type-specific capacities for save addresses.
+    public const int SlotCount = SlotsPerPage;
     public const string GameplaySceneName = "VNPrototype";
     public const int PreviewWidth = 384;
     public const int PreviewHeight = 216;
@@ -453,8 +460,9 @@ public sealed class SaveManager : MonoBehaviour
 
     public IReadOnlyList<SaveSlotInfo> GetAllSlots(SaveSlotType type)
     {
-        var slots = new List<SaveSlotInfo>(SlotCount);
-        for (int slotIndex = 1; slotIndex <= SlotCount; slotIndex++)
+        int capacity = GetSlotCapacity(type);
+        var slots = new List<SaveSlotInfo>(capacity);
+        for (int slotIndex = 1; slotIndex <= capacity; slotIndex++)
         {
             slots.Add(ReadSlot(type, slotIndex));
         }
@@ -1537,14 +1545,26 @@ public sealed class SaveManager : MonoBehaviour
             return false;
         }
 
-        if (slotIndex < 1 || slotIndex > SlotCount)
+        int capacity = GetSlotCapacity(type);
+        if (slotIndex < 1 || slotIndex > capacity)
         {
-            error = $"Slot index {slotIndex} is outside 1..{SlotCount}.";
+            error = $"Slot index {slotIndex} is outside 1..{capacity}.";
             return false;
         }
 
         error = string.Empty;
         return true;
+    }
+
+    public static int GetSlotCapacity(SaveSlotType type)
+    {
+        return type switch
+        {
+            SaveSlotType.Manual => ManualSlotCount,
+            SaveSlotType.Auto => AutoSlotCount,
+            SaveSlotType.Quick => QuickSlotCount,
+            _ => 0
+        };
     }
 
     private static string GetSlotFileStem(SaveSlotType type, int slotIndex)

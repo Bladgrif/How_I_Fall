@@ -37,6 +37,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
 
     private ManualSaveLoadPanel panel;
     private int slotIndex;
+    private int localSlotIndex;
     private Sprite previewSprite;
     private bool pointerInside;
     private bool pointerDown;
@@ -48,6 +49,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     public bool HasEventSystemFocus => hasEventSystemFocus;
     public bool IsLoadable => isLoadable;
     public bool IsOccupied => isOccupied;
+    public int GlobalSlotIndex => slotIndex;
 
     public void Initialize(ManualSaveLoadPanel owner, int index)
     {
@@ -72,15 +74,18 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
         }
     }
 
-    public void Render(SaveSlotInfo info, bool saveMode)
+    public void Render(SaveSlotInfo info, bool saveMode, int localIndex)
     {
+        localSlotIndex = localIndex;
+        slotIndex = info != null ? info.SlotIndex : localIndex;
         SaveSlotType slotType = info != null ? info.SlotType : SaveSlotType.Manual;
         isOccupied = info != null && info.IsOccupied;
         isLoadable = info != null && info.IsLoadable;
 
         if (slotNumberText != null)
         {
-            slotNumberText.text = GetSlotLabel(slotType, slotIndex);
+            slotNumberText.text = isLoadable ? localSlotIndex.ToString() : string.Empty;
+            slotNumberText.gameObject.SetActive(isLoadable);
         }
 
         if (sceneNameText != null)
@@ -98,9 +103,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
         if (emptyText != null)
         {
             emptyText.gameObject.SetActive(!isLoadable);
-            emptyText.text = isOccupied
-                ? "Недоступное сохранение"
-                : GetEmptyLabel(slotType);
+            emptyText.text = isOccupied ? "Недоступное сохранение" : "Пусто";
             emptyText.color = isOccupied
                 ? new Color(0.86f, 0.48f, 0.52f, 0.88f)
                 : new Color(0.48f, 0.55f, 0.63f, 0.68f);
@@ -108,11 +111,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
 
         if (backgroundSlotNumberText != null)
         {
-            backgroundSlotNumberText.text = slotIndex.ToString("00");
-            backgroundSlotNumberText.gameObject.SetActive(!isLoadable);
-            backgroundSlotNumberText.color = isOccupied
-                ? new Color(0.45f, 0.18f, 0.22f, 0.13f)
-                : new Color(0.34f, 0.45f, 0.57f, 0.11f);
+            backgroundSlotNumberText.gameObject.SetActive(false);
         }
 
         if (placeholderOverlayImage != null)
@@ -143,26 +142,6 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
 
         ApplyPreview(isLoadable ? info.PreviewPath : string.Empty);
         ApplyVisualState(true);
-    }
-
-    private static string GetSlotLabel(SaveSlotType slotType, int index)
-    {
-        return slotType switch
-        {
-            SaveSlotType.Auto => $"Авто {index}",
-            SaveSlotType.Quick => $"Быстрое {index}",
-            _ => $"Слот {index}"
-        };
-    }
-
-    private static string GetEmptyLabel(SaveSlotType slotType)
-    {
-        return slotType switch
-        {
-            SaveSlotType.Auto => "Нет автосохранения",
-            SaveSlotType.Quick => "Нет быстрого сохранения",
-            _ => "Пустой слот"
-        };
     }
 
     public void OnSelect(BaseEventData eventData)

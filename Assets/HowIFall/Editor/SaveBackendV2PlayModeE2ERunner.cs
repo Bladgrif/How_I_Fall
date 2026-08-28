@@ -624,7 +624,36 @@ public static class SaveBackendV2PlayModeE2ERunner
             VerifyTabsLayout(panel, resolution);
             yield return new WaitForEndOfFrame();
             CaptureTabsScreenshot(type, resolution);
+            if (type == SaveSlotType.Manual)
+            {
+                panel.SelectManualPage(2);
+                yield return new WaitForSecondsRealtime(0.12f);
+                VerifyTabPresentation(panel, manager, type, false);
+                Require(panel.CurrentManualPage == 2 && panel.manualPaginationRoot.activeSelf,
+                    "Manual page 2 selection or pagination visibility is incorrect.");
+                yield return new WaitForEndOfFrame();
+                CaptureTabsScreenshot(type, resolution, "page_2");
+            }
         }
+
+        Vector2Int responsiveResolution = new Vector2Int(1280, 720);
+        panel.SelectManualTab();
+        panel.SelectManualPage(2);
+        ConfigureGameViewResolution(responsiveResolution);
+        for (int frame = 0; frame < 40 && (Screen.width != responsiveResolution.x || Screen.height != responsiveResolution.y); frame++)
+        {
+            yield return null;
+        }
+
+        Require(Screen.width == responsiveResolution.x && Screen.height == responsiveResolution.y,
+            "Game View did not switch to 1280x720 for Save/Load responsive proof.");
+        VerifyTabPresentation(panel, manager, SaveSlotType.Manual, false);
+        VerifyTabsLayout(panel, responsiveResolution);
+        VerifyManualPaginationLayout(panel, responsiveResolution);
+        yield return new WaitForEndOfFrame();
+        CaptureTabsScreenshot(SaveSlotType.Manual, responsiveResolution, "page_2");
+        ConfigureGameViewResolution(resolution);
+        yield return null;
 
         panel.OpenSave();
         yield return new WaitForSecondsRealtime(0.12f);
@@ -730,33 +759,23 @@ public static class SaveBackendV2PlayModeE2ERunner
         VerifyTabOutline(panel.autoTabButton, type == SaveSlotType.Auto, "Auto");
         VerifyTabOutline(panel.quickTabButton, type == SaveSlotType.Quick, "Quick");
 
-        for (int i = 0; i < SaveManager.SlotCount; i++)
+        Require(panel.manualPaginationRoot != null && panel.manualPaginationRoot.activeSelf == (type == SaveSlotType.Manual),
+            $"{type} pagination visibility is incorrect.");
+        for (int i = 0; i < SaveManager.SlotsPerPage; i++)
         {
-            int slotIndex = i + 1;
+            int localSlotIndex = i + 1;
+            int slotIndex = type == SaveSlotType.Manual
+                ? ManualSaveLoadPanel.GetGlobalManualSlot(panel.CurrentManualPage, localSlotIndex)
+                : localSlotIndex;
             ManualSaveSlotView view = panel.slotViews[i];
             SaveSlotInfo slot = manager.GetSlot(type, slotIndex);
-            string expectedNumber = type switch
-            {
-                SaveSlotType.Auto => $"Авто {slotIndex}",
-                SaveSlotType.Quick => $"Быстрое {slotIndex}",
-                _ => $"Слот {slotIndex}"
-            };
-            Require(view.slotNumberText.text == expectedNumber, $"{type} card {slotIndex} number label is incorrect.");
+            string expectedNumber = slot.IsLoadable ? localSlotIndex.ToString() : string.Empty;
+            Require(view.slotNumberText.text == expectedNumber, $"{type} card {localSlotIndex} number label is incorrect.");
+            Require(!view.backgroundSlotNumberText.gameObject.activeSelf, $"{type} card {localSlotIndex} exposes a giant background slot number.");
             bool expectedPrimary = saveMode ? type == SaveSlotType.Manual : slot.IsLoadable;
-            Require(view.button.interactable == expectedPrimary, $"{type} card {slotIndex} primary interaction is incorrect.");
-
-            if (!slot.IsOccupied)
-            {
-                string expectedEmpty = type switch
-                {
-                    SaveSlotType.Auto => "Нет автосохранения",
-                    SaveSlotType.Quick => "Нет быстрого сохранения",
-                    _ => "Пустой слот"
-                };
-                Require(view.emptyText.text == expectedEmpty, $"{type} card {slotIndex} empty label is incorrect.");
-            }
-        }
-    }
+            Require(view.button.interactable == expectedPrimary, $"{type} card {localSlotIndex} primary interaction is incorrect.");
+            if (!slot.IsOccupied) Require(view.emptyText.text == "Пусто", $"{type} card {localSlotIndex} empty label is incorrect.");
+        }    }
 
     private static string GetButtonLabel(UnityEngine.UI.Button button)
     {
@@ -819,6 +838,22 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(GetScreenRect(panel.statusText.rectTransform).yMax <= cards.Min(card => card.yMin) + 2f, $"Toast overlaps cards at {resolution.x}x{resolution.y}.");
     }
 
+    private static void VerifyManualPaginationLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
+    {
+        Require(panel.manualPaginationRoot != null && panel.manualPaginationRoot.activeSelf,
+            "Manual pagination is hidden in responsive proof.");
+        Require(panel.manualPageButtons != null && panel.manualPageButtons.Length == SaveManager.ManualPageCount,
+            "Manual pagination does not expose ten page buttons.");
+        Rect row = GetScreenRect(panel.manualPaginationRoot.transform as RectTransform);
+        Require(row.xMin >= 0f && row.yMin >= 0f && row.xMax <= resolution.x && row.yMax <= resolution.y,
+            "Manual pagination row is outside the responsive viewport.");
+        Require(GetScreenRect(panel.previousManualPageButton.transform as RectTransform).xMin >= row.xMin
+                && GetScreenRect(panel.nextManualPageButton.transform as RectTransform).xMax <= row.xMax,
+            "Manual pagination arrows are outside the row.");
+        Require(panel.manualPageButtons.All(button => GetScreenRect(button.transform as RectTransform).width >= 15f),
+            "Manual page buttons are too small at 1280x720.");
+    }
+
     private static Rect GetScreenRect(RectTransform rectTransform)
     {
         var corners = new Vector3[4];
@@ -830,14 +865,14 @@ public static class SaveBackendV2PlayModeE2ERunner
             corners.Max(point => point.y));
     }
 
-    private static void CaptureTabsScreenshot(SaveSlotType type, Vector2Int resolution)
+    private static void CaptureTabsScreenshot(SaveSlotType type, Vector2Int resolution, string suffix = null)
     {
         Texture2D screenshot = ScreenCapture.CaptureScreenshotAsTexture();
         Require(screenshot != null, $"Could not capture {type} tab screenshot at {resolution.x}x{resolution.y}.");
         try
         {
             Require(screenshot.width == resolution.x && screenshot.height == resolution.y, $"{type} screenshot size is {screenshot.width}x{screenshot.height}; expected {resolution.x}x{resolution.y}.");
-            string path = GetTabsScreenshotPath(type, resolution);
+            string path = GetTabsScreenshotPath(type, resolution, suffix);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllBytes(path, screenshot.EncodeToPNG());
             Require(File.Exists(path), $"Tabbed screenshot was not written to '{path}'.");
@@ -848,7 +883,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         }
     }
 
-    private static string GetTabsScreenshotPath(SaveSlotType type, Vector2Int resolution)
+    private static string GetTabsScreenshotPath(SaveSlotType type, Vector2Int resolution, string suffix = null)
     {
         string typeName = type.ToString().ToLowerInvariant();
         return Path.GetFullPath(Path.Combine(
@@ -856,7 +891,7 @@ public static class SaveBackendV2PlayModeE2ERunner
             "QAArtifacts",
             "GraphicalE2E",
             "SaveBackendV2",
-            $"save_load_{typeName}_{resolution.x}x{resolution.y}.png"));
+            $"save_load_{typeName}" + (string.IsNullOrEmpty(suffix) ? string.Empty : $"_{suffix}") + $"_{resolution.x}x{resolution.y}.png"));
     }
 
     private static IEnumerator AdvanceToChoice(VNDialogueController controller)
