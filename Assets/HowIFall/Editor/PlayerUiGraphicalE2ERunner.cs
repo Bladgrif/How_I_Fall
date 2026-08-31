@@ -406,6 +406,7 @@ public static class PlayerUiGraphicalE2ERunner
 
         Require(SaveManager.Instance != null, "Gameplay SaveManager is missing.");
         CompleteTyping(dialogue);
+        VerifyReadingQuickMenuContract(dialogue);
         Capture("gameplay_dialogue_standard_1920x1080.png", "CaptureQuickSaveFeedback");
     }
 
@@ -427,6 +428,12 @@ public static class PlayerUiGraphicalE2ERunner
     private static void PrepareLongDialogue()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
+        if (dialogue.notificationPanel != null && dialogue.notificationPanel.activeSelf)
+        {
+            Retry("Quick Save feedback is still visible before long-dialogue proof.");
+            return;
+        }
+
         LoadRuntimeFixture(dialogue, LongReadingFixtureText, new List<DialogueChoice>());
         SettingsManager.Instance.SetDialogueTextScale(1.25f);
         CompleteTyping(dialogue);
@@ -474,6 +481,12 @@ public static class PlayerUiGraphicalE2ERunner
     private static void PrepareBacklog()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
+        if (dialogue.notificationPanel != null && dialogue.notificationPanel.activeSelf)
+        {
+            Retry("Relationship feedback is still visible before reading-control proof.");
+            return;
+        }
+
         List<DialogueLine> lines = new List<DialogueLine>();
         for (int i = 1; i <= 12; i++)
         {
@@ -672,6 +685,37 @@ public static class PlayerUiGraphicalE2ERunner
         foreach (SharedPreferencesView view in views)
             if (view != null && view.IsVisible) return view;
         return null;
+    }
+
+    private static void VerifyReadingQuickMenuContract(VNDialogueController dialogue)
+    {
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
+        Require(quickMenu != null && quickMenu.root != null && quickMenu.root.activeInHierarchy,
+            "Ordinary gameplay Quick Menu is unavailable.");
+        Button[] visibleButtons = quickMenu.root.GetComponentsInChildren<Button>(true)
+            .Where(button => button.transform.parent == quickMenu.root.transform && button.gameObject.activeSelf)
+            .OrderBy(button => button.transform.GetSiblingIndex())
+            .ToArray();
+        Require(visibleButtons.SequenceEqual(new[]
+            { quickMenu.historyButton, quickMenu.skipButton, quickMenu.autoButton, quickMenu.quickSaveButton }),
+            "Ordinary Quick Menu must show only History / Skip / Auto / Quick Save.");
+        Require(!quickMenu.saveButton.gameObject.activeSelf && !quickMenu.quickLoadButton.gameObject.activeSelf
+            && !quickMenu.loadButton.gameObject.activeSelf && !quickMenu.settingsButton.gameObject.activeSelf
+            && !quickMenu.mainMenuButton.gameObject.activeSelf,
+            "Ordinary Quick Menu retained a navigation or Quick Load action.");
+        Require(FindNamedSceneObject("How I Fall Logo")?.activeSelf == false
+            && FindNamedSceneObject("Chapter Info")?.activeSelf == false
+            && FindNamedSceneObject("Top Left Soft Shade")?.activeSelf == false,
+            "Temporary title/chapter chrome remains visible in ordinary gameplay.");
+        Require(dialogue.dialogueUiRoot != null && dialogue.dialogueUiRoot.activeInHierarchy,
+            "Ordinary gameplay dialogue surface is unavailable.");
+    }
+
+    private static GameObject FindNamedSceneObject(string objectName)
+    {
+        return UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(item => item.gameObject.scene == SceneManager.GetActiveScene() && item.name == objectName)
+            ?.gameObject;
     }
 
     private static bool IsQaResolutionReady() => Screen.width == QaResolution.x && Screen.height == QaResolution.y;

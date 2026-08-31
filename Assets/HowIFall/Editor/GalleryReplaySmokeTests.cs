@@ -186,9 +186,9 @@ public static class GalleryReplaySmokeTests
                 && !quick.quickLoadButton.gameObject.activeSelf && !quick.loadButton.gameObject.activeSelf,
                 "Replay Quick Menu kept Save/Load actions visible.");
             Require(quick.historyButton.gameObject.activeSelf && quick.skipButton.gameObject.activeSelf
-                && quick.autoButton.gameObject.activeSelf && quick.settingsButton.gameObject.activeSelf,
-                "Replay Quick Menu hid an allowed action.");
-            Require(quick.mainMenuButton.GetComponentInChildren<TextMeshProUGUI>().text == "Меню", "Replay Quick Menu did not keep the Game Menu route.");
+                && quick.autoButton.gameObject.activeSelf && !quick.settingsButton.gameObject.activeSelf
+                && !quick.mainMenuButton.gameObject.activeSelf,
+                "Replay Quick Menu did not preserve the compact reading-action composition.");
 
             session.BeginEnding();
             session.RestoreCampaignState(state);
@@ -196,8 +196,10 @@ public static class GalleryReplaySmokeTests
             SetPrivateField(flow, "replaySession", null);
             AssertStateEquals(expected, state);
             quick.RefreshReplayPresentation();
-            Require(quick.saveButton.gameObject.activeSelf && !quick.loadButton.gameObject.activeSelf, "Quick Menu did not restore Save while keeping manual Load removed.");
-            Require(quick.mainMenuButton.GetComponentInChildren<TextMeshProUGUI>().text == "Меню", "Quick Menu did not preserve the Menu label.");
+            Require(quick.quickSaveButton.gameObject.activeSelf && !quick.saveButton.gameObject.activeSelf
+                && !quick.quickLoadButton.gameObject.activeSelf && !quick.loadButton.gameObject.activeSelf
+                && !quick.settingsButton.gameObject.activeSelf && !quick.mainMenuButton.gameObject.activeSelf,
+                "Quick Menu did not restore only Quick Save after replay.");
 
             SetStaticInstance(typeof(VNDialogueController), null);
             SetStaticInstance(typeof(SceneFlowManager), null);

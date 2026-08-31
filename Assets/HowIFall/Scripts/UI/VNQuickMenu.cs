@@ -129,25 +129,24 @@ public sealed class VNQuickMenu : MonoBehaviour
         return true;
     }
 
-    /// <summary>Applies the final normal action order without modifying VNPrototype.unity.</summary>
+    /// <summary>Applies the compact reading-action strip without modifying VNPrototype.unity.</summary>
     public void ApplyPlayerFacingPresentation()
     {
         EnsureCharacterHubLauncher();
         SetButtonVisible(charactersButton, false);
+        SetButtonVisible(saveButton, false);
+        SetButtonVisible(quickSaveButton, true);
+        SetButtonVisible(quickLoadButton, false);
         SetButtonVisible(loadButton, false);
-        SetButtonLabel(settingsButton, "Настройки");
-        SetButtonLabel(mainMenuButton, "Меню");
+        SetButtonVisible(settingsButton, false);
+        SetButtonVisible(mainMenuButton, false);
 
         Button[] ordered =
         {
             historyButton,
             skipButton,
             autoButton,
-            saveButton,
-            quickSaveButton,
-            quickLoadButton,
-            settingsButton,
-            mainMenuButton
+            quickSaveButton
         };
         for (int index = 0; index < ordered.Length; index++)
         {
@@ -238,11 +237,12 @@ public sealed class VNQuickMenu : MonoBehaviour
     public void RefreshReplayPresentation()
     {
         bool replay = SceneFlowManager.IsReplayModeActive;
-        SetButtonVisible(saveButton, !replay);
+        SetButtonVisible(saveButton, false);
         SetButtonVisible(quickSaveButton, !replay);
-        SetButtonVisible(quickLoadButton, !replay);
+        SetButtonVisible(quickLoadButton, false);
         SetButtonVisible(loadButton, false);
-        SetButtonLabel(mainMenuButton, "Меню");
+        SetButtonVisible(settingsButton, false);
+        SetButtonVisible(mainMenuButton, false);
         RefreshCharacterHubLauncherVisibility();
     }
 

@@ -198,6 +198,24 @@ namespace HowIFall.PlayModeTests
             yield return StartGameplay(result => dialogue = result);
             VNQuickMenu quickMenu = FindObject<VNQuickMenu>(true);
             AssertGameplayShell(dialogue, quickMenu);
+            AssertReadingQuickMenuContract(quickMenu);
+
+            Click(quickMenu.autoButton, "Quick Menu Auto");
+            yield return null;
+            Assert.That(dialogue.IsAutoForwardEnabledState, Is.True, "Quick Menu Auto did not enable the existing Auto state.");
+            Click(quickMenu.autoButton, "Quick Menu Auto off");
+            yield return null;
+            Assert.That(dialogue.IsAutoForwardEnabledState, Is.False, "Quick Menu Auto did not restore its existing inactive state.");
+
+            string skipModeBefore = SettingsManager.Instance.settings.skipMode;
+            SettingsManager.Instance.settings.skipMode = "Всё";
+            Click(quickMenu.skipButton, "Quick Menu Skip");
+            yield return null;
+            Assert.That(dialogue.IsSkipEnabled, Is.True, "Quick Menu Skip did not enable the existing seen-aware Skip state.");
+            Click(quickMenu.skipButton, "Quick Menu Skip off");
+            yield return null;
+            Assert.That(dialogue.IsSkipEnabled, Is.False, "Quick Menu Skip did not restore its existing inactive state.");
+            SettingsManager.Instance.settings.skipMode = skipModeBefore;
 
             int lineBeforeAdvance = GameState.Instance.currentLineIndex;
             string sceneBeforeAdvance = GameState.Instance.currentSceneId;
@@ -212,8 +230,8 @@ namespace HowIFall.PlayModeTests
 
             int stableLineIndex = GameState.Instance.currentLineIndex;
             string stableSceneId = GameState.Instance.currentSceneId;
-            Click(quickMenu.mainMenuButton, "Quick Menu Game Menu");
-            yield return WaitForCondition(() => dialogue.IsGameMenuOpen, "Game Menu did not open from the player-facing Quick Menu action.");
+            Assert.That(dialogue.HandleEscapePressed(), Is.True, "Ordinary gameplay Esc did not open the Game Menu.");
+            yield return WaitForCondition(() => dialogue.IsGameMenuOpen, "Game Menu did not open from ordinary gameplay Esc.");
             VNGameMenuController gameMenu = dialogue.GameMenuController;
             Assert.That(gameMenu.IsPresentationVisible, Is.True);
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Return).gameObject),
@@ -281,7 +299,7 @@ namespace HowIFall.PlayModeTests
             const int savedLust = 17;
             GameState.Instance.lust = savedLust;
 
-            Click(quickMenu.mainMenuButton, "Quick Menu Game Menu");
+            Assert.That(dialogue.HandleEscapePressed(), Is.True, "Esc did not open Game Menu for Manual Save.");
             yield return WaitForCondition(() => dialogue.IsGameMenuOpen, "Game Menu did not open for Manual Save.");
             VNGameMenuController gameMenu = dialogue.GameMenuController;
             Click(gameMenu.View.GetButton(VNGameMenuAction.Save), "Game Menu Save");
@@ -350,7 +368,9 @@ namespace HowIFall.PlayModeTests
                 "Quick Save player action did not create a loadable slot.");
             GameState.Instance.trustMasha = 81;
 
-            Click(quickMenu.quickLoadButton, "Quick Load");
+            Assert.That(quickMenu.quickLoadButton.gameObject.activeSelf, Is.False,
+                "Quick Load must remain available only through its existing input/API route.");
+            dialogue.RequestQuickLoad();
             ManualSaveLoadPanel panel = dialogue.manualSaveLoadPanel;
             yield return WaitForCondition(
                 () => panel.IsOpen && panel.IsConfirmationOpen && panel.CurrentSlotType == SaveSlotType.Quick,
@@ -460,8 +480,7 @@ namespace HowIFall.PlayModeTests
 
         private static IEnumerator ReturnToMainMenuThroughGameMenu(VNDialogueController dialogue)
         {
-            VNQuickMenu quickMenu = FindObject<VNQuickMenu>(true);
-            Click(quickMenu.mainMenuButton, "Quick Menu Game Menu");
+            Assert.That(dialogue.HandleEscapePressed(), Is.True, "Esc did not open Game Menu before returning to Main Menu.");
             yield return WaitForCondition(() => dialogue.IsGameMenuOpen, "Game Menu did not open before returning to Main Menu.");
             Click(dialogue.GameMenuController.View.GetButton(VNGameMenuAction.MainMenu), "Game Menu Main Menu");
             yield return WaitForCondition(
@@ -512,6 +531,29 @@ namespace HowIFall.PlayModeTests
             Assert.That(dialogue.IsGameMenuOpen, Is.False);
             Assert.That(dialogue.IsCharacterHubOpen, Is.False);
             Assert.That(quickMenu.IsEffectivelyVisible, Is.True, "Quick Menu did not restore the enabled player preference.");
+        }
+
+        private static void AssertReadingQuickMenuContract(VNQuickMenu quickMenu)
+        {
+            Button[] visibleButtons = quickMenu.root.GetComponentsInChildren<Button>(true)
+                .Where(button => button.transform.parent == quickMenu.root.transform && button.gameObject.activeSelf)
+                .OrderBy(button => button.transform.GetSiblingIndex())
+                .ToArray();
+            Assert.That(visibleButtons, Is.EqualTo(new[]
+            {
+                quickMenu.historyButton, quickMenu.skipButton, quickMenu.autoButton, quickMenu.quickSaveButton
+            }), "Ordinary reading must expose only History / Skip / Auto / Quick Save in Quick Menu order.");
+            Assert.That(quickMenu.saveButton.gameObject.activeSelf, Is.False);
+            Assert.That(quickMenu.quickLoadButton.gameObject.activeSelf, Is.False);
+            Assert.That(quickMenu.loadButton.gameObject.activeSelf, Is.False);
+            Assert.That(quickMenu.settingsButton.gameObject.activeSelf, Is.False);
+            Assert.That(quickMenu.mainMenuButton.gameObject.activeSelf, Is.False);
+            Assert.That(FindSceneObject("How I Fall Logo")?.activeSelf, Is.False,
+                "Temporary title logo must be hidden from ordinary reading.");
+            Assert.That(FindSceneObject("Chapter Info")?.activeSelf, Is.False,
+                "Temporary chapter label must be hidden from ordinary reading.");
+            Assert.That(FindSceneObject("Top Left Soft Shade")?.activeSelf, Is.False,
+                "Temporary title backing surface must be hidden from ordinary reading.");
         }
 
         private static void AssertAboutBodyInsideWindow(GameObject aboutPanel)

@@ -1,4 +1,4 @@
-﻿# Player UI visual baselines
+# Player UI visual baselines
 
 These images are the current accepted/review baselines for key player-facing UI states.
 
@@ -30,8 +30,11 @@ These images are the current accepted/review baselines for key player-facing UI 
 
 ## Core reading experience
 
-- `reading_dialogue_125.png` — long dialogue at the supported 125% text scale.
+- `reading_standard.png` — ordinary reading surface with only History / Skip / Auto / Quick Save and no temporary title chrome.
+- `reading_dialogue_125.png` — long dialogue at the supported 125% text scale, without clipping or Quick Menu overlap.
 - `reading_choice_focus.png` — wrapped choice labels and deterministic first keyboard/controller focus.
 - `reading_choice_hover.png` — mouse hover transfers choice focus without a second selected state.
 - `reading_backlog.png` — scrolled history with speaker/narration separation.
-- `reading_auto_active.png` — Auto active state in the persistent Quick Menu.
+- `reading_auto_active.png` — distinct Auto active state in the compact Quick Menu.
+- `reading_skip_active.png` — distinct Skip active state in the compact Quick Menu.
+- `reading_quick_save_feedback.png` — brief Quick Save feedback over the ordinary reading surface.

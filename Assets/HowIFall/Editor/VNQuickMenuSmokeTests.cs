@@ -28,24 +28,25 @@ public static class VNQuickMenuSmokeTests
         Require(menu.saveButton != null && menu.quickSaveButton != null && menu.quickLoadButton != null && menu.loadButton != null, "Quick Menu save references are required.");
         Require(menu.settingsButton != null && menu.mainMenuButton != null, "Quick Menu Settings and Menu references are required.");
         menu.ApplyPlayerFacingPresentation();
-        Button[] expectedOrder =
-        {
-            menu.historyButton, menu.skipButton, menu.autoButton, menu.saveButton,
-            menu.quickSaveButton, menu.quickLoadButton, menu.settingsButton, menu.mainMenuButton
-        };
+        Button[] expectedOrder = { menu.historyButton, menu.skipButton, menu.autoButton, menu.quickSaveButton };
         Button[] actualOrder = menu.root.GetComponentsInChildren<Button>(true)
             .Where(button => button.transform.parent == menu.root.transform && button.gameObject.activeSelf)
             .OrderBy(button => button.transform.GetSiblingIndex())
             .ToArray();
         Require(actualOrder.SequenceEqual(expectedOrder),
-            "Quick Menu normal order must be History / Skip / Auto / Save / QSave / QLoad / Preferences / Menu.");
-        Require(!menu.loadButton.gameObject.activeSelf, "Manual Load must be absent from the normal Quick Menu.");
+            "Quick Menu normal order must be History / Skip / Auto / Quick Save.");
+        Require(!menu.saveButton.gameObject.activeSelf && !menu.quickLoadButton.gameObject.activeSelf
+            && !menu.loadButton.gameObject.activeSelf && !menu.settingsButton.gameObject.activeSelf
+            && !menu.mainMenuButton.gameObject.activeSelf,
+            "Ordinary Quick Menu must hide Save, Quick Load, Load, Preferences and Menu navigation actions.");
         Require(menu.charactersButton != null
             && !menu.charactersButton.gameObject.activeSelf
             && !menu.charactersButton.transform.IsChildOf(menu.root.transform),
             "Characters must remain a hidden deferred launcher outside the Quick Menu strip.");
-        Require(menu.mainMenuButton.GetComponentInChildren<TextMeshProUGUI>(true).text == "Меню",
-            "Direct Main Menu action must be replaced by the Game Menu route.");
+        Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.OpenGameMenu)) != null,
+            "Esc must retain the existing Game Menu route.");
+        Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.RequestQuickSave)) != null,
+            "Quick Save must retain the existing VN controller entry point.");
         Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.RequestQuickLoad)) != null, "Quick Load must use the VN controller entry point.");
         Require(typeof(ManualSaveLoadPanel).GetMethod(nameof(ManualSaveLoadPanel.RequestQuickLoad)) != null, "Quick Load must use the existing ManualSaveLoadPanel pipeline.");
         VerifyPreferencesModalVisibilityOwnership();

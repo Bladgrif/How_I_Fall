@@ -15,6 +15,12 @@ public class VNDialogueController : MonoBehaviour
     private const string EndPrototypeText = "\u041a\u043e\u043d\u0435\u0446 Unity-\u043f\u0440\u043e\u0442\u043e\u0442\u0438\u043f\u0430.";
     private const string ChoiceConfigurationErrorText = "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0430.";
     public const int SupportedChoiceButtonCapacity = 3;
+    private static readonly string[] TemporaryReadingChromeNames =
+    {
+        "How I Fall Logo",
+        "Chapter Info",
+        "Top Left Soft Shade"
+    };
 
     public DialogueSceneData sceneData;
     public DialogueSceneRegistry sceneRegistry;
@@ -163,6 +169,7 @@ public class VNDialogueController : MonoBehaviour
 
         Instance = this;
         HideLegacyTopMenuButton();
+        HideTemporaryReadingChrome();
         specialModeCoordinator = new SpecialModeCoordinator(GetSpecialModeEntryBlockerReason, message => Debug.LogWarning(message, this));
         EnsureReadHistory();
         SettingsManager.DialoguePresentationChanged += RefreshDialoguePresentation;
@@ -178,6 +185,19 @@ public class VNDialogueController : MonoBehaviour
                 .FirstOrDefault(item => item.name == "Top Menu Button")?.gameObject;
         }
         if (legacyButton != null) legacyButton.SetActive(false);
+    }
+
+    /// <summary>Hides the current non-canon scene chrome while story chapter structure is deferred.</summary>
+    private void HideTemporaryReadingChrome()
+    {
+        foreach (string objectName in TemporaryReadingChromeNames)
+        {
+            GameObject chrome = GameObject.Find(objectName);
+            if (chrome != null)
+            {
+                chrome.SetActive(false);
+            }
+        }
     }
 
     private void Start()
@@ -2228,6 +2248,7 @@ public class VNDialogueController : MonoBehaviour
             dialogueBoxBackground = dialogueUiRoot.GetComponent<Image>();
         }
 
+        HideTemporaryReadingChrome();
         ApplyReadingShellPresentation();
         ApplyDialoguePresentation(dialogueText, dialogueBoxBackground, dialogueBaseFontSize, presentationSettings);
     }
@@ -2263,6 +2284,13 @@ public class VNDialogueController : MonoBehaviour
         dialogueText.lineSpacing = 5f;
         dialogueText.enableWordWrapping = true;
         dialogueText.overflowMode = TextOverflowModes.Masking;
+        dialogueText.color = new Color(0.96f, 0.97f, 0.98f, 1f);
+
+        if (dialogueBoxBackground != null)
+        {
+            Color textboxColor = dialogueBoxBackground.color;
+            dialogueBoxBackground.color = new Color(0.025f, 0.035f, 0.05f, textboxColor.a);
+        }
 
         if (nameBox != null)
         {
@@ -2276,7 +2304,7 @@ public class VNDialogueController : MonoBehaviour
             Image nameBackground = nameBox.GetComponent<Image>();
             if (nameBackground != null)
             {
-                nameBackground.color = new Color(0.035f, 0.09f, 0.14f, 0.94f);
+                nameBackground.color = new Color(0.025f, 0.035f, 0.05f, 0.94f);
             }
         }
 
