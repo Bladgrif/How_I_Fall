@@ -86,9 +86,12 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (focusAccent != null && accentNeedsInitialization)
         {
             RectTransform accentRect = focusAccent.rectTransform;
-            accentRect.anchorMin = new Vector2(0f, 0f);
-            accentRect.anchorMax = new Vector2(0f, 0f);
-            accentRect.pivot = new Vector2(0f, 0f);
+            // The marker belongs to the text row, not to its lower edge. Keeping
+            // its pivot in the vertical centre prevents the accent from reading
+            // as visibly lower than the label on Main Menu actions.
+            accentRect.anchorMin = new Vector2(0f, 0.5f);
+            accentRect.anchorMax = new Vector2(0f, 0.5f);
+            accentRect.pivot = new Vector2(0f, 0.5f);
             accentRect.anchoredPosition = new Vector2(0f, 0f);
             accentRect.sizeDelta = new Vector2(6f, 24f);
             focusAccent.raycastTarget = false;
@@ -127,6 +130,13 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     public void OnPointerEnter(PointerEventData eventData)
     {
         isPointerInside = true;
+        // Mouse hover is an explicit current action. Select it as well so a
+        // retained keyboard/controller selection cannot leave two menu actions
+        // looking active after returning from a modal.
+        if (button != null && button.isActiveAndEnabled && button.interactable)
+        {
+            (EventSystem.current ?? FindFirstObjectByType<EventSystem>())?.SetSelectedGameObject(button.gameObject);
+        }
         RefreshState();
     }
 

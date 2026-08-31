@@ -121,6 +121,7 @@ public static class PreferencesUiParitySmokeTests
         foreach (string id in SharedPreferencesView.VisibleControlIds)
         {
             RectTransform control = view.GetButton(id)?.GetComponent<RectTransform>()
+                ?? view.GetDropdown(id)?.GetComponent<RectTransform>()
                 ?? view.GetSlider(id)?.GetComponent<RectTransform>()
                 ?? view.GetToggle(id)?.GetComponent<RectTransform>();
             Require(control != null && IsFullyInside(control, viewport),
@@ -130,10 +131,18 @@ public static class PreferencesUiParitySmokeTests
                 && IsFullyInside(view.GetButton("back").GetComponent<RectTransform>(), window),
             "Preferences footer controls must remain inside the window.");
 
-        Require(view.GetComponentsInChildren<TMP_Dropdown>(true).Count() == 0,
-            "Screen mode and resolution must use compact direct selectors, not TMP dropdown popups.");
-        Require(view.GetButton(SharedPreferencesView.ScreenModeId) != null && view.GetButton(SharedPreferencesView.ResolutionId) != null,
-            "Display selectors must remain keyboard/controller reachable buttons.");
+        Require(view.GetComponentsInChildren<TMP_Dropdown>(true).Count() == 2,
+            "Screen mode and resolution must use the approved TMP dropdown controls.");
+        Require(view.GetDropdown(SharedPreferencesView.ScreenModeId) != null && view.GetDropdown(SharedPreferencesView.ResolutionId) != null,
+            "Display dropdowns must remain keyboard/controller reachable.");
+
+        Slider textSpeed = view.GetSlider(SharedPreferencesView.TextSpeedId);
+        textSpeed.value = textSpeed.maxValue;
+        TextMeshProUGUI textSpeedValue = textSpeed.transform.parent.GetComponentsInChildren<TextMeshProUGUI>(true)
+            .FirstOrDefault(text => text.gameObject.name == "Value");
+        Require(textSpeedValue != null
+                && textSpeedValue.GetPreferredValues(textSpeedValue.text).x <= textSpeedValue.rectTransform.rect.width + 0.5f,
+            "The maximum Text Speed label must fit beside its slider without overlap.");
     }
 
     private static bool IsFullyInside(RectTransform child, RectTransform parent)
@@ -174,22 +183,20 @@ public static class PreferencesUiParitySmokeTests
             Require(autoDelayText.Contains("сек.") && !autoDelayText.Contains("%"),
                 "Auto delay must display seconds instead of legacy percent.");
 
-            Button screenMode = view.GetButton(SharedPreferencesView.ScreenModeId);
-            Button resolution = view.GetButton(SharedPreferencesView.ResolutionId);
-            Require(screenMode != null && resolution != null && view.GetDropdown(SharedPreferencesView.ScreenModeId) == null,
-                "Screen Mode and Resolution must use compact direct selectors.");
-            screenMode.onClick.Invoke();
-            Require(service.Source.screenMode == SettingsOptionValues.Windowed, "Screen Mode must cycle Fullscreen to Windowed.");
-            screenMode.onClick.Invoke();
-            Require(service.Source.screenMode == SettingsOptionValues.Borderless, "Screen Mode must cycle Windowed to Borderless.");
-            screenMode.onClick.Invoke();
-            Require(service.Source.screenMode == SettingsOptionValues.Fullscreen, "Screen Mode must cycle Borderless to Fullscreen.");
-            view.GetCyclePreviousButton(SharedPreferencesView.ScreenModeId).onClick.Invoke();
-            Require(service.Source.screenMode == SettingsOptionValues.Borderless, "Screen Mode previous selector must cycle back deterministically.");
-            resolution.onClick.Invoke();
-            Require(service.Source.resolution == "2560x1440", "Resolution selector must apply the next supported value.");
-            for (int index = 0; index < PreferencesOptions.Resolutions.Count; index++) resolution.onClick.Invoke();
-            Require(service.Source.resolution == "2560x1440", "Resolution selector must wrap without an invalid index.");
+            TMP_Dropdown screenMode = view.GetDropdown(SharedPreferencesView.ScreenModeId);
+            TMP_Dropdown resolution = view.GetDropdown(SharedPreferencesView.ResolutionId);
+            Require(screenMode != null && resolution != null,
+                "Screen Mode and Resolution must use TMP dropdown controls.");
+            screenMode.value = 1;
+            Require(service.Source.screenMode == SettingsOptionValues.Windowed, "Screen Mode dropdown must apply Windowed.");
+            screenMode.value = 2;
+            Require(service.Source.screenMode == SettingsOptionValues.Borderless, "Screen Mode dropdown must apply Borderless.");
+            screenMode.value = 0;
+            Require(service.Source.screenMode == SettingsOptionValues.Fullscreen, "Screen Mode dropdown must apply Fullscreen.");
+            resolution.value = 3;
+            Require(service.Source.resolution == "2560x1440", "Resolution dropdown must apply the selected supported value.");
+            resolution.value = 0;
+            Require(service.Source.resolution == "1280x720", "Resolution dropdown must apply the first supported value without an invalid index.");
 
             view.GetSlider(SharedPreferencesView.AutoForwardDelayId).value = 3.7f;
             Require(Mathf.Approximately(service.Source.autoForwardDelay, 370f), "Auto delay seconds did not roundtrip to legacy storage safely.");

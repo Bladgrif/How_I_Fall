@@ -119,8 +119,8 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         isBound = true;
         buttons["reset"].onClick.AddListener(controller.Reset);
         buttons["back"].onClick.AddListener(controller.Close);
-        BindCycle(ScreenModeId, controller.SetScreenMode);
-        BindCycle(ResolutionId, controller.SetResolution);
+        BindDropdown(ScreenModeId, controller.SetScreenMode);
+        BindDropdown(ResolutionId, controller.SetResolution);
         BindToggle(SkipUnseenId, controller.SetSkipUnseen, value => value ? "Вкл. — можно всё" : "Выкл. — только виденное");
         BindToggle(SkipAfterChoicesId, controller.SetSkipAfterChoices);
         BindToggle(AutosaveId, controller.SetAutoSave);
@@ -149,7 +149,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     /// <summary>Assigns deterministic keyboard/controller focus when this modal opens.</summary>
     public void FocusDefaultControl()
     {
-        Focus(GetButton(ScreenModeId));
+        Focus(GetDropdown(ScreenModeId));
     }
 
     private static void Focus(Selectable control)
@@ -165,8 +165,8 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
 
     public void Refresh(PreferencesState settings)
     {
-        SetCycle(ScreenModeId, settings.screenMode);
-        SetCycle(ResolutionId, settings.resolution);
+        SetDropdown(ScreenModeId, settings.screenMode);
+        SetDropdown(ResolutionId, settings.resolution);
         SetToggle(SkipUnseenId, settings.skipMode == "Всё", settings.skipMode == "Всё" ? "Вкл. — можно всё" : "Выкл. — только виденное");
         SetToggle(SkipAfterChoicesId, settings.skipAfterChoices);
         SetToggle(AutosaveId, settings.autoSave);
@@ -245,8 +245,8 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
 
         Transform left = CreateColumn(columns.transform, "Left Preferences Column");
         Section(left, "ЭКРАН");
-        CycleRow(left, ScreenModeId, "Режим экрана", PreferencesOptions.ScreenModes);
-        CycleRow(left, ResolutionId, "Разрешение", PreferencesOptions.Resolutions);
+        DropdownRow(left, ScreenModeId, "Режим экрана", PreferencesOptions.ScreenModes);
+        DropdownRow(left, ResolutionId, "Разрешение", PreferencesOptions.Resolutions);
         Section(left, "ЗВУК");
         SliderRow(left, MasterVolumeId, "Общая громкость", 0f, 1f, false, false);
         SliderRow(left, MusicVolumeId, "Музыка", 0f, 1f, false, false);
@@ -299,6 +299,12 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         next.onClick.AddListener(() => Cycle(id, 1));
     }
 
+    private void DropdownRow(Transform parent, string id, string label, IReadOnlyList<string> options)
+    {
+        Transform control = Row(parent, id, label);
+        dropdowns[id] = Dropdown(control, id, options);
+    }
+
     private void ToggleRow(Transform parent, string id, string label)
     {
         Transform control = Row(parent, id, label);
@@ -321,11 +327,11 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         layout.spacing = 12f; layout.childAlignment = TextAnchor.MiddleRight; layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = false; layout.childForceExpandHeight = false;
         LayoutElement ownerLayout = owner.AddComponent<LayoutElement>(); ownerLayout.preferredWidth = 300f; ownerLayout.minHeight = 36f;
         Slider slider = CreateSlider(owner.transform, min, max, wholeNumbers);
-        LayoutElement sliderLayout = slider.gameObject.AddComponent<LayoutElement>(); sliderLayout.preferredWidth = showValue ? 214f : 300f; sliderLayout.minHeight = 32f;
+        LayoutElement sliderLayout = slider.gameObject.AddComponent<LayoutElement>(); sliderLayout.preferredWidth = showValue ? 160f : 300f; sliderLayout.minHeight = 32f;
         sliders[id] = slider;
         if (!showValue) return;
         TextMeshProUGUI value = Text(owner.transform, "Value", "—", 16f, FontStyles.Normal, TextAlignmentOptions.MidlineRight); value.color = SecondaryText;
-        LayoutElement valueLayout = value.gameObject.AddComponent<LayoutElement>(); valueLayout.preferredWidth = 74f; valueLayout.minHeight = 34f; sliderValues[id] = value;
+        LayoutElement valueLayout = value.gameObject.AddComponent<LayoutElement>(); valueLayout.preferredWidth = 128f; valueLayout.minHeight = 34f; sliderValues[id] = value;
     }
 
     private Transform Row(Transform parent, string id, string label)
@@ -427,11 +433,13 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
 
     private void BindToggle(string id, Action<bool> apply, Func<bool, string> label = null) { toggles[id].onValueChanged.AddListener(value => apply(value)); toggles[id].onValueChanged.AddListener(value => SetToggle(id, value, label?.Invoke(value))); }
     private void BindSlider(string id, Action<float> apply, Func<float, string> label = null) { sliders[id].onValueChanged.AddListener(value => apply(value)); if (label != null) sliders[id].onValueChanged.AddListener(value => SetSliderValue(id, label(value))); }
+    private void BindDropdown(string id, Action<string> apply) { dropdowns[id].onValueChanged.AddListener(index => apply(dropdowns[id].options[index].text)); }
     private void BindCycle(string id, Action<string> apply) { buttons[id].onClick.AddListener(() => apply(CycleValue(id))); cyclePreviousButtons[id].onClick.AddListener(() => apply(CycleValue(id))); }
     private void Cycle(string id, int direction) { if (!cycleOptions.TryGetValue(id, out IReadOnlyList<string> options) || options.Count == 0) return; cycleIndices[id] = (cycleIndices[id] + direction + options.Count) % options.Count; SetCycleText(id); }
     private string CycleValue(string id) => cycleOptions.TryGetValue(id, out IReadOnlyList<string> options) && options.Count > 0 ? options[cycleIndices[id]] : string.Empty;
     private void SetCycle(string id, string value) { if (!cycleOptions.TryGetValue(id, out IReadOnlyList<string> options)) return; cycleIndices[id] = Mathf.Max(0, options.ToList().FindIndex(option => option == value)); SetCycleText(id); }
     private void SetCycleText(string id) { if (cycleValues.TryGetValue(id, out TextMeshProUGUI text)) text.text = CycleValue(id); }
+    private void SetDropdown(string id, string value) { if (dropdowns.TryGetValue(id, out TMP_Dropdown dropdown)) { int index = dropdown.options.FindIndex(option => option.text == value); dropdown.SetValueWithoutNotify(Mathf.Max(0, index)); } }
     private void SetToggle(string id, bool value, string label = null) { if (toggles.TryGetValue(id, out Toggle toggle)) toggle.SetIsOnWithoutNotify(value); if (toggleValues.TryGetValue(id, out TextMeshProUGUI text)) text.text = label ?? (value ? "Вкл." : "Выкл."); }
     private void SetSlider(string id, float value, string label = null) { if (sliders.TryGetValue(id, out Slider slider)) slider.SetValueWithoutNotify(value); SetSliderValue(id, label); }
     private void SetSliderValue(string id, string value) { if (sliderValues.TryGetValue(id, out TextMeshProUGUI text)) text.text = value ?? string.Empty; }

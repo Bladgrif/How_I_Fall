@@ -18,7 +18,7 @@ if (-not (Test-Path -LiteralPath $unityPath -PathType Leaf)) { throw "Unity $uni
 $entryPoints = @{
     ManualSave = @{ Method = 'ManualSavePlayModeE2ERunner.StartAutomatedPlayMode'; Sentinel = 'manual_save_playmode_result.txt'; ProofFiles = @('manual_save_1920x1080.png', 'gameplay_load_confirmation_1920x1080.png', 'gameplay_invalid_save_slot_1920x1080.png', 'main_menu_load_1920x1080.png') }
     SaveBackendV2 = @{ Method = 'SaveBackendV2PlayModeE2ERunner.StartAutomatedPlayMode'; Sentinel = 'save_backend_v2_playmode_result.txt'; ProofFiles = @('save_load_manual_1920x1080.png', 'save_load_auto_1920x1080.png', 'save_load_quick_1920x1080.png') }
-    PlayerUi = @{ Method = 'PlayerUiGraphicalE2ERunner.StartAutomatedPlayMode'; Sentinel = 'player_ui_graphical_result.txt'; ProofFiles = @('main_menu_1920x1080.png', 'main_menu_settings_focus_1920x1080.png', 'main_menu_preferences_1920x1080.png', 'main_menu_preferences_screen_mode_selected_1920x1080.png', 'main_menu_preferences_resolution_selected_1920x1080.png', 'main_menu_preferences_slider_focus_1920x1080.png', 'main_menu_load_1920x1080.png', 'main_menu_quit_confirmation_1920x1080.png', 'main_menu_quit_confirmation_yes_focus_1920x1080.png', 'main_menu_1280x720.png', 'gameplay_dialogue_standard_1920x1080.png', 'gameplay_dialogue_long_125pct_1920x1080.png', 'gameplay_choice_focus_1920x1080.png', 'gameplay_backlog_1920x1080.png', 'gameplay_auto_active_1920x1080.png', 'gameplay_skip_active_1920x1080.png', 'gameplay_hide_ui_1920x1080.png', 'game_menu_root_1920x1080.png', 'game_menu_alternate_focus_1920x1080.png', 'gameplay_preferences_1920x1080.png', 'gameplay_preferences_1280x720.png') }
+    PlayerUi = @{ Method = 'PlayerUiGraphicalE2ERunner.StartAutomatedPlayMode'; Sentinel = 'player_ui_graphical_result.txt'; RequirePlayerPrefsRestore = $true; ProofFiles = @('main_menu_1920x1080.png', 'main_menu_settings_focus_1920x1080.png', 'main_menu_preferences_1920x1080.png', 'main_menu_preferences_screen_mode_selected_1920x1080.png', 'main_menu_preferences_resolution_selected_1920x1080.png', 'main_menu_preferences_slider_focus_1920x1080.png', 'main_menu_preferences_text_speed_max_1920x1080.png', 'main_menu_preferences_return_hover_1920x1080.png', 'main_menu_load_1920x1080.png', 'main_menu_quit_confirmation_1920x1080.png', 'main_menu_quit_confirmation_yes_focus_1920x1080.png', 'main_menu_1280x720.png', 'gameplay_dialogue_standard_1920x1080.png', 'gameplay_quick_save_feedback_1920x1080.png', 'gameplay_dialogue_long_125pct_1920x1080.png', 'gameplay_choice_focus_1920x1080.png', 'gameplay_choice_hover_1920x1080.png', 'gameplay_relationship_feedback_1920x1080.png', 'gameplay_backlog_1920x1080.png', 'gameplay_auto_active_1920x1080.png', 'gameplay_skip_active_1920x1080.png', 'gameplay_hide_ui_1920x1080.png', 'game_menu_root_1920x1080.png', 'game_menu_alternate_focus_1920x1080.png', 'gameplay_preferences_1920x1080.png', 'gameplay_preferences_1280x720.png') }
 }
 $entryPoint = $entryPoints[$Scenario]
 $outputDirectory = Join-Path $projectRoot 'Temp/CodexTests'
@@ -40,6 +40,10 @@ if ($unityExitCode -ne 0) { exit $unityExitCode }
 if (-not (Test-Path -LiteralPath $sentinelPath)) { Write-Error "Graphical E2E exited without result sentinel: $sentinelPath"; exit 1 }
 $sentinel = Get-Content -Raw -LiteralPath $sentinelPath
 if ($sentinel -notmatch '(?m)^status=PASS\s*$') { Write-Error "Graphical E2E reported failure:`n$sentinel"; exit 1 }
+if ($entryPoint.RequirePlayerPrefsRestore -and $sentinel -notmatch '(?m)playerPrefsRestored=true') {
+    Write-Error "PlayerUi graphical E2E did not prove PlayerPrefs restoration:`n$sentinel"
+    exit 1
+}
 foreach ($proofFile in $entryPoint.ProofFiles) {
     $proofPath = Join-Path $proofDirectory $proofFile
     if (-not (Test-Path -LiteralPath $proofPath -PathType Leaf)) { Write-Error "Graphical E2E passed without current screenshot proof: $proofPath"; exit 1 }

@@ -26,10 +26,35 @@ public static class PlayerUiGraphicalE2ERunner
     private const string RunStartedKey = "HowIFall.PlayerUiE2E.RunStartedUtc";
     private const string ErrorsKey = "HowIFall.PlayerUiE2E.Errors";
     private const string DirectoryKey = "HowIFall.PlayerUiE2E.Directory";
+    private const string PlayerPrefsSnapshotKey = "HowIFall.PlayerUiE2E.PlayerPrefsSnapshot";
+    private const string PlayerPrefsRestoredKey = "HowIFall.PlayerUiE2E.PlayerPrefsRestored";
+    private const string PlayerPrefsSnapshotPrefix = "HowIFall.PlayerUiE2E.PlayerPrefs.";
     private const string ResultPath = "player_ui_graphical_result.txt";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
     private static readonly Vector2Int ResponsiveQaResolution = new Vector2Int(1280, 720);
     private static readonly List<UnityEngine.Object> RuntimeFixtures = new List<UnityEngine.Object>();
+
+    // SettingsManager.SaveSettings writes the complete preferences payload even when
+    // the runner changes only one setting. Snapshot exactly that payload so graphical
+    // proof cannot leak text-speed/scale/auto-forward/skip-mode changes into the user profile.
+    private static readonly string[] PlayerPrefsFloatKeys =
+    {
+        "hif_master_volume", "hif_music_volume", "hif_sfx_volume", "hif_ambient_volume",
+        "hif_text_speed", "hif_dialogue_text_scale", "hif_textbox_opacity", "hif_auto_forward_delay"
+    };
+
+    private static readonly string[] PlayerPrefsIntKeys =
+    {
+        "hif_mute_all", "hif_music_during_pause", "hif_rewind_vhs_filter", "hif_run_in_background",
+        "hif_character_animations", "hif_background_animations", "hif_skip_after_choices",
+        "hif_auto_forward", "hif_auto_save", "hif_show_hints", "hif_show_quick_menu", "hif_fullscreen"
+    };
+
+    private static readonly string[] PlayerPrefsStringKeys =
+    {
+        "hif_screen_mode", "hif_resolution", "hif_refresh_rate", "hif_game_look",
+        "hif_interface_style", "hif_language", "hif_font_size_mode", "hif_skip_mode", "hif_skip_behavior"
+    };
 
     private const string LongReadingFixtureText = "Это длинная нейтральная реплика для проверки чтения на 1920×1080. При масштабе текста 125 % она переносится на несколько строк, остаётся внутри окна и не сталкивается с быстрым меню.";
 
@@ -57,10 +82,11 @@ public static class PlayerUiGraphicalE2ERunner
         string resultPath = Path.Combine(root, ResultPath);
         if (File.Exists(resultPath)) File.Delete(resultPath);
 
+        SessionState.SetBool(ActiveKey, true);
+        CapturePlayerPrefsSnapshot();
         CleanupTestDirectory();
         string saveDirectory = Path.Combine(Path.GetTempPath(), "HowIFall_PlayerUiE2E_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(saveDirectory);
-        SessionState.SetBool(ActiveKey, true);
         SessionState.SetString(StageKey, "WaitMainMenu");
         SessionState.SetString(NextStageKey, string.Empty);
         SessionState.SetString(CapturePathKey, string.Empty);
@@ -93,7 +119,9 @@ public static class PlayerUiGraphicalE2ERunner
                 case "OpenScreenMode": FocusSelector(SharedPreferencesView.ScreenModeId, "OpenResolution", "main_menu_preferences_screen_mode_selected_1920x1080.png"); break;
                 case "OpenResolution": FocusSelector(SharedPreferencesView.ResolutionId, "FocusSlider", "main_menu_preferences_resolution_selected_1920x1080.png"); break;
                 case "FocusSlider": FocusSlider(); break;
+                case "CaptureTextSpeedMaximum": CaptureTextSpeedMaximum(); break;
                 case "CloseMainPreferences": CloseMainPreferences(); break;
+                case "CaptureMainMenuReturnHover": CaptureMainMenuReturnHover(); break;
                 case "OpenMainLoad": OpenMainLoad(); break;
                 case "WaitMainLoad": WaitMainLoad(); break;
                 case "CloseMainLoad": CloseMainLoad(); break;
@@ -104,8 +132,11 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureResponsiveMainMenu": CaptureResponsiveMainMenu(); break;
                 case "StartGameplay": StartGameplay(); break;
                 case "WaitGameplay": WaitGameplay(); break;
+                case "CaptureQuickSaveFeedback": CaptureQuickSaveFeedback(); break;
                 case "PrepareLongDialogue": PrepareLongDialogue(); break;
                 case "OpenReadingChoices": OpenReadingChoices(); break;
+                case "CaptureChoiceHover": CaptureChoiceHover(); break;
+                case "CaptureRelationshipFeedback": CaptureRelationshipFeedback(); break;
                 case "PrepareBacklog": PrepareBacklog(); break;
                 case "PrepareAuto": PrepareAuto(); break;
                 case "PrepareSkip": PrepareSkip(); break;
@@ -187,8 +218,8 @@ public static class PlayerUiGraphicalE2ERunner
     {
         SharedPreferencesView view = FindVisiblePreferences();
         if (view == null) { Retry("Main Menu Preferences did not become visible."); return; }
-        Require(view.GetButton(SharedPreferencesView.ScreenModeId) != null, "Screen Mode selector is missing.");
-        Require(view.GetButton(SharedPreferencesView.ResolutionId) != null, "Resolution selector is missing.");
+        Require(view.GetDropdown(SharedPreferencesView.ScreenModeId) != null, "Screen Mode dropdown is missing.");
+        Require(view.GetDropdown(SharedPreferencesView.ResolutionId) != null, "Resolution dropdown is missing.");
         Capture("main_menu_preferences_1920x1080.png", "OpenScreenMode");
     }
 
@@ -196,8 +227,8 @@ public static class PlayerUiGraphicalE2ERunner
     {
         SharedPreferencesView view = FindVisiblePreferences();
         Require(view != null, "Preferences closed before selector capture.");
-        Button selector = view.GetButton(id);
-        Require(selector != null && selector.IsActive(), $"Selector '{id}' is unavailable.");
+        TMP_Dropdown selector = view.GetDropdown(id);
+        Require(selector != null && selector.IsActive(), $"Dropdown '{id}' is unavailable.");
         EventSystem.current.SetSelectedGameObject(selector.gameObject);
         Capture(fileName, nextStage);
     }
@@ -208,7 +239,18 @@ public static class PlayerUiGraphicalE2ERunner
         Slider slider = view != null ? view.GetSlider(SharedPreferencesView.MasterVolumeId) : null;
         Require(slider != null, "Master Volume slider is missing.");
         EventSystem.current.SetSelectedGameObject(slider.gameObject);
-        Capture("main_menu_preferences_slider_focus_1920x1080.png", "CloseMainPreferences");
+        Capture("main_menu_preferences_slider_focus_1920x1080.png", "CaptureTextSpeedMaximum");
+    }
+
+    private static void CaptureTextSpeedMaximum()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Slider slider = view != null ? view.GetSlider(SharedPreferencesView.TextSpeedId) : null;
+        Require(slider != null, "Text Speed slider is missing.");
+        slider.value = slider.maxValue;
+        Require(view.GetDisplayedValue(SharedPreferencesView.TextSpeedId) == "Очень быстро",
+            "Text Speed maximum did not display its expected label.");
+        Capture("main_menu_preferences_text_speed_max_1920x1080.png", "CloseMainPreferences");
     }
 
     private static void CloseMainPreferences()
@@ -216,8 +258,25 @@ public static class PlayerUiGraphicalE2ERunner
         SharedPreferencesView view = FindVisiblePreferences();
         Require(view != null, "Preferences closed before Main Menu route proof.");
         view.GetButton("back")?.onClick.Invoke();
-        SessionState.SetString(StageKey, "OpenMainLoad");
+        SessionState.SetString(StageKey, "CaptureMainMenuReturnHover");
         SetDelay(0.3d);
+    }
+
+    private static void CaptureMainMenuReturnHover()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null && menu.PlayerFacingActionButtons.Count > 3, "Main Menu actions are unavailable after Preferences.");
+        Button settings = menu.PlayerFacingActionButtons[3];
+        Button hovered = menu.PlayerFacingActionButtons[1];
+        MainMenuButtonHoverEffect effect = hovered.GetComponent<MainMenuButtonHoverEffect>();
+        Require(effect != null, "Main Menu hover presentation is missing.");
+        effect.OnPointerEnter(new PointerEventData(EventSystem.current));
+        Require(EventSystem.current.currentSelectedGameObject == hovered.gameObject,
+            "Mouse hover did not replace the restored Settings selection.");
+        MainMenuButtonHoverEffect settingsEffect = settings.GetComponent<MainMenuButtonHoverEffect>();
+        Require(settingsEffect == null || !settingsEffect.IsFocusAccentVisible,
+            "Settings retained a focus accent alongside the hovered Main Menu action.");
+        Capture("main_menu_preferences_return_hover_1920x1080.png", "OpenMainLoad");
     }
 
     private static void OpenMainLoad()
@@ -292,9 +351,11 @@ public static class PlayerUiGraphicalE2ERunner
         Button confirm = exitPanel.GetComponentsInChildren<Button>(true)
             .FirstOrDefault(button => HasPersistentRoute(button, nameof(MainMenuController.ConfirmExit)));
         Require(confirm != null, "Quit confirmation destructive action is missing.");
-        confirm.Select();
+        MainMenuButtonHoverEffect effect = confirm.GetComponent<MainMenuButtonHoverEffect>();
+        Require(effect != null, "Quit confirmation hover presentation is missing.");
+        effect.OnPointerEnter(new PointerEventData(EventSystem.current));
         Require(EventSystem.current.currentSelectedGameObject == confirm.gameObject,
-            "Quit confirmation alternate focus did not select Да.");
+            "Quit confirmation mouse hover did not select Да.");
         Capture("main_menu_quit_confirmation_yes_focus_1920x1080.png", "CloseMainQuitConfirmation");
     }
 
@@ -345,7 +406,22 @@ public static class PlayerUiGraphicalE2ERunner
 
         Require(SaveManager.Instance != null, "Gameplay SaveManager is missing.");
         CompleteTyping(dialogue);
-        Capture("gameplay_dialogue_standard_1920x1080.png", "PrepareLongDialogue");
+        Capture("gameplay_dialogue_standard_1920x1080.png", "CaptureQuickSaveFeedback");
+    }
+
+    private static void CaptureQuickSaveFeedback()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (!dialogue.notificationPanel.activeSelf)
+        {
+            dialogue.RequestQuickSave();
+            Retry("Quick Save feedback did not become visible yet.");
+            return;
+        }
+
+        Require(dialogue.notificationText != null && dialogue.notificationText.text.Contains("Быстрое сохранение"),
+            "Quick Save feedback has unexpected copy.");
+        Capture("gameplay_quick_save_feedback_1920x1080.png", "PrepareLongDialogue");
     }
 
     private static void PrepareLongDialogue()
@@ -362,14 +438,37 @@ public static class PlayerUiGraphicalE2ERunner
         VNDialogueController dialogue = RequireGameplayDialogue();
         LoadRuntimeFixture(dialogue, "Выбор остаётся отдельным читаемым действием.", new List<DialogueChoice>
         {
-            new DialogueChoice { text = "Продолжить проверку с длинным вариантом, который корректно переносится на две строки." },
+            new DialogueChoice { text = "Продолжить проверку с длинным вариантом, который корректно переносится на две строки.", trustMashaDelta = 1 },
             new DialogueChoice { text = "Открыть историю после проверки фокуса." },
             new DialogueChoice { text = "Оставить режим чтения без изменения состояния." }
         });
         InvokePrivate(dialogue, "ShowChoices", false);
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
             "The first visible choice did not receive EventSystem focus.");
-        Capture("gameplay_choice_focus_1920x1080.png", "PrepareBacklog");
+        Capture("gameplay_choice_focus_1920x1080.png", "CaptureChoiceHover");
+    }
+
+    private static void CaptureChoiceHover()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Button hovered = dialogue.choiceArtemButton;
+        Require(hovered != null && hovered.gameObject.activeInHierarchy, "Second visible choice is unavailable for hover proof.");
+        ExecuteEvents.Execute<IPointerEnterHandler>(hovered.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+        Require(EventSystem.current.currentSelectedGameObject == hovered.gameObject,
+            "Choice mouse hover did not replace the initial keyboard/controller selection.");
+        InvokePrivate(dialogue, "RefreshChoiceFocusPresentation");
+        Capture("gameplay_choice_hover_1920x1080.png", "CaptureRelationshipFeedback");
+    }
+
+    private static void CaptureRelationshipFeedback()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.choiceMashaButton.onClick.Invoke();
+        Require(dialogue.notificationPanel != null && dialogue.notificationPanel.activeSelf,
+            "Relationship feedback toast did not become visible after the configured choice.");
+        Require(dialogue.notificationText != null && dialogue.notificationText.text.Contains("отношения улучшились"),
+            "Relationship feedback did not expose its current sentence-style copy.");
+        Capture("gameplay_relationship_feedback_1920x1080.png", "PrepareBacklog");
     }
 
     private static void PrepareBacklog()
@@ -637,10 +736,161 @@ public static class PlayerUiGraphicalE2ERunner
         catch (Exception exception) { throw new InvalidOperationException("Could not configure Game View resolution.", exception); }
     }
 
+    private static void CapturePlayerPrefsSnapshot()
+    {
+        SessionState.SetBool(PlayerPrefsSnapshotKey, true);
+        SessionState.SetBool(PlayerPrefsRestoredKey, false);
+
+        foreach (string key in PlayerPrefsFloatKeys)
+        {
+            CapturePlayerPrefsFloat(key);
+        }
+
+        foreach (string key in PlayerPrefsIntKeys)
+        {
+            CapturePlayerPrefsInt(key);
+        }
+
+        foreach (string key in PlayerPrefsStringKeys)
+        {
+            CapturePlayerPrefsString(key);
+        }
+    }
+
+    private static void CapturePlayerPrefsFloat(string key)
+    {
+        string prefix = PlayerPrefsSnapshotPrefix + key;
+        bool exists = PlayerPrefs.HasKey(key);
+        SessionState.SetBool(prefix + ".Exists", exists);
+        if (exists) SessionState.SetFloat(prefix + ".Value", PlayerPrefs.GetFloat(key));
+    }
+
+    private static void CapturePlayerPrefsInt(string key)
+    {
+        string prefix = PlayerPrefsSnapshotPrefix + key;
+        bool exists = PlayerPrefs.HasKey(key);
+        SessionState.SetBool(prefix + ".Exists", exists);
+        if (exists) SessionState.SetInt(prefix + ".Value", PlayerPrefs.GetInt(key));
+    }
+
+    private static void CapturePlayerPrefsString(string key)
+    {
+        string prefix = PlayerPrefsSnapshotPrefix + key;
+        bool exists = PlayerPrefs.HasKey(key);
+        SessionState.SetBool(prefix + ".Exists", exists);
+        if (exists) SessionState.SetString(prefix + ".Value", PlayerPrefs.GetString(key));
+    }
+
+    private static bool RestorePlayerPrefsSnapshot()
+    {
+        if (!SessionState.GetBool(PlayerPrefsSnapshotKey, false)) return true;
+
+        bool restored = true;
+        try
+        {
+            foreach (string key in PlayerPrefsFloatKeys)
+            {
+                restored &= RestorePlayerPrefsFloat(key);
+            }
+
+            foreach (string key in PlayerPrefsIntKeys)
+            {
+                restored &= RestorePlayerPrefsInt(key);
+            }
+
+            foreach (string key in PlayerPrefsStringKeys)
+            {
+                restored &= RestorePlayerPrefsString(key);
+            }
+
+            PlayerPrefs.Save();
+            restored &= VerifyPlayerPrefsSnapshot();
+        }
+        catch (Exception exception)
+        {
+            restored = false;
+            Debug.LogError("[PLAYER UI E2E] PlayerPrefs restore failed: " + exception);
+        }
+
+        SessionState.SetBool(PlayerPrefsRestoredKey, restored);
+        SessionState.SetBool(PlayerPrefsSnapshotKey, false);
+        return restored;
+    }
+
+    private static bool RestorePlayerPrefsFloat(string key)
+    {
+        string prefix = PlayerPrefsSnapshotPrefix + key;
+        if (!SessionState.GetBool(prefix + ".Exists", false))
+        {
+            PlayerPrefs.DeleteKey(key);
+            return true;
+        }
+
+        PlayerPrefs.SetFloat(key, SessionState.GetFloat(prefix + ".Value", 0f));
+        return true;
+    }
+
+    private static bool RestorePlayerPrefsInt(string key)
+    {
+        string prefix = PlayerPrefsSnapshotPrefix + key;
+        if (!SessionState.GetBool(prefix + ".Exists", false))
+        {
+            PlayerPrefs.DeleteKey(key);
+            return true;
+        }
+
+        PlayerPrefs.SetInt(key, SessionState.GetInt(prefix + ".Value", 0));
+        return true;
+    }
+
+    private static bool RestorePlayerPrefsString(string key)
+    {
+        string prefix = PlayerPrefsSnapshotPrefix + key;
+        if (!SessionState.GetBool(prefix + ".Exists", false))
+        {
+            PlayerPrefs.DeleteKey(key);
+            return true;
+        }
+
+        PlayerPrefs.SetString(key, SessionState.GetString(prefix + ".Value", string.Empty));
+        return true;
+    }
+
+    private static bool VerifyPlayerPrefsSnapshot()
+    {
+        bool matches = true;
+        foreach (string key in PlayerPrefsFloatKeys)
+        {
+            string prefix = PlayerPrefsSnapshotPrefix + key;
+            bool exists = SessionState.GetBool(prefix + ".Exists", false);
+            matches &= PlayerPrefs.HasKey(key) == exists;
+            if (exists) matches &= Mathf.Approximately(PlayerPrefs.GetFloat(key), SessionState.GetFloat(prefix + ".Value", 0f));
+        }
+
+        foreach (string key in PlayerPrefsIntKeys)
+        {
+            string prefix = PlayerPrefsSnapshotPrefix + key;
+            bool exists = SessionState.GetBool(prefix + ".Exists", false);
+            matches &= PlayerPrefs.HasKey(key) == exists;
+            if (exists) matches &= PlayerPrefs.GetInt(key) == SessionState.GetInt(prefix + ".Value", 0);
+        }
+
+        foreach (string key in PlayerPrefsStringKeys)
+        {
+            string prefix = PlayerPrefsSnapshotPrefix + key;
+            bool exists = SessionState.GetBool(prefix + ".Exists", false);
+            matches &= PlayerPrefs.HasKey(key) == exists;
+            if (exists) matches &= PlayerPrefs.GetString(key) == SessionState.GetString(prefix + ".Value", string.Empty);
+        }
+
+        return matches;
+    }
+
     private static void Success()
     {
         Require(string.IsNullOrEmpty(SessionState.GetString(ErrorsKey, string.Empty)), "Unity Console contained errors:\n" + SessionState.GetString(ErrorsKey, string.Empty));
-        WriteResult("PASS", "all required PlayerUi screenshots captured, including 1280x720 Preferences");
+        Require(RestorePlayerPrefsSnapshot(), "PlayerPrefs snapshot could not be restored.");
+        WriteResult("PASS", "all required PlayerUi screenshots captured, including 1280x720 Preferences; playerPrefsRestored=true");
         DestroyRuntimeFixtures();
         CleanupTestDirectory();
         SessionState.SetString(StageKey, "ExitSuccess");
@@ -649,7 +899,8 @@ public static class PlayerUiGraphicalE2ERunner
 
     private static void Fail(string details)
     {
-        WriteResult("FAIL", details);
+        bool restored = RestorePlayerPrefsSnapshot();
+        WriteResult("FAIL", details + "\nplayerPrefsRestored=" + restored.ToString().ToLowerInvariant());
         DestroyRuntimeFixtures();
         CleanupTestDirectory();
         Debug.LogError("[PLAYER UI E2E] FAILURE: " + details);
@@ -660,7 +911,14 @@ public static class PlayerUiGraphicalE2ERunner
 
     private static void OnPlayModeStateChanged(PlayModeStateChange state)
     {
-        if (!SessionState.GetBool(ActiveKey, false) || state != PlayModeStateChange.EnteredEditMode) return;
+        if (!SessionState.GetBool(ActiveKey, false)) return;
+        if (state == PlayModeStateChange.ExitingPlayMode)
+        {
+            RestorePlayerPrefsSnapshot();
+            return;
+        }
+
+        if (state != PlayModeStateChange.EnteredEditMode) return;
         string stage = SessionState.GetString(StageKey, string.Empty);
         SessionState.SetBool(ActiveKey, false);
         if (stage == "ExitSuccess") EditorApplication.Exit(0);

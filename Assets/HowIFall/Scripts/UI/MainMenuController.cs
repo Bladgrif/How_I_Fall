@@ -618,6 +618,7 @@ public sealed class MainMenuController : MonoBehaviour
     {
         if (exitConfirmPanel != null)
         {
+            ApplyMainMenuQuitCopy();
             CaptureModalFocusRestoreTarget(FindPersistentButton(this, nameof(OpenExitConfirm)));
             exitConfirmPanel.SetActive(true);
             FocusExitConfirmationCancel();
@@ -885,6 +886,23 @@ public sealed class MainMenuController : MonoBehaviour
         if (cancel != null && eventSystem != null)
         {
             eventSystem.SetSelectedGameObject(cancel.gameObject);
+        }
+    }
+
+    private void ApplyMainMenuQuitCopy()
+    {
+        if (exitConfirmPanel == null)
+        {
+            return;
+        }
+
+        TextMeshProUGUI body = exitConfirmPanel.GetComponentsInChildren<TextMeshProUGUI>(true)
+            .Where(text => text.GetComponentInParent<Button>(true) == null
+                && text.text.Contains("Несохран"))
+            .FirstOrDefault();
+        if (body != null)
+        {
+            body.text = "Вы действительно хотите выйти из игры?";
         }
     }
 

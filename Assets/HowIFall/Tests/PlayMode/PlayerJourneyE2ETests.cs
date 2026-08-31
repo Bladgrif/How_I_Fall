@@ -126,15 +126,15 @@ namespace HowIFall.PlayModeTests
                 "Preferences did not open from Main Menu.");
             SharedPreferencesView preferences = FindPreferencesView("MainMenu");
             Assert.That(preferences, Is.Not.Null.And.Property("IsVisible").True);
-            Button screenModeSelector = preferences.GetButton(SharedPreferencesView.ScreenModeId);
+            TMP_Dropdown screenModeSelector = preferences.GetDropdown(SharedPreferencesView.ScreenModeId);
             Assert.That(screenModeSelector, Is.Not.Null.And.Property("interactable").True);
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(screenModeSelector.gameObject),
-                "Main Menu Preferences did not assign deterministic selector focus.");
+                "Main Menu Preferences did not assign deterministic dropdown focus.");
             string previousScreenMode = SettingsManager.Instance.settings.screenMode;
-            Click(screenModeSelector, "Screen Mode selector");
+            screenModeSelector.value = (screenModeSelector.value + 1) % screenModeSelector.options.Count;
             yield return null;
             Assert.That(SettingsManager.Instance.settings.screenMode, Is.Not.EqualTo(previousScreenMode),
-                "Screen Mode direct selector did not apply its cyclic setting.");
+                "Screen Mode dropdown did not apply its selected setting.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.Not.Null,
                 "Screen Mode selector interaction left an invalid selected object.");
             Toggle quickMenuToggle = preferences.GetToggle(SharedPreferencesView.ShowQuickMenuId);
@@ -146,6 +146,9 @@ namespace HowIFall.PlayModeTests
             yield return null;
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(menu.PlayerFacingActionButtons[3].gameObject),
                 "Closing Main Menu Preferences did not restore Settings focus.");
+            Hover(menu.PlayerFacingActionButtons[1], "Main Menu New Game after Preferences");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(menu.PlayerFacingActionButtons[1].gameObject),
+                "Mouse hover retained the Settings selection alongside another Main Menu action.");
 
             Click(menu.PlayerFacingActionButtons[3], "Reopen Main Menu Preferences");
             yield return null;
@@ -163,6 +166,14 @@ namespace HowIFall.PlayModeTests
             yield return null;
             GameObject exitPanel = FindSceneObject("Exit Confirm Panel");
             Assert.That(exitPanel, Is.Not.Null.And.Property("activeSelf").True, "Quit confirmation did not open.");
+            Assert.That(exitPanel.GetComponentsInChildren<TextMeshProUGUI>(true)
+                    .Any(text => text.GetComponentInParent<Button>(true) == null
+                        && text.text == "Вы действительно хотите выйти из игры?"),
+                Is.True, "Main Menu Quit must not warn about unsaved gameplay progress.");
+            Button quitConfirm = FindButtonWithRoute(menu, nameof(MainMenuController.ConfirmExit));
+            Hover(quitConfirm, "Quit confirmation Yes");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(quitConfirm.gameObject),
+                "Quit confirmation mouse hover left the safe default and destructive action active together.");
             Click(FindButtonWithRoute(menu, nameof(MainMenuController.CloseExitConfirm)), "Quit Cancel");
             yield return null;
             Assert.That(exitPanel.activeSelf, Is.False, "Quit Cancel did not return to Main Menu.");
@@ -216,7 +227,7 @@ namespace HowIFall.PlayModeTests
             SharedPreferencesView gameplayPreferences = FindPreferencesView("Gameplay");
             Assert.That(gameplayPreferences.IsVisible, Is.True);
             Assert.That(EventSystem.current.currentSelectedGameObject,
-                Is.EqualTo(gameplayPreferences.GetButton(SharedPreferencesView.ScreenModeId).gameObject),
+                Is.EqualTo(gameplayPreferences.GetDropdown(SharedPreferencesView.ScreenModeId).gameObject),
                 "Gameplay Preferences did not assign deterministic default focus.");
             Assert.That(dialogue.HandleEscapePressed(), Is.True, "Preferences Back/Esc was not handled.");
             yield return WaitForCondition(() => gameMenu.IsPresentationVisible, "Preferences Back did not restore Game Menu.");
@@ -555,6 +566,15 @@ namespace HowIFall.PlayModeTests
             Assert.That(button.gameObject.activeInHierarchy, Is.True, $"Player-facing button is hidden: {actionName}.");
             Assert.That(button.interactable, Is.True, $"Player-facing button is disabled: {actionName}.");
             button.onClick.Invoke();
+        }
+
+        private static void Hover(Button button, string actionName)
+        {
+            Assert.That(button, Is.Not.Null, $"Player-facing button is missing: {actionName}.");
+            ExecuteEvents.Execute<IPointerEnterHandler>(
+                button.gameObject,
+                new PointerEventData(EventSystem.current),
+                ExecuteEvents.pointerEnterHandler);
         }
 
         private static Texture2D CreatePreviewTexture()

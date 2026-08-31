@@ -1956,6 +1956,11 @@ public class VNDialogueController : MonoBehaviour
             colors.colorMultiplier = 1f;
             button.colors = colors;
 
+            if (button.GetComponent<ChoicePointerFocus>() == null)
+            {
+                button.gameObject.AddComponent<ChoicePointerFocus>();
+            }
+
             Outline outline = button.GetComponent<Outline>();
             if (outline != null)
             {
@@ -2021,9 +2026,11 @@ public class VNDialogueController : MonoBehaviour
             }
 
             bool selected = button.gameObject == selectedObject;
-            if (selected && button.targetGraphic is Image targetImage)
+            if (button.targetGraphic is Image targetImage)
             {
-                targetImage.color = new Color(0.08f, 0.23f, 0.32f, 0.98f);
+                targetImage.color = selected
+                    ? new Color(0.08f, 0.23f, 0.32f, 0.98f)
+                    : new Color(0.025f, 0.06f, 0.12f, 0.88f);
             }
 
             Outline outline = button.GetComponent<Outline>();
@@ -2056,6 +2063,18 @@ public class VNDialogueController : MonoBehaviour
 
         EventSystem eventSystem = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
         eventSystem?.SetSelectedGameObject(control.gameObject);
+    }
+
+    private sealed class ChoicePointerFocus : MonoBehaviour, IPointerEnterHandler
+    {
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            Button button = GetComponent<Button>();
+            if (button != null && button.isActiveAndEnabled && button.interactable)
+            {
+                (EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>())?.SetSelectedGameObject(button.gameObject);
+            }
+        }
     }
 
     public bool TryGetSavePosition(

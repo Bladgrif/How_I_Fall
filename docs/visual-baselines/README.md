@@ -15,6 +15,12 @@ These images are the current accepted/review baselines for key player-facing UI 
 - Reviewer should open the real images and compare them with the previous state; for a major redesign, external game/VN references may also be useful.
 - Baselines are not final art, pixel-perfect golden-image tests, or automatic aesthetic approval.
 
+## Main Menu and Preferences
+
+- `main_menu.png` — default Main Menu focus marker alignment.
+- `main_menu_quit_confirmation.png` — Quit confirmation with explicit destructive-action hover and a single active state.
+- `preferences.png` — real Screen Mode / Resolution TMP dropdowns and maximum Text Speed label without slider overlap.
+
 ## Save/Load
 
 - `save_load_save.png` — gameplay Save / Manual after a successful write.
@@ -25,6 +31,7 @@ These images are the current accepted/review baselines for key player-facing UI 
 ## Core reading experience
 
 - `reading_dialogue_125.png` — long dialogue at the supported 125% text scale.
-- `reading_choice_focus.png` — wrapped choice labels and deterministic first focus.
+- `reading_choice_focus.png` — wrapped choice labels and deterministic first keyboard/controller focus.
+- `reading_choice_hover.png` — mouse hover transfers choice focus without a second selected state.
 - `reading_backlog.png` — scrolled history with speaker/narration separation.
 - `reading_auto_active.png` — Auto active state in the persistent Quick Menu.
