@@ -191,15 +191,10 @@ public static class ManualSaveSystemV1SmokeTests
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, true);
             Require(panel.slotViews.All(view => view.button.interactable), "Manual cards are not writable in Save mode.");
-            Require(!panel.slotTypeHintText.gameObject.activeSelf, "Manual Save unexpectedly shows a type hint.");
-
-            RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Auto, true);
-            Require(panel.slotViews.All(view => !view.button.interactable), "Auto cards are primary-clickable in Save mode.");
-            Require(panel.slotTypeHintText.text == "Автосохранения создаются игрой автоматически" && panel.slotTypeHintText.gameObject.activeSelf, "Auto Save hint is incorrect.");
-
-            RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Quick, true);
-            Require(panel.slotViews.All(view => !view.button.interactable), "Quick cards are primary-clickable in Save mode.");
-            Require(panel.slotTypeHintText.text == "Быстрые сохранения создаются отдельной командой" && panel.slotTypeHintText.gameObject.activeSelf, "Quick Save hint is incorrect.");
+            Require(!panel.slotTypeHintText.gameObject.activeSelf,
+                "Save mode unexpectedly shows a duplicate supporting label.");
+            Require(!panel.autoTabButton.gameObject.activeSelf && !panel.quickTabButton.gameObject.activeSelf,
+                "Save mode exposes Auto or Quick family navigation.");
         }
         finally
         {

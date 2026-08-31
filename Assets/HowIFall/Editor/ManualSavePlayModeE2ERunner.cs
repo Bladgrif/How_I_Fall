@@ -130,6 +130,9 @@ public static class ManualSavePlayModeE2ERunner
             case "WaitMainSlotLoadScreenshot":
                 WaitMainSlotLoadScreenshot();
                 break;
+            case "CaptureMainSlotLoadScreenshot":
+                CaptureMainSlotLoadScreenshot();
+                break;
             case "WaitLoadConfirmationScreenshot":
                 WaitLoadConfirmationScreenshot();
                 break;
@@ -218,8 +221,7 @@ public static class ManualSavePlayModeE2ERunner
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == menu.manualSaveLoadPanel.closeButton.gameObject,
             "Empty Main Menu Load did not select the safe Close control.");
         UnityEngine.UI.Selectable emptyLoadDown = menu.manualSaveLoadPanel.manualTabButton.navigation.selectOnDown;
-        Require(emptyLoadDown == menu.manualSaveLoadPanel.closeButton
-                || emptyLoadDown == menu.manualSaveLoadPanel.manualPageButtons[0],
+        Require(emptyLoadDown == menu.manualSaveLoadPanel.closeButton,
             "Empty Main Menu Load tab navigation points at a disabled slot.");
         menu.manualSaveLoadPanel.Close();
         Pass("Empty slot, safe initial focus and six-slot Main Menu UI");
@@ -347,6 +349,7 @@ public static class ManualSavePlayModeE2ERunner
         ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
         Require(panel != null && panel.IsOpen, "Save panel closed before UI screenshot capture.");
         VerifyPanelLayout(panel, resolution);
+        Canvas.ForceUpdateCanvases();
 
         string path = GetUiScreenshotPath(resolution);
         Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -637,10 +640,19 @@ public static class ManualSavePlayModeE2ERunner
         }
 
         menu.OpenManualLoad();
-        Require(menu.manualSaveLoadPanel.titleText != null && menu.manualSaveLoadPanel.titleText.text == "Загрузка", "Main Menu Load title is incorrect.");
+        Require(menu.manualSaveLoadPanel.titleText != null && menu.manualSaveLoadPanel.titleText.text == "ЗАГРУЗИТЬ", "Main Menu Load title is incorrect.");
         Require(menu.manualSaveLoadPanel.slotViews[0].button.interactable, "Slot 1 is disabled in Main Menu Load mode.");
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == menu.manualSaveLoadPanel.slotViews[0].button.gameObject,
             "Main Menu Load did not select its first loadable slot.");
+        SessionState.SetString(StageKey, "CaptureMainSlotLoadScreenshot");
+        SetDelay(0.25d);
+    }
+
+    private static void CaptureMainSlotLoadScreenshot()
+    {
+        ManualSaveLoadPanel panel = UnityEngine.Object.FindAnyObjectByType<MainMenuController>()?.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen, "Main Menu Load closed before screenshot capture.");
+        Canvas.ForceUpdateCanvases();
         CaptureProofScreenshot(MainMenuLoadProofFileName, "WaitMainSlotLoadScreenshot");
     }
 
@@ -954,18 +966,16 @@ public static class ManualSavePlayModeE2ERunner
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.slotViews[0].button.gameObject,
             "Save panel has no deterministic selected card.");
         Require(panel.slotViews[0].HasEventSystemFocus, "Selected card has no EventSystem focus state.");
-        Require(panel.manualTabButton.navigation.selectOnDown == panel.manualPageButtons[0],
-            "Manual tab cannot reach the pagination row.");
-        Require(panel.manualPageButtons[0].navigation.selectOnUp == panel.slotViews[0].button,
-            "Manual pagination cannot reach the first save card.");
+        Require(panel.manualTabButton.navigation.selectOnUp == panel.slotViews[0].button,
+            "Compact Manual navigation cannot reach the first save card.");
         Require(panel.slotViews[0].button.navigation.selectOnRight == panel.slotViews[1].button,
             "Save grid does not preserve predictable horizontal card navigation.");
         Require(panel.slotViews[0].deleteButton.navigation.selectOnLeft == panel.slotViews[0].button,
             "Secondary Delete control cannot return to its owning card.");
         Require(panel.slotViews[0].button.navigation.selectOnDown == panel.slotViews[3].button,
             "Save grid does not navigate predictably to the second row.");
-        Require(panel.slotViews[3].button.navigation.selectOnDown == panel.manualPageButtons[0],
-            "Second save row cannot reach Manual pagination without a navigation trap.");
+        Require(panel.slotViews[3].button.navigation.selectOnDown == panel.manualTabButton,
+            "Second save row cannot reach compact Manual navigation without a navigation trap.");
     }
 
     private static void VerifyPanelLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
@@ -1015,6 +1025,7 @@ public static class ManualSavePlayModeE2ERunner
             File.Delete(path);
         }
 
+        Canvas.ForceUpdateCanvases();
         ScreenCapture.CaptureScreenshot(path);
         SessionState.SetInt(CounterKey, 0);
         SessionState.SetString(StageKey, nextStage);

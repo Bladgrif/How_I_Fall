@@ -63,6 +63,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private Coroutine panelAnimation;
     private Coroutine confirmationAnimation;
     private Coroutine statusAnimation;
+    private RectTransform compactNavigationRoot;
 
     public bool IsOpen => gameObject.activeSelf;
     public bool IsConfirmationOpen => confirmationRoot != null && confirmationRoot.activeSelf;
@@ -94,6 +95,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private void Awake()
     {
         ApplyPlayerFacingPalette();
+        ConfigureCompactNavigationPresentation();
         if (canvasGroup == null)
         {
             canvasGroup = GetComponent<CanvasGroup>();
@@ -141,6 +143,59 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         SetConfirmationVisible(false, true);
         ApplySlotTypePresentation();
+    }
+
+    // Reuse the existing family buttons and Manual pagination controls as one small
+    // navigation line. Keeping this runtime-only preserves the shared prefab wiring
+    // used by Main Menu and the embedded Game Menu presentation.
+    private void ConfigureCompactNavigationPresentation()
+    {
+        compactNavigationRoot = manualPaginationRoot != null
+            ? manualPaginationRoot.transform as RectTransform
+            : null;
+        if (compactNavigationRoot == null)
+        {
+            return;
+        }
+
+        Transform legacyTabsRoot = manualTabButton != null ? manualTabButton.transform.parent : null;
+        MoveToCompactNavigation(manualTabButton);
+        MoveToCompactNavigation(autoTabButton);
+        MoveToCompactNavigation(quickTabButton);
+        MoveToCompactNavigation(previousManualPageButton);
+        MoveToCompactNavigation(nextManualPageButton);
+
+        if (manualPageButtons != null)
+        {
+            foreach (Button pageButton in manualPageButtons)
+            {
+                if (pageButton != null)
+                {
+                    pageButton.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        if (legacyTabsRoot != null && legacyTabsRoot != compactNavigationRoot)
+        {
+            legacyTabsRoot.gameObject.SetActive(false);
+        }
+
+        compactNavigationRoot.anchorMin = new Vector2(0.5f, 0f);
+        compactNavigationRoot.anchorMax = new Vector2(0.5f, 0f);
+        compactNavigationRoot.pivot = new Vector2(0.5f, 0.5f);
+        compactNavigationRoot.anchoredPosition = new Vector2(0f, 52f);
+        compactNavigationRoot.sizeDelta = new Vector2(860f, 48f);
+    }
+
+    private void MoveToCompactNavigation(Button button)
+    {
+        if (button == null || compactNavigationRoot == null)
+        {
+            return;
+        }
+
+        button.transform.SetParent(compactNavigationRoot, false);
     }
 
     private void ApplyPlayerFacingPalette()
@@ -390,7 +445,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
         if (titleText != null)
         {
-            titleText.text = mode == PanelMode.Save ? "Сохранение" : "Загрузка";
+            titleText.text = mode == PanelMode.Save ? "СОХРАНИТЬ" : "ЗАГРУЗИТЬ";
         }
 
         ApplySlotTypePresentation();
@@ -807,7 +862,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private void SelectSlotType(SaveSlotType slotType)
     {
-        if (HasOperationInProgress() || IsConfirmationOpen || currentSlotType == slotType)
+        if (HasOperationInProgress() || IsConfirmationOpen || (mode == PanelMode.Save && slotType != SaveSlotType.Manual) || currentSlotType == slotType)
         {
             return;
         }
@@ -830,32 +885,63 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             };
         }
 
+        bool manualActive = currentSlotType == SaveSlotType.Manual;
+        bool loadMode = mode == PanelMode.Load;
         if (slotTypeHintText != null)
         {
-            string hint = mode == PanelMode.Save
-                ? currentSlotType switch
-                {
-                    SaveSlotType.Auto => "Автосохранения создаются игрой автоматически",
-                    SaveSlotType.Quick => "Быстрые сохранения создаются отдельной командой",
-                    _ => string.Empty
-                }
-                : string.Empty;
-            slotTypeHintText.text = hint;
-            slotTypeHintText.gameObject.SetActive(!string.IsNullOrEmpty(hint));
+            slotTypeHintText.text = string.Empty;
+            slotTypeHintText.gameObject.SetActive(false);
         }
 
-        bool manualActive = currentSlotType == SaveSlotType.Manual;
-        if (manualPaginationRoot != null) manualPaginationRoot.SetActive(manualActive);
-        if (previousManualPageButton != null) previousManualPageButton.interactable = currentManualPage > 1;
-        if (nextManualPageButton != null) nextManualPageButton.interactable = currentManualPage < SaveManager.ManualPageCount;
-        if (manualPageButtons != null)
+        if (manualPaginationRoot != null) manualPaginationRoot.SetActive(true);
+        SetButtonLabel(manualTabButton, loadMode ? $"РУЧНЫЕ {currentManualPage} / {SaveManager.ManualPageCount}" : $"{currentManualPage} / {SaveManager.ManualPageCount}");
+        SetButtonLabel(autoTabButton, currentSlotType == SaveSlotType.Auto ? "АВТОСОХРАНЕНИЯ" : "АВТО");
+        SetButtonLabel(quickTabButton, currentSlotType == SaveSlotType.Quick ? "БЫСТРЫЕ СОХРАНЕНИЯ" : "БЫСТРЫЕ");
+
+        SetCompactButtonLayout(manualTabButton, 0f, loadMode ? 220f : 116f);
+        SetCompactButtonLayout(autoTabButton, -300f, currentSlotType == SaveSlotType.Auto ? 240f : 130f);
+        SetCompactButtonLayout(quickTabButton, 300f, currentSlotType == SaveSlotType.Quick ? 250f : 150f);
+        SetCompactButtonLayout(previousManualPageButton, -155f, 42f);
+        SetCompactButtonLayout(nextManualPageButton, 155f, 42f);
+
+        if (previousManualPageButton != null)
         {
-            for (int i = 0; i < manualPageButtons.Length; i++) SetPageVisual(manualPageButtons[i], i + 1 == currentManualPage);
+            previousManualPageButton.gameObject.SetActive(manualActive);
+            previousManualPageButton.interactable = currentManualPage > 1;
         }
+
+        if (nextManualPageButton != null)
+        {
+            nextManualPageButton.gameObject.SetActive(manualActive);
+            nextManualPageButton.interactable = currentManualPage < SaveManager.ManualPageCount;
+        }
+
+        if (autoTabButton != null) autoTabButton.gameObject.SetActive(loadMode);
+        if (quickTabButton != null) quickTabButton.gameObject.SetActive(loadMode);
 
         SetTabVisual(manualTabButton, manualActive);
         SetTabVisual(autoTabButton, currentSlotType == SaveSlotType.Auto);
         SetTabVisual(quickTabButton, currentSlotType == SaveSlotType.Quick);
+    }
+
+    private static void SetCompactButtonLayout(Button button, float x, float width)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        RectTransform rect = button.transform as RectTransform;
+        if (rect == null)
+        {
+            return;
+        }
+
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(x, 0f);
+        rect.sizeDelta = new Vector2(width, 38f);
     }
 
     private static string GetUnavailableSlotMessage(SaveSlotInfo slot)
@@ -872,29 +958,35 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     {
         Button firstSlot = FindFirstInteractiveSlotButton();
         Button gridEntry = firstSlot ?? closeButton;
-        Button pageEntry = currentSlotType == SaveSlotType.Manual
-            && manualPageButtons != null
-            && manualPageButtons.Length > 0
-            && IsInteractive(manualPageButtons[0])
-            ? manualPageButtons[0]
+        Button activeFamilyButton = GetTabButton(currentSlotType);
+        Button pageEntry = currentSlotType == SaveSlotType.Manual && IsInteractive(manualTabButton)
+            ? manualTabButton
             : gridEntry;
-        SetNavigation(manualTabButton, closeButton, autoTabButton, gridEntry, pageEntry);
-        SetNavigation(autoTabButton, manualTabButton, quickTabButton, gridEntry, gridEntry);
-        SetNavigation(quickTabButton, autoTabButton, closeButton, gridEntry, gridEntry);
-        SetNavigation(closeButton, quickTabButton, manualTabButton, gridEntry, manualTabButton);
 
-        if (currentSlotType == SaveSlotType.Manual && manualPageButtons != null)
+        if (mode == PanelMode.Save)
         {
             Button previous = previousManualPageButton;
             Button next = nextManualPageButton;
-            SetNavigation(previous, closeButton, manualPageButtons[0], firstSlot, manualTabButton);
-            for (int i = 0; i < manualPageButtons.Length; i++)
-            {
-                Button left = i == 0 ? previous : manualPageButtons[i - 1];
-                Button right = i == manualPageButtons.Length - 1 ? next : manualPageButtons[i + 1];
-                SetNavigation(manualPageButtons[i], left, right, firstSlot, manualTabButton);
-            }
-            SetNavigation(next, manualPageButtons[manualPageButtons.Length - 1], closeButton, firstSlot, manualTabButton);
+            SetNavigation(previous, closeButton, manualTabButton, firstSlot, closeButton);
+            SetNavigation(manualTabButton, previous, next, firstSlot, closeButton);
+            SetNavigation(next, manualTabButton, closeButton, firstSlot, closeButton);
+            SetNavigation(closeButton, next, previous, gridEntry, manualTabButton);
+        }
+        else if (currentSlotType == SaveSlotType.Manual)
+        {
+            SetNavigation(autoTabButton, closeButton, previousManualPageButton, gridEntry, closeButton);
+            SetNavigation(previousManualPageButton, autoTabButton, manualTabButton, firstSlot, closeButton);
+            SetNavigation(manualTabButton, previousManualPageButton, nextManualPageButton, firstSlot, closeButton);
+            SetNavigation(nextManualPageButton, manualTabButton, quickTabButton, firstSlot, closeButton);
+            SetNavigation(quickTabButton, nextManualPageButton, closeButton, gridEntry, closeButton);
+            SetNavigation(closeButton, quickTabButton, autoTabButton, gridEntry, manualTabButton);
+        }
+        else
+        {
+            SetNavigation(manualTabButton, closeButton, autoTabButton, gridEntry, closeButton);
+            SetNavigation(autoTabButton, manualTabButton, quickTabButton, gridEntry, closeButton);
+            SetNavigation(quickTabButton, autoTabButton, closeButton, gridEntry, closeButton);
+            SetNavigation(closeButton, quickTabButton, manualTabButton, gridEntry, activeFamilyButton);
         }
 
         for (int index = 0; slotViews != null && index < slotViews.Length; index++)
@@ -908,11 +1000,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
             int column = index % 3;
             int row = index / 3;
-            Button left = FindInteractiveSlotInDirection(index, -1, row, true) ?? GetTabButton(SaveSlotType.Manual);
+            Button left = FindInteractiveSlotInDirection(index, -1, row, true) ?? activeFamilyButton;
             Button right = FindInteractiveSlotInDirection(index, 1, row, true) ?? (view != null && IsInteractive(view.deleteButton) ? view.deleteButton : closeButton);
             Button up = row == 0
-                ? GetTabButton((SaveSlotType)column)
-                : FindSlotButton(index - 3) ?? GetTabButton((SaveSlotType)column);
+                ? activeFamilyButton
+                : FindSlotButton(index - 3) ?? activeFamilyButton;
             Button down = row == 0
                 ? FindSlotButton(index + 3) ?? pageEntry
                 : pageEntry;

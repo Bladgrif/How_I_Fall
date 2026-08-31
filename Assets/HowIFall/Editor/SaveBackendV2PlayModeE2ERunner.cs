@@ -13,8 +13,6 @@ using UnityEngine.SceneManagement;
 [InitializeOnLoad]
 public static class SaveBackendV2PlayModeE2ERunner
 {
-    private static readonly Color ActiveTabOutlineColor = new Color(0.28f, 0.54f, 0.76f, 0.62f);
-    private static readonly Color InactiveTabOutlineColor = new Color(0.16f, 0.25f, 0.34f, 0.34f);
 
     private const string ActiveKey = "HowIFall.SaveBackendV2E2E.Active";
     private const string StageKey = "HowIFall.SaveBackendV2E2E.Stage";
@@ -606,6 +604,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         yield return new WaitForSecondsRealtime(0.2f);
         VerifyTabPresentation(panel, manager, SaveSlotType.Manual, false);
         Require(panel.CurrentSlotType == SaveSlotType.Manual, "OpenLoad did not reset the panel to Manual.");
+        Require(panel.titleText.text == "ЗАГРУЗИТЬ", "Load title is incorrect.");
 
         Vector2Int resolution = TabsUiResolution;
         ConfigureGameViewResolution(resolution);
@@ -619,7 +618,9 @@ public static class SaveBackendV2PlayModeE2ERunner
         foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
         {
             SelectTab(panel, type);
-            yield return new WaitForSecondsRealtime(0.12f);
+            yield return new WaitForSecondsRealtime(0.2f);
+            Canvas.ForceUpdateCanvases();
+            yield return null;
             VerifyTabPresentation(panel, manager, type, false);
             VerifyTabsLayout(panel, resolution);
             yield return new WaitForEndOfFrame();
@@ -659,26 +660,21 @@ public static class SaveBackendV2PlayModeE2ERunner
         yield return new WaitForSecondsRealtime(0.12f);
         VerifyTabPresentation(panel, manager, SaveSlotType.Manual, true);
         Require(panel.CurrentSlotType == SaveSlotType.Manual, "OpenSave did not reset the panel to Manual.");
+        Require(panel.titleText.text == "СОХРАНИТЬ", "Save title is incorrect.");
         Require(panel.slotViews.All(view => view.button.interactable), "Manual slots are not writable in Save mode.");
 
         Dictionary<string, byte[]> autoFilesBeforeReadOnlyClick = CaptureTypeFiles(manager, SaveSlotType.Auto);
         panel.SelectAutoTab();
-        VerifyTabPresentation(panel, manager, SaveSlotType.Auto, true);
-        Require(panel.slotViews.All(view => !view.button.interactable), "Auto cards have an active primary click in Save mode.");
-        panel.OnSlotSelected(2);
-        yield return null;
-        RequireFilesEqual(autoFilesBeforeReadOnlyClick, CaptureTypeFiles(manager, SaveSlotType.Auto), "Auto primary click changed files in Save mode.");
-        Require(!panel.IsConfirmationOpen, "Auto primary click opened overwrite confirmation in Save mode.");
+        Require(panel.CurrentSlotType == SaveSlotType.Manual, "Save mode exposed Auto navigation.");
+        Require(!panel.autoTabButton.gameObject.activeSelf, "Save mode left Auto navigation visible.");
+        RequireFilesEqual(autoFilesBeforeReadOnlyClick, CaptureTypeFiles(manager, SaveSlotType.Auto), "Save mode changed Auto files.");
 
         Dictionary<string, byte[]> quickFilesBeforeReadOnlyClick = CaptureTypeFiles(manager, SaveSlotType.Quick);
         panel.SelectQuickTab();
-        VerifyTabPresentation(panel, manager, SaveSlotType.Quick, true);
-        Require(panel.slotViews.All(view => !view.button.interactable), "Quick cards have an active primary click in Save mode.");
-        panel.OnSlotSelected(2);
-        yield return null;
-        RequireFilesEqual(quickFilesBeforeReadOnlyClick, CaptureTypeFiles(manager, SaveSlotType.Quick), "Quick primary click changed files in Save mode.");
-        Require(!panel.IsConfirmationOpen, "Quick primary click opened overwrite confirmation in Save mode.");
-        Pass("Save mode keeps Manual writable and makes Auto/Quick view-delete only");
+        Require(panel.CurrentSlotType == SaveSlotType.Manual, "Save mode exposed Quick navigation.");
+        Require(!panel.quickTabButton.gameObject.activeSelf, "Save mode left Quick navigation visible.");
+        RequireFilesEqual(quickFilesBeforeReadOnlyClick, CaptureTypeFiles(manager, SaveSlotType.Quick), "Save mode changed Quick files.");
+        Pass("Save mode keeps only Manual navigation and writable slots");
 
         panel.OpenLoad();
         panel.SelectAutoTab();
@@ -741,26 +737,33 @@ public static class SaveBackendV2PlayModeE2ERunner
         };
         Require(panel.subtitleText != null && panel.subtitleText.text == expectedSubtitle, $"{type} subtitle is incorrect.");
 
-        string expectedHint = saveMode
-            ? type switch
-            {
-                SaveSlotType.Auto => "Автосохранения создаются игрой автоматически",
-                SaveSlotType.Quick => "Быстрые сохранения создаются отдельной командой",
-                _ => string.Empty
-            }
-            : string.Empty;
+        string expectedHint = string.Empty;
         Require(panel.slotTypeHintText != null && panel.slotTypeHintText.text == expectedHint, $"{type} Save hint is incorrect.");
         Require(panel.slotTypeHintText.gameObject.activeSelf == !string.IsNullOrEmpty(expectedHint), $"{type} Save hint visibility is incorrect.");
 
-        Require(IsTabActive(panel.manualTabButton) == (type == SaveSlotType.Manual), "Manual tab active state is incorrect.");
-        Require(IsTabActive(panel.autoTabButton) == (type == SaveSlotType.Auto), "Auto tab active state is incorrect.");
-        Require(IsTabActive(panel.quickTabButton) == (type == SaveSlotType.Quick), "Quick tab active state is incorrect.");
-        VerifyTabOutline(panel.manualTabButton, type == SaveSlotType.Manual, "Manual");
-        VerifyTabOutline(panel.autoTabButton, type == SaveSlotType.Auto, "Auto");
-        VerifyTabOutline(panel.quickTabButton, type == SaveSlotType.Quick, "Quick");
-
-        Require(panel.manualPaginationRoot != null && panel.manualPaginationRoot.activeSelf == (type == SaveSlotType.Manual),
-            $"{type} pagination visibility is incorrect.");
+        Require(panel.manualPaginationRoot != null && panel.manualPaginationRoot.activeSelf,
+            $"{type} compact navigation root is hidden.");
+        Require(panel.manualTabButton != null && panel.manualTabButton.transform.parent == panel.manualPaginationRoot.transform,
+            "Manual family control is not in the compact navigation area.");
+        Require(panel.autoTabButton != null && panel.autoTabButton.gameObject.activeSelf == !saveMode,
+            "Auto family visibility does not match Save/Load contract.");
+        Require(panel.quickTabButton != null && panel.quickTabButton.gameObject.activeSelf == !saveMode,
+            "Quick family visibility does not match Save/Load contract.");
+        Require(panel.previousManualPageButton.gameObject.activeSelf == (type == SaveSlotType.Manual),
+            $"{type} previous-page visibility is incorrect.");
+        Require(panel.nextManualPageButton.gameObject.activeSelf == (type == SaveSlotType.Manual),
+            $"{type} next-page visibility is incorrect.");
+        Require(GetButtonLabel(panel.manualTabButton) == (saveMode
+                ? $"{panel.CurrentManualPage} / {SaveManager.ManualPageCount}"
+                : $"РУЧНЫЕ {panel.CurrentManualPage} / {SaveManager.ManualPageCount}"),
+            "Manual family/page label is incorrect.");
+        if (!saveMode)
+        {
+            Require(GetButtonLabel(panel.autoTabButton) == (type == SaveSlotType.Auto ? "АВТОСОХРАНЕНИЯ" : "АВТО"),
+                "Auto family label is incorrect.");
+            Require(GetButtonLabel(panel.quickTabButton) == (type == SaveSlotType.Quick ? "БЫСТРЫЕ СОХРАНЕНИЯ" : "БЫСТРЫЕ"),
+                "Quick family label is incorrect.");
+        }
         for (int i = 0; i < SaveManager.SlotsPerPage; i++)
         {
             int localSlotIndex = i + 1;
@@ -785,25 +788,6 @@ public static class SaveBackendV2PlayModeE2ERunner
         return label != null ? label.text : string.Empty;
     }
 
-    private static bool IsTabActive(UnityEngine.UI.Button button)
-    {
-        Transform accent = button != null ? button.transform.Find("Active Accent") : null;
-        return accent != null && accent.gameObject.activeSelf;
-    }
-
-    private static void VerifyTabOutline(UnityEngine.UI.Button button, bool active, string label)
-    {
-        UnityEngine.UI.Outline outline = button != null ? button.GetComponent<UnityEngine.UI.Outline>() : null;
-        Require(outline != null, $"{label} tab has no Outline.");
-        Color expected = active ? ActiveTabOutlineColor : InactiveTabOutlineColor;
-        Require(
-            Mathf.Abs(outline.effectColor.r - expected.r) < 0.001f
-                && Mathf.Abs(outline.effectColor.g - expected.g) < 0.001f
-                && Mathf.Abs(outline.effectColor.b - expected.b) < 0.001f
-                && Mathf.Abs(outline.effectColor.a - expected.a) < 0.001f,
-            $"{label} tab Outline color is incorrect for active={active}.");
-    }
-
     private static void SelectTab(ManualSaveLoadPanel panel, SaveSlotType type)
     {
         switch (type)
@@ -822,18 +806,20 @@ public static class SaveBackendV2PlayModeE2ERunner
 
     private static void VerifyTabsLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
     {
-        Require(Screen.width == resolution.x && Screen.height == resolution.y, "Tabbed layout resolution does not match Game View.");
+        Require(Screen.width == resolution.x && Screen.height == resolution.y, "Save/Load layout resolution does not match Game View.");
         Rect window = GetScreenRect(panel.windowRect);
         Require(window.xMin >= -2f && window.yMin >= -2f && window.xMax <= Screen.width + 2f && window.yMax <= Screen.height + 2f, $"Save window is clipped at {resolution.x}x{resolution.y}.");
 
         Rect title = GetScreenRect(panel.titleText.rectTransform);
-        Rect tabs = GetScreenRect(panel.manualTabButton.transform.parent as RectTransform);
-        Require(tabs.yMax < title.yMin, $"Tabs overlap the title at {resolution.x}x{resolution.y}.");
+        Rect navigation = GetScreenRect(panel.manualPaginationRoot.transform as RectTransform);
+        Require(title.yMin >= window.yMin && title.yMax <= window.yMax,
+            $"Save/Load title is clipped at {resolution.x}x{resolution.y}.");
+        Require(navigation.yMax < title.yMin, $"Compact navigation overlaps the title at {resolution.x}x{resolution.y}.");
 
         Rect[] cards = panel.slotViews.Select(view => GetScreenRect(view.cardRect)).ToArray();
         Require(cards.All(card => card.width > 200f && card.height > 140f), $"Cards became unreadable at {resolution.x}x{resolution.y}.");
         Require(cards.All(card => card.xMin >= 0f && card.yMin >= 0f && card.xMax <= Screen.width && card.yMax <= Screen.height), $"A card is outside screen at {resolution.x}x{resolution.y}.");
-        Require(tabs.yMin > cards.Max(card => card.yMax), $"Tabs overlap cards at {resolution.x}x{resolution.y}.");
+        Require(navigation.yMax < cards.Min(card => card.yMin), $"Compact navigation overlaps cards at {resolution.x}x{resolution.y}.");
         Require(GetScreenRect(panel.closeButton.transform as RectTransform).xMax <= Screen.width + 1f, $"Back button is clipped at {resolution.x}x{resolution.y}.");
         Require(GetScreenRect(panel.statusText.rectTransform).yMax <= cards.Min(card => card.yMin) + 2f, $"Toast overlaps cards at {resolution.x}x{resolution.y}.");
     }
@@ -841,17 +827,19 @@ public static class SaveBackendV2PlayModeE2ERunner
     private static void VerifyManualPaginationLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
     {
         Require(panel.manualPaginationRoot != null && panel.manualPaginationRoot.activeSelf,
-            "Manual pagination is hidden in responsive proof.");
+            "Compact navigation is hidden in responsive proof.");
         Require(panel.manualPageButtons != null && panel.manualPageButtons.Length == SaveManager.ManualPageCount,
-            "Manual pagination does not expose ten page buttons.");
+            "Manual page range is unavailable.");
         Rect row = GetScreenRect(panel.manualPaginationRoot.transform as RectTransform);
         Require(row.xMin >= 0f && row.yMin >= 0f && row.xMax <= resolution.x && row.yMax <= resolution.y,
-            "Manual pagination row is outside the responsive viewport.");
+            "Compact navigation row is outside the responsive viewport.");
         Require(GetScreenRect(panel.previousManualPageButton.transform as RectTransform).xMin >= row.xMin
                 && GetScreenRect(panel.nextManualPageButton.transform as RectTransform).xMax <= row.xMax,
-            "Manual pagination arrows are outside the row.");
-        Require(panel.manualPageButtons.All(button => GetScreenRect(button.transform as RectTransform).width >= 15f),
-            "Manual page buttons are too small at 1280x720.");
+            "Manual page arrows are outside the compact navigation row.");
+        Require(panel.manualPageButtons.All(button => !button.gameObject.activeSelf),
+            "Legacy individual page buttons remain visible in compact navigation.");
+        Require(GetButtonLabel(panel.manualTabButton) == $"РУЧНЫЕ {panel.CurrentManualPage} / {SaveManager.ManualPageCount}",
+            "Compact Manual page label is incorrect at the responsive resolution.");
     }
 
     private static Rect GetScreenRect(RectTransform rectTransform)
