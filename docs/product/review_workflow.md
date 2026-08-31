@@ -73,6 +73,41 @@ Google Drive mirror:
 Google Drive mirror не заменяет repository baseline, tests, graphical E2E или CI
 и не является source of truth.
 
+## Living reviewer roadmap
+
+Помимо visual-review mirror, Google Drive используется reviewer'ом как living
+progress tracker для benchmark-driven product passes. Это не заменяет repository
+source of truth и не даёт Drive-документам права переопределять актуальный код или
+утверждённые repository docs.
+
+Основные reviewer documents:
+
+`How I Fall/Research & Roadmap/VN UI UX Benchmark 2026-08-31/`
+
+- `01 — VN UI UX benchmark — research synthesis 2026-08-31` — benchmark/rationale;
+- `02 — HIF capability map & benchmark decisions` — что уже есть, чего нет и что
+  сознательно deferred;
+- `03 — Polished Demo implementation roadmap` — ordered living backlog и текущий
+  progress;
+- `05 — Benchmark sources & evidence index` — evidence/source lookup при спорных
+  решениях.
+
+После каждого review-candidate push reviewer обязан до выбора следующей задачи:
+
+1. проверить реальный GitHub commit/diff, scope, tests, graphical proof,
+   visual baselines и mandatory CI;
+2. открыть актуальные `02` и `03`; при необходимости сверить `01`/`05`;
+3. сравнить результат commit с capability map, benchmark decisions и ordered
+   roadmap;
+4. обновить `03`: reviewed commit SHA, CI status, статус pass (`DONE`, `PARTIAL`,
+   `BLOCKED` или `NEEDS CORRECTION`) и следующий bounded pass;
+5. если commit материально изменил capability проекта, синхронизировать `02`;
+6. только после этой синхронизации формировать следующий Codex prompt.
+
+Следующая задача не выбирается только по памяти текущего чата. Если repository и
+Drive расходятся, reviewer явно фиксирует рассинхронизацию, предпочитает актуальный
+repository и затем приводит living roadmap/capability map в соответствие.
+
 ## Разделение ролей
 
 - **Codex:** implementation, automated tests, objective graphical QA и
@@ -80,7 +115,8 @@ Google Drive mirror не заменяет repository baseline, tests, graphical 
   в Google Drive mirror.
 - **Reviewer (ChatGPT):** diff/scope/risk review, проверка test evidence,
   visual baselines и Drive review screenshots, внешних references при необходимости,
-  GitHub CI и решение о correction pass.
+  GitHub CI, синхронизация living capability map/roadmap и решение о correction
+  pass / следующей bounded задаче.
 - **User:** финальное субъективное aesthetic approval, когда оно действительно
   нужно.
 
@@ -114,6 +150,7 @@ layout one-to-one не копируются.
 `Task` → research/decision при необходимости → implementation → targeted tests →
 regression/smokes → graphical E2E для player-facing UI → screenshot inspection →
 обновление baselines → optional Drive visual-review mirror → scoped
-review-candidate commit/push → review реального commit и screenshots → correction
-pass при необходимости → обязательные GitHub CI `GREEN` → user aesthetic approval
-при genuinely subjective вопросе → `DONE`.
+review-candidate commit/push → review реального commit и screenshots → living
+roadmap/capability sync → correction pass при необходимости → обязательные GitHub
+CI `GREEN` → user aesthetic approval при genuinely subjective вопросе → `DONE` →
+выбор следующего bounded pass только из синхронизированного текущего состояния.

@@ -23,6 +23,14 @@
 - Do not commit or push unless the task explicitly requests it.
 - A technical task is not considered fully verified after push until the relevant GitHub CI checks pass:
   `Unity Test Framework` and `Unity smoke tests`.
+- A review-candidate is not `DONE` until the reviewer has checked the real commit/diff and synchronized the living product roadmap described in `docs/product/review_workflow.md`. Repository state remains authoritative if the roadmap is stale.
+
+## Reviewer roadmap synchronization
+
+- After every review-candidate push, the reviewer must compare the accepted result with the current HIF capability map and ordered roadmap before choosing the next Codex task.
+- The reviewer living roadmap is maintained in Google Drive under `How I Fall/Research & Roadmap/VN UI UX Benchmark 2026-08-31/`, primarily `02 — HIF capability map & benchmark decisions` and `03 — Polished Demo implementation roadmap`; `01` and `05` are consulted when benchmark evidence or rationale is needed.
+- The reviewer records the reviewed commit SHA, CI status, pass status (`DONE`, `PARTIAL`, `BLOCKED`, or `NEEDS CORRECTION`) and the next bounded pass. If project capability materially changed, the capability map is synchronized too.
+- Do not select the next implementation pass from chat memory alone. If repository and Drive disagree, prefer the repository and then update the Drive roadmap to match.
 
 ## Final response
 
