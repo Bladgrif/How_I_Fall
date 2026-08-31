@@ -142,8 +142,8 @@ public static class MainMenuVisualPassASmokeTests
         foreach (Button button in controller.PlayerFacingActionButtons)
         {
             Outline outline = button.GetComponent<Outline>();
-            Require(outline == null || outline.effectColor.b >= outline.effectColor.r,
-                "Main Menu button presentation must not use a red accent.");
+            Require(outline == null || !outline.enabled,
+                "Main Menu navigation must rely on its compact red focus marker, not text outlines.");
 
             MainMenuButtonHoverEffect effect = GetHoverEffect(button);
             effect.OnDeselect(null);
@@ -159,10 +159,10 @@ public static class MainMenuVisualPassASmokeTests
 
             effect.OnSelect(null);
             Require(effect.IsFocusAccentVisible
-                    && effect.FocusAccentColor.g > effect.FocusAccentColor.r
-                && effect.FocusAccentSize.x >= 60f
-                && effect.FocusAccentSize.y >= 5f,
-                "Keyboard/controller focus must expose a clearly visible cyan Focus Accent.");
+                    && effect.FocusAccentColor.r > effect.FocusAccentColor.g
+                && effect.FocusAccentSize.x >= 5f
+                && effect.FocusAccentSize.y >= 22f,
+                "Keyboard/controller focus must expose a clearly visible compact red Focus Accent.");
             effect.OnDeselect(null);
             Require(!effect.IsFocusAccentVisible,
                 "Deselect must remove the Main Menu focus marker.");
@@ -187,7 +187,7 @@ public static class MainMenuVisualPassASmokeTests
         RectTransform[] rows = controller.PlayerFacingActionButtons
             .Select(button => button.transform.parent as RectTransform)
             .ToArray();
-        Require(rows.All(row => row.anchoredPosition.x >= 192f && row.anchoredPosition.x <= 240f),
+        Require(rows.All(row => row.anchoredPosition.x >= 176f && row.anchoredPosition.x <= 224f),
             "Main Menu actions must stay in the left visual column.");
         Require(rows.All(row => row.sizeDelta.x >= 280f && row.sizeDelta.x <= 340f
                 && row.sizeDelta.y >= 44f && row.sizeDelta.y <= 52f),

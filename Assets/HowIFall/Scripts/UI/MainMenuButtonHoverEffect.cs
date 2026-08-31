@@ -28,6 +28,8 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     public Color normalTextColor = new Color(0.89f, 0.94f, 1f, 0.96f);
     public Color hoverTextColor = Color.white;
+    public bool useRedFocusText;
+    public bool suppressFocusAccent;
 
     private Button button;
     private Outline outline;
@@ -64,6 +66,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             labelGraphic = tmpLabel != null ? tmpLabel : GetComponentInChildren<Text>(true);
         }
 
+        bool accentNeedsInitialization = false;
         if (focusAccent == null)
         {
             Transform existingAccent = transform.Find("Focus Accent");
@@ -72,6 +75,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
                 GameObject accent = new GameObject("Focus Accent", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 accent.transform.SetParent(transform, false);
                 focusAccent = accent.GetComponent<Image>();
+                accentNeedsInitialization = true;
             }
             else
             {
@@ -79,14 +83,14 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             }
         }
 
-        if (focusAccent != null)
+        if (focusAccent != null && accentNeedsInitialization)
         {
             RectTransform accentRect = focusAccent.rectTransform;
             accentRect.anchorMin = new Vector2(0f, 0f);
             accentRect.anchorMax = new Vector2(0f, 0f);
             accentRect.pivot = new Vector2(0f, 0f);
             accentRect.anchoredPosition = new Vector2(0f, 0f);
-            accentRect.sizeDelta = new Vector2(5f, 22f);
+            accentRect.sizeDelta = new Vector2(6f, 24f);
             focusAccent.raycastTarget = false;
         }
     }
@@ -164,7 +168,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private void ApplyHoverState()
     {
-        Apply(Color.clear, Color.white);
+        Apply(Color.clear, useRedFocusText
+            ? new Color(0.92f, 0.20f, 0.25f, 1f)
+            : RoleHoverText());
     }
 
     private void ApplyPressedState()
@@ -199,12 +205,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             labelGraphic.color = text;
         }
 
-        if (outline != null)
-        {
-            outline.enabled = isPointerInside || isSelected;
-            outline.effectColor = new Color(0.72f, 0.20f, 0.24f, 0.78f);
-            outline.effectDistance = new Vector2(1f, -1f);
-        }
+        if (outline != null) outline.enabled = false;
 
         if (playIndicator != null)
         {
@@ -214,7 +215,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (focusAccent != null)
         {
             focusAccent.color = new Color(0.78f, 0.18f, 0.22f, 0.96f);
-            focusAccent.gameObject.SetActive(isPointerInside || isSelected);
+            focusAccent.gameObject.SetActive(!suppressFocusAccent && (isPointerInside || isSelected));
         }
     }
 
@@ -248,8 +249,18 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private Color RoleNormalText()
     {
-        return role == MainMenuButtonVisualRole.Secondary
-            ? new Color(0.89f, 0.94f, 1f, 0.96f)
+        return role switch
+        {
+            MainMenuButtonVisualRole.Primary => Color.white,
+            MainMenuButtonVisualRole.Destructive => new Color(0.78f, 0.80f, 0.84f, 0.92f),
+            _ => new Color(0.89f, 0.94f, 1f, 0.96f)
+        };
+    }
+
+    private Color RoleHoverText()
+    {
+        return role == MainMenuButtonVisualRole.Destructive
+            ? new Color(0.94f, 0.84f, 0.85f, 1f)
             : Color.white;
     }
 }

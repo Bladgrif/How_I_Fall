@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Linq;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -92,6 +93,15 @@ public static class PlayerUiGraphicalE2ERunner
                 case "OpenScreenMode": FocusSelector(SharedPreferencesView.ScreenModeId, "OpenResolution", "main_menu_preferences_screen_mode_selected_1920x1080.png"); break;
                 case "OpenResolution": FocusSelector(SharedPreferencesView.ResolutionId, "FocusSlider", "main_menu_preferences_resolution_selected_1920x1080.png"); break;
                 case "FocusSlider": FocusSlider(); break;
+                case "CloseMainPreferences": CloseMainPreferences(); break;
+                case "OpenMainLoad": OpenMainLoad(); break;
+                case "WaitMainLoad": WaitMainLoad(); break;
+                case "CloseMainLoad": CloseMainLoad(); break;
+                case "OpenMainQuitConfirmation": OpenMainQuitConfirmation(); break;
+                case "WaitMainQuitConfirmation": WaitMainQuitConfirmation(); break;
+                case "CaptureMainQuitYesFocus": CaptureMainQuitYesFocus(); break;
+                case "CloseMainQuitConfirmation": CloseMainQuitConfirmation(); break;
+                case "CaptureResponsiveMainMenu": CaptureResponsiveMainMenu(); break;
                 case "StartGameplay": StartGameplay(); break;
                 case "WaitGameplay": WaitGameplay(); break;
                 case "PrepareLongDialogue": PrepareLongDialogue(); break;
@@ -198,14 +208,124 @@ public static class PlayerUiGraphicalE2ERunner
         Slider slider = view != null ? view.GetSlider(SharedPreferencesView.MasterVolumeId) : null;
         Require(slider != null, "Master Volume slider is missing.");
         EventSystem.current.SetSelectedGameObject(slider.gameObject);
-        Capture("main_menu_preferences_slider_focus_1920x1080.png", "StartGameplay");
+        Capture("main_menu_preferences_slider_focus_1920x1080.png", "CloseMainPreferences");
+    }
+
+    private static void CloseMainPreferences()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed before Main Menu route proof.");
+        view.GetButton("back")?.onClick.Invoke();
+        SessionState.SetString(StageKey, "OpenMainLoad");
+        SetDelay(0.3d);
+    }
+
+    private static void OpenMainLoad()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null, "MainMenuController is unavailable before Load proof.");
+        menu.OpenManualLoad();
+        SessionState.SetString(StageKey, "WaitMainLoad");
+        ResetCounter();
+        SetDelay(0.4d);
+    }
+
+    private static void WaitMainLoad()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        if (menu == null || menu.manualSaveLoadPanel == null || !menu.manualSaveLoadPanel.IsOpen)
+        {
+            Retry("Main Menu Load did not become visible.");
+            return;
+        }
+
+        Capture("main_menu_load_1920x1080.png", "CloseMainLoad");
+    }
+
+    private static void CloseMainLoad()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null && menu.manualSaveLoadPanel != null, "Main Menu Load panel disappeared before close.");
+        menu.manualSaveLoadPanel.closeButton.onClick.Invoke();
+        SessionState.SetString(StageKey, "OpenMainQuitConfirmation");
+        SetDelay(0.3d);
+    }
+
+    private static void OpenMainQuitConfirmation()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null, "MainMenuController is unavailable before Quit proof.");
+        menu.OpenExitConfirm();
+        SessionState.SetString(StageKey, "WaitMainQuitConfirmation");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void WaitMainQuitConfirmation()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        GameObject exitPanel = menu != null
+            ? typeof(MainMenuController).GetField("exitConfirmPanel", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(menu) as GameObject
+            : null;
+        if (exitPanel == null || !exitPanel.activeSelf)
+        {
+            Retry("Main Menu Quit confirmation did not become visible.");
+            return;
+        }
+
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null,
+            "Quit confirmation did not assign safe cancel focus.");
+        Button cancel = exitPanel.GetComponentsInChildren<Button>(true)
+            .FirstOrDefault(button => HasPersistentRoute(button, nameof(MainMenuController.CloseExitConfirm)));
+        Require(cancel != null && EventSystem.current.currentSelectedGameObject == cancel.gameObject,
+            "Quit confirmation default focus must be the safe Нет action.");
+        Capture("main_menu_quit_confirmation_1920x1080.png", "CaptureMainQuitYesFocus");
+    }
+
+    private static void CaptureMainQuitYesFocus()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        GameObject exitPanel = menu != null
+            ? typeof(MainMenuController).GetField("exitConfirmPanel", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(menu) as GameObject
+            : null;
+        Require(exitPanel != null && exitPanel.activeSelf, "Quit confirmation closed before alternate focus proof.");
+        Button confirm = exitPanel.GetComponentsInChildren<Button>(true)
+            .FirstOrDefault(button => HasPersistentRoute(button, nameof(MainMenuController.ConfirmExit)));
+        Require(confirm != null, "Quit confirmation destructive action is missing.");
+        confirm.Select();
+        Require(EventSystem.current.currentSelectedGameObject == confirm.gameObject,
+            "Quit confirmation alternate focus did not select Да.");
+        Capture("main_menu_quit_confirmation_yes_focus_1920x1080.png", "CloseMainQuitConfirmation");
+    }
+
+    private static void CloseMainQuitConfirmation()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null, "MainMenuController is unavailable before responsive Main Menu proof.");
+        menu.CloseExitConfirm();
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        SessionState.SetString(StageKey, "CaptureResponsiveMainMenu");
+        ResetCounter();
+        SetDelay(0.4d);
+    }
+
+    private static void CaptureResponsiveMainMenu()
+    {
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for Main Menu responsive proof.");
+            return;
+        }
+
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null, "MainMenuController disappeared before 1280x720 Main Menu proof.");
+        menu.FocusDefaultAction();
+        Capture("main_menu_1280x720.png", "StartGameplay");
     }
 
     private static void StartGameplay()
     {
-        SharedPreferencesView view = FindVisiblePreferences();
-        Require(view != null, "Preferences closed before gameplay transition.");
-        view.GetButton("back")?.onClick.Invoke();
+        ConfigureGameViewResolution(QaResolution);
         MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
         Require(menu != null, "MainMenuController is unavailable for gameplay transition.");
         menu.StartGame();
@@ -365,6 +485,17 @@ public static class PlayerUiGraphicalE2ERunner
         return marker != null && marker.gameObject.activeSelf;
     }
 
+    private static bool HasPersistentRoute(Button button, string methodName)
+    {
+        if (button == null) return false;
+        for (int index = 0; index < button.onClick.GetPersistentEventCount(); index++)
+        {
+            if (button.onClick.GetPersistentMethodName(index) == methodName)
+                return true;
+        }
+        return false;
+    }
+
     private static void WaitGameplayPreferences()
     {
         VNDialogueController dialogue = VNDialogueController.Instance;
@@ -404,8 +535,15 @@ public static class PlayerUiGraphicalE2ERunner
         if (File.Exists(path)) File.Delete(path);
         ScreenCapture.CaptureScreenshot(path);
         SessionState.SetString(CapturePathKey, path);
-        SessionState.SetInt(CaptureWidthKey, Screen.width);
-        SessionState.SetInt(CaptureHeightKey, Screen.height);
+        // Screen.height can reflect the embedded Game View viewport (for
+        // example 951px) while CaptureScreenshot writes the configured
+        // standalone target (1080px). Validate against the QA target rather
+        // than the editor chrome-adjusted viewport size.
+        Vector2Int captureTarget = Screen.width >= QaResolution.x
+            ? QaResolution
+            : ResponsiveQaResolution;
+        SessionState.SetInt(CaptureWidthKey, captureTarget.x);
+        SessionState.SetInt(CaptureHeightKey, captureTarget.y);
         SessionState.SetString(NextStageKey, nextStage);
         SessionState.SetString(StageKey, "WaitScreenshot");
         ResetCounter();

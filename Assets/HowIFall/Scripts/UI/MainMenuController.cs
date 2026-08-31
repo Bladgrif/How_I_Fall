@@ -76,6 +76,10 @@ public sealed class MainMenuController : MonoBehaviour
 
     private void Update()
     {
+        // Settings restores its temporary hidden objects when it closes; keep the
+        // retired prompt outside the Main Menu contract in that transition too.
+        HideLegacyPrompt();
+
         if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel) && !(settingsPanel != null && settingsPanel.IsSharedDropdownCancel))
         {
             TryHandleCloseOrCancel();
@@ -138,7 +142,9 @@ public sealed class MainMenuController : MonoBehaviour
 
     private void ApplyMainNavigationLayout(Transform[] orderedRows)
     {
-        float[] verticalPositions = { 156f, 96f, 36f, -24f, -116f };
+        // Keep the compact navigation column visually connected to the logo while
+        // leaving the authored background as the dominant title-screen element.
+        float[] verticalPositions = { 244f, 184f, 124f, 64f, -28f };
         for (int index = 0; index < orderedRows.Length; index++)
         {
             RectTransform row = orderedRows[index] as RectTransform;
@@ -232,8 +238,8 @@ public sealed class MainMenuController : MonoBehaviour
         panel.SetAsFirstSibling();
         panel.anchorMin = panel.anchorMax = new Vector2(0f, 0.5f);
         panel.pivot = new Vector2(0f, 0.5f);
-        panel.anchoredPosition = new Vector2(196f, 16f);
-        panel.sizeDelta = new Vector2(368f, 380f);
+        panel.anchoredPosition = new Vector2(184f, 108f);
+        panel.sizeDelta = new Vector2(376f, 392f);
 
         Image panelImage = panel.GetComponent<Image>();
         panelImage.sprite = null;
@@ -279,8 +285,8 @@ public sealed class MainMenuController : MonoBehaviour
         RectTransform logoRect = logo as RectTransform;
         logoRect.anchorMin = logoRect.anchorMax = new Vector2(0f, 1f);
         logoRect.pivot = new Vector2(0f, 1f);
-        logoRect.anchoredPosition = new Vector2(190f, -60f);
-        logoRect.sizeDelta = new Vector2(400f, 180f);
+        logoRect.anchoredPosition = new Vector2(184f, -64f);
+        logoRect.sizeDelta = new Vector2(360f, 160f);
         logoRect.localRotation = Quaternion.identity;
         logoImage.color = Color.white;
         logoImage.preserveAspect = true;
@@ -312,11 +318,11 @@ public sealed class MainMenuController : MonoBehaviour
 
     private void HideLegacyPrompt()
     {
-        Canvas canvas = GetComponentInParent<Canvas>() ?? FindFirstObjectByType<Canvas>();
-        Transform legacyPrompt = canvas != null
-            ? canvas.GetComponentsInChildren<Transform>(true)
-                .FirstOrDefault(transform => transform.name == "Press Any Button")
-            : null;
+        // The legacy prompt is wired outside the player-facing Canvas hierarchy in
+        // the authored scene, so a Canvas-local lookup can leave it visible behind
+        // a modal. It is not part of the approved Main Menu contract.
+        Transform legacyPrompt = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(transform => transform.name == "Press Any Button");
         if (legacyPrompt != null)
         {
             legacyPrompt.gameObject.SetActive(false);
@@ -366,12 +372,12 @@ public sealed class MainMenuController : MonoBehaviour
         {
             windowImage.sprite = null;
             windowImage.type = Image.Type.Simple;
-            windowImage.color = new Color(0.018f, 0.055f, 0.10f, 0.97f);
+            windowImage.color = new Color(0.012f, 0.022f, 0.035f, 0.97f);
         }
 
         Outline outline = window.GetComponent<Outline>() ?? window.gameObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.30f, 0.58f, 0.80f, 0.72f);
-        outline.effectDistance = new Vector2(1.5f, -1.5f);
+        outline.effectColor = new Color(0.52f, 0.12f, 0.16f, 0.48f);
+        outline.effectDistance = new Vector2(1f, -1f);
         Shadow shadow = window.GetComponent<Shadow>() ?? window.gameObject.AddComponent<Shadow>();
         shadow.effectColor = new Color(0f, 0f, 0f, 0.72f);
         shadow.effectDistance = new Vector2(5f, -5f);
@@ -386,7 +392,7 @@ public sealed class MainMenuController : MonoBehaviour
             {
                 accent.sprite = null;
                 accent.type = Image.Type.Simple;
-                accent.color = new Color(0.30f, 0.58f, 0.80f, 0.92f);
+                accent.color = new Color(0.66f, 0.16f, 0.20f, 0.80f);
             }
         }
 
@@ -731,11 +737,11 @@ public sealed class MainMenuController : MonoBehaviour
         ApplyMainMenuButtonTypography(button);
         button.transition = Selectable.Transition.None;
 
-        Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
-        outline.effectColor = role == MainMenuButtonVisualRole.Primary
-            ? new Color(0.62f, 0.76f, 0.88f, 0.72f)
-            : new Color(0.38f, 0.57f, 0.76f, 0.34f);
-        outline.effectDistance = new Vector2(1f, -1f);
+        Outline outline = button.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.enabled = false;
+        }
 
         MainMenuButtonHoverEffect hoverEffect = button.GetComponent<MainMenuButtonHoverEffect>();
         if (hoverEffect != null)
@@ -792,34 +798,37 @@ public sealed class MainMenuController : MonoBehaviour
             button.targetGraphic = image;
         }
 
-        button.transition = Selectable.Transition.ColorTint;
-        ColorBlock colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = destructive
-            ? new Color(0.43f, 0.07f, 0.11f, 1f)
-            : new Color(0.08f, 0.14f, 0.22f, 1f);
-        colors.highlightedColor = destructive
-            ? new Color(0.67f, 0.10f, 0.16f, 1f)
-            : new Color(0.13f, 0.25f, 0.37f, 1f);
-        colors.pressedColor = destructive
-            ? new Color(0.28f, 0.03f, 0.06f, 1f)
-            : new Color(0.035f, 0.08f, 0.14f, 1f);
-        colors.selectedColor = colors.highlightedColor;
-        colors.disabledColor = new Color(0.18f, 0.21f, 0.26f, 0.72f);
-        colors.colorMultiplier = 1f;
-        button.colors = colors;
+        button.transition = Selectable.Transition.None;
 
-        Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
-        outline.effectColor = destructive
-            ? new Color(0.96f, 0.20f, 0.27f, 0.58f)
-            : new Color(0.42f, 0.60f, 0.80f, 0.42f);
-        outline.effectDistance = new Vector2(1f, -1f);
+        TextMeshProUGUI tmpLabel = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (tmpLabel != null)
+        {
+            tmpLabel.alignment = TextAlignmentOptions.Midline;
+            tmpLabel.fontSize = 20f;
+            tmpLabel.enableAutoSizing = false;
+        }
+
+        Outline outline = button.GetComponent<Outline>();
+        if (outline != null) outline.enabled = false;
 
         if (button.targetGraphic is Image targetImage)
         {
             targetImage.sprite = null;
             targetImage.type = Image.Type.Simple;
-            targetImage.color = colors.normalColor;
+            targetImage.color = Color.clear;
         }
+
+        MainMenuButtonHoverEffect hoverEffect = button.GetComponent<MainMenuButtonHoverEffect>()
+            ?? button.gameObject.AddComponent<MainMenuButtonHoverEffect>();
+        hoverEffect.useRedFocusText = true;
+        hoverEffect.suppressFocusAccent = true;
+        hoverEffect.Configure(destructive
+            ? MainMenuButtonVisualRole.Destructive
+            : MainMenuButtonVisualRole.Secondary);
+
+        Transform marker = button.transform.Find("Focus Accent");
+        // Quit confirmation uses text-state focus instead of a separate marker.
+        if (marker != null) marker.gameObject.SetActive(false);
     }
 
     private void CaptureModalFocusRestoreTarget(Button fallback)
