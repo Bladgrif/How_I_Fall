@@ -1,12 +1,10 @@
-# Main Menu benchmark references
+# Бенчмарк-референсы главного меню
 
 ## Цель
 
-Зафиксировать benchmark-first research для следующего **Main Menu visual polish pass** HIF. Это research-документ, а не утверждение о финальном art или каноне.
+Зафиксировать benchmark-first исследование для visual polish главного меню HIF. Это исследовательский документ, а не утверждение о финальном арте или каноне.
 
-## Recommended benchmark set
-
-Следующие признанные сильные VN-референсы рекомендуется использовать как сравнительный набор, без спорных рейтинговых утверждений:
+## Основной набор референсов
 
 - **STEINS;GATE**
 - **The House in Fata Morgana**
@@ -14,43 +12,35 @@
 - **Aokana**
 - **Doki Doki Literature Club!**
 
-### Что брать из benchmark set
+### Полезные принципы
 
-- fullscreen art / key visual first;
-- lightweight navigation second;
-- compact left-side vertical group;
-- clear title area;
-- readable, но не тяжёлые focus states;
-- без вида толстых boxed buttons;
-- достаточно empty space для композиции.
+- полноэкранный арт/key visual важнее навигации;
+- компактная вертикальная группа действий;
+- отдельная понятная title area;
+- focus states читаемы, но не превращают пункты в тяжёлые boxed buttons;
+- достаточно свободного пространства для композиции.
 
-### Что не брать
+### Что не переносить
 
-- layout one-to-one;
-- чужой copyrighted art;
-- overly cute/pink identity, не соответствующую HIF;
-- heavy decorative UI, который требует уже готового финального canon art.
+- layout один-в-один;
+- copyrighted art;
+- чужую визуальную идентичность;
+- тяжёлый декоративный UI, требующий уже готового финального канонического арта.
 
-## Task-specific references
+## Референсы для конкретной задачи
 
-- **Reimei no Gakuen** — ориентир для полноэкранной визуальной подачи и подчинённой ей навигации.
-- **DDLC** — genre-standard reference для понятной логики menu/preferences; берём UX-паттерны, а не оформление или layout.
+- **Reimei no Gakuen** — полноэкранная визуальная подача с подчинённой ей навигацией.
+- **DDLC** — понятная жанровая логика Menu/Preferences; используем UX-паттерны, а не оформление.
 
-## Рекомендация для HIF
+## Выбранное направление HIF
 
-Главное направление следующего pass:
-
-- temporary fullscreen background art, явно **non-canon**;
+- временный полноэкранный background art, явно **NON-CANON**;
 - компактное меню слева;
-- text-led items с subtle accent/focus;
-- **Quit** немного отделён от основных действий;
+- text-led пункты с небольшим акцентом/focus;
+- `Выйти` слегка отделён от основных действий;
 - title area над меню;
-- правая сторона оставлена под композицию и background art.
+- правая часть сохраняется для композиции background art.
 
-Это продолжает functional-demo direction: меню должно быть лёгким, читаемым и не зависеть от финальной истории или иллюстраций.
+Это соответствует фазе функциональной демо-версии: меню должно быть лёгким, читаемым и не зависеть от финальной истории или иллюстраций.
 
-## Следующий prerequisite
-
-Нужен отдельный temporary background asset. Если подходящего existing legal asset нет в репозитории, лучше использовать original generated non-canon art, а не procedural placeholder.
-
-Следующий visual pass требует отдельного asset review и последующего graphical proof; этот документ сам по себе не изменяет production code, scenes, assets или tests.
+Если подходящего легального asset нет, предпочтителен оригинальный сгенерированный non-canon фон, а не procedural placeholder. Любой значимый visual pass после этого должен иметь graphical proof и review baselines.

@@ -1,231 +1,194 @@
-# VN Development Playbook
+# Практическое руководство по разработке визуальной новеллы
 
-## Purpose
+## Назначение
 
-Durable synthesis of practical visual-novel development guidance, player UI sentiment and current How I Fall decisions.
+Повторно используемая сводка практических принципов разработки VN, наблюдений игроков о UI и текущих решений How I Fall.
 
-This document is **research guidance**, not automatic authorization to implement features. Current repository/product docs remain authoritative for HIF state. External sources are patterns and evidence, never a template to copy one-to-one.
+Это **исследовательское руководство**, а не автоматическое разрешение реализовывать новые функции. Актуальный master и repository docs остаются главным источником истины для HIF. Внешние источники дают паттерны и evidence, но не шаблон для копирования один-в-один.
 
-Current phase: **Polished Functional Demo First**. Story routes, canonical flags, final art and final visual identity remain deferred until explicitly reopened.
+Текущая фаза: **Polished Functional Demo First**. Сюжетные маршруты, канонические flags, финальный арт и финальная визуальная идентичность отложены до явного возвращения к ним.
 
-## Evidence classes used here
+## Классы evidence
 
-- **A — HIF repository/product truth.** Current master, `docs/product/*`, `docs/research/*`, `docs/eternum_feature_tracker.md`, `AGENTS.md`.
-- **B/C — practitioner/developer guidance.** Useful first-person production experience, but not a universal VN standard.
-- **D — player/community sentiment.** Useful for friction, expectations and discoverability; never sole authority for architecture.
+- **A — репозиторий HIF / продуктовая истина.** Текущий master, `docs/product/*`, `docs/research/*`, `docs/eternum_feature_tracker.md`, `AGENTS.md`.
+- **B/C — опыт разработчиков/практиков.** Полезный production experience, но не универсальный стандарт VN.
+- **D — мнения игроков/сообщества.** Полезны для friction, ожиданий и discoverability; не являются единственным основанием архитектурного решения.
 
-## 1. Production principles
+## 1. Принципы производства
 
-### A visual novel is not automatically a small/cheap project
+### Визуальная новелла не обязательно маленький и дешёвый проект
 
-A developer postmortem can begin with a three-month solo expectation and quickly expand into art, animation, testing, localization, marketing and sound work. HIF should therefore keep bounded passes, explicit scope and a feature-creep guard even though the core genre looks technically simple.
+Даже проект, который кажется технически простым, быстро обрастает art, animation, testing, localization, marketing и sound work. Поэтому HIF должен сохранять небольшие проходы, явный scope и защиту от feature creep.
 
-**HIF rule:** optimize for a polished small product slice, not maximum feature count.
+**Правило HIF:** оптимизировать небольшую polished product slice, а не максимальное количество функций.
 
-### Define what the project is trying to prove
+### Сначала понимать, что именно должен доказать проект
 
-Before expensive production, know the product goal, target audience, constraints and what success means. HIF currently has a concrete goal: **Polished Functional Demo First**. Do not silently turn that into final-story production, final art production or a generic VN framework.
+До дорогого production должны быть понятны цель продукта, ограничения и критерий успеха. Сейчас HIF должен доказать качество **Polished Functional Demo First**, а не незаметно превратиться в final-story production или универсальный VN framework.
 
-### Every mechanic needs a reason to exist
+### Каждая механика должна иметь причину существовать
 
-Before adding a system, ask:
+Перед добавлением системы спросить:
+1. приносит ли она реальную пользу целевой аудитории;
+2. может ли текущий scope безопасно её поддерживать;
+3. нужна ли она именно HIF;
+4. поддерживает ли она общее experience, а не конкурирует с ним.
 
-1. Does the target audience actually benefit from it?
-2. Can the current team/project scope support it safely?
-3. Is it necessary for this HIF experience?
-4. Does it fit the rest of the product rather than competing with it?
+Для VN bespoke-механика обычно должна поддерживать narrative, atmosphere, pacing или meaningful choice. Сам факт, что Unity способен её реализовать, недостаточен.
 
-For a VN, a bespoke mechanic should normally support narrative, atmosphere, pacing or meaningful player choice. Unity being capable of a mechanic is not sufficient justification.
+**Следствие для HIF:** generic minigames, generic QTE, большие relationship dashboards и speculative frameworks остаются отложенными. Task-specific interaction строится только под реальную сцену/задачу.
 
-**HIF implication:** keep generic minigames, generic QTEs, large relationship dashboards and speculative systems deferred. Build task-specific interaction only when real content needs it.
+### Планирование должно показывать стоимость, а не создавать бюрократию
 
-### Planning should expose cost, not create bureaucracy
+Полезная лёгкая цепочка:
+`цель продукта → приоритетный список возможностей → roadmap → content plan → небольшие implementation passes`.
 
-A useful lightweight chain is:
+У HIF уже есть repository docs, feature tracker и Drive roadmap. Не создавать ещё один project-management framework только ради терминологии из внешнего источника.
 
-`vision/product goal -> prioritized feature list -> roadmap -> content plan -> bounded implementation passes`
+## 2. Story/content workflow — позже
 
-HIF already has the needed equivalents in repository docs, feature tracker and Drive roadmap. Do not add another project-management framework merely to mirror external terminology.
+Не запускать этот процесс в текущей no-canon фазе.
 
-## 2. Story/content workflow — LATER, when story is explicitly reopened
+Когда работа над сюжетом будет явно открыта:
+1. сначала broad story skeleton;
+2. только сюжетно нужные characters/locations/major branches;
+3. короткие character cards для внутренней согласованности;
+4. разбить крупные блоки на chapters/scenes;
+5. для каждой сцены записать location, dramatic purpose, важные связи/branches и необходимость interaction;
+6. многократно читать/проигрывать материал и редактировать его в движении;
+7. только затем author story-dependent mechanics, autosave checkpoints, flowchart/replay/lore UI.
 
-Do not start this workflow during the current no-canon demo phase.
+**Правило хранения HIF:** story work начинается в `docs/story/` / Markdown, а не с редактирования сцен, prefab или C#.
 
-Recommended order:
+Не создавать гигантскую энциклопедию мира. Документировать только то, что реально необходимо этой игре для согласованности.
 
-1. Write the broad story skeleton before implementation-heavy content work.
-2. Identify only story-relevant characters, locations and major branch points.
-3. Maintain concise character cards for consistency: internal/external persona, motivation, loyalties, relevant backstory, speech traits and only visually important details.
-4. Expand broad blocks into chapter/scene nodes.
-5. For each node record at minimum: location, core dramatic purpose, important links/branches and whether any authored interaction is actually required.
-6. Write/play/read the material repeatedly and revise how it feels in motion, not only how it reads as prose.
-7. Only then author story-dependent mechanics, autosave checkpoints, flowcharts, replay entries or lore UI.
+## 3. Narrative design шире текста диалога
 
-**HIF storage rule:** story work starts in `docs/story` / Markdown, not by editing scenes, prefabs or C#.
-
-Do not create a giant world encyclopedia. Document what this game needs to stay internally consistent.
-
-## 3. Narrative design principle
-
-Narrative is larger than dialogue text. It can be communicated by:
-
-- choices and mechanics;
-- environment and spatial staging;
-- character visual presentation;
-- music and sound;
+История может передаваться через:
+- choices/mechanics;
+- environment и spatial staging;
+- визуальную подачу персонажей;
+- музыку и звук;
 - transitions/camera/cinematic direction;
-- diegetic surfaces such as phone/chat;
-- authored hotspots, map use or timed beats.
+- diegetic UI вроде phone/chat;
+- authored hotspots, map use или timed beats.
 
-This strongly matches HIF's Unity strategy: use Unity later for **specific cinematic, spatial or interactive narrative moments**, not for generic system proliferation.
+Это соответствует стратегии HIF на Unity: использовать движок позже для **конкретных cinematic/spatial/interactive narrative moments**, а не для размножения generic-систем.
 
-Existing HIF foundations such as Chat/Phone, Map, Interactive Hotspots and Timed Narrative Beat remain foundations until real content gives them a concrete job.
+Существующие foundations Chat/Phone, Map, Interactive Hotspots и Timed Narrative Beat остаются foundations, пока реальный контент не даст им конкретную работу.
 
-## 4. Player UI sentiment — reusable patterns
+## 4. Повторяющиеся наблюдения игроков об UI
 
-The Reddit UI discussions are community evidence, not a statistical survey, but several themes repeat and align with mature VN conventions.
+### Читаемость прежде всего
 
-### Readability first
+Игроки ценят читаемое текстовое окно и раздражаются, когда текст кладётся прямо на изображение с нестабильным контрастом.
 
-Players explicitly value a readable text window/surface and dislike text laid directly over imagery when contrast is unreliable.
+**HIF:** сохранять нейтральную тёмную dialogue surface и читаемость при 125%. UI не должен конкурировать с будущим art.
 
-**HIF:** already adopted. Preserve the neutral dark readable dialogue surface and 125% text readability. UI should not compete with character/background art.
+### Частые действия должны быть доступны, но визуально тихи
 
-### High-frequency controls should be easy to reach but visually quiet
+Игроки ценят Skip/Auto/History/save actions, но также любят интерфейсы, способные убирать лишний chrome. Summer Pockets часто приводят как пример сочетания полного набора действий и минимального режима чтения.
 
-Players praise convenient Skip/Auto/History/save actions, but also praise interfaces that can hide or collapse most chrome. Summer Pockets is repeatedly cited for combining a full control set with a much more minimal reading mode.
+**HIF:** текущий компактный player-facing strip:
+`История | Пропуск | Авто | Быстр. сох.`
 
-**HIF:** current compact strip is a good direction:
+Обычная навигация остаётся в `Esc → Game Menu`. Не возвращать постоянные кнопки только ради ощущения «богатого» интерфейса.
 
-`History | Skip | Auto | Quick Save`
+### История — восстановление информации; rollback — более сильное восстановление состояния
 
-Ordinary navigation remains in `Esc -> Game Menu`. Do not re-add persistent controls merely to look feature-rich.
+History/Backlog уже DONE и должен оставаться легко доступным. Но History не равно rollback.
 
-### History is recovery; rollback is stronger recovery
+**Текущий rollback:** **ОТКРЫТ ДЛЯ FEASIBILITY**, но не реализован. Запрос пользователя и повторяющийся player sentiment усиливают ценность функции, однако нужна безопасная state restoration. Не добавлять визуальную кнопку «назад», оставляющую `GameState`/choices несинхронизированными.
 
-Players value very easy access to text history. Several comments separately praise returning to previous text/scenes, including actual rollback rather than merely opening a log.
+### Hover/focus должны быть согласованы
 
-**HIF:** Backlog/History is already DONE and should stay easy to reach. Do not pretend History equals rollback.
+Mouse hover и keyboard/controller focus не должны оставлять два несвязанных элемента визуально выбранными. Safe modal defaults обязательны.
 
-**Current rollback status:** **REOPENED FOR FEASIBILITY**, not implemented. Repeated player sentiment strengthens its product value, but implementation still requires state-safe restoration. Prefer the existing planned checkpoint/barrier feasibility model; never add a visual-only previous-line button that leaves GameState/choices out of sync.
+### Количество настроек — не цель
 
-If an older research line says rollback is simply `NOT PLANNED`, treat that as superseded by the current capability map/roadmap and this 2026-08-31 decision.
+Другие VN могут иметь font/window opacity/per-character voice и десятки options. HIF показывает только настройки, у которых есть реальный runtime effect и понятная ценность. Semantic control type и сохранение важнее количества.
 
-### Hover/focus/state must be coherent
+### Не перегружать постоянный chrome
 
-A control should visibly react to interaction, while mouse hover and keyboard/controller focus must not leave unrelated elements looking selected.
+Clutter, большие постоянные иконки и чрезмерно анимированные advance indicators часто раздражают. HIF предпочитает art-first composition и restrained chrome.
 
-**HIF:** already adopted and regression-covered. Preserve one coherent visual hierarchy and safe modal defaults.
+### Не перемещать курсор мыши игрока автоматически
 
-### Rich settings can be valuable, but settings count is not the goal
+EventSystem focus может меняться, но mouse position остаётся под контролем игрока. Cursor warping не вводить.
 
-Community examples praise granular text/auto speed, window opacity, fonts, voice controls and behavior settings. Hoshizora no Memoira is cited as an example of extensive configurability.
+## 5. Решения HIF после исследования
 
-For HIF, only expose options that have real runtime meaning and justify their complexity. Semantic control type and clear persistence matter more than matching another VN's settings count.
+### ПРИНЯТЬ/СОХРАНЯТЬ СЕЙЧАС
 
-### Avoid distracting permanent chrome
+- читаемая dialogue surface;
+- компактный Quick Menu и обычная навигация через Esc/Game Menu;
+- лёгкий доступ к History;
+- seen-aware Skip;
+- согласованные hover/focus состояния mouse/keyboard/gamepad;
+- ясная семантика Save/Load: Manual Save только Manual;
+- минимальные task-scoped изменения;
+- Rollback/Rewind feasibility остаётся near-term research task.
 
-Community criticism repeatedly targets clutter, oversized permanent icons and over-animated advance indicators. Minimal or auto-hiding interfaces are often praised.
+### ПОЗЖЕ, С РЕАЛЬНЫМ КОНТЕНТОМ
 
-**HIF:** art-first composition and restrained chrome are preferred. Advance affordance should be quiet. Do not add a large animated logo/cursor merely as decoration.
+- story skeleton → chapter/scene graph → authored branch semantics;
+- character dossiers и consistency голоса;
+- content-informed autosave checkpoints;
+- Flowchart/Story Chart, chapter select, endings/route completion;
+- Glossary/Tips/Files с реальным lore;
+- voice features при реальном voiced content;
+- bespoke investigation/map/hotspot/phone/chat/timed interactions под конкретные сцены;
+- cinematic/spatial Unity presentation под authored scenes.
 
-### Do not move the player's mouse cursor automatically
+### КАНДИДАТЫ, НО НЕ BACKLOG
 
-Community sentiment includes explicit dislike of interfaces that warp/move the cursor to menu items.
+Стоит помнить, но не реализовывать автоматически:
+- voice replay из History/current line;
+- shortcut/key hints/tooltips;
+- optional minimal/auto-hide reading chrome, если hands-on докажет дополнительную пользу;
+- skip-to-next-choice/scene для replay-heavy контента;
+- per-character voice controls после появления реальной озвучки;
+- timeline/bookmarks только после появления реальной story topology.
 
-**HIF:** do not introduce cursor warping. EventSystem focus may change internally, but mouse position remains player-controlled.
+### ОТЛОЖИТЬ/НЕ ДЕЛАТЬ СЕЙЧАС
 
-## 5. HIF decisions after this research pass
+- generic minigame framework;
+- generic QTE framework;
+- постоянный visible relationship/reputation meter как основной feedback;
+- большие icon strips/decorative HUD clutter;
+- forced cursor movement;
+- giant settings expansion без подтверждённой нужды;
+- branch timeline/flowchart до реальной истории;
+- feature только потому, что она есть в известной VN.
 
-### ADOPT NOW / PRESERVE
+## 6. Сильные кандидаты для hands-on benchmark
 
-- Readable dialogue surface over arbitrary demo backgrounds.
-- Compact high-frequency Quick Menu; ordinary navigation stays in Esc/Game Menu.
-- Easy History access.
-- Seen-aware Skip safety.
-- Coherent mouse/keyboard/controller focus and hover presentation.
-- Clear Save/Load family semantics; Manual Save remains Manual-only.
-- Minimal task-scoped implementation and feature-creep guard.
-- Rollback/Rewind feasibility remains a near-term research priority because both user demand and player sentiment support the recovery value.
+Если web screenshots/manuals недостаточно и реально нужен installed-game audit, выбирать **маленький** набор под текущий вопрос:
+1. **Summer Pockets** — full/minimal reading chrome, History/voice replay, Save, Esc/options split.
+2. **Современная Yuzusoft VN** — mature QoL, skip variants, settings density.
+3. **Hoshizora no Memoira** — configurability/text-window preferences.
+4. **Katawa Shoujo** — rollback/history recovery.
+5. **9-nine** — Save/Load presentation, только если снова нужен отдельный Save/Load research.
 
-### STORY / CONTENT LATER
+Не устанавливать и не исследовать все игры автоматически. Брать только ту, которая отвечает на текущий product question.
 
-- Story skeleton -> chapter/scene graph -> authored branch semantics.
-- Concise character dossiers and dialogue-voice consistency.
-- Content-informed autosave checkpoints.
-- Flowchart/Story Chart, chapter select, ending/route completion.
-- Glossary/Tips/Files tied to actual lore.
-- Voice-driven features when final voice content exists.
-- Bespoke investigation, map, hotspot, phone/chat or timed interactions only when a real scene needs them.
-- Cinematic/spatial Unity presentation for concrete authored scenes.
+## Источники
 
-### CANDIDATES — NOT BACKLOG ITEMS YET
-
-These are worth remembering, not implementing automatically:
-
-- voice replay from History/current line;
-- optional shortcut/key hints or tooltips for discoverability;
-- optional minimal/auto-hide reading chrome if future hands-on shows value beyond current Hide UI + compact strip;
-- skip-to-next-choice / skip-to-next-scene variants for replay-heavy real content;
-- per-character voice controls after real voiced characters exist;
-- timeline/bookmark-style navigation only after real story topology makes it meaningful.
-
-Each candidate requires a separate product need and current-HIF comparison before implementation.
-
-### DEFER / REJECT NOW
-
-- Generic minigame framework.
-- Generic QTE framework.
-- Visible relationship/reputation meter as the default HIF feedback model.
-- Large permanent icon strips or decorative HUD clutter.
-- Forced mouse-cursor movement.
-- Giant settings expansion without demonstrated player need.
-- Branch timeline/flowchart before real story exists.
-- Any feature copied because one praised VN has it.
-
-## 6. Strong hands-on benchmark candidates
-
-If web screenshots/manuals are not enough and a real installed-game audit becomes worthwhile, prioritize a **small** set:
-
-1. **Summer Pockets** — full vs minimal reading chrome, History/voice replay, save access, Esc/options split.
-2. **Modern Yuzusoft title (for example Senren Banka-era or later)** — mature QoL, skip variants, timeline/bookmark ideas, settings density.
-3. **Hoshizora no Memoira** — configurability and text-window preferences.
-4. **Katawa Shoujo** — rollback/history recovery interaction.
-5. **9-nine** — Save/Load presentation, only if additional Save/Load research is needed.
-
-Do not install/audit all of them by default. Choose the title that answers the current product question.
-
-For a hands-on audit, inspect the concrete flow, not just screenshots:
-
-`Main Menu -> reading -> History -> Auto/Skip -> Choice -> Save/Load -> Preferences -> Back/Esc -> rollback/recovery if present`
-
-Record clicks/keys, focus behavior, visibility, screenshots and what problem each pattern solves. Do not copy art/assets/layout one-to-one.
-
-## Sources
-
-### Practitioner/developer guidance
-
-- Konstantin Sakhnov / Kallist, Habr profile: https://habr.com/ru/users/Kallist/
-- Visual novel guide, Part 1 — preparation: https://habr.com/ru/companies/miip/articles/824424/
+### Практики/разработчики
+- Konstantin Sakhnov / Kallist, Habr: https://habr.com/ru/users/Kallist/
+- Part 1 — preparation: https://habr.com/ru/companies/miip/articles/824424/
 - Part 2 — scenario writing: https://habr.com/ru/companies/miip/articles/838680/
 - Part 3 — game design: https://habr.com/ru/companies/miip/articles/840926/
-- Narrative design overview: https://habr.com/ru/articles/740746/
-- Planning / vision / roadmap overview: https://habr.com/ru/articles/734978/
+- Narrative design: https://habr.com/ru/articles/740746/
+- Planning / vision / roadmap: https://habr.com/ru/articles/734978/
 
-Treat personal production/market/style opinions as practitioner evidence, not universal law.
+### Player/community sentiment
+- https://www.reddit.com/r/visualnovels/comments/s7x16/best_vn_menu_systemsuser_interfaces/
+- https://www.reddit.com/r/visualnovels/comments/ual80h/which_vns_have_an_amazing_ui_and_which_have_ui/
 
-### Player/community UI sentiment
-
-- Best VN menu systems / user interfaces: https://www.reddit.com/r/visualnovels/comments/s7x16/best_vn_menu_systemsuser_interfaces/
-- Which VNs have amazing / hated UI: https://www.reddit.com/r/visualnovels/comments/ual80h/which_vns_have_an_amazing_ui_and_which_have_ui/
-
-### Strong primary cross-check
-
+### Primary cross-check
 - Summer Pockets official operation manual: https://key.visualarts.gr.jp/summer/manual/index.html
-  - Documents Main Menu, Save/Load, Q.Save/Q.Load, Back, Auto, seen-aware Skip, voice replay, Log, lockable menu and Preferences behavior.
 
-## Decision
+## Решение
 
-**APPROVED AS REUSABLE RESEARCH GUIDANCE.**
-
-This pass validates the current HIF direction and strengthens the priority of a bounded Rollback/Rewind feasibility contract. It does **not** add new implementation work before the ordered roadmap unless a future product decision explicitly promotes one of the candidates.
+**APPROVED AS REUSABLE RESEARCH GUIDANCE.** Исследование подтверждает текущий курс HIF и усиливает приоритет ограниченного Rollback/Rewind feasibility contract. Оно не добавляет автоматически новые implementation tasks вне упорядоченной roadmap.

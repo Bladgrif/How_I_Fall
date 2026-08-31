@@ -1,52 +1,36 @@
-# Main Menu final polish — 2026-08-31
+# Финальная полировка главного меню — 2026-08-31
 
-## Status
+## Статус
 
-**REVIEW CANDIDATE** — automated evidence is recorded below; this is not final
-art approval.
+**REVIEW CANDIDATE** на момент исходного прохода — автоматические доказательства записаны ниже; это не означало финальное одобрение арта.
 
-## Pre-pass findings
+## Наблюдения до прохода
 
-The fresh 1920x1080 capture used the authored background well, but the logo and
-navigation read as separate islands: the action group started too low, the old
-presentation still carried text outlines, and the legacy `Press any button`
-prompt could reappear after Main Menu Preferences closed.
+Свежий capture 1920×1080 хорошо использовал authored background, но логотип и навигация выглядели разрозненно: группа действий начиналась слишком низко, старое оформление сохраняло text outline, а legacy `Press any button` мог снова появляться после закрытия настроек главного меню.
 
-## Benchmark comparison
+## Сравнение с референсами
 
-Repository research plus title-screen references for **STEINS;GATE**, **The
-House in Fata Morgana**, **AI: The Somnium Files**, and **PARANORMASIGHT** point
-to the same reusable pattern: one dominant key visual, a clearly isolated logo,
-a short navigation stack, transparent resting states, and a small unambiguous
-selected state. HIF adopts that principle without copying a layout or assets.
+Исследования и примеры **STEINS;GATE**, **The House in Fata Morgana**, **AI: The Somnium Files** и **PARANORMASIGHT** подтверждали общий принцип: один доминирующий key visual, ясно отделённый логотип, короткая навигация, спокойные состояния покоя и небольшой однозначный selected state. HIF использует принцип, но не копирует layout или assets.
 
-## Chosen HIF direction and changes
+## Выбранное направление и изменения
 
-- Preserved the authored full-bleed non-canon background, left readability wash,
-  logo, and five-action contract.
-- Moved and reduced the logo/navigation as one compact left-side composition;
-  `Выйти` remains separated below the four ordinary actions.
-- Removed outlines/cyan treatment. Hover and controller focus use brighter text
-  plus a compact HIF-red left marker; `Выйти` remains muted at rest.
-- Preserved dynamic primary semantics: `Продолжить` when a valid save exists;
-  otherwise `Новая игра`.
-- Extended the existing PlayerUi graphical journey with Main Menu Load, Quit,
-  and 1280x720 root captures. The quit modal keeps its existing safe `Нет`
-  focus. The legacy prompt is kept hidden after Preferences restores its old
-  scene objects.
+- Сохранён полноэкранный временный non-canon background и левый readability wash.
+- Логотип и навигация собраны в более компактную левую композицию; `Выйти` отделён от четырёх обычных действий.
+- Убраны outline/cyan treatment. Hover и controller focus используют более яркий текст и небольшой HIF-red marker слева; `Выйти` приглушён в покое.
+- Сохранена динамическая primary semantics: `Продолжить` при наличии валидного save, иначе `Новая игра`.
+- Existing PlayerUi graphical journey был расширен состояниями Main Menu Load, Quit и root capture 1280×720.
+- Legacy `Press any button` остаётся скрытым после возврата из Preferences.
 
-No art was added or changed. The authored Main Menu background remains
-**temporary / non-canon**.
+Арт не добавлялся и не менялся; фон оставался временным/non-canon.
 
-## Evidence
+## Доказательства исходного прохода
 
-- Pre-change PlayerUi graphical E2E: PASS, 2026-08-31.
-- Final PlayerUi graphical E2E: PASS, 2026-08-31; 20 screenshots, including 9
-  Main Menu-related states inspected at 1920x1080 and 1280x720.
-- Objective defect fixed and rechecked: legacy `Press any button` text visible
-  under Load/Quit after closing Preferences.
-- Curated steady-state baseline: `docs/visual-baselines/main_menu.png`.
+- Pre-change `PlayerUi` graphical E2E: PASS, 2026-08-31.
+- Final `PlayerUi` graphical E2E: PASS, 20 screenshots, включая 9 состояний главного меню на 1920×1080 и 1280×720.
+- Исправлен объективный дефект: legacy `Press any button` появлялся под Load/Quit после закрытия Preferences.
+- Curated baseline: `docs/visual-baselines/main_menu.png`.
+- `MainMenuVisualPassASmokeTests.RunBatchMode`: PASS.
+- `PlayerJourneyE2ETests`: PASS, 6/6.
+- `HowIFallCiSmokeTests.RunAll`: PASS.
 
-- MainMenuVisualPassASmokeTests.RunBatchMode: PASS (Unity batch exit 0).
-- PlayerJourneyE2ETests: PASS, 6/6 (XML result).
-- HowIFallCiSmokeTests.RunAll: PASS, including Project validator and scene validation.
+Документ исторический; актуальные состояния и дальнейшие решения определяются текущим master, feature tracker и reviewer roadmap.

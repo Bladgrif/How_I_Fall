@@ -1,48 +1,55 @@
 # How I Fall
 
-Unity-проект минимальной технической визуальной новеллы. Текущий baseline — короткая classroom demo для проверки VN-механик; сюжет и персонажи старой версии удалены и позже будут спроектированы заново.
+Unity-проект технической визуальной новеллы. Текущая продуктовая фаза — **Polished Functional Demo First**: сначала стабильный функционал, удобный player-facing UX и проверяемый UI; реальный сюжет, канон и финальный арт будут подключаться позже отдельным этапом.
 
 ## Текущий игровой контур
 
-- `MainMenu` → New Game / Continue / Load / Settings.
-- `VNPrototype` → диалог, typewriter, выбор, короткие ветки, History, Save/Load и возврат в меню.
-- Manual / Auto / Quick: по 6 слотов, JSON + PNG preview, восстановление сцены, строки, выбора и `GameState`.
-- Текущий граф диалогов: `classroom_first_lesson` → `classroom_choice_investigate` или `classroom_choice_ignore`.
-- `ui_test_scene` остаётся зарегистрированной технической сценой для UI/legacy-save совместимости и не является новым сюжетным каноном.
+- `MainMenu` → Новая игра / Продолжить / Загрузить / Настройки / Выйти.
+- `VNPrototype` → диалог, typewriter, выборы, История, Авто, безопасный Пропуск, компактное быстрое меню, игровое меню, сохранение/загрузка и возврат в главное меню.
+- Ручные сохранения: 10 страниц × 6 слотов. Авто и быстрые сохранения: по 6 циклических слотов. Используются JSON + PNG preview.
+- `Continue` загружает самое новое валидное сохранение среди Manual/Auto/Quick и пропускает повреждённый самый новый кандидат.
+- `Quick Load` сохраняет обычную семантику: загружает самое новое валидное Quick-сохранение.
+- `SaveData` остаётся версии v3; совместимость старых поддерживаемых данных защищена.
+- `ui_test_scene` остаётся зарегистрированной технической сценой для UI/legacy-save совместимости и не является сюжетным каноном.
 
-## Основные файлы
+## Основные каталоги
 
 ```text
 Assets/HowIFall/
-  Art/                 # только используемые demo/UI assets и один review-placeholder
+  Art/                 # используемые demo/UI assets
   Data/Dialogues/      # DialogueSceneData и DialogueSceneRegistry
-  Editor/              # validators, smoke tests и Play Mode E2E
-  Prefabs/UI/          # ManualSaveLoadPanel
-  Scenes/              # MainMenu, VNPrototype
+  Editor/              # validators, smoke tests и PlayMode/graphical E2E
+  Prefabs/UI/          # существующие UI prefab-файлы
+  Scenes/              # MainMenu, VNPrototype и технические сцены
   Scripts/             # runtime VN, Save, Settings, UI, Audio
 
 docs/
-  technical_plan.md
-  save_system_eternum_reference.md
+  product/              # утверждённые продуктовые решения и workflow
+  research/             # повторно используемые исследования
+  visual-baselines/     # небольшой набор визуальных baseline-скриншотов
   eternum_feature_tracker.md
-  project_cleanup_audit.md
 ```
 
-`docs/story/` сейчас намеренно отсутствует. Новую сюжетную документацию следует создавать с чистого листа, когда будет утверждён новый канон.
+`docs/story/` сейчас намеренно отсутствует. Когда работа над сюжетом будет явно возобновлена, новый актуальный материал сначала оформляется в Markdown, а не через изменения C#/сцен/prefab.
 
-## Техническая документация
+## Основные документы
 
-- [Технический план](docs/technical_plan.md)
-- [Eternum Feature Tracker](docs/eternum_feature_tracker.md)
-- [Исторический референс Save/Load](docs/save_system_eternum_reference.md)
-- [Аудит зачистки](docs/project_cleanup_audit.md)
+- [Цель текущей демо-фазы](docs/product/demo_goal.md)
+- [Принципы UI/UX](docs/product/ui_principles.md)
+- [Процесс ревью](docs/product/review_workflow.md)
+- [Карта реализованных возможностей](docs/eternum_feature_tracker.md)
+- [Бенчмарк функциональности VN](docs/research/vn_functionality_benchmark.md)
+- [Практическое руководство по разработке VN](docs/research/vn_development_playbook.md)
 
 ## Проверки
 
 - `HowIFallCiSmokeTests.RunAll`
 - `HowIFallProjectValidator.ValidateProject`
-- `ManualSaveSystemSceneInstaller.RunValidationBatchMode`
-- graphical `ManualSavePlayModeE2ERunner.StartAutomatedPlayMode`
-- graphical `SaveBackendV2PlayModeE2ERunner.StartAutomatedPlayMode`
+- целевые EditMode/PlayMode NUnit-тесты для изменяемой системы;
+- существующие graphical E2E, включая `PlayerUiGraphicalE2ERunner`, `ManualSavePlayModeE2ERunner` и `SaveBackendV2PlayModeE2ERunner`.
 
-Screenshot-dependent Play Mode E2E нельзя запускать с `-nographics`.
+Graphical E2E, зависящие от скриншотов, нельзя запускать с `-nographics`. Стандартное разрешение QA — 1920x1080, если задача отдельно не проверяет адаптивность.
+
+## Язык документации
+
+Человеко-читаемая документация проекта ведётся по-русски. Технические пути, имена файлов, классов, API, тестов и других идентификаторов сохраняются как в коде.

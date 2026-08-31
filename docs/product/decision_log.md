@@ -1,108 +1,80 @@
-# Decision log
+# Журнал решений
 
-## 2026-08-27 — Functional Demo First
+## 2026-08-27 — Сначала функциональная демо-версия
 
-**Decision:**
+**Решение:**
+- текущая продуктовая фаза — **Polished Functional Demo First**;
+- работа над сюжетом приостановлена;
+- финальный арт подключается позже.
 
-- polished functional demo является текущей product phase;
-- story work paused;
-- final art позже.
+**Почему:** сначала нужен стабильный и убедительный player-facing demo без предположений о будущем каноне.
 
-**Why:** Сначала нужно получить стабильный и убедительный player-facing demo без предположений о будущем каноне.
-
-**Status:** APPROVED
+**Статус:** APPROVED
 
 ## 2026-08-27 — Research workflow
 
-**Decision:**
+**Решение:** перед крупными UI/UX/functional решениями при необходимости проводится внешнее исследование, сравниваются варианты, а принятый вывод фиксируется в repository knowledge base.
 
-- перед крупными UI/UX/functional решениями при полезности проводится внешнее research;
-- сравниваются варианты;
-- утверждённый вывод фиксируется в repository knowledge base.
+**Почему:** внешние референсы помогают принимать обоснованные решения, но не заменяют утверждённую документацию проекта.
 
-**Why:** Внешние референсы помогают принимать обоснованные решения, но не заменяют утверждённую документацию проекта.
+**Статус:** APPROVED
 
-**Status:** APPROVED
+## 2026-08-27 — Сначала сильные benchmark-референсы
 
-## 2026-08-27 — Benchmark-first visual research
+**Решение:** для значимых UI/UX visual решений исследование начинается с нескольких сильных benchmark-референсов — прежде всего признанных VN и качественных релевантных игр. Затем добавляются примеры для конкретной задачи и при необходимости общий UX/accessibility guidance.
 
-**Decision:** Для значимых UI/UX visual decisions внешнее исследование начинается
-с нескольких сильных benchmark-референсов — прежде всего признанных/top-tier VN
-и качественных релевантных игр. Затем добавляются task-specific examples и при
-необходимости общий UX/accessibility guidance. Случайный набор малоизвестных
-примеров не используется как основной benchmark.
+**Почему:** сначала нужен высокий quality bar жанра, а затем лучшие решения для конкретного экрана. Известность игры не означает, что её интерфейс следует копировать.
 
-**Why:** Сначала нужен высокий quality bar жанра, а затем — лучшие решения именно
-для конкретного экрана. Известность игры не означает, что каждый её UI-screen
-следует копировать; решения оцениваются и адаптируются под HIF.
+**Статус:** APPROVED
 
-**Status:** APPROVED
+## 2026-08-27 — Scope главного меню
 
-## 2026-08-27 — Main Menu demo scope
+**Решение:** обычное player-facing главное меню содержит: Продолжить / Новая игра / Загрузить / Настройки / Выйти. Help, About и Gallery не входят в обычное главное меню текущего demo.
 
-**Decision:**
+**Почему:** меню должно быть небольшим и поддерживать основной демонстрационный поток.
 
-Текущий player-facing Main Menu содержит:
+**Статус:** ACCEPTED
 
-- Continue;
-- New Game;
-- Load;
-- Settings;
-- Quit.
+## 2026-08-27 — Общие настройки
 
-Help, About и Gallery не являются обычными Main Menu actions текущей demo.
+**Решение:** один `SharedPreferencesView` используется из главного меню и gameplay; независимые settings screens не создаются.
 
-**Why:** Scope меню должен оставаться небольшим и поддерживать основной демонстрационный поток.
+**Почему:** единая точка настроек сохраняет предсказуемость и целостность UI.
 
-**Status:** ACCEPTED
-
-## 2026-08-27 — Shared Preferences
-
-**Decision:** Один Shared Preferences UI используется из Main Menu и gameplay; независимые settings screens не создаются.
-
-**Why:** Единая точка настроек сохраняет предсказуемость и целостность UI-системы.
-
-**Status:** APPROVED
-
-## 2026-08-27 — Deferred visual polish
-
-**Decision:** Зафиксирован известный неблокирующий visual debt.
-
-Main Menu:
-
-- текущий background временный и слишком простой;
-- button styling требует будущего visual polish;
-- перед следующим visual pass нужно исследовать хорошие игровые/VN Main Menu references.
-
-Preferences:
-
-- ширина и geometry окна требуют будущего polish;
-- пользователь отметил визуальное обрезание или слишком узкое окно в Main Menu Preferences и Gameplay Preferences.
-
-Это не обозначается как bug, ломающий функционал.
-
-**Why:** Долг важен для будущей подачи, но не блокирует текущий functional demo.
-
-**Status:** SUPERSEDED/RESOLVED
-
-**Resolution:** Main Menu/Preferences structural polish выполнен. Дальнейшие
-aesthetic passes проходят через новый visual-review workflow.
+**Статус:** APPROVED
 
 ## 2026-08-27 — Visual review workflow
 
-**Decision:** Для player-facing visual review используются Codex graphical proof,
-свежие committed visual baselines и reviewer visual comparison. Objective UI
-defects исправляются в correction pass; baselines не означают финальное art или
-автоматическое aesthetic approval.
+**Решение:** для player-facing visual review используются graphical proof от Codex, свежие committed visual baselines и визуальное сравнение reviewer'ом. Объективные дефекты исправляются отдельным correction pass; baselines не означают финальный арт или автоматическое эстетическое одобрение.
 
-**Why:** Reviewer должен иметь доступ к реальному runtime proof и небольшому
-набору screenshots, а subjective aesthetic approval должна оставаться отдельной
-ответственностью пользователя.
+**Статус:** APPROVED
 
-**Status:** APPROVED
+## 2026-08-31 — Pre-story функциональный shell
 
-## 2026-08-31 — Pre-story functional demo freeze
+**Решение:** функциональная база до сюжета признана достаточно широкой. Дальнейшая работа до подключения реального сюжета — в первую очередь качество, интеграция и UX существующих систем, а не наращивание количества generic-функций.
 
-**Decision:** Main Menu final polish accepted, and the pre-story player-facing functionality audit passed. The next gate is a clean standalone Windows review build followed by hands-on user acceptance; story integration begins only after that acceptance.
+**Статус:** ACCEPTED
 
-**Status:** ACCEPTED
+## 2026-08-31 — Текущий контракт быстрого меню
+
+**Решение:** player-facing нижняя полоса содержит `История | Пропуск | Авто | Быстр. сох.`. Обычные Save/Load/Preferences/Menu остаются доступны через существующие маршруты и hotkeys, но не дублируются в нижней полосе.
+
+**Статус:** ACCEPTED
+
+## 2026-08-31 — Текущий контракт Save/Load
+
+**Решение:** режим Save показывает только Manual. Режим Load позволяет просматривать Manual/Auto/Quick через компактную навигацию. `Quick Load` остаётся загрузкой самого нового валидного Quick-сохранения. `Continue` выбирает самое новое валидное сохранение среди Manual/Auto/Quick. `SaveData` v3 не меняется.
+
+**Статус:** ACCEPTED
+
+## 2026-08-31 — Rollback/Rewind
+
+**Решение:** прежнее «NOT PLANNED» больше не является окончательным. По явному запросу пользователя rollback/rewind открыт для отдельного ограниченного feasibility/product-contract исследования. Реализация пока не разрешена; визуальный переход назад без восстановления состояния запрещён.
+
+**Статус:** RESEARCH REQUIRED
+
+## 2026-08-31 — Язык документации
+
+**Решение:** человеко-читаемая документация HIF ведётся по-русски. Технические имена файлов/путей, классов, API, тестов и других идентификаторов сохраняются как в коде и не переименовываются только ради перевода.
+
+**Статус:** APPROVED

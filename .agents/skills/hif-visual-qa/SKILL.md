@@ -1,14 +1,14 @@
 ---
 name: hif-visual-qa
-description: Run How I Fall player-visible visual QA with existing Unity launchers and graphical E2E.
+description: Выполняет визуальный QA player-facing интерфейса How I Fall через существующие Unity launcher'ы и graphical E2E.
 ---
 
-# How I Fall visual QA
+# Визуальный QA How I Fall
 
-1. Identify the changed player-visible state and reuse the closest existing `*QaLauncher.cs` or graphical E2E; avoid a launcher/test for every small button.
-2. Use functional-area coverage and the standard **1920x1080** resolution only, unless the task explicitly requires another resolution.
-3. When this functional area has a graphical E2E scenario, run it first in the real runtime without `-nographics`; do not immediately defer objective UI checks to human QA.
-4. Obtain and inspect its screenshots for missing sprites/textures, clipping, overlap, incorrect visibility, malformed dropdowns, broken anchors/layout, and clear runtime/UI defects.
-5. Fix a task-scoped objective defect and repeat the relevant proof. Mark graphical proof `NOT RUN` only when it was attempted but failed because of environment/infrastructure, or no objective automation exists for the area.
-6. Ask for human manual QA only for subjective visual/taste, atmosphere, final aesthetic approval, or truly non-automatable interaction. Automated objective proof is not a human QA pass.
-7. After a significant visual pass and successful graphical E2E, prepare the relevant curated screenshots in `docs/visual-baselines/` for reviewer visual review; do not copy all `QAArtifacts`.
+1. Определи изменённое player-facing состояние и переиспользуй ближайший существующий `*QaLauncher.cs` или graphical E2E. Не создавай отдельный launcher/test для каждой мелкой кнопки.
+2. Проверяй функциональную область на стандартном разрешении **1920x1080**, если задача явно не требует другого разрешения.
+3. Если для области существует graphical E2E, сначала запусти его в реальном runtime без `-nographics`; объективные UI-проверки не перекладывай сразу на ручной QA.
+4. Получи и просмотри скриншоты: missing sprite/texture, clipping, overlap, неправильная visibility, malformed dropdown, сломанные anchors/layout и очевидные runtime/UI дефекты.
+5. Исправь объективный дефект в рамках задачи и повтори релевантное доказательство. Ставь `NOT RUN` только если graphical proof реально пытались запустить, но он заблокирован инфраструктурой, либо объективной автоматизации для области действительно нет.
+6. Проси ручной QA пользователя только для субъективного визуального вкуса, атмосферы, финального aesthetic approval или реально неавтоматизируемого взаимодействия. Автоматическая проверка Codex не называется человеческим QA pass.
+7. После значимого визуального прохода и успешного graphical E2E подготовь небольшой релевантный набор скриншотов в `docs/visual-baselines/`; не копируй туда весь `QAArtifacts`.

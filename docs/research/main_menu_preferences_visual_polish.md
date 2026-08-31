@@ -1,23 +1,23 @@
-# Main Menu and Shared Preferences visual polish
+# Визуальная полировка главного меню и общих настроек
 
-## Context
+## Контекст
 
-Second player-facing polish pass for the functional demo. It must improve hierarchy and readability without setting HIF canon or copying a reference layout, asset, or code.
+Второй player-facing polish pass функциональной демо-версии. Цель — улучшить иерархию и читаемость без определения канона HIF и без копирования чужого layout, assets или code.
 
-## References
+## Референсы
 
-- [Reimei no Gakuen — Steam](https://store.steampowered.com/app/1881950/Reimei_no_Gakuen__OtomeVisual_Novel/) — a visual-novel presentation can let the full-screen image lead while navigation remains subordinate.
-- PRETTY×CATION title-screen pattern — bright VN imagery remains readable with a compact vertical navigation group; large boxed buttons are unnecessary.
-- [DDLC README](https://doki-doki-literature.club/README.html) — familiar VN Preferences group display, text speed, auto-forward, skip and audio as clear direct controls.
-- [Microsoft XAG 112](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/112) and [XAG 114](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/114) — consistent control context and a predictable focus order support keyboard and controller navigation.
+- **Reimei no Gakuen** — полноэкранное изображение может быть главным визуальным слоем, а навигация остаётся вторичной.
+- **PRETTY×CATION** — яркая VN-композиция остаётся читаемой с компактной вертикальной навигацией; большие boxed buttons не обязательны.
+- **DDLC README** — понятные жанровые группы Preferences: display, text speed, auto-forward, skip и audio.
+- **Microsoft XAG 112/114** — последовательный контекст управления и предсказуемый порядок focus полезны для keyboard/controller navigation.
 
-## Recommendation for HIF
+## Рекомендация для HIF
 
-- Use an art-independent, non-canon layered temporary background until an original approved illustration exists.
-- Keep the five Main Menu actions in a compact left column, with transparent normal states and a restrained cyan focus accent.
-- Make Shared Preferences broad, spacious and single-view; align labels and controls in simple rows with subtle separators.
-- Preserve real TMP dropdowns and the existing Main Menu/Shared Preferences navigation contracts.
+- До появления оригинальной утверждённой иллюстрации использовать art-independent, non-canon layered background.
+- Сохранить пять действий главного меню в компактной левой колонке, с прозрачным обычным состоянием и сдержанным акцентом focus.
+- Делать Shared Preferences широким, просторным и читаемым в одном представлении; выровнять labels/controls по простым строкам и использовать лёгкие separators.
+- Сохранять настоящие TMP dropdown и существующие navigation contracts главного меню/Shared Preferences.
 
-## Decision
+## Решение
 
-**APPROVED FOR THIS POLISH PASS.** This is a functional-demo presentation direction, not final visual identity or story canon.
+**APPROVED для соответствующего polish pass.** Это направление подачи функциональной демо-версии, а не финальная визуальная идентичность или сюжетный канон.

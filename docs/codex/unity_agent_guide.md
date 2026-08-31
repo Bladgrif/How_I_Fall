@@ -1,12 +1,13 @@
-# Unity agent QA guide
+# Руководство QA для Unity-агента
 
-- Read the Unity version from `ProjectSettings/ProjectVersion.txt`; do not rely on memory.
-- Standard QA resolution is **1920x1080**. Test other resolutions only when a task explicitly requires it.
-- Keep a minimal diff. Treat scenes, prefabs, `.meta`, serialized references and save compatibility as high-risk.
-- Add regression coverage for changed behaviour where practical: EditMode for pure logic, PlayMode for runtime/UI lifecycle, and existing smoke/validators for scene/prefab/project integrity.
-- Validate targeted-first: compile errors, narrow test, relevant regression/smoke; do not claim unrun checks passed.
-- Player-visible work should reuse an existing QA launcher/E2E where possible. Graphical E2E must not use `-nographics`.
-- Capture visual proof only after the target runtime state is ready; a screenshot that merely exists is not proof. Inspect it, fix clear task-scoped defects, and rerun proof.
-- Automated evidence can technically verify objective criteria. Request human QA only for subjective visual/taste criteria or an actual automation gap; never call Codex inspection a human QA pass.
-- Keep logs, results and screenshots in ignored temporary locations unless a task explicitly needs an artifact committed.
-- For long multi-stage work, use an existing relevant tracker or spec as durable progress state; do not create status files for ordinary short tasks.
+- Версию Unity читай из `ProjectSettings/ProjectVersion.txt`; не полагайся на память.
+- Стандартное разрешение QA — **1920x1080**. Другие разрешения проверяй только по явному требованию задачи.
+- Сохраняй минимальный diff. Сцены, prefab, `.meta`, сериализованные ссылки и совместимость сохранений считаются зонами повышенного риска.
+- Для изменённого поведения по возможности добавляй регрессионное покрытие: EditMode для чистой логики, PlayMode для runtime/UI lifecycle, существующие smoke/validators для целостности сцен/prefab/проекта.
+- Проверяй от узкого к широкому: ошибки компиляции → целевой тест → релевантные regression/smoke. Не заявляй о прохождении незапущенных проверок.
+- Для player-facing работы по возможности переиспользуй существующий QA launcher/E2E. Graphical E2E нельзя запускать с `-nographics`.
+- Делай визуальный capture только после готовности целевого runtime-состояния. Сам факт наличия скриншота не является доказательством: открой его, проверь, исправь объективные дефекты в рамках задачи и повтори proof.
+- Автоматизированные доказательства могут подтвердить объективные критерии. Ручной QA нужен только для субъективного визуального вкуса или реального пробела автоматизации; проверку Codex нельзя называть человеческим QA pass.
+- Логи, результаты и скриншоты храни во временных игнорируемых каталогах, если задача явно не требует commit артефакта.
+- Для долгой многоэтапной работы используй существующий релевантный tracker/spec как устойчивое состояние прогресса. Не создавай отдельные status-файлы для обычных коротких задач.
+- Человеко-читаемые HIF-документы пиши по-русски. Технические имена файлов, классов, API и тестов сохраняй как в коде.

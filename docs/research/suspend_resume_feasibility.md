@@ -1,71 +1,64 @@
-# Suspend / Resume Feasibility
+# Исследование Suspend / Resume
 
-## Current HIF behavior
+## Текущее поведение HIF
 
-`Continue` calls `SaveManager.LoadLatest()`. It scans all six Manual, six Quick and six Auto slots, reads and validates each candidate before ranking it by `createdAtUtc` (Manual, then Quick, then Auto only as a timestamp tie-break). A malformed, incompatible, mismatched or otherwise unresolvable newest record is non-loadable and is skipped; `Continue` selects the next newest valid record. It then restores the saved narrative position, `GameState` fields and the optional v3 backlog snapshot, either in place or after routing to `VNPrototype`.
+`Continue` вызывает `SaveManager.LoadLatest()` и выбирает самое новое валидное сохранение среди **60 Manual**, **6 Quick** и **6 Auto** слотов. Каждый кандидат читается и валидируется до ранжирования; повреждённая, несовместимая или неразрешимая самая новая запись пропускается, после чего выбирается следующий валидный кандидат.
 
-Auto and Quick are six-slot rotations. Ordinary autosave is requested on normal dialogue-scene entry and when choices are shown; a confirmed load has its own pre-load Auto checkpoint. Quick Save is player-invoked. Save capture requires an active `VNDialogueController`, a valid stable dialogue position and an end-of-frame screenshot. A normal Main Menu/OS quit does **not** currently create a save. Thus returning after ordinary exit is easy when a recent Auto/Quick/Manual save exists, but `Continue` cannot recover progress made after the last successful checkpoint.
+После загрузки восстанавливаются сохранённая narrative position, поля `GameState` и при наличии v3 snapshot Истории. Обычный выход из Main Menu/OS сейчас не создаёт специального suspend-save.
 
-## User problem
+Auto и Quick имеют по 6 циклических слотов. Ручное сохранение — 60 адресов. Обычные autosave создаются в существующих стабильных точках runtime; Quick Save вызывается игроком.
 
-Suspend/resume would primarily cover one narrow gap: a player closes the app between ordinary Auto checkpoints and expects to resume exactly there without deliberately saving. It does not improve corrupted-save recovery, because `Continue` already rejects a bad newest candidate, nor does it promise crash recovery: Unity does not guarantee a reliable callback, completed screenshot capture or completed file write during a crash or forced termination.
+## Какую проблему решал бы suspend/resume
 
-## Options considered
+Единственный существенный дополнительный сценарий: игрок закрывает приложение **после последнего успешного checkpoint**, но до следующего Auto/Manual/Quick save, и ожидает вернуться точно туда же.
 
-| Option | Player value | Cost / risk | Fit now |
+Suspend не улучшает восстановление при повреждённом newest save — `Continue` уже умеет безопасно пропускать такой кандидат. Suspend также не может честно обещать crash recovery: Unity не гарантирует callback, завершённый screenshot capture и запись файлов при crash/forced termination.
+
+## Рассмотренные варианты
+
+| Вариант | Польза | Стоимость / риск | Решение сейчас |
 |---|---|---|---|
-| A. Keep current Continue | High for every successfully created save; corruption fallback already exists | No new persistence or lifecycle contract | Best current baseline |
-| B. Explicit suspend/resume | Removes the between-checkpoint exit gap | Requires quit/pause lifecycle policy, transient-slot ownership, ranking, invalidation and special-mode handling | Not justified for the technical demo |
-| C. Later autosave-policy pass | Gives content-authored recovery at meaningful choices and scene boundaries | Needs real routes/choices, but reuses tested Auto semantics | Better future investment |
+| A. Оставить текущий `Continue` | Высокая для всех успешно созданных сохранений; есть fallback при corruption | Не добавляет новый lifecycle/persistence contract | Лучший текущий baseline |
+| B. Явный suspend/resume | Уменьшает разрыв между checkpoints | Quit/pause lifecycle, transient ownership, ranking, invalidation, special-mode handling | Не оправдан для текущего demo |
+| C. Позже улучшить autosave policy | Восстановление около реальных важных событий | Требует реального контента, но переиспользует стабильный Auto | Лучшее будущее вложение |
 
-A separate transient slot is preferable to silently overwriting an Auto slot if this is ever implemented: it preserves the player's visible Auto history and makes one-time resume/invalidation explicit. A metadata pointer alone does not contain the required narrative state. Reusing the existing Auto format could avoid a `SaveData` v4 only if a new storage path/type is introduced outside the closed `SaveSlotType` contract; otherwise it changes that contract and every slot UI/ranking/validation path.
+## `SaveData` v3
 
-## SaveData v3 impact
+Текущий v3 уже хранит стабильное campaign state: scene/line identity, choice result state, persisted numeric values и optional backlog snapshot. Он намеренно не сериализует modal state, special-mode state, typewriter progress, animation/timer state или screenshot capture in flight.
 
-The current v3 record already contains stable campaign state: scene and line identity, choice-result state, the nine persisted numeric values and an optional backlog snapshot. It deliberately does not serialize normal modal state, special-mode state, typewriter progress, screenshot capture in flight or animation/timer state.
+Любой будущий resume должен восстанавливать только стабильное gameplay state. Он не должен обещать точное возвращение в Preferences, Save/Load confirmation, History scroll, середину typewriter-анимации и другие transient UI-состояния.
 
-A future resume must restore only this stable gameplay state. It must not promise exact restoration of Preferences, Save/Load confirmation, Backlog scroll/modal state, typewriter progress or transient animation. Retaining v3 is feasible only with a clearly isolated storage envelope and no new fields in `SaveData`; it still requires a reviewed migration/compatibility decision because the current enum, directories, slot validation and Continue scan admit only Manual/Auto/Quick.
+Не менять `SaveData` v3 ради этого без отдельного одобренного compatibility решения.
 
-## Special-mode risks
+## Особые режимы — безопасная политика
 
-| State at close/pause | Audit finding | Safe future policy |
-|---|---|---|
-| Preferences, Backlog, Game Menu, return or Save/Load confirmation | Normal modal state is scene-local and unsaved; Save/Load can also be mid-operation | Do not suspend the modal. Either reject/defer the checkpoint or save only after it has fully completed and resume normal gameplay UI. |
-| Replay | Replay deliberately denies all saves/loads and restores an in-memory campaign snapshot on exit | Never create or consume a suspend record in Replay. |
-| Chat/Phone | `BlockingExclusive`; transcript, pacing, active entry and branch state are runtime-only and unsaved | Do not suspend while active. |
-| Map / Interactive Hotspot | Exclusive interactive state and completion progress are runtime-only | Do not suspend while active. |
-| Timed Narrative Beat | Exclusive unscaled timer and pending outcome are runtime-only | Do not suspend while active. |
-| Other special mode | `SpecialModeCoordinator` is fail-closed unless the mode owns a serializable restore contract | Default deny; no implicit opt-in. |
+| Состояние | Решение |
+|---|---|
+| Preferences / History / Game Menu / Save-Load confirmation | Не сериализовать modal; checkpoint только после завершения операции и возврат в обычный gameplay UI |
+| Replay | Никогда не создавать/использовать suspend record |
+| Chat/Phone | Не suspend, пока режим активен |
+| Map / Interactive Hotspot | Не suspend, пока режим активен |
+| Timed Narrative Beat | Не suspend, пока активен timer/outcome |
+| Другой special mode | Fail closed, пока у режима нет явного deterministic restore contract |
 
-## Failure/recovery model
+## Модель отказа для возможного будущего решения
 
-A future implementation would need all of the following before it can be considered safe:
+Понадобилось бы явно определить:
+- best-effort triggers для normal Quit / Main Menu Quit / application pause; без обещания crash guarantee;
+- запрет нового save при активном write/capture, confirmation или exclusive special mode;
+- безопасную запись через temporary files и проверку до публикации нового record;
+- игнорирование corrupt/stale/unsupported/partial suspend без влияния на обычный Manual/Auto/Quick recovery;
+- ranking/freshness так, чтобы поздняя shutdown-запись не вытесняла более новый реальный Auto/Quick progress нелогичным образом;
+- явную invalidation/one-time consumption policy.
 
-- normal Quit, Main Menu Quit, `OnApplicationQuit` and application pause must be distinct best-effort triggers; none is a crash guarantee;
-- no save may start while a capture/write is already in flight, a normal modal confirmation is active, or an exclusive special mode is active;
-- write JSON and preview to temporary files, validate the finished record before publishing, and keep the previous suspend until replacement is complete;
-- corrupted, stale, unsupported-version or partial suspend must be ignored without affecting Manual/Auto/Quick `Continue` recovery;
-- an accepted suspend must have an explicit freshness/ranking rule. It must not displace a newer valid Auto/Quick save merely because it was written late during shutdown;
-- delete/invalidate only after successful resume. New Game must invalidate it; normal save/load invalidation needs a product decision rather than an implicit destructive rule.
+## Тестирование возможной реализации
 
-The existing JSON/preview temporary-file cleanup reduces ordinary-write damage, but it is not an atomic paired-file transaction and does not make shutdown capture reliable.
+Потребовались бы persistence/validation tests плюс PlayMode lifecycle coverage: normal quit intent, Main Menu quit, pause, stale/corrupt/partial suspend, successful one-time resume, New Game invalidation, ranking против Auto/Quick и все deny states выше. Crash/Alt+F4 нельзя обещать как гарантируемый автоматический результат.
 
-## Testing implications
+## Рекомендация
 
-This is not a small unit-test-only feature. It would require focused persistence/validation tests plus PlayMode lifecycle coverage for normal quit intent, Main Menu quit, pause, a stale/corrupt/partial suspend, successful one-time resume, New Game invalidation, ranking against newer Auto/Quick saves, and each deny state above. Crash/Alt+F4 correctness cannot be asserted as a guaranteed automated outcome; it needs explicitly documented best-effort behavior and platform QA.
+**DEFER.** Текущий `Continue` уже надёжно возвращает игрока к самому новому загрузочному Manual/Auto/Quick checkpoint и переживает повреждённый самый новый кандидат. Оставшийся gap — только расстояние от последнего checkpoint. Его разумнее позже уменьшить content-informed autosave policy, чем вводить второй persistence/lifecycle contract.
 
-## Recommendation
+## Решение
 
-**DEFER.** Explicit suspend has real value only for progress after the last checkpoint, but that value is currently smaller than the lifecycle and recovery surface it adds. HIF already provides robust latest-valid `Continue`, six rotating Auto/Quick slots and pre-load recovery. For **Polished Functional Demo First**, the next save-related improvement should be a content-informed autosave policy, after real choices/checkpoints exist.
-
-## If ACCEPT: minimal implementation outline
-
-Not applicable while this decision is DEFERRED. A later proposal must first define a separate transient-record envelope, stable-state-only restore, deny list for modals/special modes, one-time consumption, timestamp/ranking semantics and the test matrix above. It must preserve `SaveData.CurrentVersion == 3` or explicitly justify a version migration.
-
-## If REJECT/DEFER: why existing Continue is sufficient
-
-For the current demo, `Continue` already returns the player to the newest loadable Manual/Quick/Auto checkpoint and survives a corrupted newest candidate by falling back safely. The remaining gap is not a loss of all recovery, but the distance since the last checkpoint. That is better addressed later by authored Auto timing than by a second persistence contract that cannot safely serialize the demo's transient UI and special modes.
-
-## Decision
-
-**DEFER — no suspend/resume implementation is authorized.** Revisit only together with real-content autosave policy and a bounded lifecycle design; do not alter `SaveData` v3, scenes, prefabs or production C# from this audit.
+**DEFER — реализация suspend/resume не разрешена.** Возвращаться к вопросу только вместе с реальным content/autosave policy и ограниченным lifecycle-дизайном. Не менять `SaveData` v3, сцены, prefab или production C# из-за этого аудита.

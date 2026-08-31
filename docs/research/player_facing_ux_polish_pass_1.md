@@ -1,14 +1,16 @@
-# Player-facing UX polish pass 1
+# Player-facing UX polish — проход 1
 
-**Status:** REVIEW CANDIDATE — automated verification pending.
+**Исторический статус:** REVIEW CANDIDATE на момент исходного прохода.
 
-The functional baseline was stable, but human runtime review reopened player-facing polish for Main Menu, shared Preferences and ordinary gameplay navigation. This is not a new feature or story pass.
+Функциональная база была стабильной, но ручной runtime-review повторно открыл polish главного меню, общих настроек и обычной gameplay-навигации. Это не новая feature/story задача.
 
-## Decisions
+## Решения
 
-- The floating cyan Main Menu underline is rejected. Focus/hover uses brighter text, a restrained outline and a small adjacent HIF red accent instead.
-- Preferences remains the single `SharedPreferencesView` used from Main Menu and gameplay. It is a compact centered modal, not a second full-screen shell.
-- Settings remain immediate-apply and immediately persisted; the footer now says this explicitly. No staged copy or Apply action is introduced.
-- Screen Mode and Resolution use compact direct selectors instead of oversized dropdown presentation.
-- The legacy top-right gameplay Menu control is hidden at runtime. The bottom Quick Menu route and Esc-to-Game-Menu contract remain authoritative.
-- Save backend, manual pagination and SaveData are intentionally deferred to Pass 2.
+- Плавающая cyan-подчёркивающая линия главного меню отвергнута. Focus/hover должен давать более яркий текст и небольшой HIF-red акцент рядом с пунктом.
+- `SharedPreferencesView` остаётся единственным интерфейсом настроек из главного меню и gameplay; не создавать второй независимый settings screen.
+- Настройки применяются и сохраняются сразу. Не добавлять staged copy или кнопку Apply без отдельной причины.
+- Screen Mode и Resolution должны использовать понятный семантический control; позднее текущим принятым контрактом стали реальные dropdown.
+- Legacy top-right gameplay Menu скрывается; нижняя Quick Menu и Esc → Game Menu остаются основными маршрутами.
+- Save backend, Manual pagination и `SaveData` не должны меняться в визуальном проходе настроек.
+
+Документ хранит историю решения. Текущий контракт интерфейса нужно брать из master, `docs/eternum_feature_tracker.md` и актуальной reviewer roadmap.

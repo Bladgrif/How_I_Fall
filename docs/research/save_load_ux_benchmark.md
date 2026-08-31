@@ -1,66 +1,44 @@
-# Save/Load UX benchmark
+# Бенчмарк UX сохранения и загрузки
 
-## References
+## Референсы
 
-- **The House in Fata Morgana** — conventional VN Save/Load, quick actions and
-  simple menu vocabulary; useful as a restraint benchmark rather than a visual
-  template. [Gameplay controls](https://strategywiki.org/wiki/The_House_in_Fata_Morgana/Gameplay)
-- **STEINS;GATE / STEINS;GATE 0** — mature VN navigation and deliberate
-  separation of common reading controls from save actions. [VN functionality
-  benchmark](vn_functionality_benchmark.md)
-- **Doki Doki Literature Club / DDLC Plus** — a compact, immediately legible
-  baseline for Menu and Preferences rather than a source of HIF art or layout.
-  [VN functionality benchmark](vn_functionality_benchmark.md)
-- **PARANORMASIGHT** — a controller-friendly 2D narrative game with clear
-  progression/navigation affordances. [Official site](https://paranormasight.square-enix-games.com/en-us/)
-- **AI: THE SOMNIUM FILES** — manual saving alongside structured player
-  navigation; the useful principle is visible hierarchy, not its detective UI.
-  [Official system page](https://www.spike-chunsoft.com/ai/system/)
+- **The House in Fata Morgana** — традиционный Save/Load и быстрые действия; полезен как пример сдержанности, а не визуальный шаблон.
+- **STEINS;GATE / STEINS;GATE 0** — зрелая навигация и разделение частых действий чтения от операций сохранения.
+- **Doki Doki Literature Club / DDLC Plus** — компактный и сразу понятный baseline Menu/Preferences.
+- **PARANORMASIGHT** — ясная навигация и controller-friendly interaction.
+- **AI: THE SOMNIUM FILES** — ручные сохранения рядом со структурированной player navigation; важен принцип иерархии, а не detective UI.
 
-## Strong patterns
+## Сильные паттерны
 
-- Make the current context (Save or Load) and save class visible before slot
-  detail.
-- Let the scene thumbnail identify a valid save first; keep date and location
-  concise and readable.
-- Treat empty, valid, and unavailable data as separate states. An unavailable
-  save must not borrow empty-state wording or affordance.
-- Keep destructive actions visually and navigationally subordinate, with
-  Cancel as the confirmation default.
-- Give keyboard/gamepad selection a stable visual state independent of hover;
-  use a compact, predictable grid rather than controller-only hidden paths.
+- Текущий контекст (`Save` или `Load`) и тип сохранения должны быть понятны до чтения деталей слота.
+- Thumbnail помогает первым распознать валидное сохранение; дата и контекст должны быть краткими.
+- Empty, valid и unavailable/corrupt — разные состояния и не должны иметь одинаковую формулировку/affordance.
+- Разрушающие действия визуально и навигационно вторичны; в подтверждениях безопасный Cancel/No является default.
+- Keyboard/gamepad selection имеет стабильное понятное состояние независимо от pointer hover.
+- Компактная предсказуемая сетка лучше скрытых controller-only маршрутов.
 
-## What does not fit HIF
+## Текущий HIF
 
-- Copying a branded interface, proprietary art, bespoke story charts or a
-  multi-page save archive would inflate the functional-demo scope.
-- Player naming, suspend slots, cloud sync and backend changes are not needed
-  for the current v3 contract.
+HIF использует общую 3×2 панель из шести карточек с 16:9 preview и семьями Manual/Auto/Quick. Подтверждения, Main Menu/Game Menu entry points и backend уже существуют.
 
-## Comparison with current HIF
+Актуальная информационная архитектура:
+- Save → только Manual;
+- Load → Manual/Auto/Quick через одну компактную область family/page navigation;
+- `Quick Load` → самое новое валидное Quick-сохранение;
+- `Continue` → самое новое валидное Manual/Auto/Quick;
+- отдельный `Latest Load` не добавлен;
+- `SaveData` v3 и backend semantics не переписываются.
 
-HIF already has a shared six-slot 3x2 prefab, 16:9 previews, Manual/Auto/Quick
-classes, safe confirmations and Main Menu/Gameplay entry points. The remaining
-polish gap was focus visibility: card emphasis was pointer-only, and dynamic
-Load states did not define explicit safe navigation links. Raw slot errors could
-also surface technical data through the status line.
+## Рекомендованное направление
 
-## Recommended direction for HIF
+Сохранять существующую нейтральную сетку, preview-first и безопасные подтверждения. Улучшать hierarchy/focus/navigation, а не перестраивать систему сохранений.
 
-Keep the existing neutral-dark, cyan-accent 3x2 thumbnail-led grid. Strengthen
-information hierarchy and interaction rather than redesigning the save system:
-selected cards use a modest cyan focus treatment, valid previews remain
-prominent, unavailable occupied cards use concise player-safe wording, and
-runtime navigation links avoid disabled Load cards and destructive defaults.
+## Не принимать без отдельной задачи
 
-## Adopted in this pass
-
-- Added EventSystem focus treatment to the existing slot view.
-- Added dynamic explicit navigation for tabs, available cards, Close and
-  secondary Delete controls.
-- Mapped unavailable-slot status to concise player-facing messages.
-
-## Intentionally not adopted
-
-No SaveData change, new slot types, pages, renaming, suspend/cloud saves,
-backend rewrite, scene rewrite or global focus manager.
+- изменение `SaveData`;
+- новые типы слотов;
+- cloud/suspend save;
+- backend rewrite;
+- массовое удаление всех сохранений;
+- глобальный focus manager;
+- копирование branded интерфейса другой игры.

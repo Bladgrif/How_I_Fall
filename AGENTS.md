@@ -1,43 +1,50 @@
 # How I Fall
 
-- Unity visual novel on C#; prefer minimal, task-scoped changes and no unrelated refactoring.
-- Read only the files/systems relevant to the task unless a dependency requires expanding scope.
-- Do not change game scenes, prefabs, serialized references, Save format, ProjectSettings, or `.meta` files unless the task requires it. Preserve existing working APIs and user changes.
-- Any new or changed game behaviour needs regression coverage when it is reasonably automatable. Use EditMode NUnit for pure logic, PlayMode NUnit for runtime/UI lifecycle, and existing smoke/validators for scene, prefab, serialized and project integrity. A bug fix should catch the original bug where practical; docs-only changes normally need no test.
-- Prefer ordinary Unity Test Framework NUnit tests. Use custom graphical/runtime E2E only for real runtime flows, Game View, screenshots, or Editor lifecycle.
-- After implementation: check compile errors, run a narrow targeted test, then relevant regression/smoke checks. For player-visible work, run runtime/E2E proof when the environment supports it, inspect available visual proof, fix clear task-scoped defects, and repeat the relevant check.
-- Compile success is not proof of correct behaviour. Never claim a test passed unless it was actually run; mark unexecuted validation `NOT RUN`.
-- For the complete review contract, including player-facing graphical proof and visual baselines, follow `docs/product/review_workflow.md`.
+- Визуальная новелла на Unity/C#. Предпочитай минимальные изменения строго в рамках задачи и не делай несвязанного рефакторинга.
+- Читай только файлы и системы, относящиеся к задаче, если зависимость явно не требует расширить область работы.
+- Не меняй игровые сцены, prefab-файлы, сериализованные ссылки, формат сохранений, `ProjectSettings` и `.meta`, если задача этого не требует. Сохраняй работающие API и пользовательские изменения.
+- Новое или изменённое поведение должно получать регрессионное покрытие, когда это разумно автоматизировать. Для чистой логики используй EditMode NUnit, для runtime/UI lifecycle — PlayMode NUnit, для сцен/prefab/serialized/project integrity — существующие smoke/validators. Для исправления бага по возможности добавляй тест исходного дефекта. Изменения только документации обычно не требуют тестов.
+- Предпочитай обычные тесты Unity Test Framework NUnit. Пользуйся специальными graphical/runtime E2E только для реальных runtime-потоков, Game View, скриншотов или жизненного цикла Editor.
+- После реализации: проверь ошибки компиляции, запусти узкий целевой тест, затем релевантные regression/smoke проверки. Для player-facing работы запускай runtime/E2E proof, если среда это позволяет, просматривай визуальные доказательства, исправляй объективные дефекты в рамках задачи и повторяй проверку.
+- Успешная компиляция не доказывает правильность поведения. Никогда не заявляй, что тест прошёл, если он не запускался; непройденные проверки отмечай `NOT RUN`.
+- Полный контракт ревью, graphical proof и visual baselines описан в `docs/product/review_workflow.md`.
 
-## Visual and manual QA
+## Язык документации
 
-- Standard QA resolution is **1920x1080**. Do not add multi-resolution automation unless a task explicitly requires responsive/resolution compatibility.
-- Reuse an existing convenient QA launcher under `How I Fall/QA/<Feature Name>` for player-visible work; do not duplicate one for minor changes. A launcher does not replace automated tests.
-- Graphical/runtime E2E and screenshots must not use `-nographics`. Codex inspection is automated evidence, not a human Manual QA PASS.
-- Request human manual QA only when a subjective visual/taste/atmosphere decision remains, visual proof is unavailable, or an important scenario has a real automation gap. Objective acceptance criteria can be technically verified by automated coverage plus runtime proof.
+- Документация HIF, предназначенная для чтения человеком, должна быть написана по-русски.
+- Имена файлов и путей репозитория не переименовываются только ради перевода: они считаются техническими идентификаторами.
+- Имена классов, API, методов, тестов, Unity-сцен, enum, hotkey, форматов и других идентификаторов сохраняются как в коде и выделяются обратными кавычками при необходимости.
+- Названия игр, продуктов и внешних источников не переводятся искусственно, если это ухудшает точность поиска.
 
-## Git / completion
+## Визуальный и ручной QA
 
-- Do not stage unrelated user changes and do not use `git add .` when the worktree contains unrelated modifications.
-- Do not destructively reset user changes.
-- Do not commit or push unless the task explicitly requests it.
-- A technical task is not considered fully verified after push until the relevant GitHub CI checks pass:
-  `Unity Test Framework` and `Unity smoke tests`.
-- A review-candidate is not `DONE` until the reviewer has checked the real commit/diff and synchronized the living product roadmap described in `docs/product/review_workflow.md`. Repository state remains authoritative if the roadmap is stale.
+- Стандартное разрешение QA — **1920x1080**. Не добавляй автоматизацию нескольких разрешений, если задача явно не проверяет адаптивность.
+- Для player-facing работы переиспользуй ближайший существующий QA launcher из `How I Fall/QA/<Feature Name>`; не создавай новый launcher для каждой мелкой кнопки. Launcher не заменяет автоматические тесты.
+- Graphical/runtime E2E и скриншоты не должны запускаться с `-nographics`. Проверка Codex — автоматизированное доказательство, а не человеческий Manual QA PASS.
+- Проси ручной QA пользователя только для субъективного визуального вкуса/атмосферы, если визуальное доказательство недоступно или есть реальный пробел автоматизации. Объективные критерии должны проверяться автоматикой и runtime proof.
 
-## Reviewer roadmap synchronization
+## Git и завершение задачи
 
-- After every review-candidate push, the reviewer must compare the accepted result with the current HIF capability map and ordered roadmap before choosing the next Codex task.
-- The reviewer living roadmap is maintained in Google Drive under `How I Fall/Research & Roadmap/VN UI UX Benchmark 2026-08-31/`, primarily `02 — HIF capability map & benchmark decisions` and `03 — Polished Demo implementation roadmap`; `01` and `05` are consulted when benchmark evidence or rationale is needed.
-- The reviewer records the reviewed commit SHA, CI status, pass status (`DONE`, `PARTIAL`, `BLOCKED`, or `NEEDS CORRECTION`) and the next bounded pass. If project capability materially changed, the capability map is synchronized too.
-- Do not select the next implementation pass from chat memory alone. If repository and Drive disagree, prefer the repository and then update the Drive roadmap to match.
+- Не добавляй в stage несвязанные пользовательские изменения и не используй `git add .`, если worktree содержит изменения вне задачи.
+- Не делай destructive reset пользовательских изменений.
+- Не создавай commit/push, если задача явно этого не просит.
+- После push техническая задача не считается полностью проверенной, пока релевантные обязательные проверки GitHub CI не зелёные: `Unity Test Framework` и `Unity smoke tests`.
+- Review candidate не становится `DONE`, пока reviewer не проверил реальный commit/diff и не синхронизировал живую product roadmap по правилам `docs/product/review_workflow.md`. При рассинхронизации репозиторий остаётся главным источником истины.
 
-## Final response
+## Синхронизация дорожной карты reviewer'ом
 
-Keep it short:
-1. changed files;
-2. implementation;
-3. tests actually executed + results;
-4. NOT RUN checks;
-5. manual QA path/checklist when applicable;
-6. remaining risks.
+- После каждого review-candidate push reviewer сравнивает результат с текущей картой возможностей HIF и упорядоченной дорожной картой до выбора следующей задачи Codex.
+- Живая reviewer-база находится на Google Drive: `How I Fall/Исследования и дорожная карта/Бенчмарк UI UX визуальных новелл 2026-08-31/`.
+- Основные документы: `02 — Карта возможностей HIF и решения по бенчмарку` и `03 — Дорожная карта Polished Functional Demo`; `01` и `05` используются, когда нужна аргументация или проверка источников.
+- Reviewer фиксирует SHA проверенного commit, статус CI, статус прохода (`DONE`, `PARTIAL`, `BLOCKED`, `NEEDS CORRECTION`) и следующий ограниченный проход. Если возможности проекта существенно изменились, синхронизируется и карта возможностей.
+- Не выбирай следующий implementation pass только по памяти чата. Если репозиторий и Drive расходятся, предпочитай репозиторий и затем обновляй Drive.
+
+## Финальный отчёт Codex
+
+Отчёт должен быть коротким:
+1. изменённые файлы;
+2. что реализовано;
+3. реально запущенные тесты и результаты;
+4. `NOT RUN`;
+5. путь/чек-лист ручного QA, если он действительно нужен;
+6. оставшиеся риски.

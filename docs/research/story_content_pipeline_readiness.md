@@ -1,242 +1,106 @@
-# Story Content Pipeline Readiness
+# Готовность пайплайна сюжетного контента
 
-## Context
+## Контекст
 
-The functional demo is the current priority; real story, canonical routes and final art
-remain deferred. The dialogue runtime is already working and this audit does not
-authorize changes to it, save data, technical fixtures or Unity scenes.
+Текущий приоритет — функциональная демо-версия. Реальный сюжет, канонические маршруты и финальный арт отложены. Этот аудит не разрешает менять рабочий dialogue runtime, `SaveData`, технические fixtures или Unity-сцены.
 
-There is no `docs/story/` directory yet. Existing dialogue assets are primarily
-technical/demo content, including explicit `TECH DEMO ONLY / NOT CANON` builders.
-They should remain separate from future authored story material.
+Каталога `docs/story/` пока намеренно нет. Существующие dialogue assets в основном технические/demo и должны оставаться отдельно от будущего authored story material.
 
-## Current Runtime Model
+## Текущая runtime-модель
 
-`DialogueSceneData` is the runtime input:
+`DialogueSceneData` — входные данные runtime:
+- registry разрешает `sceneId` в `DialogueSceneData`;
+- сцена содержит `displayName`, опциональную музыку, `stopMusicOnStart`, последовательность lines/choices и `defaultNextScene`;
+- line содержит стабильный `lineId`, ссылки на background/character `Sprite`, положение/visibility, speaker и text;
+- choice содержит текст, опциональные typed numeric conditions, result text, существующие stat deltas и target scene.
 
-- a registry resolves a `sceneId` to a `DialogueSceneData` asset;
-- each scene has `displayName`, optional scene-level `backgroundMusic`,
-  `stopMusicOnStart`, ordered `lines`, ordered `choices`, and an optional
-  `defaultNextScene`;
-- a line has a required `lineId`, optional background/character `Sprite`
-  references, position/hide state, speaker and text;
-- a choice has text, optional typed numeric conditions, result text, the nine
-  existing stat deltas and an optional direct `DialogueSceneData` target.
+Сохранённая сцена восстанавливается по `sceneId`, позиция — по `lineId` с legacy fallback на индекс. Read history также использует `(sceneId, lineId)`. Выбранный вариант сейчас сохраняется как **индекс в исходном списке choices**, поэтому порядок выборов в уже совместимом контенте нельзя менять неосторожно.
 
-The runtime already resolves a saved scene by `sceneId` and a saved position by
-`lineId`, with line index only as a legacy fallback. Read history also keys a
-line by `(sceneId, lineId)`. A selected choice is currently persisted as its
-**source-list index**, with result state and pending target scene ID. Therefore
-the existing asset shape is a suitable thin runtime target, but authored line
-and scene IDs must stay stable and choice ordering needs care.
+## Текущая валидация
 
-## Current Validation
+`DialogueContentValidator` уже проверяет:
+- registry и уникальность scene ID;
+- missing scene references;
+- пустые/дублирующиеся line ID;
+- корректность choices и UI capacity;
+- typed numeric conditions;
+- переходы в зарегистрированные сцены.
 
-`DialogueContentValidator` already reports errors for:
+Статическая проверка не может доказать, что runtime-condition когда-либо станет истинной; для conditional choices нужен безопасный default route.
 
-- missing registry or empty registry;
-- missing, duplicated or empty registry scene IDs;
-- missing scene references and duplicate scene registration;
-- missing/empty lines, missing line IDs and duplicate line IDs within a scene;
-- missing choice list, null/empty choice data, and source-choice count above the
-  current UI capacity;
-- malformed typed numeric choice conditions;
-- transitions to scenes outside the registry.
+## Проблема авторинга
 
-It warns, rather than fails, for an empty choice result, registered scenes
-unreachable from the first registry scene, and conditional choices without a
-default transition. It cannot prove that a runtime condition will ever be true.
+Unity Inspector удобен для небольших технических fixtures, но плохо подходит как каноническая поверхность для длинного текста и ветвлений: YAML смешивает prose с object references, ухудшает editorial review и повышает риск merge/Inspector ошибок.
 
-## Authoring Pain Points
+## Рассмотренные варианты
 
-Unity Inspector authoring works for the small technical fixtures, but it is not
-a comfortable canonical source for long prose and branching review. Serialized
-YAML mixes text with Unity object references, makes bulk editorial work awkward,
-and can create avoidable merge conflicts or accidental Inspector edits.
-
-The runtime currently uses direct Unity object references for visual/audio assets
-and branch targets. That is appropriate at runtime, but not a good primary
-writing surface.
-
-## Options Compared
-
-| Option | Benefits | Cost / risk for HIF | Verdict |
+| Вариант | Плюсы | Риск/стоимость | Решение |
 |---|---|---|---|
-| A. Inspector-only ScriptableObjects | No tooling; direct fit with current runtime. | Poor long-form editing/review, noisy serialized diffs, fragile bulk edits and merges. | Reject as canonical authoring workflow. |
-| B. Markdown source, manual conversion | Excellent writing/diff/branch review; zero runtime change now. | Duplicate conversion effort and human reference/ID errors once content grows. | Best immediate step. |
-| C. Markdown with small deterministic importer | Keeps Markdown canonical while generating direct runtime assets; repeatable bulk updates and reference resolution. | Requires agreeing real syntax, asset naming and branch/condition needs first; premature parser risks churn. | Build later, before integrating the first substantial real scene. |
-| D. Markdown -> JSON -> Unity | JSON can be machine-friendly. | Adds a second schema, files and validation boundary without solving a current runtime problem. | Do not add now. |
-| E. New narrative framework/migration | Could provide authoring tools. | Replaces a working, tested runtime and save-facing contracts; disproportionate for a small project. | Reject. |
+| Inspector-only ScriptableObjects | Не требует tooling, напрямую подходит runtime | Плох для длинного текста и review | Не использовать как канонический writing workflow |
+| Markdown + ручная конвертация | Отличный diff/review, ничего не меняет сейчас | Ручная работа и риск ошибок при росте контента | Лучший первый шаг |
+| Markdown + маленький deterministic importer | Markdown остаётся source of truth, генерация повторяема | Синтаксис рано фиксировать без реального материала | Построить позже при реальной необходимости |
+| Markdown → JSON → Unity | Машиночитаемо | Добавляет лишнюю схему и границу валидации | Не добавлять |
+| Новый narrative framework | Может дать authoring tools | Переписывает работающий runtime/save contracts | Отклонить |
 
-## Recommended Direction
+## Рекомендация
 
-Use Markdown as the future canonical story source, but **do not build an importer
-yet**. Start with the first real story material in Markdown and make its
-conversion into the existing `DialogueSceneData` assets an explicit, small
-integration task. At that gate, build one deterministic Markdown-to-assets
-importer only if the material has more than a trivial one-off scene or manual
-conversion has already become an error-prone review burden.
+Когда сюжет явно будет открыт, использовать **Markdown как будущий канонический source**, но **не строить importer заранее**. Сначала написать небольшой реальный набор сцен в `docs/story/`, после чего решить, стала ли ручная конвертация достаточно повторяющейся и ошибкоопасной, чтобы оправдать узкий deterministic Markdown-to-assets importer.
 
-This preserves the ready demo, lets writing and route review happen outside
-Unity, and avoids freezing a parser around hypothetical flags, assets or story
-conventions. It is a thin adapter plan, not a narrative-framework migration.
+Это thin adapter plan, а не migration на новый narrative framework.
 
-## Proposed Markdown Shape
+## Политика стабильных ID
 
-This is an illustrative format only; it is **TECH DEMO ONLY / NOT CANON** and
-does not define production syntax yet.
+- `sceneId` — постоянный lower-case ASCII slug и идентичность сцены, а не заголовок/filename.
+- `lineId` — постоянный scene-local lower-case ASCII slug, не производный от текста или позиции.
+- Редактирование prose не меняет ID.
+- Вставленные lines получают новые ID; старые ID не переиспользуются.
+- Удаление/переименование уже сохранённых позиций считается save-affecting изменением.
+- Пока choice хранится по source-list index, не переупорядочивать и не вставлять выборы перед существующими в released/save-compatible сценах без отдельного compatibility решения.
 
-```markdown
----
-kind: hif-dialogue-scene
-scene_id: test_corridor_arrival
-display_name: "TEST: Corridor Arrival"
-music: Assets/HowIFall/Art/Audio/TEST_theme.ogg
-stop_music_on_start: false
----
+## Политика asset references
 
-## Lines
+В будущем Markdown должен ссылаться на project-relative Unity paths, например `Assets/HowIFall/Art/...`. При импорте они разрешаются в существующие `Sprite`/`AudioClip` references через Unity tooling. Не вводить отдельный asset-ID catalogue без реальной необходимости.
 
-- id: test_corridor_opening
-  background: Assets/HowIFall/Art/Backgrounds/TEST_corridor.png
-  character: Assets/HowIFall/Art/Characters/TEST_speaker_neutral.png
-  position: left
-  speaker: "TEST Speaker"
-  text: |
-    TEST text for authoring-format review only.
+## Граница будущей валидации
 
-- id: test_corridor_reply
-  speaker: "TEST Speaker"
-  text: "TEST reply."
-
-## Choices
-
-- text: "TEST: proceed carefully"
-  result: "TEST result."
-  when:
-    - self_control >= 2
-  effects:
-    self_control: +1
-  next_scene: test_corridor_followup
-
-- text: "TEST: leave"
-  result: "TEST result."
-  next_scene: test_corridor_exit
-```
-
-The eventual compiler should accept only explicitly documented keys and the
-already supported typed condition/state names; it must not evaluate arbitrary
-expressions. Character/background fields remain line-level because that is how
-the current runtime applies them. Scene-level music maps directly to the
-existing scene field.
-
-## Stable ID Policy
-
-- `sceneId` is a permanent, lower-case ASCII slug chosen when a scene is first
-  introduced. It is an identity, not a title or filename. Editing display text
-  or `displayName` must not change it.
-- `lineId` is a permanent, scene-local, lower-case ASCII slug chosen when the
-  beat is first introduced. It is never derived from prose or list position.
-- Editing a line's prose keeps its `lineId`. Inserted lines receive new IDs;
-  existing IDs and their relative order remain unchanged.
-- Removed lines and renamed/moved scenes are save-affecting changes. Keep
-  stable IDs when moving a branch; do not silently reuse removed IDs. A scene
-  title/path may change, but its `sceneId` must not.
-- Current saves retain a choice by source-list index, not a choice ID. Until a
-  future save-compatible design explicitly changes that contract, do not
-  reorder, insert before, or remove choices from released scenes. Append only
-  when preserving old saves matters. Branch movement should preserve the
-  selected choice's source index and target, or be treated as a deliberate
-  compatibility break with tested migration policy.
-
-A future importer may check IDs against its previous generated manifest/asset
-state and fail a suspicious implicit rename; it must never auto-regenerate IDs
-from text or order.
-
-## Asset Reference Policy
-
-Use project-relative Unity asset paths in Markdown, such as
-`Assets/HowIFall/Art/Backgrounds/...`, and resolve them during import to the
-existing direct `Sprite`/`AudioClip` references.
-
-This is the simplest safe choice for a small Unity project: paths are readable
-in review and `AssetDatabase` can validate type and existence. Unity GUIDs are
-stable but opaque to writers; symbolic IDs need a separate catalogue and add
-an abstraction that does not exist yet. Direct object references belong only in
-the generated `.asset` files, not in Markdown.
-
-Asset moves must update the corresponding Markdown in the same reviewed change;
-the future importer should fail on a missing path or wrong asset type.
-
-## Validation Boundary
-
-Before or during a future import, validate only the authoring errors that
-matter beyond the existing runtime validator:
-
-1. malformed Markdown/front matter or unknown keys;
-2. duplicate/missing scene or line IDs across the authored set;
-3. unknown condition/state/operator names and unsupported effect keys;
+Importer, если он будет одобрен позже, должен проверять только существенные authoring ошибки сверх существующего runtime validator:
+1. malformed Markdown/front matter и unknown keys;
+2. duplicate/missing scene/line IDs;
+3. unknown condition/state/operator/effect names;
 4. missing/wrong-type asset paths;
-5. `next_scene` IDs that do not resolve within the authored/imported set;
-6. a changed generated ID or choice order that would silently invalidate
-   existing save positions.
+5. unresolved `next_scene`;
+6. изменение ID/choice order, способное молча сломать сохранённые позиции.
 
-After import, run the existing `DialogueContentValidator` for the final Unity
-registry, references, IDs, capacity, reachability and conditional-choice
-warnings. Conditional reachability and “all choices unavailable” remain runtime
-properties; the current default-transition warning is the appropriate limited
-static safeguard.
+После import всё равно запускается `DialogueContentValidator`.
 
-## Generated Asset Policy
+## Политика generated assets — если importer когда-нибудь будет принят
 
-If the later gate approves an importer:
+- authored source — `docs/story/`;
+- generated assets — отдельный стабильный каталог вроде `Assets/HowIFall/Data/Dialogues/StoryGenerated/`;
+- generated `.asset` и `.meta` коммитятся;
+- source scene детерминированно соответствует одному стабильному asset path;
+- обычный import не удаляет orphaned assets автоматически;
+- importer не трогает технические/manual dialogue assets вне своего каталога.
 
-- authored files live under `docs/story/`; generated dialogue assets live in a
-  reserved subfolder such as `Assets/HowIFall/Data/Dialogues/StoryGenerated/`;
-- generated `.asset` **and `.meta`** files are committed. Their stable paths
-  preserve Unity GUIDs and keep diffs/review reproducible;
-- each source scene maps deterministically to one stable generated asset path;
-  rerunning the importer updates only that scene, its necessary registry entry
-  and directly referenced generated targets;
-- removal is explicit: report orphaned generated assets and require a dedicated
-  confirm/remove action, never delete them during an ordinary import;
-- do not write outside the reserved generated folder or modify technical/manual
-  dialogue assets. A generated marker/manifest may be added only with the
-  importer implementation if needed to distinguish ownership;
-- the importer resolves Markdown paths to direct Unity references and updates
-  the registry deterministically, without recreating unrelated assets.
+## Первый реальный content workflow
 
-## First Real Content Workflow
+1. Написать и отревьюить небольшой реальный набор сцен в `docs/story/`.
+2. Назначить стабильные scene/line IDs и проверить route/assets.
+3. Решить, достаточно ли ещё ручной конвертации; если нет — реализовать узкий importer.
+4. Convert/import в существующий `DialogueSceneData` и запустить `DialogueContentValidator`.
+5. Добавить focused runtime/save-position coverage для нового поведения.
+6. Для player-facing сцен выполнить graphical/content QA и просмотреть screenshots.
 
-1. Author and review a small real scene set in `docs/story/`.
-2. Assign stable scene/line IDs and keep a short route/asset review alongside
-   the Markdown.
-3. Decide whether the set is still small enough for a reviewed manual
-   conversion; if not, implement the narrow deterministic importer above.
-4. Convert/import to `DialogueSceneData` assets, then run
-   `DialogueContentValidator`.
-5. Add focused runtime/save-position coverage for the introduced content
-   behavior, then run the relevant dialogue smoke.
-6. Run graphical/content QA only for player-visible scenes and inspect its
-   screenshots.
+## Сейчас не строить
 
-## What We Should Not Build Yet
+- importer до появления реального материала;
+- JSON intermediate schema;
+- generic narrative framework / Ink/Yarn migration;
+- string-key generic flag system или arbitrary scripting;
+- global content database/asset catalogue;
+- `SaveData`/`GameState` redesign;
+- канонический сюжет, routes, characters, art или lore.
 
-- an importer, JSON intermediate schema, generic narrative framework or
-  Ink/Yarn migration;
-- a string-key flag system, arbitrary expressions, callbacks or scripting;
-- an asset-ID catalogue or a global content database;
-- SaveData/GameState/runtime redesign, ID migration or choice-ID persistence;
-- canonical story text, routes, characters, art or lore.
+## Решение
 
-## Decision
-
-**OPTION 2 — Use Markdown source-of-truth but delay tooling until the first real
-story scene.**
-
-Markdown best serves writing, review and Git history immediately. The existing
-`DialogueSceneData` model already accepts the required runtime data, while a
-Markdown importer is valuable only after real material fixes the grammar and
-reveals that manual conversion is a recurring cost. Building it now would add
-speculative format and maintenance work to a functional demo without a concrete
-content blocker.
+**OPTION 2 — Markdown как будущий source of truth, tooling отложить до первого реального сюжетного материала.**
