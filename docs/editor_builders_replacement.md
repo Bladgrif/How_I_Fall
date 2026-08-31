@@ -1,27 +1,29 @@
 # Судьба удалённых Editor builders
 
-Проверена версия файлов перед commit `abac71b516b9335eafa917aaf54875b1b52326a0`.
+## Назначение
 
-## MainMenuSceneBuilder
+Этот исторический документ фиксирует, почему старые монолитные Editor builders не были восстановлены после зачистки проекта.
 
-Builder полностью пересоздавал `MainMenu.unity`: фон, анимацию меню, настройки, справку, подтверждение выхода, Build Settings и старую Save/Load-панель.
+## `MainMenuSceneBuilder`
 
-Актуальная функциональность сохранена в сериализованной сцене `Assets/HowIFall/Scenes/MainMenu.unity` и runtime-классах `MainMenuController`, `MainMenuAnimator`, `SettingsPanelController`. Build Settings и обязательные ссылки проверяет `HowIFallProjectValidator`. Новую ручную Save/Load-панель устанавливает только `ManualSaveSystemSceneInstaller`.
+Builder полностью пересоздавал `MainMenu.unity`, включая фон, меню, настройки, справку, подтверждения, Build Settings и старую Save/Load-панель.
 
-Builder не восстановлен, потому что его повторный запуск целиком перезаписывал сцену и возвращал удалённую Save/Load-архитектуру.
+Актуальная функциональность хранится в сериализованной сцене и runtime-классах. Обязательные ссылки и Build Settings проверяются валидаторами, а Save/Load обслуживается текущей системой.
 
-## VNPrototypeSceneBuilder
+Builder не восстановлен, потому что повторный запуск мог перезаписать рабочую сцену и вернуть устаревшую Save/Load-архитектуру.
 
-Builder полностью пересоздавал `VNPrototype.unity`: VN HUD, фон и персонажа, выборы, quick menu, настройки, историю, уведомления, debug-панель и старую Save/Load-панель.
+## `VNPrototypeSceneBuilder`
 
-Актуальная runtime-функциональность находится в сериализованной сцене `Assets/HowIFall/Scenes/VNPrototype.unity`, `VNDialogueController`, `DialogueBacklog`, `VNSettingsPresenter` и `DebugStatsPanelController`. Сценарный тестовый asset обслуживает `VNUITestSceneContentBuilder`; отдельные безопасные операции оставлены в `VNPrototypeAudioListenerBuilder` и `VNPrototypeDebugStatsBuilder`. Новую Save/Load-панель устанавливает `ManualSaveSystemSceneInstaller`.
+Builder целиком пересоздавал `VNPrototype.unity`: VN HUD, фон, персонажа, выборы, Quick Menu, Settings, History, notifications, debug UI и старый Save/Load.
 
-Builder не восстановлен: он был монолитным генератором всей сцены и содержал прежнюю Save/Load-систему.
+Рабочая функциональность уже находится в сериализованной сцене, runtime-классах и узких безопасных Editor-инструментах. Монолитный builder не нужен и создаёт слишком большой риск случайной перезаписи.
 
-## VNPrototypeBacklogUiBuilder
+## `VNPrototypeBacklogUiBuilder`
 
-Builder пересоздавал не только backlog, но и quick menu, настройки, уведомления, подтверждение выхода и старые quick save/load-кнопки.
+Builder менял не только History, но также Quick Menu, Settings, notifications, confirm UI и старые quick save/load bindings.
 
-Backlog уже сериализован в `VNPrototype.unity`, его поведение реализуют `VNDialogueController` и `DialogueBacklog`, а базовую логику проверяет `DialogueBacklogSmokeTests`. Настройки обслуживает `VNSettingsPresenter` и `VNSettingsPresenterSmokeTests`.
+History и связанные системы уже имеют собственный runtime-контракт и regression coverage. Возвращать такой широкий builder ради одной области нельзя.
 
-Builder не восстановлен, потому что изменял несколько несвязанных UI-систем и возвращал удалённые Save/Load bindings. Для текущей сцены он не требуется.
+## Действующее правило
+
+Не восстанавливать монолитные scene builders только ради удобства. Для repair/QA использовать существующие узкие инструменты и валидаторы. Любое новое Editor-средство должно быть task-scoped и не переписывать рабочую сцену целиком без явной необходимости.

@@ -1,6 +1,6 @@
 interface:
-  display_name: "How I Fall Visual QA"
-  short_description: "Run focused graphical QA at 1920x1080"
-  default_prompt: "Use $hif-visual-qa to run focused How I Fall graphical QA using existing launchers/E2E, inspect actual screenshot proof, and report only checks that were really performed."
+  display_name: "How I Fall — визуальный QA"
+  short_description: "Запуск точечного графического QA в 1920x1080"
+  default_prompt: "Используй $hif-visual-qa для точечного графического QA How I Fall через существующие launcher/E2E, проверь реальные скриншоты и сообщай только о действительно выполненных проверках."
 policy:
   allow_implicit_invocation: true

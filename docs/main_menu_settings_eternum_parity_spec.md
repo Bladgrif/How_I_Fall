@@ -1,534 +1,66 @@
-# How I Fall — Eternum Main Menu / Game Menu / Preferences parity spec
+# Спецификация parity shell: Main Menu / Game Menu / Preferences
 
-**Status:** parity shell complete; Phases 1-6 are DONE.
+> **Статус:** историческая спецификация; Phases 1–6 завершены. Текущий UI-контракт фиксируется в `docs/product/*`, `docs/research/*` и `docs/eternum_feature_tracker.md`.
 
-**Reference priority:** runtime observations in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md) first, then proven HIF safety improvements; source-only assumptions are secondary.
+## Основные принципы
 
-**Dependency owner:** existing `GameSettings` + `SettingsManager`.
+- один player-facing Preferences screen из Main Menu и gameplay;
+- Quick Menu отвечает за частые reading actions, Game Menu — за навигацию;
+- нет видимых настроек без реального runtime effect;
+- SaveManager, Replay, Chat, Character Hub, Hide UI, Auto/Skip, AudioManager и Special Mode не переписываются ради shell parity;
+- HIF использует свои UX-решения, а не копирует Eternum layout.
 
-**Last reviewed functional commit:** `952093db8f268e2cdcd6849b49d6376264c122a9`.
+## Текущий Main Menu
 
-## 1. Target principles
+Обычный demo-контракт:
 
-1. One player-facing Preferences screen from Main Menu and gameplay.
-2. Quick Menu is an overlay of fast actions; Game Menu is navigation.
-3. No visible setting without a verified runtime consumer and testable effect.
-4. Main Menu/Game Menu differ only in navigation context, not in settings truth.
-5. Existing SaveManager, Replay, Chat, Character Hub, Hide UI, Auto/Skip, AudioManager and Special Mode contracts survive unchanged.
-6. Unity implementation stays simple: no service locator, DI framework, generic UI framework, manager-per-tab or ScriptableObject settings graph.
+1. Continue;
+2. New Game;
+3. Load;
+4. Settings;
+5. Quit.
 
-## 2. Target ownership
+Help/About/Gallery скрыты из обычной player-facing композиции. Continue активен только при наличии валидного сохранения.
 
-```text
-GameSettings
-    │
-SettingsManager
-    │  persistence + setters + runtime apply
-    ▼
-Shared Preferences presenter/controller
-    ├─ Main Menu entry (Back → Main Menu)
-    └─ Game Menu entry (Back → Game Menu/gameplay stack)
-```
+## Текущий Game Menu
 
-Required shape:
+`Esc` из стабильного gameplay открывает Game Menu. Он остаётся отдельным от Quick Menu и использует существующие backend/actions.
 
-- one controller/presenter owns labels, option lists, refresh and callbacks;
-- one view/prefab or one structurally identical screen is reused in both contexts;
-- context supplies only Back destination, underlying visual layer and modal ownership;
-- no second storage and no mirrored `VNSettingsService` subset;
-- `VNSettingsPresenter` is removed/replaced after all current VN entry points are redirected;
-- `SettingsPanelController` is retired or reduced to a thin compatibility entry during migration, not expanded.
+Back-stack:
 
-## 3. Target Main Menu
+`confirmation → Save/Load → Game Menu → gameplay`.
 
-| Element | Eternum | HIF current | Target HIF | Why |
-|---|---|---|---|---|
-| New Game | yes | yes | KEEP, first primary action | parity |
-| Continue | no | yes | KEEP, before New Game or immediately after it according to final visual hierarchy | proven HIF recovery improvement |
-| Load | yes | yes | KEEP | parity + working backend |
-| Preferences | yes | shared `SharedPreferencesView` | DONE; keep shared screen | central architecture goal |
-| Gallery/Extras | not in Main Menu; entered from relationship hub | backend panel exists but no wired entry | DEFER top-level button; preserve backend and decide a coherent Extras/Characters hub later | do not relocate solely by assumption |
-| Help | screen exists but not wired in reference navigation | yes | KEEP | HIF bindings are non-default and need discoverability |
-| Credits/About | yes | yes | KEEP | parity |
-| Quit | yes, confirm | yes, confirm | KEEP with shared modal contract | parity |
+Special modes, Hide UI и активные child modals имеют более высокий input ownership и не обходятся Game Menu.
 
-Recommended information hierarchy:
+## Текущий Quick Menu
 
-```text
-Continue (enabled only with compatible save)
-New Game
-Load
-Preferences
-Help
-About
-Quit
-```
+Финальный компактный strip для текущего demo:
 
-Phase 4 manual QA approved this order. Gallery is not inserted into the top-level list.
+`История | Пропуск | Авто | Быстр. сохр.`
 
-### Main Menu behavior
+Старый восьмиэлементный вариант из этой исторической спецификации больше не является текущим контрактом. Underlying Save/Load/Settings/Menu APIs и hotkeys сохраняются.
 
-- full-screen screen; existing original HIF art/background remains;
-- no hidden gameplay Quick Menu;
-- Back from Preferences/Load/Help/About returns to Main Menu without reloading the scene;
-- Quit always uses shared confirmation modal;
-- Continue unavailable state is visible and non-clickable, with no fake error path;
-- Main Menu music continues under child screens unless an explicit audio policy says otherwise.
+## Preferences
 
-## 4. Target Game Menu
+Используется один `SharedPreferencesView`. Контролы семантические и отображаются только при наличии реального consumer. Persistent `Show Quick Menu` сохраняется через Settings authority и не попадает в `SaveData`.
 
-HIF has a real Game Menu separate from Quick Menu as of Phase 3.
+## Save / Load
 
-### Entry
+Текущий контракт supersede-ит старую часть этой spec:
 
-- Esc from stable ordinary dialogue opens it;
-- right-click is intentionally not bound to Game Menu in HIF Phase 3; do not add it without explicit approval;
-- Quick Menu `Menu` opens it;
-- no opening while H-clean view is active, Character Hub/Chat/media/confirmation/save panel owns input, or BlockingExclusive denies navigation;
-- opening stops current Auto/Skip timers without changing their stored/runtime enabled states.
+- Manual = 60 адресов, 10 страниц × 6;
+- Auto = 6;
+- Quick = 6;
+- Save mode показывает только Manual;
+- Load mode позволяет просматривать Manual/Auto/Quick;
+- Quick Load загружает newest valid Quick;
+- Continue выбирает newest valid среди Manual/Auto/Quick;
+- gameplay Load сохраняет существующий confirmation/pre-load safety contract.
 
-### Normal gameplay navigation
+## Modal / Escape
 
-Implemented Phase 3 order:
+Для destructive actions безопасный default — Cancel/No. `Esc` отменяет верхний modal layer и не выбирает destructive action.
 
-1. Save
-2. Load
-3. Preferences
-4. Main Menu
-5. Quit
-6. Return — visually separated at the bottom
+## Использование документа
 
-Runtime-audit corrections:
-
-- History is absent from the normal Game Menu and remains available through Quick Menu / `B`.
-- Characters is absent from the normal Game Menu and remains available through its existing HIF route.
-- HIF excludes Eternum's external/promotional entry.
-- Quit remains available with confirmation.
-
-### Replay navigation
-
-1. Preferences
-2. History
-3. End Replay
-4. Quit
-5. Return — visually separated at the bottom
-
-Replay hides Save, Load, Characters and Main Menu. Preferences/History remain because current HIF replay policy explicitly permits them; this is safer and more useful than copying an unaudited replay branch. End Replay uses confirmation and existing idempotent replay cleanup.
-
-### Presentation/ownership
-
-- full-screen navigation layer over gameplay, not a small floating window;
-- original HIF skin, no Eternum assets/layout copy;
-- compact left navigation occupies approximately 25–30% of the safe-width shell;
-- no generic placeholder or decorative empty right content frame;
-- authored background may remain subtly visible under the strong HIF navy/red dim treatment;
-- embedded Save/Load content is intentionally deferred to Phase 5;
-- underlying dialogue cannot receive clicks/advance;
-- closing restores the previously eligible dialogue state and starts a fresh Auto/Skip delay;
-- Game Menu owns no save/settings/replay state; it calls existing controllers.
-
-## 5. Final Quick Menu
-
-Implemented Phase 4 PC order:
-
-1. History
-2. Skip
-3. Auto
-4. Save
-5. Q.Save
-6. Q.Load
-7. Preferences
-8. Menu
-
-| Current HIF action | Decision | Reason |
-|---|---|---|
-| History | KEEP | Eternum parity and HIF backlog |
-| Skip | KEEP | fast runtime mode; selected state required |
-| Auto | KEEP | fast runtime mode; selected state required |
-| Save | KEEP | parity |
-| Quick Save | KEEP | parity |
-| Quick Load | KEEP | parity |
-| Load | MOVE TO GAME MENU | reference Quick Menu has no manual Load; reduces crowding |
-| Settings | KEEP as Preferences | parity and B03 recovery path remains available through Game Menu/Main Menu too |
-| Characters | MOVE TO DEDICATED LAUNCHER | separate original HIF entry outside the Quick Menu; Replay/Special/modal gates remain authoritative |
-| Main Menu | REPLACE WITH Menu | direct destructive navigation belongs in Game Menu |
-| Back/Rollback | DEFER | no reversible-state model; do not create cosmetic Back |
-
-Contract:
-
-- active state for Auto/Skip;
-- unavailable actions visibly disabled or hidden according to context, not silently clickable;
-- Replay filtering remains authoritative;
-- B03 hides only the root; keyboard actions and Game Menu remain available;
-- H and BlockingExclusive remain transient visibility blockers;
-- the old runtime Characters clone inside the strip is removed; a narrow dedicated Character Hub launcher exists outside the Quick Menu.
-
-## 6. Target Preferences information architecture
-
-Eternum's one screen without tabs is the preferred model. HIF target is a **single scrollable Preferences page** with semantic sections. At wide resolutions it may render two columns inside one shared scroll context; at 1280×720 it collapses to one column. Independent tab-specific state is prohibited.
-
-Recommended order:
-
-1. Display
-2. Audio
-3. Dialogue & Auto
-4. Skip & Saves
-5. Accessibility & Interface
-6. Advanced (only real HIF-specific controls)
-7. Reset / Back
-
-### 6.1 Display
-
-| Control | Type | State | Source/reason |
-|---|---|---|---|
-| Screen Mode: Windowed / Fullscreen / Borderless | segmented/radio | REAL now | HIF Unity-specific extension of Eternum Window/Fullscreen |
-| Resolution | dropdown/list of supported values | REAL now, rework static list later | HIF Unity-specific |
-| Run in Background | toggle | REAL now / KEEP | direct Unity consumer; Advanced subsection acceptable |
-| Interface Motion | toggle | DEFERRED until all owned transitions consume it | Eternum parity; replaces fake animation flags only after migration |
-
-Do not show Refresh Rate until it is applied through a verified Unity display API and tested on supported monitors.
-
-### 6.2 Audio
-
-| Control | Type | State | Source/reason |
-|---|---|---|---|
-| Mute All | toggle/button | IMPLEMENT TO PARITY | Eternum player-facing behavior; define restoration of previous slider values |
-| Master Volume | slider 0..100% | REAL / KEEP | HIF useful extension |
-| Music Volume | slider 0..100% | REAL / KEEP | parity |
-| Sound/SFX Volume | slider 0..100% | REAL / KEEP | parity; currently inconsistent visibility |
-| Ambience Volume | slider 0..100% | DEFER visibility until authored ambience is present | HIF audio architecture |
-| Music During Pause | toggle | DEFER until Game Menu audio-pause policy produces a reachable effect | HIF-only |
-
-No Voice row until HIF has voice playback and a separate mixer. Eternum's commented Voice slider is not evidence to add one.
-
-### 6.3 Dialogue & Auto
-
-| Control | Type | State | Default/behavior |
-|---|---|---|---|
-| Text Speed | slider with units | REAL / KEEP | 50 chars/sec current default; immediate |
-| Auto-Forward Delay | slider with seconds | REAL / RELABEL | 2.5 s current default; 0.5..5.0 s; immediate |
-| Auto enabled | not a Preferences row | MOVE to Quick Menu state | mode, not configuration |
-
-### 6.4 Skip & Saves
-
-| Control | Type | State | Default/behavior |
-|---|---|---|---|
-| Allow skipping unseen text | toggle | REWORK current `skipMode` | default OFF (`Seen only`); remove misleading `Nothing` option |
-| Resume Skip after choices | toggle | REAL / KEEP | default OFF |
-| Skip speed | Classic/Fast segmented control | REAL HIF-specific / KEEP | clear player benefit; cadence consumer exists |
-| Autosave | toggle | REAL HIF-specific / KEEP | default ON; must not disable pre-load safety checkpoint |
-
-Save naming remains NOT NEEDED for fixed six-slot HIF UI.
-
-### 6.5 Accessibility & Interface
-
-| Control | Type | State | Target behavior |
-|---|---|---|---|
-| Show Quick Menu | toggle | **B03 / DONE** in Phase 4 | default ON; immediate `PlayerPrefs` persistence through shared Preferences |
-| Text Size | slider/presets + reset | IMPLEMENT TO PARITY | changes actual dialogue TMP size |
-| Text Outline | slider/presets + reset | IMPLEMENT TO PARITY after visual proof | changes actual outline/material safely |
-| Textbox Opacity | slider + reset | IMPLEMENT TO PARITY | changes only dialogue box background |
-| Textbox Width | slider/presets + reset | DEFER until responsive layout consumer exists | normalized/anchored, not copied pixels |
-| Textbox Height | slider/presets + reset | DEFER until responsive layout consumer exists | normalized/anchored, not copied pixels |
-
-Text size/opacity may ship before width/height if each phase leaves a truthful screen. Hidden deferred controls are not placeholders.
-
-### 6.6 Removed/deferred current fields
-
-| Field | Target |
-|---|---|
-| `refreshRate` | hide/remove after migration unless real implementation approved |
-| `gameLook` | hide/remove |
-| `interfaceStyle` | hide/remove |
-| `rewindVhsFilter` | hide/remove until rollback/VHS feature exists |
-| `characterAnimations` | hide/remove |
-| `backgroundAnimations` | hide/remove; do not silently reuse as Interface Motion |
-| `language` | hide until localization backend and content exist |
-| `fontSizeMode` | migrate/replace with real text-size value |
-| `showHints` | hide/remove until hint system exists |
-| `fullscreen` + `hif_fullscreen` | migrate away as independent truth; `screenMode` is authority |
-
-Unknown legacy PlayerPrefs keys may be read for one migration release if required, but must not continue as competing authorities.
-
-## 7. B03 integration contract
-
-Canonical state:
-
-```text
-effectiveQuickMenuVisible = showQuickMenu
-                         && !hiddenByPlayerCleanView
-                         && !hiddenByBlockingSpecialMode
-                         && !hiddenByPreferencesModal
-                         && !hiddenByGameMenuModal
-```
-
-Add layout contract:
-
-```text
-quickMenuSafeAreaReserve = effectiveQuickMenuVisible
-    ? measuredBottomReserveIncludingSpacing
-    : 0
-```
-
-Requirements:
-
-- default ON; saved outside SaveData;
-- applies immediately from Main Menu and gameplay shared Preferences;
-- OFF hides the whole quick strip but not hotkeys or Game Menu;
-- dialogue shell uses anchors/safe-area reserve, not copied Eternum pixels;
-- H/Special Mode do not mutate preference;
-- changing preference under a blocker updates stored truth but does not reveal the root early;
-- Reset returns ON;
-- Replay button filtering runs inside the effective-visible root and remains unchanged;
-- **B03 is DONE** in Phase 4 at `91f1f8f5bd1b70e7c29663b35b6f2d44c9733b9d`; the contract above is implemented and covered by focused/full regression.
-
-## 8. Save/Load navigation target
-
-Backend remains unchanged.
-
-| Route | Target |
-|---|---|
-| Main Menu → Load | opens existing Load UI; no gameplay-loss warning |
-| Game Menu → Save | existing Save UI; Return → Game Menu/gameplay stack |
-| Game Menu → Load | existing Load UI; load confirmation + pre-load autosave |
-| Quick Menu → Save | existing Save UI |
-| Quick Menu → Q.Save | existing guarded quick save |
-| Quick Menu → Q.Load | existing confirmation/pre-load pipeline |
-| Replay | all Save/Load entry points hidden/denied; backend guard remains |
-| Return | closes confirmation first, then Save/Load, then Game Menu |
-
-Preserve fixed six Manual/Auto/Quick slots, validation, corrupt-save handling and pre-load autosave. Do not import Eternum naming/unbounded-page behavior.
-
-## 9. Shared modal and confirmation contract
-
-All shell confirmations eventually use one visual/behavior contract even if backend actions remain separate.
-
-Required behavior:
-
-- modal blocks raycasts/input to underlying screen;
-- one clear prompt and primary/destructive + cancel action;
-- Esc means Cancel/No, never destructive Yes; Phase 3 adds no right-click behavior;
-- default focus is Cancel for destructive actions;
-- close one modal layer at a time;
-- wording names the consequence, but final canon text is outside this spec;
-- operation-in-progress state disables repeat submission;
-- Auto/Skip resume only after the final modal/panel owner exits.
-
-| Confirmation | Required |
-|---|---|
-| Quit | yes |
-| Return to Main Menu | yes during gameplay |
-| Load | yes during gameplay; no in Main Menu |
-| Overwrite | yes |
-| Delete | yes |
-| End Replay | yes; idempotent cleanup |
-| New Game with active progress | product decision later; do not add silently |
-
-## 10. Input / Escape / Back precedence
-
-| Context | Eternum | HIF current | Target HIF |
-|---|---|---|---|
-| Ordinary dialogue | Esc hides/restores dialogue; RMB opens Game Menu | Esc opens Game Menu; H owns clean view | keep; no RMB binding |
-| Quick Menu | action overlay | direct panels/Main Menu | `Menu` opens Game Menu; other fast actions remain |
-| Game Menu | RMB closes; Esc no-op; Back control returns | Esc closes top Game Menu layer | keep HIF improvement |
-| Preferences | Back from observed in-game route returns directly to gameplay; Esc unverified | Esc returns to invoking HIF context | keep HIF improvement |
-| Save/Load | Return/back within menu stack | own Escape; confirmation first | keep confirmation-first, then panel, then Game Menu |
-| History | Esc Return | Esc closes | keep; Return destination preserved |
-| Confirm modal | runtime behavior not recorded | Esc cancels | standardize Cancel/No |
-| Character Hub | modal Return | Esc closes | closes before Game Menu can open |
-| Chat | authored owner | BlockingExclusive denies Escape | unchanged; no Game Menu |
-| Media Viewer | nested modal | Esc closes viewer first | unchanged |
-| Special Mode | screen-specific | coordinator may accept/deny cancel | coordinator wins; Game Menu never bypasses it |
-| H clean view | engine hide/restore | H/Esc restore | restore first; do not open Game Menu on same press |
-| Replay | End Replay route | Quick Menu End Replay | Game Menu shows End Replay; Save/Load remain denied |
-
-Canonical target priority for Esc:
-
-```text
-H hidden → restore
-Character Hub / media child → close child
-active Special Mode → delegate or consume denial
-confirmation → cancel
-Save/Load nested confirmation → cancel
-open panel (Preferences/History/Save/Load) → close one level
-Game Menu → close
-stable ordinary dialogue → open Game Menu
-```
-
-## 11. Responsive layout contract
-
-All shell screens must pass at:
-
-- 1280×720
-- 1920×1080
-- 2560×1440
-- 3840×2160
-
-Global rules:
-
-- Canvas Scaler/anchors and safe areas, no single-resolution absolute layout;
-- minimum readable text size and minimum button hit target defined once;
-- no overlap with Quick Menu reserve;
-- vertical scrolling appears before content clipping;
-- keyboard/controller focus remains visible after scroll;
-- no text truncation for Russian labels at 1280×720.
-
-| Screen | Layout contract |
-|---|---|
-| Main Menu | full-screen; primary actions remain in safe region; Continue disabled state visible |
-| Game Menu | full-screen; navigation column + content region on wide screens; stack/collapse safely at 720p |
-| Preferences | one semantic scroll page; two columns wide, one column at 720p; sticky Back/Reset region |
-| Save/Load | existing card grid may scale/collapse per proven prefab; tabs/title/back never overlap |
-| History | one scroll region; speaker/text wrapping; close control outside content viewport |
-| Confirm | centered modal within safe area; underlying screen dimmed and non-interactive |
-
-## 12. Incremental migration architecture
-
-### Phase 1 — Shared Preferences Foundation
-
-- **Status:** **DONE** at `f7c07b25fbf68c279d1406aaf8d0eabaabc4c672`.
-- `GameSettings` remains the DTO and `SettingsManager` remains the only persistence/runtime owner; no second settings storage was added.
-- Shared typed `IPreferencesService` / `PreferencesService` and `PreferencesController` now drive both entry points over current `SettingsManager` state.
-- `VNSettingsService` was removed. `VNSettingsPresenter` was retired as an independent subset; its stable source file now contains only the thin gameplay `VNPreferencesAdapter`.
-- `SettingsPanelController` is the Main Menu view/tab/legacy wiring adapter and delegates approved working settings behavior to the shared controller.
-- `screenMode` is canonical. Legacy `fullscreen` field/key/API remain only as a compatibility layer derived from `screenMode`.
-- Fake/unused fields and partial audio fields were not promoted into the approved player-facing contract. `SaveData.CurrentVersion` remains 3.
-- `MainMenu.unity` and `VNPrototype.unity` were unchanged. Focused tests, full CI, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`.
-- Manual cross-context QA passed: Music Volume changed from either entry point was immediately visible from the other.
-- **Intentional limitation:** Phase 1 unified ownership and behavior only. Main Menu and gameplay still use different legacy visual/control surfaces; for example, Master Volume remains visible only in the current Main Menu surface. Identical controls/layout belong to Phase 2.
-
-### Phase 2 — Preferences UI Parity
-
-- **Status:** **DONE** at `0b6c778adf2252e0f1f26eb1945eb4e7c71c1382`.
-- Main Menu and gameplay instantiate the same deterministic runtime-built `SharedPreferencesView`; only Back destination and modal ownership differ. The legacy Main Menu and gameplay settings hierarchies are hidden and unreachable.
-- `GameSettings` / `SettingsManager` remain the only settings truth. `PreferencesService` / `PreferencesController` remain authoritative, with immediate apply and persistence; there is no second settings cache and no Save/Apply state.
-- The identical player-facing order is Display (Screen Mode, Resolution, Run in Background), Audio (Mute All, Master, Music, SFX), Dialogue & Auto (Text Speed, Auto-Forward Delay), Skip & Saves (unseen text, resume after choices, Classic/Fast speed, Autosave), Accessibility (Dialogue Text Size, Textbox Opacity), then fixed Reset/Back.
-- Mute All is a separate persisted flag that mutes output without overwriting stored Master/Music/SFX values. Dialogue Text Size has a real TMP dialogue-text consumer at 85–125%; speaker, choices and backlog intentionally remain unchanged. Textbox Opacity changes only the dialogue-box background alpha.
-- Auto-Forward Delay is shown in seconds (`0.5..5.0`) while round-tripping the existing stored representation. Text Outline, textbox width/height and Interface Motion remain deferred and invisible. Ambient Volume and Music During Pause remain hidden until their authored/pause policies are player-relevant; Auto ON/OFF remains a runtime Quick Menu mode.
-- Refresh Rate, Game Look, Interface Style, Rewind VHS, Character/Background Animations, Language, legacy Font Size Mode, Show Hints, Ambient Volume and Music During Pause are not player-facing. B03 was deferred during Phase 2 and became player-facing in Phase 4.
-- Gameplay Preferences adds only a temporary Quick Menu visibility blocker. Closing removes only that blocker and respects H clean view and Special Mode ownership; it does not mutate B03 persistence, Quick Menu enabled state or hotkeys.
-- Automated regression, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`; `SaveData.CurrentVersion` remains 3 and Preferences state is absent from campaign JSON.
-- Manual visual QA passed for the shared layout, gameplay Quick Menu suppression/restoration, sticky-footer scrolling and compact slider handles. `MainMenu.unity` and `VNPrototype.unity` are unchanged.
-- The 1280×720, 1920×1080, 2560×1440 and 3840×2160 contract remains mandatory for later full-shell regression.
-
-### Phase 3 — Game Menu / navigation
-
-- **Status:** **DONE** at `fa996b9bce2039e550723ed58ed6e42990482b41`.
-- Esc and Quick Menu `Menu` open a scene-local full-screen Game Menu; a second Esc/Return closes it without dialogue advance.
-- Normal actions are Save, Load, Preferences, Main Menu, Quit and a visually separated Return. History remains in Quick Menu; Characters is removed from the normal Game Menu but keeps its existing route.
-- Replay actions remain Preferences, History, End Replay, Quit and Return; campaign-only actions stay absent.
-- Existing Preferences, History, Character Hub, confirmations and `ManualSaveLoadPanel` retain ownership; supported child closures return to Game Menu.
-- Esc is an intentional HIF improvement over the observed Eternum RMB Game Menu behavior; H clean-view and stronger modal/Special/Chat precedence remain.
-- The shell uses compact 25–30% navigation with no empty placeholder region. Save/Load is not embedded yet and remains Phase 5 scope.
-- Automated regression, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`; `SaveData.CurrentVersion` remains 3 and the Save backend is unchanged.
-- Manual visual QA passed at 1920×1080 and 1280×720. `MainMenu.unity` and `VNPrototype.unity` are unchanged.
-- Runtime observations are persisted in [eternum_runtime_ui_reference.md](eternum_runtime_ui_reference.md).
-- B03 was intentionally deferred at the Phase 3 closure and is completed by Phase 4 below.
-
-### Phase 4 — Main Menu and Quick Menu cleanup + B03
-
-- **Status:** **DONE** at `91f1f8f5bd1b70e7c29663b35b6f2d44c9733b9d`; manual QA PASS.
-- Main Menu reuses the authored background, buttons and existing UnityEvent wiring. Final order is Continue, New Game, Load, Preferences, Help, About, Quit; Continue remains truthfully disabled without a compatible valid save and Gallery is not top-level.
-- Quick Menu final order is History, Skip, Auto, Save, Q.Save, Q.Load, Preferences, Menu. Manual Load, direct Main Menu and Characters are absent from the strip; `Menu` opens the Phase 3 Game Menu.
-- Character Hub retains access through a narrow original HIF runtime launcher outside the Quick Menu. Replay, Hide UI, ordinary modal and BlockingExclusive restrictions remain authoritative.
-- **B03 is DONE:** `GameSettings.showQuickMenu`, default ON, key `hif_show_quick_menu`, immediate persistence through `SettingsManager` and the shared `SharedPreferencesView`; Reset returns ON and `SaveData` remains v3.
-- Effective visibility composes B03 with H, BlockingExclusive, Preferences and Game Menu blockers without changing hotkeys or stored truth. The measured `RectTransform` reserve moves only the dialogue shell and becomes zero while the Quick Menu is effectively hidden.
-- Focused regression, `HowIFallCiSmokeTests.RunAll`, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`; Save backend, `MainMenu.unity` and `VNPrototype.unity` are unchanged.
-
-### Phase 5 — Save/Load shell integration
-
-- **Status:** **DONE** at `1279766130cd14ea584424a4cfaf38039e2438df`; manual QA PASS.
-- The existing `ManualSaveLoadPanel` is embedded through `VNGameMenuSaveLoadAdapter`; no second Save/Load implementation or backend ownership was added.
-- Save and Load share one Game Menu content area while the compact left navigation remains visible and marks the active section.
-- The existing fixed six-slot grid remains 3 columns by 2 rows. Uniform aspect-fit presentation preserves preview proportions and fits the content bounds at 1280×720, 1920×1080, 2560×1440 and 3840×2160; responsive smoke tests cover all four sizes.
-- Standalone Main Menu Load remains unchanged. Detaching restores the panel's original parent/layout and its standalone Back control.
-- Esc/Return closes exactly one layer: confirmation → Save/Load → Game Menu → gameplay.
-- Focused regression, `HowIFallCiSmokeTests.RunAll`, ProjectValidator and scene validation PASS; `missingScripts=0`, `invalidEvents=0`.
-- `SaveManager`, the Save backend, `SaveData` v3, `MainMenu.unity` and `VNPrototype.unity` are unchanged.
-
-### Phase 6 — Visual polish and regression closure
-
-- **Status:** **DONE** at `952093db8f268e2cdcd6849b49d6376264c122a9`.
-- **Implementation:** one HIF navy/red player shell now covers Main Menu, shared Preferences, Quick Menu, Game Menu, embedded Save/Load and shared confirmations. Hover/pressed/selected/disabled states are consistent. Shared destructive confirmations use a red primary action, navy Cancel action, centered dimmed treatment and Cancel as the default keyboard focus. Existing safe panel fade/confirmation transitions are preserved; no audio behavior was added.
-- **Embedded Save/Load:** it remains a Game Menu content section. The persistent left navigation keeps Save, Load, Preferences, Main Menu, Quit and Return available; confirmation and operation-in-progress states block underlying navigation. Replay restrictions, confirmation-first Esc behavior and standalone Main Menu Load are unchanged.
-- **Safety:** `SaveManager`/Save backend and `SaveData` v3 are unchanged. Phase 6 did not change scenes, prefabs or ProjectSettings; authored background art and established navigation semantics remain intact.
-- **Regression:** focused Game Menu/layout regression, relevant UI smoke tests, `HowIFallCiSmokeTests.RunAll`, ProjectValidator and scene validation passed with `missingScripts=0` and `invalidEvents=0`.
-- **QA launcher:** `How I Fall/QA/Phase 6 Player Shell` opens the embedded Game Menu Save state in Play Mode.
-- **Manual QA:** PASS at 1280×720, 1920×1080, 2560×1440 and 3840×2160.
-- **Dependencies:** Phases 1–5.
-
-Each phase must leave the game shippable and truthful; hidden future controls are preferable to fake placeholders.
-
-## 13. Required automated smoke tests
-
-### Shared settings
-
-1. Main Menu and gameplay adapters use the same settings instance and control definitions.
-2. Load/save/reset roundtrip for every approved field.
-3. Legacy `fullscreen` migration cannot override `screenMode` after migration.
-4. Hidden/removed fields are not player-facing.
-5. Reset updates both open contexts without stale UI.
-
-### Runtime effects
-
-6. Master/Music/SFX volumes apply immediately.
-7. Screen mode/resolution/run-in-background apply correctly.
-8. Text speed/Auto delay/Skip unseen/Skip after choices/Skip speed/Autosave consumers remain correct.
-9. Mute All preserves/restores expected volume semantics.
-10. Accessibility fields change actual dialogue rendering and survive reload.
-
-### Navigation
-
-11. Stable dialogue Esc opens Game Menu; second Esc closes it.
-12. Open child panel Esc closes one layer at a time.
-13. Confirmation Esc chooses Cancel.
-14. H restore, Character Hub, Chat/media and BlockingExclusive win over Game Menu entry.
-15. Replay hides/denies Save/Load and End Replay restores isolated state.
-
-### B03
-
-16. Default ON, persistence, Reset ON.
-17. OFF hides root but hotkeys/Game Menu work.
-18. H/Special blockers do not mutate preference.
-19. Quick Menu reserve appears/disappears without textbox overlap.
-20. Replay filtering and Character Hub ownership do not regress.
-
-### Existing regression suites
-
-21. Save backend and both graphical Save E2E suites.
-22. Quick Menu, Auto, Skip, Hide UI, Special Mode, Replay, Character Hub, Chat and VN input/help tests.
-23. Project validator, scene validation, missing scripts and invalid events.
-
-## 14. Required manual QA
-
-At each relevant phase:
-
-- Main Menu → Preferences → Back;
-- gameplay → Game Menu → Preferences/History/Save/Load → Back;
-- Esc across every context in section 10; verify that RMB remains unbound to Game Menu;
-- Auto/Skip active before opening and after closing panels;
-- Quit, Main Menu, Load, Overwrite, Delete and End Replay confirms;
-- no input leakage to dialogue under modal;
-- keyboard/controller focus and mouse wheel scrolling;
-- Russian label wrapping;
-- 1280×720, 1920×1080, 2560×1440, 3840×2160;
-- original HIF visuals only; no Eternum screenshots/assets in repository.
-
-## 15. Definition of DONE
-
-Parity shell is DONE only when:
-
-1. exactly one player-facing Preferences screen is used from both contexts;
-2. every visible setting has persistence, reset, immediate/defined apply and tested runtime consumer;
-3. no fake/unused setting is visible;
-4. Game Menu is distinct from Quick Menu and obeys the input precedence matrix;
-5. Quick Menu matches the approved eight-action contract or documents an approved exception;
-6. B03 controls root and dialogue safe-area reserve without disabling hotkeys;
-7. Save/Load safety, Replay isolation, Hide UI and BlockingExclusive have no regression;
-8. all required smoke/validator/scene tests pass;
-9. manual four-resolution QA passes;
-10. no copyrighted Eternum source/assets/text are copied.
-
-## 16. Roadmap continuation
-
-Phase 6 is closed. Choose any future feature separately; keep the existing Save backend unchanged and do not broaden visual polish into new gameplay or settings work.
+Сохранять как историю формирования shell architecture. Не планировать новые passes по старым `Target`/`TODO` строкам без сверки с текущим repository state и Drive roadmap.

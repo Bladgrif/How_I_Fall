@@ -1,126 +1,44 @@
-# Phone UI Polish — visual and UX specification
+# Спецификация визуального и UX-polish Phone UI
 
-## Scope and boundary
+> **Статус:** реализовано. Это техническая demo-спецификация, не финальный visual identity и не канон.
 
-This document defines the next presentation pass for the existing Chat / Phone technical foundation. It is a **technical / demo UI** specification only.
+## Цель
 
-- It does not add or rewrite story, characters, contacts, dialogue, images, relationships or choices.
-- Existing TEST assets remain **TECH DEMO ONLY / NOT CANON**.
-- The typed `ChatSceneData` contract, closed Text/Image/Choice entry types, typed conditions/effects, transient transcript, `BlockingExclusive`, Replay denial, SaveData v3 and exactly-once return contract remain authoritative.
-- No new phone menu, contact list, save data, story command format or global manager is part of this pass.
+Chat должен читаться как отдельный smartphone/messenger overlay поверх VN, а не как generic modal. При этом UI остаётся нейтральным и пригодным для technical demo.
 
-## Visual goal
+## Действующий layout
 
-Use the approved hybrid direction:
+- portrait `PhoneShell` по центру Canvas;
+- dimmed VN background за ним;
+- компактный header;
+- scrollable transcript;
+- persistent bottom reply area;
+- Incoming messages слева, Player messages справа;
+- Image entry как aspect-preserving media card;
+- две большие читаемые reply cards.
 
-1. **Clean structure and readable reply cards:** restrained glass surfaces, clear spacing, high legibility and an unambiguous action area.
-2. **Phone / messenger presence:** the chat is visibly a smartphone-style overlay, not a generic VN modal.
+Обычный dialogue shell и Quick Menu скрыты, пока Chat владеет input.
 
-The result should feel like a focused messenger opened over the VN scene, while remaining a deliberately neutral technical demo rather than final art direction.
+## Поведение reply
 
-## Phone overlay layout
+Выбор валидируется до применения effects. После выбора обе reply cards немедленно блокируются, выбранный текст добавляется ровно один раз как outgoing bubble, затем продолжается branch/terminal flow.
 
-- Center a portrait phone panel inside the existing Canvas, with safe margins at all supported desktop resolutions.
-- Use one rounded outer shell with a subtle glass/translucent treatment, restrained border and shadow.
-- Reserve a compact top header, a flexible scrollable transcript, and a persistent bottom reply area.
-- The transcript must not be obscured by the reply cards; the reply area must not cover the last visible message.
-- Phone proportions may scale responsively, but text, bubbles and reply targets must remain readable and clickable without clipping.
-- The overlay is the only active foreground interaction surface during Chat mode.
+Terminal reply не требует второго клика для завершения.
 
-## Background and ordinary VN UI
+## Ownership
 
-- Keep the authored VN background visible behind the phone, dimmed by a neutral translucent scrim. The current technical demo may therefore show the classroom background, but this pass must not author or modify it.
-- Hide the ordinary dialogue box and its choice presentation while Chat mode is active.
-- Do not expose the Quick Menu, Backlog, Settings, Save/Load or other ordinary VN controls through or above the phone overlay.
-- On close, remove the scrim and restore normal VN UI ownership only after the existing Chat completion/return flow has resolved.
+Phone UI не создаёт новый manager. Existing `ChatController` и `BlockingExclusive` остаются authority.
 
-## Header
+Во время Chat ordinary dialogue, Auto, Skip, Save/Load, History, Settings, Quick Menu и Main Menu недоступны согласно текущему Chat policy и backend guards.
 
-- Place the contact display name centrally or prominently in the phone header; the technical demo displays `TEST CONTACT`.
-- Keep header height compact and visually separate from the transcript.
-- A decorative status/device treatment is optional, but must not suggest unimplemented phone functions.
-- Do not add canon portraits, contact metadata, notifications or navigation controls in this pass.
+## Persistence
 
-## Transcript and message presentation
+Transcript и visual state transient. Они не сериализуются в `SaveData`, `DialogueBacklog`, `DialogueReadHistory` или Replay state. `SaveData` остаётся v3.
 
-- Use a scrollable transcript with consistent vertical rhythm and automatic reveal of the newest entry.
-- Incoming messages are left-aligned bubbles; player/outgoing messages are right-aligned bubbles.
-- Differentiate sender direction through alignment, surface treatment and restrained colour contrast, not through canon art or lore.
-- Bubble width must preserve comfortable line length and allow wrapping without overlap or clipping.
-- Incoming text, image entries and selected outgoing replies are all visible in the same transient local transcript.
-- The transcript remains in memory only for the active chat and must not enter DialogueBacklog, DialogueReadHistory, SaveData or Replay history.
+## QA closure
 
-## Image card
+Phone UI polish ранее прошёл manual graphical QA на 1280×720, 1920×1080, 2560×1440 и 3840×2160. Проверялись shell, transcript, image card, reply cards, suppression обычного VN UI, outgoing reply, return flow, clipping и overlap.
 
-- Render an Image entry as a neutral in-transcript media card with rounded corners, internal padding and a bounded aspect-preserving image area.
-- The V1 technical placeholder must stay visibly neutral and technical; do not introduce narrative, character or illustrated content.
-- A null/missing image remains a validation/runtime failure case, not a blank decorative card.
-- Fullscreen media viewing, zoom, gallery integration and image actions are out of scope.
+## Вне scope
 
-## Reply cards
-
-- Render the exactly two available Choice options as large, clearly separated reply cards in the bottom action area.
-- Each card must make the full authored reply text readable and provide a reliable click/tap target.
-- Hidden/unavailable options must not leave misleading empty controls; existing typed condition and fallback behaviour remains unchanged.
-- After selection, disable both cards immediately so the selected reply/effect cannot be applied twice.
-- The selected reply appears as one outgoing bubble before the existing branch or terminal completion presentation continues.
-
-## Input and modal behaviour
-
-During an active Chat `BlockingExclusive` lease:
-
-- only the currently available reply cards accept Chat input;
-- ordinary dialogue advance, Auto, Skip, Save, Quick Save, Auto Save, pre-load autosave, Load, Quick Load, Backlog, Settings, Quick Menu and Main Menu remain blocked;
-- Escape is a no-op and must not close or cancel the chat;
-- background clicks must not advance the underlying VN dialogue;
-- repeated reply callbacks during terminal resolution are no-ops.
-
-This polish pass must preserve the existing generic SaveManager backend guard; UI-only blocking is insufficient.
-
-## Expected open and close behaviour
-
-### Open
-
-1. The existing `ChatController` successfully acquires its `BlockingExclusive` lease.
-2. Ordinary dialogue UI is hidden, the neutral background scrim and phone overlay appear as one focused transition.
-3. Header, transcript and available reply cards become visible; the first current entry is readable before any input is expected.
-
-### Choice and branch
-
-1. Selecting one reply validates its target and typed effects, applies valid effects once and appends one outgoing bubble.
-2. A non-terminal choice reveals its next entry without an additional generic advance input.
-3. A terminal choice keeps the outgoing bubble visible for the bounded existing presentation step, then completes automatically.
-
-### Close
-
-1. The existing completion flow marks the chat resolved, stops Chat input, releases the valid lease, clears transient chat state, then requests the authored return scene exactly once.
-2. The phone overlay and scrim disappear without a second player input.
-3. Normal VN UI resumes only through the existing return-scene route. Failure and destruction cleanup must release the lease but must not cause an accidental success route.
-
-## Implementation and QA closure
-
-Phone UI polish is **DONE**. The approved hybrid clean-glass and smartphone-messenger direction is implemented as a responsive portrait `PhoneShell`: dimmed VN background, hidden ordinary dialogue shell, left Incoming bubbles, right Player bubbles, neutral image media card and persistent bottom reply cards. Selected replies disable both cards and appear once as outgoing bubbles.
-
-- Short transcripts bottom-align without excessive empty space; long transcripts remain scrollable. Layout rebuild happens when the transcript changes, not every frame.
-- Terminal replies require one logical click. The earlier apparent second-click issue was Unity Editor/Game View lag at 3840x2160, not a Chat runtime limitation.
-- `BlockingExclusive`, SaveManager backend guard, Replay denial, typed data/effect contracts and `SaveData` v3 are unchanged. `VNPrototype.unity` remains unchanged and all TEST content remains **TECH DEMO ONLY / NOT CANON**.
-- Manual graphical QA passed at 1280x720, 1920x1080, 2560x1440 and 3840x2160: shell, header, transcript, image card, reply cards, dialogue/Quick Menu suppression, outgoing reply, return scene and clipping/overlap checks all passed.
-
-## Acceptance criteria for implementation
-
-- The active chat reads immediately as a phone/messenger overlay, with clear glass UI and a dimmed VN background.
-- `TEST CONTACT`, incoming text, the neutral image card, both reply cards and the chosen outgoing bubble are readable at 1280x720, 1920x1080, 2560x1440 and 3840x2160.
-- No clipping, overlap or inaccessible reply target occurs at those four QA resolutions.
-- Ordinary dialogue box and ordinary VN controls are not visible or actionable while chat is active.
-- Reply selection has one semantic action: it selects the reply and never advances the underlying VN dialogue.
-- A terminal reply completes and routes automatically exactly once; no second mouse, keyboard or background input is required.
-- A non-terminal reply branches directly to its target entry.
-- The transcript stays transient and existing Replay, SaveData v3, SaveManager and special-mode contracts remain intact.
-- No new canon story, character, art, asset or normal campaign route is introduced.
-
-## Explicitly out of scope
-
-- Canon contacts, character portraits, messages, images, story branches or relationship writing.
-- Phone home screen, contact list, notifications, typing indicators, sound design, attachments, media viewer/zoom, calls or messaging outside an active chat scene.
-- New persistent chat state, save schema changes, Replay history, global Chat/Phone managers or Addressables.
-- Changes to `VNPrototype.unity`, scene/prefab installation, normal campaign routing, runtime mechanics, tests or special-mode policy as part of this documentation task.
+Канонические контакты/портреты/сообщения, phone home screen, contact list, notifications, calls, persistent chat history и новый save schema не входят в эту спецификацию.
