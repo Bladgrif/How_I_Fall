@@ -1,6 +1,8 @@
 # Player-facing UX polish pass 3 — whole journey
 
-**Status: READY FOR REVIEW.**
+**Status: ACCEPTED.**
+
+Closure: accepted at commit `79e9f3e412cb243fd9a98aabf451ecf7194f1616`; mandatory CI run `33203001166` is GREEN.
 
 ## Audit result
 

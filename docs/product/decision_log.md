@@ -100,3 +100,9 @@ defects исправляются в correction pass; baselines не означа
 ответственностью пользователя.
 
 **Status:** APPROVED
+
+## 2026-08-31 — Pre-story functional demo freeze
+
+**Decision:** Main Menu final polish accepted, and the pre-story player-facing functionality audit passed. The next gate is a clean standalone Windows review build followed by hands-on user acceptance; story integration begins only after that acceptance.
+
+**Status:** ACCEPTED

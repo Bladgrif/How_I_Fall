@@ -1,5 +1,13 @@
 # Demo Readiness Audit
 
+## Current update — 2026-08-31
+
+- **Baseline:** `6e9e6eaa6380c924a9bd0b9ba05c361903191e30`.
+- **Main Menu final polish:** **ACCEPTED**.
+- **Mandatory CI:** Unity CI #90 / run `33386581463` — Unity Test Framework **SUCCESS**; Unity smoke tests **SUCCESS**.
+- **Final player-facing audit:** all audited items PASS; PlayerJourney **6/6 PASS**; `HowIFallCiSmokeTests.RunAll` PASS; PlayerUi graphical E2E PASS; no objective defects found; 1920×1080 PASS; 1280×720 PASS.
+- **Standalone:** Windows x64 build from the previous accepted production baseline succeeded; executable launch was blocked by Codex environment policy. A new final Windows build from current HEAD remains the last pre-review validation step. Standalone startup is **not** marked PASS.
+
 ## Baseline
 
 - **Commit:** `62647fb8eb906a38cd9be4b7904e8e2435480f57` (`HEAD` = `origin/master`, verified after `git fetch origin`).
