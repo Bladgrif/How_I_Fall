@@ -703,6 +703,9 @@ public sealed class SaveManager : MonoBehaviour
         GameState gameState = GameState.EnsureInstance();
 
         VNDialogueController dialogueController = VNDialogueController.Instance;
+        // ReadSlot/FindLatestLoadableSlot already accepted this request. From this
+        // point onward stale rollback history must not survive even if restore fails.
+        dialogueController?.ClearRollbackHistory();
         if (SceneManager.GetActiveScene().name == GameplaySceneName && dialogueController != null)
         {
             if (!TryApplyInPlace(
@@ -712,10 +715,12 @@ public sealed class SaveManager : MonoBehaviour
                     () => dialogueController.RestoreFromGameState(data.backlogSnapshotAvailable),
                     out string restoreError))
             {
+                dialogueController.ClearRollbackHistory();
                 Debug.LogError($"[LOAD] Slot {slot.SlotIndex} was not restored in-place. Previous GameState and dialogue position were preserved. {restoreError}", this);
                 return false;
             }
 
+            dialogueController.ClearRollbackHistory();
             Debug.Log(
                 $"[LOAD] {slot.SlotType} slot {slot.SlotIndex} restored in-place. sceneId='{data.sceneId}', lineId='{data.lineId}', lineIndex={data.lineIndex}, choiceIndex={data.selectedChoiceIndex}.",
                 this);

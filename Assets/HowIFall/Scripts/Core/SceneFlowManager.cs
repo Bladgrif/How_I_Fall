@@ -61,6 +61,7 @@ public class SceneFlowManager : MonoBehaviour
         }
 
         Debug.Log("[SCENEFLOW] Starting a new game.", this);
+        VNDialogueController.Instance?.ClearRollbackHistory();
         SaveManager.Instance?.ClearPendingLoad();
         GameState.EnsureInstance().ResetState();
         SceneManager.LoadScene(VNPrototypeSceneName, LoadSceneMode.Single);
@@ -80,6 +81,7 @@ public class SceneFlowManager : MonoBehaviour
 
     public void ReturnToMainMenu()
     {
+        VNDialogueController.Instance?.ClearRollbackHistory();
         if (EventSystem.current != null)
         {
             EventSystem.current.SetSelectedGameObject(null);
@@ -117,6 +119,7 @@ public class SceneFlowManager : MonoBehaviour
         GameState gameState = GameState.EnsureInstance();
         try
         {
+            VNDialogueController.Instance?.ClearRollbackHistory();
             replaySession = new ReplaySession(definition, gameState, VNDialogueController.Instance);
             replaySession.Activate(gameState);
             SaveManager.Instance?.ClearPendingLoad();
@@ -186,6 +189,7 @@ public class SceneFlowManager : MonoBehaviour
 
         try
         {
+            session.ReplayHost?.ClearRollbackHistory();
             session.ReplayHost?.StopReplayExecutionForCleanup();
             session.RestoreCampaignState(GameState.EnsureInstance());
         }

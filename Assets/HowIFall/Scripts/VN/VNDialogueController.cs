@@ -10,6 +10,10 @@ public class VNDialogueController : MonoBehaviour
 {
     public static VNDialogueController Instance { get; private set; }
 
+#if UNITY_EDITOR
+    public static System.Action RollbackRestoreFailureInjectionForTests { get; set; }
+#endif
+
     private const string MissingSceneDataText = "Dialogue scene data is missing.";
     private const float SkipCadenceSeconds = 0.12f;
     private const string EndPrototypeText = "\u041a\u043e\u043d\u0435\u0446 Unity-\u043f\u0440\u043e\u0442\u043e\u0442\u0438\u043f\u0430.";
@@ -116,6 +120,9 @@ public class VNDialogueController : MonoBehaviour
     private bool mainMenuConfirmationOpenedFromGameMenu;
     private UnityEngine.Object dialogueShellSuppressionOwner;
     private bool dialogueShellWasVisibleBeforeSuppression;
+    private readonly RollbackCheckpointBuffer rollbackBuffer = new RollbackCheckpointBuffer();
+    private int stableCheckpointCaptureSuppressionDepth;
+    private bool rollbackAutomationPaused;
 
     public bool IsInterfaceHidden => isInterfaceHidden;
     public bool IsRelationshipCueVisible => relationshipCueRoot != null && relationshipCueRoot.activeInHierarchy;
@@ -135,6 +142,10 @@ public class VNDialogueController : MonoBehaviour
         && (!specialModeCoordinator.CanSave || !specialModeCoordinator.CanLoad);
     public bool IsCharacterHubOpen => characterHubController != null && characterHubController.IsOpen;
     public bool IsGameMenuOpen => gameMenuController != null && gameMenuController.IsOpen;
+    public bool CanRollback => TryResolveRollbackTarget(out _, out _);
+#if UNITY_EDITOR
+    public int RollbackCheckpointCount => rollbackBuffer.Count;
+#endif
     public VNGameMenuController GameMenuController => gameMenuController;
     public bool CanAdvanceDialogue => !IsCharacterHubOpen && !IsGameMenuOpen && !isInterfaceHidden && (specialModeCoordinator == null || !specialModeCoordinator.IsDialogueAdvanceBlocked);
     public bool CanSave => !IsCharacterHubOpen && !SceneFlowManager.IsReplayModeActive && !isInterfaceHidden && (specialModeCoordinator == null || specialModeCoordinator.CanSave);
@@ -345,6 +356,7 @@ public class VNDialogueController : MonoBehaviour
             if (restored)
             {
                 saveManager.CompletePendingSceneRestore();
+                ClearRollbackHistory();
                 isRuntimeReady = true;
                 return;
             }
@@ -579,6 +591,10 @@ public class VNDialogueController : MonoBehaviour
             return false;
         }
 
+        // A successful lease is the accepted hard-barrier transaction. Clear before
+        // the caller regains control and can mutate special-mode state.
+        ClearRollbackHistory();
+
         if (policy.BlocksAuto)
         {
             StopAutoForwardTimer();
@@ -602,6 +618,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         specialModeWasActive = false;
+        ClearRollbackHistory();
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
         RefreshQuickMenuSpecialModeVisibility();
@@ -1175,6 +1192,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
+        rollbackAutomationPaused = false;
         SettingsManager.Instance?.SetAutoForward(enabled);
         observedAutoForward = enabled;
 
@@ -1190,6 +1208,14 @@ public class VNDialogueController : MonoBehaviour
 
     public void ToggleAutoForward()
     {
+        if (rollbackAutomationPaused && IsAutoForwardEnabled())
+        {
+            rollbackAutomationPaused = false;
+            observedAutoForward = true;
+            StartAutoForwardDelayIfReady();
+            return;
+        }
+
         SetAutoForward(!IsAutoForwardEnabled());
     }
 
@@ -1428,7 +1454,7 @@ public class VNDialogueController : MonoBehaviour
 
     public bool IsSkipEnabled => skipEnabled;
 
-    public bool IsAutoForwardEnabledState => IsAutoForwardEnabled();
+    public bool IsAutoForwardEnabledState => IsAutoForwardEnabled() && !rollbackAutomationPaused;
 
     private bool IsAutoForwardEnabled()
     {
@@ -1448,6 +1474,7 @@ public class VNDialogueController : MonoBehaviour
         observedAutoForward = enabled;
         if (enabled)
         {
+            rollbackAutomationPaused = false;
             StartAutoForwardDelayIfReady();
         }
         else
@@ -1459,6 +1486,7 @@ public class VNDialogueController : MonoBehaviour
     private bool CanAutoAdvance()
     {
         return IsAutoForwardEnabled()
+            && !rollbackAutomationPaused
             && !skipEnabled
             && !isTyping
             && !showingChoice
@@ -1656,6 +1684,7 @@ public class VNDialogueController : MonoBehaviour
         showingChoice = true;
         ClearChoiceState();
         RememberChoicePosition();
+        CaptureStableCheckpoint(RollbackCheckpointKind.PreChoice);
         nextButton.interactable = false;
         SetChoiceOverlayActive(true);
         choicePanel.SetActive(true);
@@ -1790,8 +1819,8 @@ public class VNDialogueController : MonoBehaviour
         nameBox.SetActive(hasSpeaker);
         speakerText.text = hasSpeaker ? line.speaker : string.Empty;
         AddToBacklog(line.speaker, line.text);
-        ShowText(line.text);
         ApplyVisuals(line);
+        ShowText(line.text);
     }
 
     private void ShowNarration(string text)
@@ -1827,6 +1856,295 @@ public class VNDialogueController : MonoBehaviour
     public void ClearBacklog()
     {
         backlog.Clear();
+    }
+
+    /// <summary>Hard-barrier hook for accepted runtime/session transitions.</summary>
+    public void ClearRollbackHistory()
+    {
+        rollbackBuffer.Clear();
+    }
+
+    /// <summary>Single guarded backend command. It has no input or player-facing UI binding.</summary>
+    public bool TryRollback(out string failureReason)
+    {
+        failureReason = string.Empty;
+        if (!TryResolveRollbackTarget(out RollbackCheckpoint target, out int targetIndex))
+        {
+            failureReason = "Rollback is unavailable in the current runtime state.";
+            return false;
+        }
+
+        if (!TryPreflightRollbackTarget(target, out failureReason))
+        {
+            ClearRollbackHistory();
+            return false;
+        }
+
+        RollbackCheckpoint fallback = CaptureRuntimeTransactionSnapshot();
+        if (fallback == null)
+        {
+            failureReason = "Current runtime state could not be captured transactionally.";
+            ClearRollbackHistory();
+            return false;
+        }
+
+        PauseReadingAutomationForRollback();
+        StopRelationshipCueForRollback();
+
+        bool restored = false;
+        try
+        {
+            restored = TryApplyRollbackCheckpoint(target, out failureReason);
+        }
+        catch (System.Exception exception)
+        {
+            failureReason = $"Rollback restore threw {exception.GetType().Name}: {exception.Message}";
+        }
+
+        if (!restored)
+        {
+            string targetFailure = failureReason;
+            bool fallbackRestored = false;
+            try
+            {
+                fallbackRestored = TryApplyRollbackCheckpoint(fallback, out string fallbackFailure);
+                if (!fallbackRestored)
+                {
+                    failureReason = $"{targetFailure} Transaction fallback also failed: {fallbackFailure}";
+                }
+            }
+            catch (System.Exception exception)
+            {
+                failureReason = $"{targetFailure} Transaction fallback threw {exception.GetType().Name}: {exception.Message}";
+            }
+
+            ClearRollbackHistory();
+            if (!fallbackRestored)
+            {
+                Debug.LogError($"[ROLLBACK] {failureReason}", this);
+            }
+            return false;
+        }
+
+        rollbackBuffer.CommitRollback(targetIndex);
+        return true;
+    }
+
+    public bool TryRollback()
+    {
+        return TryRollback(out _);
+    }
+
+    private bool TryResolveRollbackTarget(out RollbackCheckpoint target, out int targetIndex)
+    {
+        target = null;
+        targetIndex = -1;
+        if (!IsRollbackRequestAllowed())
+        {
+            return false;
+        }
+
+        RollbackCheckpoint currentRuntime = CaptureRuntimeTransactionSnapshot();
+        return currentRuntime != null
+            && rollbackBuffer.TryGetPrevious(currentRuntime, out target, out targetIndex);
+    }
+
+    private bool IsRollbackRequestAllowed()
+    {
+        return IsRuntimeReady
+            && !SceneFlowManager.IsReplayModeActive
+            && !HasActiveSpecialMode
+            && !IsCharacterHubOpen
+            && !IsGameMenuOpen
+            && !IsDialogueShellSuppressed
+            && !isInterfaceHidden
+            && !showingChoice
+            && !quickSaveInProgress
+            && !autoSaveInProgress
+            && !preLoadAutoSavePending
+            && !IsAnyOrdinaryModalOpen()
+            && (SaveManager.Instance == null || !SaveManager.Instance.HasPendingSceneRestore)
+            && GameState.Instance != null
+            && sceneRegistry != null
+            && speakerText != null
+            && dialogueText != null
+            && backgroundImage != null
+            && characterImage != null
+            && nameBox != null
+            && nextButton != null
+            && dialogueUiRoot != null
+            && choicePanel != null;
+    }
+
+    private void CaptureStableCheckpoint(RollbackCheckpointKind kind)
+    {
+        if (stableCheckpointCaptureSuppressionDepth > 0
+            || !IsRuntimeReady
+            || SceneFlowManager.IsReplayModeActive
+            || HasActiveSpecialMode
+            || displayedLine == null
+            || displayedLineScene == null
+            || isTyping)
+        {
+            return;
+        }
+
+        RollbackGameStateSnapshot gameState = RollbackGameStateSnapshot.Capture(GameState.Instance);
+        RollbackPresentationSnapshot presentation = CapturePresentationSnapshot();
+        if (!RollbackCheckpoint.TryCreate(
+                kind,
+                gameState,
+                CaptureBacklogSnapshot(),
+                presentation,
+                out RollbackCheckpoint checkpoint))
+        {
+            Debug.LogWarning(
+                $"[ROLLBACK] Stable checkpoint was rejected because its backlog exceeds {RollbackCheckpoint.MaximumBacklogCodeUnits} UTF-16 code units or required state is missing.",
+                this);
+            return;
+        }
+
+        rollbackBuffer.TryAdd(checkpoint);
+    }
+
+    private RollbackCheckpoint CaptureRuntimeTransactionSnapshot()
+    {
+        return RollbackCheckpoint.CreateTransactionFallback(
+            RollbackGameStateSnapshot.Capture(GameState.Instance),
+            CaptureBacklogSnapshot(),
+            CapturePresentationSnapshot());
+    }
+
+    private RollbackPresentationSnapshot CapturePresentationSnapshot()
+    {
+        AudioSource musicSource = AudioManager.Instance != null ? AudioManager.Instance.musicSource : null;
+        return RollbackPresentationSnapshot.Capture(backgroundImage, characterImage, musicSource);
+    }
+
+    private bool TryPreflightRollbackTarget(RollbackCheckpoint target, out string error)
+    {
+        error = string.Empty;
+        if (target == null || target.GameState == null || target.Presentation == null)
+        {
+            error = "Rollback checkpoint is incomplete.";
+            return false;
+        }
+
+        RollbackGameStateSnapshot state = target.GameState;
+        DialogueSceneData targetScene = sceneRegistry.FindById(state.CurrentSceneId);
+        if (targetScene == null || targetScene.lines == null
+            || state.CurrentLineIndex < 0 || state.CurrentLineIndex >= targetScene.lines.Count
+            || targetScene.lines[state.CurrentLineIndex] == null
+            || !string.Equals(targetScene.lines[state.CurrentLineIndex].lineId, state.CurrentLineId, System.StringComparison.Ordinal))
+        {
+            error = "Rollback checkpoint dialogue identity is not registered exactly.";
+            return false;
+        }
+
+        if (state.ChoiceResultActive
+            || state.SelectedChoiceIndex != -1
+            || !string.IsNullOrEmpty(state.PendingNextSceneId))
+        {
+            error = "Rollback checkpoint contains an unsupported active choice result.";
+            return false;
+        }
+
+        if (target.Kind == RollbackCheckpointKind.PreChoice
+            && (targetScene.choices == null
+                || targetScene.choices.Count == 0
+                || state.CurrentLineIndex != targetScene.lines.Count - 1))
+        {
+            error = "Rollback pre-choice checkpoint no longer resolves to a valid choice position.";
+            return false;
+        }
+
+        AudioSource musicSource = AudioManager.Instance != null ? AudioManager.Instance.musicSource : null;
+        if (musicSource == null && (target.Presentation.MusicClip != null || target.Presentation.MusicWasPlaying))
+        {
+            error = "Rollback checkpoint requires a music AudioSource that is unavailable.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool TryApplyRollbackCheckpoint(RollbackCheckpoint checkpoint, out string error)
+    {
+        error = string.Empty;
+        if (checkpoint == null || checkpoint.GameState == null || checkpoint.Presentation == null)
+        {
+            error = "Rollback checkpoint is incomplete.";
+            return false;
+        }
+
+        checkpoint.GameState.ApplyTo(GameState.EnsureInstance());
+        ReplaceBacklogFromSnapshot(checkpoint.CaptureBacklogSnapshot());
+
+#if UNITY_EDITOR
+        RollbackRestoreFailureInjectionForTests?.Invoke();
+#endif
+
+        stableCheckpointCaptureSuppressionDepth++;
+        try
+        {
+            if (!RestoreFromGameState(true))
+            {
+                error = "VNDialogueController.RestoreFromGameState() rejected the checkpoint.";
+                return false;
+            }
+
+            if (isTyping)
+            {
+                CompleteTyping();
+            }
+        }
+        finally
+        {
+            stableCheckpointCaptureSuppressionDepth--;
+        }
+
+        AudioSource musicSource = AudioManager.Instance != null ? AudioManager.Instance.musicSource : null;
+        checkpoint.Presentation.Apply(backgroundImage, characterImage, musicSource);
+        StopAutoForwardTimer();
+        StopSkipTimer();
+        StopRelationshipCueForRollback();
+
+        if (!checkpoint.GameState.HasSameState(RollbackGameStateSnapshot.Capture(GameState.Instance)))
+        {
+            error = "Restored GameState does not exactly match the rollback checkpoint.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private void PauseReadingAutomationForRollback()
+    {
+        if (typingCoroutine != null)
+        {
+            StopCoroutine(typingCoroutine);
+            typingCoroutine = null;
+        }
+
+        isTyping = false;
+        StopAutoForwardTimer();
+        rollbackAutomationPaused = true;
+        skipEnabled = false;
+        StopSkipTimer();
+    }
+
+    private void StopRelationshipCueForRollback()
+    {
+        if (relationshipCueCoroutine != null)
+        {
+            StopCoroutine(relationshipCueCoroutine);
+            relationshipCueCoroutine = null;
+        }
+
+        if (relationshipCueRoot != null)
+        {
+            relationshipCueRoot.SetActive(false);
+        }
     }
 
     public void ShowBacklog()
@@ -2661,6 +2979,7 @@ public class VNDialogueController : MonoBehaviour
         isTyping = false;
         typingCoroutine = null;
         MarkDisplayedLineSeen();
+        CaptureStableCheckpoint(RollbackCheckpointKind.StableLine);
         StartAutoForwardDelayIfReady();
     }
 
@@ -2680,6 +2999,7 @@ public class VNDialogueController : MonoBehaviour
         isTyping = false;
         typingCoroutine = null;
         MarkDisplayedLineSeen();
+        CaptureStableCheckpoint(RollbackCheckpointKind.StableLine);
         StartAutoForwardDelayIfReady();
     }
 
@@ -3192,6 +3512,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         specialModeCoordinator?.ForceClearForHostLifecycle("VNDialogueController destroyed");
+        ClearRollbackHistory();
         StopSkipTimer();
         StopAutoForwardTimer();
 
@@ -3223,6 +3544,7 @@ public class VNDialogueController : MonoBehaviour
 
     public void StopReplayExecutionForCleanup()
     {
+        ClearRollbackHistory();
         StopSkipTimer();
         StopAutoForwardTimer();
     }
