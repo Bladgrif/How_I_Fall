@@ -1,13 +1,47 @@
-# Visual baselines
+# Визуальные базовые скриншоты пользовательского интерфейса
 
-Curated screenshots for the current player-facing reading UI. They are review evidence, not golden-image tests.
+Эти изображения — текущий небольшой набор принятых состояний ключевого пользовательского интерфейса для ревью.
 
-## Reading / choices
+- `QAArtifacts/` остаётся временным доказательством graphical E2E, игнорируется Git и не коммитится.
+- Базовые скриншоты — небольшой отобранный набор для ревью, а не копия всех `QAArtifacts`.
+- Полный набор базовых скриншотов репозитория остаётся основным runtime-доказательством в источнике истины.
+- `review/` при наличии может содержать облегчённые копии для инструментов и ревьюера; они не заменяют доказательство graphical-регрессии.
+- Для удобного человеческого просмотра используется зеркало Google Drive `How I Fall/Визуальное ревью/`.
+- `Текущие скриншоты/` содержит свежие изображения для ревью; `Референсы/` — внешние визуальные референсы; `Архив/` — необязательную историю.
+- Копии на Drive не заменяют baselines репозитория, graphical E2E, тесты или CI.
+- Предпросмотры для ревью создаются только для отобранных baseline-файлов, а не для каждого QA-скриншота.
+- После значимого визуального прохода и успешного graphical E2E обновляются только релевантные baseline-файлы.
+- Публикация UI + baseline-файлов может иметь статус `REVIEW CANDIDATE`, а не финальное визуальное одобрение.
+- Ревьюер должен открывать реальные изображения и сравнивать их с предыдущим состоянием; при крупном обновлении полезны внешние game/VN references.
+- Baselines не являются финальным артом, pixel-perfect golden-image tests или автоматическим эстетическим одобрением.
 
-- `reading_choice_two.png` — 2-choice state with deterministic first keyboard/controller focus.
-- `reading_choice_four_long.png` — 4 visible choices, including a wrapped long option.
-- `reading_choice_hover.png` — mouse hover replaces focus without a second selected state.
-- `reading_relationship_cue_positive.png` — positive non-text consequence cue.
-- `reading_relationship_cue_negative.png` — negative non-text consequence cue.
-- `reading_relationship_cue_mixed.png` — mixed non-text consequence cue.
-- `reading_after_relationship_cue.png` — ordinary reading after cue cleanup.
+Имена PNG в репозитории остаются техническими идентификаторами и не переименовываются только ради перевода.
+
+## Главное меню и настройки
+
+- `main_menu.png` — обычное главное меню и выравнивание маркера фокуса.
+- `main_menu_quit_confirmation.png` — подтверждение выхода с одним однозначным состоянием наведения/активности.
+- `preferences.png` — реальные Screen Mode / Resolution TMP dropdown и максимальный Text Speed без перекрытий.
+
+## Сохранение и загрузка
+
+- `save_load_save.png` — игровое сохранение Save / Manual после успешной записи.
+- `save_load_manual.png` — игровую загрузку Load / Manual с валидными и пустыми слотами.
+- `save_load_confirmation.png` — подтверждение загрузки: безопасный Cancel default, родительский контент заблокирован.
+- `save_load_slot_types.png` — контролируемый занятый invalid-slot, визуально отличимый от пустого empty-slot. Auto/Quick дополнительно покрываются свежим graphical E2E.
+
+## Основной опыт чтения
+
+- `reading_standard.png` — обычная поверхность чтения с `История / Пропуск / Авто / Быстр. сох.` и без временного заголовочного оформления.
+- `reading_dialogue_125.png` — длинный диалог при поддерживаемом масштабе текста 125%, без обрезания текста и перекрытия Quick Menu.
+- `reading_choice_two.png` — состояние с 2 вариантами и детерминированным первым фокусом клавиатуры/контроллера.
+- `reading_choice_four_long.png` — 4 видимых варианта и длинный переносимый вариант без перекрытий.
+- `reading_choice_hover.png` — наведение мышью переносит фокус выбора без второго одновременно выбранного состояния.
+- `reading_relationship_cue_positive.png` — невербальный индикатор положительного последствия.
+- `reading_relationship_cue_negative.png` — невербальный индикатор отрицательного последствия.
+- `reading_relationship_cue_mixed.png` — невербальный индикатор смешанного последствия.
+- `reading_after_relationship_cue.png` — обычное чтение после очистки индикатора последствия.
+- `reading_backlog.png` — прокрученная История с различимыми записями реплик и повествования.
+- `reading_auto_active.png` — заметное, но спокойное активное состояние Auto.
+- `reading_skip_active.png` — заметное, но спокойное активное состояние Skip.
+- `reading_quick_save_feedback.png` — краткий отклик быстрого сохранения поверх обычной поверхности чтения.
