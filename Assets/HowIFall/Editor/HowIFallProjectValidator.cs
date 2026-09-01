@@ -343,13 +343,14 @@ public static class HowIFallProjectValidator
             assignedButtons.Add(controller.choiceLeraButton);
         }
 
-        if (assignedButtons.Count == VNDialogueController.SupportedChoiceButtonCapacity)
+        const int requiredSerializedSources = 3;
+        if (assignedButtons.Count == requiredSerializedSources)
         {
             return 0;
         }
 
         return LogError(
-            $"{sceneName}: VNDialogueController must have {VNDialogueController.SupportedChoiceButtonCapacity} distinct assigned choice buttons; found {assignedButtons.Count}.");
+            $"{sceneName}: VNDialogueController must have {requiredSerializedSources} distinct assigned choice-button sources for the runtime fourth slot; found {assignedButtons.Count}.");
     }
 
     private static int ValidateCommonSceneRequirements(string sceneName)

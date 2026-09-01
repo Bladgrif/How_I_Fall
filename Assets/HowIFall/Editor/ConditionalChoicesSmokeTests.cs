@@ -142,7 +142,8 @@ public static class ConditionalChoicesSmokeTests
         Require(ConditionalChoiceEvaluator.BuildVisibleChoices(new List<DialogueChoice> { hidden }, gameState).Count == 0, "Zero available choices must not select a hidden source choice.");
         Require(fallback != null && gameState.lust == lustBeforeFallback, "Zero-choice fallback must not apply a choice delta.");
         Require(!VNDialogueController.IsChoiceCapacityExceeded(1, 1), "One visible choice remains a manual choice, not a capacity failure.");
-        Require(VNDialogueController.IsChoiceCapacityExceeded(4, VNDialogueController.SupportedChoiceButtonCapacity), "Visible choices over UI capacity must fail safely instead of truncating.");
+        Require(!VNDialogueController.IsChoiceCapacityExceeded(4, VNDialogueController.SupportedChoiceButtonCapacity), "Four visible choices must fit the polished choice UI.");
+        Require(VNDialogueController.IsChoiceCapacityExceeded(5, VNDialogueController.SupportedChoiceButtonCapacity), "Visible choices over UI capacity must fail safely instead of truncating.");
     }
 
     private static void TestSaveContract()

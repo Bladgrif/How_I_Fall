@@ -14,7 +14,7 @@ public class VNDialogueController : MonoBehaviour
     private const float SkipCadenceSeconds = 0.12f;
     private const string EndPrototypeText = "\u041a\u043e\u043d\u0435\u0446 Unity-\u043f\u0440\u043e\u0442\u043e\u0442\u0438\u043f\u0430.";
     private const string ChoiceConfigurationErrorText = "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0430.";
-    public const int SupportedChoiceButtonCapacity = 3;
+    public const int SupportedChoiceButtonCapacity = 4;
     private static readonly string[] TemporaryReadingChromeNames =
     {
         "How I Fall Logo",
@@ -82,6 +82,9 @@ public class VNDialogueController : MonoBehaviour
     private Coroutine autoForwardCoroutine;
     private Coroutine skipCoroutine;
     private Coroutine notificationCoroutine;
+    private Coroutine relationshipCueCoroutine;
+    private GameObject relationshipCueRoot;
+    private CanvasGroup relationshipCueCanvasGroup;
     private string currentFullText = string.Empty;
     private bool isTyping;
     private bool quickSaveInProgress;
@@ -115,6 +118,7 @@ public class VNDialogueController : MonoBehaviour
     private bool dialogueShellWasVisibleBeforeSuppression;
 
     public bool IsInterfaceHidden => isInterfaceHidden;
+    public bool IsRelationshipCueVisible => relationshipCueRoot != null && relationshipCueRoot.activeInHierarchy;
     public bool IsPreferencesOpen => (preferencesController != null && preferencesController.IsOpen)
         || (vnSettingsPanel != null && vnSettingsPanel.activeSelf);
     /// <summary>True while a transient special presentation owns the ordinary dialogue shell.</summary>
@@ -220,7 +224,7 @@ public class VNDialogueController : MonoBehaviour
         SaveManager saveManager = SaveManager.EnsureInstance(sceneRegistry);
         Debug.Log($"[VN] Start. sceneId='{gameState.currentSceneId}', lineId='{gameState.currentLineId}', lineIndex={gameState.currentLineIndex}, sceneData='{(sceneData != null ? sceneData.sceneId : "<null>")}'.", this);
 
-        choiceButtons = new[] { choiceMashaButton, choiceArtemButton, choiceLeraButton };
+        EnsureChoiceButtonCapacity();
 
         if (backlogPanel != null)
         {
@@ -1701,11 +1705,7 @@ public class VNDialogueController : MonoBehaviour
         pendingNextScene = choice.nextScene != null ? choice.nextScene : sceneData.defaultNextScene;
         gameState.pendingNextSceneId = pendingNextScene != null ? pendingNextScene.sceneId : string.Empty;
         ShowFinalLine(choice.resultText);
-        string relationshipFeedback = RelationshipFeedback.Build(choice);
-        if (!string.IsNullOrEmpty(relationshipFeedback))
-        {
-            ShowToast(relationshipFeedback);
-        }
+        ShowRelationshipCue(RelationshipFeedback.GetCueKind(choice));
 
         if (skipEnabled && ShouldResumeSkipAfterChoice())
         {
@@ -1934,13 +1934,11 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        const float topEdge = 61f;
         const float spacing = 10f;
-        float currentTop = topEdge;
-
-        for (int i = 0; i < choiceButtons.Length; i++)
+        var visibleButtons = new List<Button>();
+        var heights = new List<float>();
+        foreach (Button button in choiceButtons)
         {
-            Button button = choiceButtons[i];
             if (button == null || !button.gameObject.activeSelf)
             {
                 continue;
@@ -1952,16 +1950,38 @@ public class VNDialogueController : MonoBehaviour
                 label.alignment = TextAlignmentOptions.MidlineLeft;
                 label.margin = new Vector4(28f, 8f, 28f, 8f);
                 label.enableWordWrapping = true;
-                label.overflowMode = TextOverflowModes.Overflow;
+                label.overflowMode = TextOverflowModes.Ellipsis;
                 label.fontSize = Mathf.Max(label.fontSize, 20f);
             }
 
             RectTransform rect = button.transform as RectTransform;
+            float height = 54f;
             if (rect != null && label != null)
             {
-                float textWidth = Mathf.Max(1f, rect.sizeDelta.x - label.margin.x - label.margin.z);
+                float textWidth = Mathf.Max(1f, rect.rect.width - label.margin.x - label.margin.z);
                 float preferredTextHeight = label.GetPreferredValues(label.text, textWidth, 0f).y;
-                float height = Mathf.Clamp(preferredTextHeight + label.margin.y + label.margin.w, 54f, 64f);
+                height = Mathf.Clamp(preferredTextHeight + label.margin.y + label.margin.w, 54f, 64f);
+            }
+
+            visibleButtons.Add(button);
+            heights.Add(height);
+        }
+
+        float totalHeight = Mathf.Max(0f, (visibleButtons.Count - 1) * spacing);
+        foreach (float height in heights)
+        {
+            totalHeight += height;
+        }
+
+        RectTransform panelRect = choicePanel != null ? choicePanel.transform as RectTransform : null;
+        float currentTop = panelRect != null ? panelRect.rect.height * 0.5f - 22f : totalHeight * 0.5f;
+        for (int i = 0; i < visibleButtons.Count; i++)
+        {
+            Button button = visibleButtons[i];
+            RectTransform rect = button.transform as RectTransform;
+            if (rect != null)
+            {
+                float height = heights[i];
                 rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
                 rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, currentTop - height * 0.5f);
                 currentTop -= height + spacing;
@@ -2008,6 +2028,111 @@ public class VNDialogueController : MonoBehaviour
                 }
             }
         }
+    }
+
+    private void EnsureChoiceButtonCapacity()
+    {
+        var buttons = new List<Button> { choiceMashaButton, choiceArtemButton, choiceLeraButton };
+        buttons.RemoveAll(button => button == null);
+        while (buttons.Count < SupportedChoiceButtonCapacity && buttons.Count > 0)
+        {
+            Button template = buttons[buttons.Count - 1];
+            Button duplicate = Instantiate(template, template.transform.parent);
+            duplicate.name = "Choice Runtime Slot " + (buttons.Count + 1);
+            duplicate.onClick.RemoveAllListeners();
+            duplicate.gameObject.SetActive(false);
+            buttons.Add(duplicate);
+        }
+
+        choiceButtons = buttons.ToArray();
+    }
+
+    private void ShowRelationshipCue(RelationshipCueKind cueKind)
+    {
+        if (cueKind == RelationshipCueKind.None)
+        {
+            return;
+        }
+
+        EnsureRelationshipCue();
+        if (relationshipCueRoot == null)
+        {
+            return;
+        }
+
+        Color accent = cueKind == RelationshipCueKind.Negative
+            ? new Color(0.90f, 0.42f, 0.48f, 1f)
+            : new Color(0.35f, 0.84f, 0.68f, 1f);
+        float rotation = cueKind == RelationshipCueKind.Negative ? 45f : -45f;
+        Image[] strokes = relationshipCueRoot.GetComponentsInChildren<Image>(true);
+        for (int i = 0; i < strokes.Length; i++)
+        {
+            strokes[i].color = accent;
+            RectTransform strokeRect = strokes[i].transform as RectTransform;
+            if (strokeRect != null)
+            {
+                strokeRect.localEulerAngles = new Vector3(0f, 0f, i == 0 ? rotation : -rotation);
+            }
+        }
+
+        relationshipCueCanvasGroup.alpha = 1f;
+        relationshipCueRoot.transform.localScale = Vector3.one;
+        relationshipCueRoot.SetActive(true);
+        if (relationshipCueCoroutine != null)
+        {
+            StopCoroutine(relationshipCueCoroutine);
+        }
+        relationshipCueCoroutine = StartCoroutine(HideRelationshipCueAfterDelay());
+    }
+
+    private void EnsureRelationshipCue()
+    {
+        if (relationshipCueRoot != null || nameBox == null || dialogueUiRoot == null)
+        {
+            return;
+        }
+
+        relationshipCueRoot = new GameObject("Relationship Consequence Cue", typeof(RectTransform), typeof(CanvasGroup));
+        relationshipCueRoot.transform.SetParent(dialogueUiRoot.transform.parent, false);
+        RectTransform rootRect = relationshipCueRoot.transform as RectTransform;
+        rootRect.anchorMin = new Vector2(0f, 0f);
+        rootRect.anchorMax = new Vector2(0f, 0f);
+        rootRect.pivot = new Vector2(0f, 0.5f);
+        rootRect.anchoredPosition = new Vector2(390f, 390f);
+        rootRect.sizeDelta = new Vector2(36f, 28f);
+        relationshipCueCanvasGroup = relationshipCueRoot.GetComponent<CanvasGroup>();
+        relationshipCueCanvasGroup.blocksRaycasts = false;
+        relationshipCueCanvasGroup.interactable = false;
+
+        Image choiceImage = choiceMashaButton != null ? choiceMashaButton.targetGraphic as Image : null;
+        Sprite cueSprite = choiceImage != null ? choiceImage.sprite : null;
+        for (int i = 0; i < 2; i++)
+        {
+            GameObject stroke = new GameObject("Cue Stroke", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            stroke.transform.SetParent(relationshipCueRoot.transform, false);
+            Image image = stroke.GetComponent<Image>();
+            image.sprite = cueSprite;
+            image.raycastTarget = false;
+            RectTransform rect = stroke.transform as RectTransform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(i == 0 ? -7f : 7f, 0f);
+            rect.sizeDelta = new Vector2(20f, 4f);
+        }
+
+        relationshipCueRoot.transform.SetAsLastSibling();
+        relationshipCueRoot.SetActive(false);
+    }
+
+    private IEnumerator HideRelationshipCueAfterDelay()
+    {
+        yield return new WaitForSecondsRealtime(1.25f);
+
+        if (relationshipCueRoot != null)
+        {
+            relationshipCueRoot.SetActive(false);
+        }
+        relationshipCueCoroutine = null;
     }
 
     private void FocusFirstVisibleChoice()

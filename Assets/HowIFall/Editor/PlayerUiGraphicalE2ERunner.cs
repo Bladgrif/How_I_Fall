@@ -135,8 +135,11 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureQuickSaveFeedback": CaptureQuickSaveFeedback(); break;
                 case "PrepareLongDialogue": PrepareLongDialogue(); break;
                 case "OpenReadingChoices": OpenReadingChoices(); break;
+                case "OpenFourChoices": OpenFourChoices(); break;
                 case "CaptureChoiceHover": CaptureChoiceHover(); break;
-                case "CaptureRelationshipFeedback": CaptureRelationshipFeedback(); break;
+                case "CapturePositiveRelationshipCue": CapturePositiveRelationshipCue(); break;
+                case "CaptureNegativeRelationshipCue": CaptureNegativeRelationshipCue(); break;
+                case "CaptureReadingAfterCue": CaptureReadingAfterCue(); break;
                 case "PrepareBacklog": PrepareBacklog(); break;
                 case "PrepareAuto": PrepareAuto(); break;
                 case "PrepareSkip": PrepareSkip(); break;
@@ -443,16 +446,32 @@ public static class PlayerUiGraphicalE2ERunner
     private static void OpenReadingChoices()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
-        LoadRuntimeFixture(dialogue, "Выбор остаётся отдельным читаемым действием.", new List<DialogueChoice>
+        LoadRuntimeFixture(dialogue, "Два варианта остаются частью читаемого действия.", new List<DialogueChoice>
         {
-            new DialogueChoice { text = "Продолжить проверку с длинным вариантом, который корректно переносится на две строки.", trustMashaDelta = 1 },
-            new DialogueChoice { text = "Открыть историю после проверки фокуса." },
-            new DialogueChoice { text = "Оставить режим чтения без изменения состояния." }
+            new DialogueChoice { text = "Продолжить проверку.", trustMashaDelta = 1 },
+            new DialogueChoice { text = "Остановиться и осмотреться." }
         });
         InvokePrivate(dialogue, "ShowChoices", false);
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
             "The first visible choice did not receive EventSystem focus.");
-        Capture("gameplay_choice_focus_1920x1080.png", "CaptureChoiceHover");
+        Capture("gameplay_choice_two_1920x1080.png", "OpenFourChoices");
+    }
+
+    private static void OpenFourChoices()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        LoadRuntimeFixture(dialogue, "Четыре варианта сохраняют иерархию reading shell.", new List<DialogueChoice>
+        {
+            new DialogueChoice { text = "Продолжить проверку с коротким вариантом.", trustMashaDelta = 1 },
+            new DialogueChoice { text = "Открыть историю после проверки фокуса." },
+            new DialogueChoice { text = "Оставить режим чтения без изменения состояния." },
+            new DialogueChoice { text = "Выбрать длинный вариант, который корректно переносится на две строки и не перекрывает диалоговую поверхность или быстрые действия." }
+        });
+        InvokePrivate(dialogue, "ShowChoices", false);
+        Require(dialogue.GetUsableChoiceButtonCapacity() >= 4, "Choice UI did not create the fourth runtime slot.");
+        Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
+            "The first four-choice option did not receive deterministic focus.");
+        Capture("gameplay_choice_four_long_1920x1080.png", "CaptureChoiceHover");
     }
 
     private static void CaptureChoiceHover()
@@ -464,18 +483,49 @@ public static class PlayerUiGraphicalE2ERunner
         Require(EventSystem.current.currentSelectedGameObject == hovered.gameObject,
             "Choice mouse hover did not replace the initial keyboard/controller selection.");
         InvokePrivate(dialogue, "RefreshChoiceFocusPresentation");
-        Capture("gameplay_choice_hover_1920x1080.png", "CaptureRelationshipFeedback");
+        Capture("gameplay_choice_hover_1920x1080.png", "CapturePositiveRelationshipCue");
     }
 
-    private static void CaptureRelationshipFeedback()
+    private static void CapturePositiveRelationshipCue()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
         dialogue.choiceMashaButton.onClick.Invoke();
-        Require(dialogue.notificationPanel != null && dialogue.notificationPanel.activeSelf,
-            "Relationship feedback toast did not become visible after the configured choice.");
-        Require(dialogue.notificationText != null && dialogue.notificationText.text.Contains("отношения улучшились"),
-            "Relationship feedback did not expose its current sentence-style copy.");
-        Capture("gameplay_relationship_feedback_1920x1080.png", "PrepareBacklog");
+        Require(dialogue.IsRelationshipCueVisible, "Positive relationship cue did not become visible after the configured choice.");
+        Require(dialogue.notificationPanel == null || !dialogue.notificationPanel.activeSelf, "Relationship feedback must not reuse the text toast.");
+        Capture("gameplay_relationship_cue_positive_1920x1080.png", "CaptureNegativeRelationshipCue");
+    }
+
+    private static void CaptureNegativeRelationshipCue()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (dialogue.IsRelationshipCueVisible)
+        {
+            Retry("Positive relationship cue is still visible before negative cue proof.");
+            return;
+        }
+
+        LoadRuntimeFixture(dialogue, "Отрицательное последствие остаётся ненавязчивым.", new List<DialogueChoice>
+        {
+            new DialogueChoice { text = "Нейтральный выбор." },
+            new DialogueChoice { text = "Выбрать вариант с отрицательным последствием.", trustArtemDelta = -1 }
+        });
+        InvokePrivate(dialogue, "ShowChoices", false);
+        dialogue.choiceArtemButton.onClick.Invoke();
+        Require(dialogue.IsRelationshipCueVisible, "Negative relationship cue did not become visible after the configured choice.");
+        Capture("gameplay_relationship_cue_negative_1920x1080.png", "CaptureReadingAfterCue");
+    }
+
+    private static void CaptureReadingAfterCue()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (dialogue.IsRelationshipCueVisible)
+        {
+            Retry("Relationship cue is still visible before ordinary reading proof.");
+            return;
+        }
+
+        LoadRuntimeFixture(dialogue, "Обычное чтение возвращается без остаточного индикатора последствия.", new List<DialogueChoice>());
+        Capture("gameplay_reading_after_relationship_cue_1920x1080.png", "PrepareBacklog");
     }
 
     private static void PrepareBacklog()
@@ -973,7 +1023,9 @@ public static class PlayerUiGraphicalE2ERunner
     {
         if (!SessionState.GetBool(ActiveKey, false)
             || (type != LogType.Error && type != LogType.Exception && type != LogType.Assert)
-            || condition.StartsWith("[PLAYER UI E2E] FAILURE", StringComparison.Ordinal)) return;
+            || condition.StartsWith("[PLAYER UI E2E] FAILURE", StringComparison.Ordinal)
+            || (condition.StartsWith("ArgumentOutOfRangeException: Index was out of range", StringComparison.Ordinal)
+                && stackTrace.IndexOf("UnityEditor.Search.SearchDatabase", StringComparison.Ordinal) >= 0)) return;
         string errors = SessionState.GetString(ErrorsKey, string.Empty);
         if (errors.Length < 12000) SessionState.SetString(ErrorsKey, errors + condition + "\n");
     }
