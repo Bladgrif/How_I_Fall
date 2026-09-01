@@ -10,6 +10,7 @@ public enum VNGameMenuAction
     Load,
     Preferences,
     History,
+    Rollback,
     Characters,
     MainMenu,
     EndReplay,
@@ -85,6 +86,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         SetActionVisible(VNGameMenuAction.Save, !replay);
         SetActionVisible(VNGameMenuAction.Load, !replay);
         SetActionVisible(VNGameMenuAction.History, replay);
+        SetActionVisible(VNGameMenuAction.Rollback, !replay);
         SetActionVisible(VNGameMenuAction.Characters, false);
         SetActionVisible(VNGameMenuAction.MainMenu, !replay);
         SetActionVisible(VNGameMenuAction.EndReplay, replay);
@@ -255,6 +257,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Load, "Загрузить");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Preferences, "Настройки");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.History, "История");
+        CreateActionButton(primaryActions.transform, VNGameMenuAction.Rollback, "Откат");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Characters, "Персонажи");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.MainMenu, "Главное меню");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.EndReplay, "Завершить повтор");

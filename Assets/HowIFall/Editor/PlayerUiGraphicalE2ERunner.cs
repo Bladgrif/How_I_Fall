@@ -20,6 +20,7 @@ public static class PlayerUiGraphicalE2ERunner
     private const string NextTimeKey = "HowIFall.PlayerUiE2E.NextTime";
     private const string CounterKey = "HowIFall.PlayerUiE2E.Counter";
     private const string NextStageKey = "HowIFall.PlayerUiE2E.NextStage";
+    private const string RollbackChoiceTrustKey = "HowIFall.PlayerUiE2E.RollbackChoiceTrust";
     private const string CapturePathKey = "HowIFall.PlayerUiE2E.CapturePath";
     private const string CaptureWidthKey = "HowIFall.PlayerUiE2E.CaptureWidth";
     private const string CaptureHeightKey = "HowIFall.PlayerUiE2E.CaptureHeight";
@@ -159,6 +160,13 @@ public static class PlayerUiGraphicalE2ERunner
                 case "WaitGameplayPreferences": WaitGameplayPreferences(); break;
                 case "PrepareResponsivePreferences": PrepareResponsivePreferences(); break;
                 case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
+                case "PrepareRollbackDisabled": PrepareRollbackDisabled(); break;
+                case "OpenRollbackEnabled": OpenRollbackEnabled(); break;
+                case "CaptureRollbackEnabled1280": CaptureRollbackEnabled1280(); break;
+                case "RollbackToReading": RollbackToReading(); break;
+                case "PrepareRollbackChoice": PrepareRollbackChoice(); break;
+                case "WaitRollbackChoiceMenu": WaitRollbackChoiceMenu(); break;
+                case "RollbackToChoice": RollbackToChoice(); break;
                 case "WaitScreenshot": WaitScreenshot(); break;
             }
         }
@@ -835,7 +843,159 @@ public static class PlayerUiGraphicalE2ERunner
             Retry("Game View did not switch to 1280x720 for Preferences responsive proof.");
             return;
         }
-        Capture("gameplay_preferences_1280x720.png", "Complete");
+        Capture("gameplay_preferences_1280x720.png", "PrepareRollbackDisabled");
+    }
+
+    private static void PrepareRollbackDisabled()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.HideSettings();
+        if (dialogue.GameMenuController != null && dialogue.GameMenuController.IsOpen)
+        {
+            Require(dialogue.GameMenuController.Close(), "Existing Game Menu session did not close before Rollback proof.");
+        }
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 for Rollback proof.");
+            return;
+        }
+
+        dialogue.ClearRollbackHistory();
+        LoadRuntimeFixture(dialogue, new List<DialogueLine>
+        {
+            new DialogueLine { lineId = "rollback_a", speaker = "Рассказчик", text = "Точка A для проверки отката." },
+            new DialogueLine { lineId = "rollback_b", speaker = "Рассказчик", text = "Точка B для проверки отката." }
+        }, new List<DialogueChoice>());
+        dialogue.ClearRollbackHistory();
+        Require(dialogue.OpenGameMenu(), "Game Menu did not open for unavailable Rollback proof.");
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
+        Require(rollback != null && view.IsActionVisible(VNGameMenuAction.Rollback) && !rollback.interactable,
+            "Rollback must be visible but disabled without a previous checkpoint.");
+        Capture("game_menu_rollback_disabled_1920x1080.png", "OpenRollbackEnabled");
+    }
+
+    private static void OpenRollbackEnabled()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Require(dialogue.GameMenuController.Close(), "Game Menu did not close before creating the second Rollback checkpoint.");
+        LoadRuntimeFixture(dialogue, new List<DialogueLine>
+        {
+            new DialogueLine { lineId = "rollback_a", speaker = "Рассказчик", text = "Точка A для проверки отката." },
+            new DialogueLine { lineId = "rollback_b", speaker = "Рассказчик", text = "Точка B для проверки отката." }
+        }, new List<DialogueChoice>());
+        CompleteTyping(dialogue);
+        dialogue.AdvanceDialogue();
+        CompleteTyping(dialogue);
+        VerifyRollbackPreflight(dialogue, "enabled reading fixture");
+        Require(dialogue.OpenGameMenu(), "Game Menu did not open for available Rollback proof.");
+        VNGameMenuView view = dialogue.GameMenuController.View;
+        Button rollback = view.GetButton(VNGameMenuAction.Rollback);
+        Require(rollback != null && rollback.interactable && IsFocusMarkerVisible(view, VNGameMenuAction.Return),
+            "Available Rollback must retain normal Game Menu focus presentation.");
+        Capture("game_menu_rollback_enabled_1920x1080.png", "CaptureRollbackEnabled1280");
+    }
+
+    private static void CaptureRollbackEnabled1280()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for available Rollback proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Require(view != null && view.GetButton(VNGameMenuAction.Rollback).interactable,
+            "Available Rollback disappeared during 1280x720 proof.");
+        Capture("game_menu_rollback_enabled_1280x720.png", "RollbackToReading");
+    }
+
+    private static void RollbackToReading()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 before Rollback action.");
+            return;
+        }
+
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
+        Require(rollback != null && rollback.interactable, "Rollback action is unavailable before activation.");
+        rollback.onClick.Invoke();
+        Require(!dialogue.IsGameMenuOpen && dialogue.dialogueUiRoot.activeInHierarchy && GameState.EnsureInstance().currentLineId == "rollback_a",
+            $"Successful Rollback did not restore the reading shell without a stale Game Menu overlay. menu={dialogue.IsGameMenuOpen}, shell={dialogue.dialogueUiRoot.activeInHierarchy}, line={GameState.EnsureInstance().currentLineId}, text={dialogue.dialogueText.text}");
+        Capture("gameplay_reading_after_rollback_1920x1080.png", "PrepareRollbackChoice");
+    }
+
+    private static void PrepareRollbackChoice()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.ClearRollbackHistory();
+        LoadRuntimeFixture(dialogue, "Выбор можно повторить после отката.", new List<DialogueChoice>
+        {
+            new DialogueChoice { text = "Применить временное изменение.", trustMashaDelta = 1 }
+        });
+        CompleteTyping(dialogue);
+        dialogue.AdvanceDialogue();
+        Require(dialogue.choicePanel.activeInHierarchy, "Rollback choice fixture did not open its choice panel.");
+        int trustBeforeChoice = GameState.EnsureInstance().trustMasha;
+        SessionState.SetInt(RollbackChoiceTrustKey, trustBeforeChoice);
+        dialogue.choiceMashaButton.onClick.Invoke();
+        Require(GameState.EnsureInstance().trustMasha == trustBeforeChoice + 1,
+            "Choice result did not apply the configured temporary state delta.");
+        SessionState.SetString(StageKey, "WaitRollbackChoiceMenu");
+        ResetCounter();
+        SetDelay(0.2d);
+    }
+
+    private static void WaitRollbackChoiceMenu()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (!dialogue.CanOpenGameMenu || !dialogue.CanRollback)
+        {
+            Retry($"Choice rollback route is not ready. canOpen={dialogue.CanOpenGameMenu}, canRollback={dialogue.CanRollback}, cue={dialogue.IsRelationshipCueVisible}.");
+            return;
+        }
+
+        Require(dialogue.OpenGameMenu(), "Choice result rejected the ready Game Menu Rollback route.");
+        Capture("game_menu_rollback_choice_enabled_1920x1080.png", "RollbackToChoice");
+    }
+
+    private static void RollbackToChoice()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
+        Require(rollback != null && rollback.interactable, "Rollback is unavailable for the pre-choice checkpoint.");
+        rollback.onClick.Invoke();
+        Require(!dialogue.IsGameMenuOpen && dialogue.choicePanel.activeInHierarchy
+            && GameState.EnsureInstance().trustMasha == SessionState.GetInt(RollbackChoiceTrustKey, 0)
+            && EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
+            "Rollback did not restore the pre-choice UI and its deterministic first focus.");
+        Capture("gameplay_choice_after_rollback_1920x1080.png", "Complete");
+    }
+
+    private static void VerifyRollbackPreflight(VNDialogueController dialogue, string fixtureName)
+    {
+        Require(dialogue != null && dialogue.sceneRegistry != null, fixtureName + ": current dialogue registry is unavailable.");
+        MethodInfo resolve = typeof(VNDialogueController).GetMethod("TryResolveRollbackTarget", BindingFlags.Instance | BindingFlags.NonPublic);
+        MethodInfo preflight = typeof(VNDialogueController).GetMethod("TryPreflightRollbackTarget", BindingFlags.Instance | BindingFlags.NonPublic);
+        Require(resolve != null && preflight != null, fixtureName + ": Rollback backend preflight methods are unavailable.");
+
+        object[] resolveArguments = { null, -1 };
+        Require((bool)resolve.Invoke(dialogue, resolveArguments), fixtureName + ": no previous rollback checkpoint resolved before opening Game Menu.");
+        RollbackCheckpoint target = resolveArguments[0] as RollbackCheckpoint;
+        Require(target != null, fixtureName + ": resolved rollback checkpoint is missing.");
+        DialogueSceneData registered = dialogue.sceneRegistry.FindById(target.GameState.CurrentSceneId);
+        Require(registered != null, fixtureName + ": checkpoint sceneId '" + target.GameState.CurrentSceneId + "' is not registered.");
+
+        object[] preflightArguments = { target, string.Empty };
+        Require((bool)preflight.Invoke(dialogue, preflightArguments), fixtureName + ": backend preflight rejected registered fixture: " + preflightArguments[1]);
     }
 
     private static void Capture(string fileName, string nextStage)
@@ -1210,11 +1370,16 @@ public static class PlayerUiGraphicalE2ERunner
     {
         DialogueSceneData fixture = ScriptableObject.CreateInstance<DialogueSceneData>();
         fixture.hideFlags = HideFlags.DontSave;
-        fixture.sceneId = "TECH_DEMO_CORE_READING"; // transient runtime fixture; never an authored DialogueSceneData asset.
+        fixture.sceneId = "TECH_DEMO_CORE_READING_" + RuntimeFixtures.Count; // transient runtime fixture; never an authored DialogueSceneData asset.
         fixture.lines = lines;
         fixture.choices = choices;
         RuntimeFixtures.Add(fixture);
+        if (dialogue.sceneRegistry != null && !dialogue.sceneRegistry.scenes.Contains(fixture))
+        {
+            dialogue.sceneRegistry.scenes.Add(fixture);
+        }
         InvokePrivate(dialogue, "LoadDialogueScene", fixture, 0, false);
+        InvokePrivate(dialogue, "ClearChoiceState");
         CompleteTyping(dialogue);
     }
 
@@ -1241,6 +1406,19 @@ public static class PlayerUiGraphicalE2ERunner
 
     private static void DestroyRuntimeFixtures()
     {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        if (dialogue != null && dialogue.sceneRegistry != null)
+        {
+            foreach (UnityEngine.Object fixture in RuntimeFixtures)
+            {
+                DialogueSceneData scene = fixture as DialogueSceneData;
+                if (scene != null)
+                {
+                    dialogue.sceneRegistry.scenes.Remove(scene);
+                }
+            }
+        }
+
         foreach (UnityEngine.Object fixture in RuntimeFixtures)
         {
             if (fixture != null)

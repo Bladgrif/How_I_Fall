@@ -242,11 +242,12 @@ public static class GameMenuSmokeTests
             AssertVisibleActions(view, new[]
             {
                 VNGameMenuAction.Save, VNGameMenuAction.Load, VNGameMenuAction.Preferences,
-                VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Return
+                VNGameMenuAction.Rollback, VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Return
             });
             AssertLabel(view, VNGameMenuAction.Save, "Сохранить");
             AssertLabel(view, VNGameMenuAction.Load, "Загрузить");
             AssertLabel(view, VNGameMenuAction.Preferences, "Настройки");
+            AssertLabel(view, VNGameMenuAction.Rollback, "Откат");
             AssertLabel(view, VNGameMenuAction.MainMenu, "Главное меню");
             AssertLabel(view, VNGameMenuAction.Quit, "Выйти");
             AssertLabel(view, VNGameMenuAction.Return, "Вернуться");
@@ -262,6 +263,7 @@ public static class GameMenuSmokeTests
             AssertLabel(view, VNGameMenuAction.EndReplay, "Завершить повтор");
             Require(!view.IsActionVisible(VNGameMenuAction.Save)
                 && !view.IsActionVisible(VNGameMenuAction.Load)
+                && !view.IsActionVisible(VNGameMenuAction.Rollback)
                 && !view.IsActionVisible(VNGameMenuAction.Characters)
                 && !view.IsActionVisible(VNGameMenuAction.MainMenu),
                 "Replay leaked campaign-only navigation actions.");
@@ -298,6 +300,12 @@ public static class GameMenuSmokeTests
                 "Game Menu hover feedback is not visually distinct.");
 
             view.SetReplayMode(false);
+            Button rollback = view.GetButton(VNGameMenuAction.Rollback);
+            Require(rollback != null, "Rollback action must be part of the Game Menu action set.");
+            rollback.interactable = false;
+            Require(!rollback.interactable && rollback.colors.disabledColor != rollback.colors.normalColor,
+                "Unavailable Rollback must use the existing distinct disabled Button state.");
+            rollback.interactable = true;
             view.SetSaveLoadSection(VNGameMenuAction.Save);
             Require(view.IsSaveLoadContentVisible && view.IsActionActive(VNGameMenuAction.Save) && !view.IsActionActive(VNGameMenuAction.Load),
                 "Save section did not expose the shared content area and active navigation state.");

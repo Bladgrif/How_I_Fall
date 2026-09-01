@@ -7,6 +7,8 @@ using NUnit.Framework;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 
@@ -150,6 +152,49 @@ public class RollbackBackendPlayModeTests
         Assert.That(context.GameState.choiceResultActive, Is.True);
         Assert.That(context.GameState.pendingNextSceneId, Is.EqualTo("target-b"));
         AssertBacklog(context.Controller, "Choose", "Result B");
+    }
+
+    [UnityTest]
+    public IEnumerator GameMenuRollbackRoute_ClosesShellAndRestoresReadingAndChoiceFocus()
+    {
+        GameObject eventSystemObject = new GameObject("Rollback Route EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        createdObjects.Add(eventSystemObject);
+
+        TestContext linear = CreateContext(CreateLinearScene("menu-linear", "A", "B"));
+        yield return null;
+        CompleteCurrentLine(linear.Controller);
+        AdvanceAndComplete(linear.Controller);
+        Assert.That(linear.Controller.OpenGameMenu(), Is.True);
+        VNGameMenuView linearView = linear.Controller.GameMenuController.View;
+        Assert.That(linearView.IsActionVisible(VNGameMenuAction.Rollback), Is.True);
+        Assert.That(linearView.GetButton(VNGameMenuAction.Rollback).interactable, Is.True);
+        linearView.GetButton(VNGameMenuAction.Rollback).onClick.Invoke();
+        Assert.That(linear.Controller.IsGameMenuOpen, Is.False);
+        Assert.That(linear.Controller.dialogueUiRoot.activeInHierarchy, Is.True);
+        Assert.That(linear.GameState.currentLineId, Is.EqualTo("line-0"));
+        AssertBacklog(linear.Controller, "A");
+
+        DestroyExistingSingletons();
+        yield return null;
+
+        DialogueSceneData target = CreateLinearScene("menu-choice-target", "Target");
+        DialogueSceneData choiceScene = CreateLinearScene("menu-choice", "Choose");
+        choiceScene.choices = new List<DialogueChoice> { CreateChoice("A", "Result A", target, 0, 0, 0, 0, 0, 0, 1, 0, 0) };
+        TestContext choice = CreateContext(choiceScene, target);
+        yield return null;
+        CompleteCurrentLine(choice.Controller);
+        choice.Controller.AdvanceDialogue();
+        choice.Controller.choiceMashaButton.onClick.Invoke();
+        Assert.That(choice.GameState.trustMasha, Is.EqualTo(1));
+        Assert.That(choice.Controller.OpenGameMenu(), Is.True);
+        VNGameMenuView choiceView = choice.Controller.GameMenuController.View;
+        Assert.That(choiceView.GetButton(VNGameMenuAction.Rollback).interactable, Is.True);
+        choiceView.GetButton(VNGameMenuAction.Rollback).onClick.Invoke();
+        Assert.That(choice.Controller.IsGameMenuOpen, Is.False);
+        Assert.That(choice.Controller.choicePanel.activeInHierarchy, Is.True);
+        Assert.That(choice.GameState.trustMasha, Is.Zero);
+        Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(choice.Controller.choiceMashaButton.gameObject));
+        AssertBacklog(choice.Controller, "Choose");
     }
 
     [UnityTest]
