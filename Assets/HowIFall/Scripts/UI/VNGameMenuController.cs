@@ -79,7 +79,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         localConfirmationAction = LocalConfirmationAction.None;
         dialogueController.TrySuppressDialogueShell(this);
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
-        view.GetButton(VNGameMenuAction.Rollback).interactable = rollbackAvailableForSession;
+        ApplySessionActionAvailability();
         view.GetButton(VNGameMenuAction.Save).interactable = dialogueController.CanSave;
         view.GetButton(VNGameMenuAction.Load).interactable = dialogueController.CanLoad;
         view.SetVisible(true);
@@ -344,6 +344,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         saveLoadAdapter.Unmount();
         childContext = ChildContext.None;
         view?.SetSaveLoadSection(null);
+        ApplySessionActionAvailability();
     }
 
     private bool TryLeaveSaveLoadSection()
@@ -456,7 +457,17 @@ public sealed class VNGameMenuController : MonoBehaviour
         }
 
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
+        ApplySessionActionAvailability();
         view.SetVisible(true);
+    }
+
+    private void ApplySessionActionAvailability()
+    {
+        Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
+        if (rollback != null)
+        {
+            rollback.interactable = rollbackAvailableForSession && !SceneFlowManager.IsReplayModeActive;
+        }
     }
 
     private void OnDestroy()

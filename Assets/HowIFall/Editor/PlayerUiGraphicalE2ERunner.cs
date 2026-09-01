@@ -161,6 +161,9 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareResponsivePreferences": PrepareResponsivePreferences(); break;
                 case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
                 case "PrepareRollbackDisabled": PrepareRollbackDisabled(); break;
+                case "OpenDisabledRollbackSaveLoad": OpenDisabledRollbackSaveLoad(); break;
+                case "CloseDisabledRollbackSaveLoad": CloseDisabledRollbackSaveLoad(); break;
+                case "VerifyDisabledRollbackAfterSaveLoad": VerifyDisabledRollbackAfterSaveLoad(); break;
                 case "OpenRollbackEnabled": OpenRollbackEnabled(); break;
                 case "CaptureRollbackEnabled1280": CaptureRollbackEnabled1280(); break;
                 case "RollbackToReading": RollbackToReading(); break;
@@ -873,7 +876,51 @@ public static class PlayerUiGraphicalE2ERunner
         Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
         Require(rollback != null && view.IsActionVisible(VNGameMenuAction.Rollback) && !rollback.interactable,
             "Rollback must be visible but disabled without a previous checkpoint.");
-        Capture("game_menu_rollback_disabled_1920x1080.png", "OpenRollbackEnabled");
+        Capture("game_menu_rollback_disabled_1920x1080.png", "OpenDisabledRollbackSaveLoad");
+    }
+
+    private static void OpenDisabledRollbackSaveLoad()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Button save = view != null ? view.GetButton(VNGameMenuAction.Save) : null;
+        Require(save != null && save.interactable, "Save route is unavailable for disabled Rollback return proof.");
+        save.onClick.Invoke();
+        SessionState.SetString(StageKey, "CloseDisabledRollbackSaveLoad");
+        ResetCounter();
+        SetDelay(0.2d);
+    }
+
+    private static void CloseDisabledRollbackSaveLoad()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        ManualSaveLoadPanel panel = dialogue.manualSaveLoadPanel;
+        if (panel == null || !panel.IsOpen)
+        {
+            Retry("Embedded Save section did not open for disabled Rollback return proof.");
+            return;
+        }
+
+        panel.Close();
+        SessionState.SetString(StageKey, "VerifyDisabledRollbackAfterSaveLoad");
+        ResetCounter();
+        SetDelay(0.2d);
+    }
+
+    private static void VerifyDisabledRollbackAfterSaveLoad()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        if (view == null || view.IsSaveLoadContentVisible)
+        {
+            Retry("Embedded Save section did not return to Game Menu navigation.");
+            return;
+        }
+
+        Button rollback = view.GetButton(VNGameMenuAction.Rollback);
+        Require(rollback != null && !rollback.interactable && !view.IsActionActive(VNGameMenuAction.Rollback),
+            "Disabled Rollback became enabled or retained a stale active marker after Save/Load return.");
+        Capture("game_menu_rollback_disabled_after_save_load_1920x1080.png", "OpenRollbackEnabled");
     }
 
     private static void OpenRollbackEnabled()
