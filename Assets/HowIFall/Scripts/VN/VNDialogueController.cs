@@ -2060,10 +2060,11 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        Color accent = cueKind == RelationshipCueKind.Negative
-            ? new Color(0.90f, 0.42f, 0.48f, 1f)
-            : new Color(0.35f, 0.84f, 0.68f, 1f);
-        float rotation = cueKind == RelationshipCueKind.Negative ? 45f : -45f;
+        Color accent = cueKind == RelationshipCueKind.Positive
+            ? new Color(0.35f, 0.84f, 0.68f, 1f)
+            : cueKind == RelationshipCueKind.Negative
+                ? new Color(0.90f, 0.42f, 0.48f, 1f)
+                : new Color(0.94f, 0.76f, 0.34f, 1f);
         Image[] strokes = relationshipCueRoot.GetComponentsInChildren<Image>(true);
         for (int i = 0; i < strokes.Length; i++)
         {
@@ -2071,7 +2072,15 @@ public class VNDialogueController : MonoBehaviour
             RectTransform strokeRect = strokes[i].transform as RectTransform;
             if (strokeRect != null)
             {
-                strokeRect.localEulerAngles = new Vector3(0f, 0f, i == 0 ? rotation : -rotation);
+                float rotation = cueKind == RelationshipCueKind.Mixed
+                    ? 0f
+                    : cueKind == RelationshipCueKind.Negative
+                        ? (i == 0 ? 45f : -45f)
+                        : (i == 0 ? -45f : 45f);
+                strokeRect.localEulerAngles = new Vector3(0f, 0f, rotation);
+                strokeRect.anchoredPosition = cueKind == RelationshipCueKind.Mixed
+                    ? new Vector2(0f, i == 0 ? -5f : 5f)
+                    : new Vector2(i == 0 ? -7f : 7f, 0f);
             }
         }
 

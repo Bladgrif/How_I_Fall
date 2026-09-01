@@ -19,7 +19,7 @@
 | Система | Текущее состояние | Статус | Следующий реальный пробел |
 |---|---|---:|---|
 | Диалог / typewriter | `VNDialogueController`, стабильные scene/line IDs, переходы, завершение печати | ✅ DONE | Контентный tuning позже |
-| Обычные выборы | варианты, stat deltas, result/transition | ✅ DONE | Visual/interaction polish выбора |
+| Обычные выборы | до 4 visible choices, stat deltas, result/transition | ✅ DONE | Без route meters и numeric feedback |
 | Typed conditional choices | typed numeric conditions, hidden unavailable options, safe fallback | ✅ DONE | Authoring только под реальный контент |
 | `GameState` | сохраняемые numeric axes/relationships/choice state | 🟡 PARTIAL by design | Нет generic story-flag registry и сейчас он не нужен |
 | Manual saves | 10 страниц × 6 = **60** Manual slots, JSON + PNG preview, overwrite/delete/load confirm | ✅ DONE | Сохранять совместимость |
@@ -39,7 +39,7 @@
 | Backlog / History | до 100 entries, save-scoped snapshot/restore | ✅ DONE | Visual cleanup при конкретных дефектах |
 | Rollback / Rewind | reversible execution state отсутствует | 🔬 RESEARCH | Явно открыт для bounded feasibility; visual-only Back запрещён |
 | Notifications / confirmations | toast + safe modal confirmations | ✅ DONE technically | Presentation polish отдельных случаев |
-| Relationship consequence feedback | stat delta применяется; сейчас есть явный text feedback | 🟡 PARTIAL | Короткий nonverbal cue без текста/чисел |
+| Relationship consequence feedback | короткий non-text positive/negative/mixed cue после stat delta | ✅ DONE | Без чисел, текста и relationship meters |
 | Character Hub / bios | technical runtime foundation существует; ordinary launcher скрыт | ✅ DONE foundation / ⏸ content | Реальные characters/bios/art/unlocks позже |
 | Shared Preferences | одна общая runtime implementation из Main Menu/gameplay | ✅ DONE | Только concrete layout/UX defects |
 | Input / Help | единая `VNInputMap`, Help от неё, no rebinding by design | ✅ DONE | — |

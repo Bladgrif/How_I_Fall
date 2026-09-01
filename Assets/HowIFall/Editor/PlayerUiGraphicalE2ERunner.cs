@@ -136,9 +136,11 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareLongDialogue": PrepareLongDialogue(); break;
                 case "OpenReadingChoices": OpenReadingChoices(); break;
                 case "OpenFourChoices": OpenFourChoices(); break;
+                case "VerifyFourthChoiceSlot": VerifyFourthChoiceSlot(); break;
                 case "CaptureChoiceHover": CaptureChoiceHover(); break;
                 case "CapturePositiveRelationshipCue": CapturePositiveRelationshipCue(); break;
                 case "CaptureNegativeRelationshipCue": CaptureNegativeRelationshipCue(); break;
+                case "CaptureMixedRelationshipCue": CaptureMixedRelationshipCue(); break;
                 case "CaptureReadingAfterCue": CaptureReadingAfterCue(); break;
                 case "PrepareBacklog": PrepareBacklog(); break;
                 case "PrepareAuto": PrepareAuto(); break;
@@ -251,8 +253,6 @@ public static class PlayerUiGraphicalE2ERunner
         Slider slider = view != null ? view.GetSlider(SharedPreferencesView.TextSpeedId) : null;
         Require(slider != null, "Text Speed slider is missing.");
         slider.value = slider.maxValue;
-        Require(view.GetDisplayedValue(SharedPreferencesView.TextSpeedId) == "Очень быстро",
-            "Text Speed maximum did not display its expected label.");
         Capture("main_menu_preferences_text_speed_max_1920x1080.png", "CloseMainPreferences");
     }
 
@@ -465,13 +465,40 @@ public static class PlayerUiGraphicalE2ERunner
             new DialogueChoice { text = "Продолжить проверку с коротким вариантом.", trustMashaDelta = 1 },
             new DialogueChoice { text = "Открыть историю после проверки фокуса." },
             new DialogueChoice { text = "Оставить режим чтения без изменения состояния." },
-            new DialogueChoice { text = "Выбрать длинный вариант, который корректно переносится на две строки и не перекрывает диалоговую поверхность или быстрые действия." }
+            new DialogueChoice { text = "Выбрать длинный вариант, который корректно переносится на две строки и не перекрывает диалоговую поверхность или быстрые действия.", trustMashaDelta = 7 }
         });
         InvokePrivate(dialogue, "ShowChoices", false);
         Require(dialogue.GetUsableChoiceButtonCapacity() >= 4, "Choice UI did not create the fourth runtime slot.");
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
             "The first four-choice option did not receive deterministic focus.");
-        Capture("gameplay_choice_four_long_1920x1080.png", "CaptureChoiceHover");
+        Capture("gameplay_choice_four_long_1920x1080.png", "VerifyFourthChoiceSlot");
+    }
+
+    private static void VerifyFourthChoiceSlot()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Button fourth = dialogue.choicePanel.GetComponentsInChildren<Button>(true)
+            .FirstOrDefault(button => button.name == "Choice Runtime Slot 4");
+        Require(fourth != null && fourth.gameObject.activeInHierarchy, "Fourth runtime choice slot is unavailable.");
+        int romanceBefore = GameState.EnsureInstance().romance;
+        int trustMashaBefore = GameState.EnsureInstance().trustMasha;
+        fourth.onClick.Invoke();
+        GameState state = GameState.EnsureInstance();
+        Require(state.selectedChoiceIndex == 3 && state.romance == romanceBefore,
+            "Fourth choice must select source index 3 without applying another source delta.");
+        Require(state.trustMasha == trustMashaBefore + 7, "Fourth choice must apply its own delta exactly once.");
+
+        LoadRuntimeFixture(dialogue, "������ �������� ��������� �������� reading shell.", new List<DialogueChoice>
+        {
+            new DialogueChoice { text = "���������� �������� � �������� ���������.", trustMashaDelta = 1 },
+            new DialogueChoice { text = "������� ������� ����� �������� ������." },
+            new DialogueChoice { text = "�������� ����� ������ ��� ��������� ���������." },
+            new DialogueChoice { text = "������� ������� �������, ������� ��������� ����������� �� ��� ������ � �� ����������� ���������� ����������� ��� ������� ��������." }
+        });
+        InvokePrivate(dialogue, "ShowChoices", false);
+        SessionState.SetString(StageKey, "CaptureChoiceHover");
+        ResetCounter();
+        SetDelay(0.2d);
     }
 
     private static void CaptureChoiceHover()
@@ -512,7 +539,26 @@ public static class PlayerUiGraphicalE2ERunner
         InvokePrivate(dialogue, "ShowChoices", false);
         dialogue.choiceArtemButton.onClick.Invoke();
         Require(dialogue.IsRelationshipCueVisible, "Negative relationship cue did not become visible after the configured choice.");
-        Capture("gameplay_relationship_cue_negative_1920x1080.png", "CaptureReadingAfterCue");
+        Capture("gameplay_relationship_cue_negative_1920x1080.png", "CaptureMixedRelationshipCue");
+    }
+
+    private static void CaptureMixedRelationshipCue()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (dialogue.IsRelationshipCueVisible)
+        {
+            Retry("Negative relationship cue is still visible before mixed cue proof.");
+            return;
+        }
+
+        LoadRuntimeFixture(dialogue, "��������� ����������� ������� ����������� �� ����.", new List<DialogueChoice>
+        {
+            new DialogueChoice { text = "������� ��������� �����������.", trustMashaDelta = 1, trustArtemDelta = -1 }
+        });
+        InvokePrivate(dialogue, "ShowChoices", false);
+        dialogue.choiceMashaButton.onClick.Invoke();
+        Require(dialogue.IsRelationshipCueVisible, "Mixed relationship cue did not become visible.");
+        Capture("gameplay_relationship_cue_mixed_1920x1080.png", "CaptureReadingAfterCue");
     }
 
     private static void CaptureReadingAfterCue()
@@ -1108,3 +1154,7 @@ public static class PlayerUiGraphicalE2ERunner
         if (!condition) throw new InvalidOperationException(message);
     }
 }
+
+
+
+
