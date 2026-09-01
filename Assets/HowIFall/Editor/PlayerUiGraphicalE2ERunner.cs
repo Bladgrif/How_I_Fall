@@ -116,10 +116,15 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureMainMenuAlternate": CaptureMainMenuAlternate(); break;
                 case "OpenMainPreferences": OpenMainPreferences(); break;
                 case "WaitMainPreferences": WaitMainPreferences(); break;
-                case "OpenScreenMode": FocusSelector(SharedPreferencesView.ScreenModeId, "OpenResolution", "main_menu_preferences_screen_mode_selected_1920x1080.png"); break;
-                case "OpenResolution": FocusSelector(SharedPreferencesView.ResolutionId, "FocusSlider", "main_menu_preferences_resolution_selected_1920x1080.png"); break;
+                case "OpenScreenMode": OpenDropdown(SharedPreferencesView.ScreenModeId, "SelectScreenMode", "main_menu_preferences_screen_mode_open_1920x1080.png"); break;
+                case "SelectScreenMode": CloseDropdown(SharedPreferencesView.ScreenModeId, "OpenResolution", "main_menu_preferences_screen_mode_selected_1920x1080.png"); break;
+                case "OpenResolution": OpenDropdown(SharedPreferencesView.ResolutionId, "SelectResolution", "main_menu_preferences_resolution_open_1920x1080.png"); break;
+                case "SelectResolution": CloseDropdown(SharedPreferencesView.ResolutionId, "FocusSlider", "main_menu_preferences_resolution_selected_1920x1080.png"); break;
                 case "FocusSlider": FocusSlider(); break;
                 case "CaptureTextSpeedMaximum": CaptureTextSpeedMaximum(); break;
+                case "PrepareResponsiveMainPreferences": PrepareResponsiveMainPreferences(); break;
+                case "CaptureResponsiveMainPreferences": CaptureResponsiveMainPreferences(); break;
+                case "RestoreMainPreferencesResolution": RestoreMainPreferencesResolution(); break;
                 case "CloseMainPreferences": CloseMainPreferences(); break;
                 case "CaptureMainMenuReturnHover": CaptureMainMenuReturnHover(); break;
                 case "OpenMainLoad": OpenMainLoad(); break;
@@ -143,6 +148,8 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureMixedRelationshipCue": CaptureMixedRelationshipCue(); break;
                 case "CaptureReadingAfterCue": CaptureReadingAfterCue(); break;
                 case "PrepareBacklog": PrepareBacklog(); break;
+                case "PrepareDetailedBacklog": PrepareDetailedBacklog(); break;
+                case "CloseDetailedBacklog": CloseDetailedBacklog(); break;
                 case "PrepareAuto": PrepareAuto(); break;
                 case "PrepareSkip": PrepareSkip(); break;
                 case "PrepareHideUi": PrepareHideUi(); break;
@@ -228,13 +235,30 @@ public static class PlayerUiGraphicalE2ERunner
         Capture("main_menu_preferences_1920x1080.png", "OpenScreenMode");
     }
 
-    private static void FocusSelector(string id, string nextStage, string fileName)
+    private static void OpenDropdown(string id, string nextStage, string fileName)
     {
         SharedPreferencesView view = FindVisiblePreferences();
-        Require(view != null, "Preferences closed before selector capture.");
+        Require(view != null, "Preferences closed before dropdown proof.");
         TMP_Dropdown selector = view.GetDropdown(id);
         Require(selector != null && selector.IsActive(), $"Dropdown '{id}' is unavailable.");
         EventSystem.current.SetSelectedGameObject(selector.gameObject);
+        selector.Show();
+        Require(selector.IsExpanded, $"Dropdown '{id}' did not open.");
+        Require(view.IsHandlingDropdownCancel,
+            $"Dropdown '{id}' open state would also close the parent Preferences modal on Escape.");
+        Capture(fileName, nextStage);
+    }
+
+    private static void CloseDropdown(string id, string nextStage, string fileName)
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed while a dropdown was open.");
+        TMP_Dropdown selector = view.GetDropdown(id);
+        Require(selector != null && selector.IsExpanded, $"Dropdown '{id}' closed before its selection proof.");
+        selector.Hide();
+        EventSystem.current.SetSelectedGameObject(selector.gameObject);
+        Require(view.IsVisible && EventSystem.current.currentSelectedGameObject == selector.gameObject,
+            $"Dropdown '{id}' close did not preserve the parent modal and selector focus.");
         Capture(fileName, nextStage);
     }
 
@@ -255,7 +279,39 @@ public static class PlayerUiGraphicalE2ERunner
         slider.value = slider.maxValue;
         Require(view.GetDisplayedValue(SharedPreferencesView.TextSpeedId) == "Очень быстро",
             "Text Speed maximum did not display its expected label.");
-        Capture("main_menu_preferences_text_speed_max_1920x1080.png", "CloseMainPreferences");
+        Capture("main_menu_preferences_text_speed_max_1920x1080.png", "PrepareResponsiveMainPreferences");
+    }
+
+    private static void PrepareResponsiveMainPreferences()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        SessionState.SetString(StageKey, "CaptureResponsiveMainPreferences");
+        ResetCounter();
+        SetDelay(0.4d);
+    }
+
+    private static void CaptureResponsiveMainPreferences()
+    {
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for Main Menu Preferences proof.");
+            return;
+        }
+
+        Require(FindVisiblePreferences() != null, "Main Menu Preferences closed before 1280x720 proof.");
+        Capture("main_menu_preferences_1280x720.png", "RestoreMainPreferencesResolution");
+    }
+
+    private static void RestoreMainPreferencesResolution()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        if (!IsQaResolutionReady())
+        {
+            Retry("Game View did not restore 1920x1080 after Main Menu Preferences proof.");
+            return;
+        }
+
+        CloseMainPreferences();
     }
 
     private static void CloseMainPreferences()
@@ -605,7 +661,52 @@ public static class PlayerUiGraphicalE2ERunner
 
         CompleteTyping(dialogue);
         dialogue.ShowBacklog();
-        Capture("gameplay_backlog_1920x1080.png", "PrepareAuto");
+        Capture("gameplay_backlog_1920x1080.png", "PrepareDetailedBacklog");
+    }
+
+    private static void PrepareDetailedBacklog()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.HideBacklog();
+        dialogue.ClearBacklog();
+        List<DialogueLine> lines = new List<DialogueLine>();
+        for (int i = 1; i <= 18; i++)
+        {
+            lines.Add(new DialogueLine
+            {
+                lineId = "history_detail_" + i,
+                speaker = i % 3 == 0 ? string.Empty : "Александра Воронцова — старшая кураторка факультета",
+                text = i % 3 == 0
+                    ? "В коридоре стало тихо. Эта длинная авторская ремарка занимает несколько строк и остаётся отдельной от реплик персонажей."
+                    : "Длинная реплика истории " + i + " проверяет перенос, отступ от полосы прокрутки и читаемое разделение имени говорящего и текста без наложения на кнопку закрытия."
+            });
+        }
+
+        LoadRuntimeFixture(dialogue, lines, new List<DialogueChoice>());
+        for (int i = 1; i < lines.Count; i++)
+        {
+            CompleteTyping(dialogue);
+            dialogue.AdvanceDialogue();
+        }
+
+        CompleteTyping(dialogue);
+        dialogue.ShowBacklog();
+        ScrollRect scrollRect = dialogue.backlogPanel.GetComponentInChildren<ScrollRect>(true);
+        Require(scrollRect != null, "History ScrollRect is missing for long-entry proof.");
+        scrollRect.verticalNormalizedPosition = 0.5f;
+        Canvas.ForceUpdateCanvases();
+        Require(scrollRect.verticalNormalizedPosition > 0.01f && scrollRect.verticalNormalizedPosition < 0.99f,
+            "History long-entry proof did not move the scroll position.");
+        Capture("gameplay_backlog_long_scroll_1920x1080.png", "CloseDetailedBacklog");
+    }
+
+    private static void CloseDetailedBacklog()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.HideBacklog();
+        Require(!dialogue.backlogPanel.activeSelf && dialogue.dialogueUiRoot.activeInHierarchy,
+            "Closing History did not restore the reading shell.");
+        Capture("gameplay_reading_after_backlog_close_1920x1080.png", "PrepareAuto");
     }
 
     private static void PrepareAuto()
