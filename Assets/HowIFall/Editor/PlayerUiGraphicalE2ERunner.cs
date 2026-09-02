@@ -143,6 +143,8 @@ public static class PlayerUiGraphicalE2ERunner
                 case "OpenReadingChoices": OpenReadingChoices(); break;
                 case "OpenFourChoices": OpenFourChoices(); break;
                 case "VerifyFourthChoiceSlot": VerifyFourthChoiceSlot(); break;
+                case "CaptureResponsiveFourChoices": CaptureResponsiveFourChoices(); break;
+                case "RestoreQaAfterResponsiveChoices": RestoreQaAfterResponsiveChoices(); break;
                 case "CaptureChoiceHover": CaptureChoiceHover(); break;
                 case "CapturePositiveRelationshipCue": CapturePositiveRelationshipCue(); break;
                 case "CaptureNegativeRelationshipCue": CaptureNegativeRelationshipCue(); break;
@@ -151,6 +153,8 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareBacklog": PrepareBacklog(); break;
                 case "PrepareDetailedBacklog": PrepareDetailedBacklog(); break;
                 case "CloseDetailedBacklog": CloseDetailedBacklog(); break;
+                case "CaptureResponsiveBacklog": CaptureResponsiveBacklog(); break;
+                case "RestoreQaAfterResponsiveBacklog": RestoreQaAfterResponsiveBacklog(); break;
                 case "PrepareAuto": PrepareAuto(); break;
                 case "PrepareSkip": PrepareSkip(); break;
                 case "PrepareHideUi": PrepareHideUi(); break;
@@ -565,11 +569,40 @@ public static class PlayerUiGraphicalE2ERunner
             new DialogueChoice { text = "Выбрать длинный вариант, который корректно переносится на две строки и не перекрывает диалоговую поверхность или быстрые действия." }
         });
         InvokePrivate(dialogue, "ShowChoices", false);
-        SessionState.SetString(StageKey, "CaptureChoiceHover");
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        SessionState.SetString(StageKey, "CaptureResponsiveFourChoices");
         ResetCounter();
-        SetDelay(0.2d);
+        SetDelay(0.4d);
     }
 
+
+    private static void CaptureResponsiveFourChoices()
+    {
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for four-choice proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Button fourth = dialogue.choicePanel.GetComponentsInChildren<Button>(true)
+            .FirstOrDefault(button => button.name == "Choice Runtime Slot 4");
+        Require(fourth != null && fourth.gameObject.activeInHierarchy,
+            "Fourth choice must remain selectable at 1280x720.");
+        Capture("gameplay_choice_four_long_1280x720.png", "RestoreQaAfterResponsiveChoices");
+    }
+
+    private static void RestoreQaAfterResponsiveChoices()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 after four-choice proof.");
+            return;
+        }
+
+        CaptureChoiceHover();
+    }
     private static void CaptureChoiceHover()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
@@ -708,9 +741,36 @@ public static class PlayerUiGraphicalE2ERunner
         Canvas.ForceUpdateCanvases();
         Require(scrollRect.verticalNormalizedPosition > 0.01f && scrollRect.verticalNormalizedPosition < 0.99f,
             "History long-entry proof did not move the scroll position.");
-        Capture("gameplay_backlog_long_scroll_1920x1080.png", "CloseDetailedBacklog");
+        Capture("gameplay_backlog_long_scroll_1920x1080.png", "CaptureResponsiveBacklog");
     }
 
+
+    private static void CaptureResponsiveBacklog()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for History proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Require(dialogue.backlogPanel != null && dialogue.backlogPanel.activeInHierarchy,
+            "History closed before its 1280x720 proof.");
+        Capture("gameplay_backlog_1280x720.png", "RestoreQaAfterResponsiveBacklog");
+    }
+
+    private static void RestoreQaAfterResponsiveBacklog()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 after History proof.");
+            return;
+        }
+
+        CloseDetailedBacklog();
+    }
     private static void CloseDetailedBacklog()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();

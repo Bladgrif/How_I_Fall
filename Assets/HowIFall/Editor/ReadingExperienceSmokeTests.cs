@@ -117,6 +117,7 @@ public static class ReadingExperienceSmokeTests
         GameObject dialogueTextOwner = new GameObject("ReadingChoiceSmokeText", typeof(RectTransform), typeof(TextMeshProUGUI));
         var temporaryAssets = new List<UnityEngine.Object>();
         VNDialogueController controller = null;
+        Button fourthButton = null;
 
         try
         {
@@ -129,6 +130,8 @@ public static class ReadingExperienceSmokeTests
             controller.choiceMashaButton = CreateButton("ReadingChoiceSmokeOne");
             controller.choiceArtemButton = CreateButton("ReadingChoiceSmokeTwo");
             controller.choiceLeraButton = CreateButton("ReadingChoiceSmokeThree");
+            fourthButton = UnityEngine.Object.Instantiate(controller.choiceLeraButton, choicePanel.transform);
+            fourthButton.name = "Choice Runtime Slot 4";
             choicePanel.SetActive(false);
 
             DialogueSceneData scene = ScriptableObject.CreateInstance<DialogueSceneData>();
@@ -142,14 +145,16 @@ public static class ReadingExperienceSmokeTests
             {
                 controller.choiceMashaButton,
                 controller.choiceArtemButton,
-                controller.choiceLeraButton
+                controller.choiceLeraButton,
+                fourthButton
             });
 
             List<DialogueChoice> threeChoices = new List<DialogueChoice>
             {
                 new DialogueChoice { text = "Первый TECH DEMO ONLY вариант с достаточно длинной строкой для переноса", romanceDelta = 5 },
                 new DialogueChoice { text = "Второй вариант" },
-                new DialogueChoice { text = "Третий вариант" }
+                new DialogueChoice { text = "Третий вариант" },
+                new DialogueChoice { text = "Четвёртый TECH DEMO ONLY вариант с полным длинным текстом, который обязан переноситься без многоточия и сохранять смысл решения игрока.", trustMashaDelta = 7 }
             };
             SetPrivate(controller, "activeChoices", threeChoices);
             InvokeShowChoices(controller);
@@ -158,6 +163,17 @@ public static class ReadingExperienceSmokeTests
                 "The first visible choice must receive deterministic EventSystem focus.");
             Require(controller.choiceMashaButton.GetComponentInChildren<TextMeshProUGUI>(true).enableWordWrapping,
                 "Long choice labels must permit wrapping instead of horizontal overflow.");
+            TextMeshProUGUI fourthLabel = fourthButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            Require(fourthLabel.enableWordWrapping && fourthLabel.overflowMode != TextOverflowModes.Ellipsis,
+                "Long fourth choice must retain complete text without semantic ellipsis.");
+            Require(fourthLabel.text == threeChoices[3].text,
+                "Fourth choice label must retain the complete source text.");
+            InvokeChoose(controller, 3);
+            Require(GameState.Instance.selectedChoiceIndex == 3 && GameState.Instance.trustMasha == 7,
+                "Fourth runtime slot must select source index 3 and keep its own delta.");
+
+            SetPrivate(controller, "activeChoices", threeChoices);
+            InvokeShowChoices(controller);
 
             EventSystem.current.SetSelectedGameObject(controller.choiceLeraButton.gameObject);
             SetPrivate(controller, "activeChoices", new List<DialogueChoice> { threeChoices[0] });
@@ -188,6 +204,7 @@ public static class ReadingExperienceSmokeTests
                 UnityEngine.Object.DestroyImmediate(controller.choiceMashaButton != null ? controller.choiceMashaButton.gameObject : null);
                 UnityEngine.Object.DestroyImmediate(controller.choiceArtemButton != null ? controller.choiceArtemButton.gameObject : null);
                 UnityEngine.Object.DestroyImmediate(controller.choiceLeraButton != null ? controller.choiceLeraButton.gameObject : null);
+                UnityEngine.Object.DestroyImmediate(fourthButton != null ? fourthButton.gameObject : null);
             }
             UnityEngine.Object.DestroyImmediate(dialogueTextOwner);
             UnityEngine.Object.DestroyImmediate(nameBox);

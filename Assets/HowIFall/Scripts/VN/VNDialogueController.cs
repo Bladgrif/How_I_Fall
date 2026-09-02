@@ -18,6 +18,11 @@ public class VNDialogueController : MonoBehaviour
     private const float SkipCadenceSeconds = 0.12f;
     private const string EndPrototypeText = "\u041a\u043e\u043d\u0435\u0446 Unity-\u043f\u0440\u043e\u0442\u043e\u0442\u0438\u043f\u0430.";
     private const string ChoiceConfigurationErrorText = "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0430.";
+    private const string BacklogFallbackFontResourcePath = "Fonts & Materials/LiberationSans SDF - Fallback";
+    private const string RuntimeBacklogFallbackFontName = "Runtime Backlog Cyrillic Fallback";
+    private const float ChoiceRowMinimumHeight = 54f;
+    private const float ChoiceRowMaximumHeight = 88f;
+    private const float ChoiceRowSpacing = 6f;
     public const int SupportedChoiceButtonCapacity = 4;
     private static readonly string[] TemporaryReadingChromeNames =
     {
@@ -93,6 +98,7 @@ public class VNDialogueController : MonoBehaviour
     private bool isTyping;
     private bool quickSaveInProgress;
     private bool autoSaveInProgress;
+    private TMP_FontAsset runtimeBacklogFallbackFont;
     private bool pendingAutoSave;
     private bool preLoadAutoSavePending;
     private System.Action<bool> preLoadAutoSaveCompletion;
@@ -2160,10 +2166,15 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        backlogText.text = backlog.BuildRichText();
         StopAutoForwardTimer();
         ApplyBacklogPlayerFacingPalette();
         ApplyBacklogPresentation();
+        backlogText.text = backlog.BuildRichText();
+        if (backlogText.font != null && !backlogText.font.TryAddCharacters(backlogText.text, out string missingCharacters))
+        {
+            Debug.LogError($"VNDialogueController: backlog fallback font is missing characters: {missingCharacters}", this);
+        }
+        backlogText.ForceMeshUpdate();
         SetBacklogOverlayActive(true);
         backlogPanel.SetActive(true);
         Canvas.ForceUpdateCanvases();
@@ -2228,6 +2239,16 @@ public class VNDialogueController : MonoBehaviour
         backlogText.lineSpacing = 8f;
         backlogText.enableWordWrapping = true;
         backlogText.overflowMode = TextOverflowModes.Overflow;
+        TMP_FontAsset fallbackFont = GetRuntimeBacklogFallbackFont();
+        if (fallbackFont == null)
+        {
+            Debug.LogError($"VNDialogueController: backlog fallback font is missing at Resources/{BacklogFallbackFontResourcePath}.", this);
+        }
+        else
+        {
+            backlogText.font = fallbackFont;
+            backlogText.fontSharedMaterial = fallbackFont.material;
+        }
 
         if (backlogCloseButton != null)
         {
@@ -2245,6 +2266,38 @@ public class VNDialogueController : MonoBehaviour
         }
     }
 
+    private TMP_FontAsset GetRuntimeBacklogFallbackFont()
+    {
+        if (runtimeBacklogFallbackFont != null)
+        {
+            return runtimeBacklogFallbackFont;
+        }
+
+        TMP_FontAsset sourceFont = Resources.Load<TMP_FontAsset>(BacklogFallbackFontResourcePath);
+        if (sourceFont == null || sourceFont.sourceFontFile == null)
+        {
+            return null;
+        }
+
+        runtimeBacklogFallbackFont = TMP_FontAsset.CreateFontAsset(
+            sourceFont.sourceFontFile,
+            Mathf.RoundToInt(sourceFont.faceInfo.pointSize),
+            sourceFont.atlasPadding,
+            sourceFont.atlasRenderMode,
+            sourceFont.atlasWidth,
+            sourceFont.atlasHeight,
+            AtlasPopulationMode.Dynamic,
+            sourceFont.isMultiAtlasTexturesEnabled);
+        runtimeBacklogFallbackFont.name = RuntimeBacklogFallbackFontName;
+        runtimeBacklogFallbackFont.hideFlags = HideFlags.DontSave;
+        if (runtimeBacklogFallbackFont.material != null)
+        {
+            runtimeBacklogFallbackFont.material.hideFlags = HideFlags.DontSave;
+        }
+
+        return runtimeBacklogFallbackFont;
+    }
+
     private void ApplyChoicePresentation()
     {
         if (choiceButtons == null)
@@ -2252,7 +2305,7 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        const float spacing = 10f;
+        const float spacing = ChoiceRowSpacing;
         var visibleButtons = new List<Button>();
         var heights = new List<float>();
         foreach (Button button in choiceButtons)
@@ -2268,7 +2321,7 @@ public class VNDialogueController : MonoBehaviour
                 label.alignment = TextAlignmentOptions.MidlineLeft;
                 label.margin = new Vector4(28f, 8f, 28f, 8f);
                 label.enableWordWrapping = true;
-                label.overflowMode = TextOverflowModes.Ellipsis;
+                label.overflowMode = TextOverflowModes.Overflow;
                 label.fontSize = Mathf.Max(label.fontSize, 20f);
             }
 
@@ -2278,7 +2331,7 @@ public class VNDialogueController : MonoBehaviour
             {
                 float textWidth = Mathf.Max(1f, rect.rect.width - label.margin.x - label.margin.z);
                 float preferredTextHeight = label.GetPreferredValues(label.text, textWidth, 0f).y;
-                height = Mathf.Clamp(preferredTextHeight + label.margin.y + label.margin.w, 54f, 64f);
+                height = Mathf.Clamp(preferredTextHeight + label.margin.y + label.margin.w, ChoiceRowMinimumHeight, ChoiceRowMaximumHeight);
             }
 
             visibleButtons.Add(button);
@@ -3515,6 +3568,11 @@ public class VNDialogueController : MonoBehaviour
         ClearRollbackHistory();
         StopSkipTimer();
         StopAutoForwardTimer();
+        if (runtimeBacklogFallbackFont != null)
+        {
+            Destroy(runtimeBacklogFallbackFont);
+            runtimeBacklogFallbackFont = null;
+        }
 
         if (Instance == this)
         {

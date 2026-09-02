@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 
@@ -21,6 +22,7 @@ public static class DialogueBacklogSmokeTests
     {
         TestEmptyBacklog();
         TestFormattingAndEscaping();
+        TestRussianTmpSurfaceUsesRuntimeFallback();
         TestCapacity();
     }
 
@@ -43,6 +45,36 @@ public static class DialogueBacklogSmokeTests
         Require(text.Contains("Описание"), "Narration entry is missing.");
     }
 
+
+    private static void TestRussianTmpSurfaceUsesRuntimeFallback()
+    {
+        GameObject owner = new GameObject("BacklogRussianSurface", typeof(RectTransform), typeof(TextMeshProUGUI));
+        GameObject controllerOwner = new GameObject("BacklogRussianController");
+        try
+        {
+            TextMeshProUGUI surface = owner.GetComponent<TextMeshProUGUI>();
+            surface.text = "Рассказчик\nЁлка, щука и южный ветер.";
+            VNDialogueController controller = controllerOwner.AddComponent<VNDialogueController>();
+            controller.backlogText = surface;
+
+            typeof(VNDialogueController).GetMethod("ApplyBacklogPresentation", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(controller, null);
+            Require(surface.font != null && surface.font.name == "Runtime Backlog Cyrillic Fallback",
+                "Backlog TMP surface must use a non-persistent runtime Cyrillic fallback font.");
+            Require(!EditorUtility.IsPersistent(surface.font)
+                && (surface.font.hideFlags & HideFlags.DontSave) != 0,
+                "Backlog Cyrillic fallback must remain a transient non-persistent runtime font.");
+            Require(surface.font.TryAddCharacters(surface.text, out string missingCharacters)
+                && string.IsNullOrEmpty(missingCharacters)
+                && surface.font.HasCharacters(surface.text),
+                "Backlog TMP surface font cannot render the Russian fixture.");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(controllerOwner);
+            UnityEngine.Object.DestroyImmediate(owner);
+        }
+    }
     private static void TestCapacity()
     {
         var backlog = new DialogueBacklog(2);
