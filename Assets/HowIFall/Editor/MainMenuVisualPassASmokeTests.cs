@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using TMPro;
 using UnityEditor;
@@ -60,6 +60,10 @@ public static class MainMenuVisualPassASmokeTests
                 "Continue must be the primary CTA when a compatible save exists.");
             Require(GetHoverEffect(newGameButton).Role == MainMenuButtonVisualRole.Secondary,
                 "New Game must be secondary while Continue is available.");
+            GetHoverEffect(continueButton).OnDeselect(null);
+            GetHoverEffect(newGameButton).OnDeselect(null);
+            Require(GetHoverEffect(continueButton).CurrentLabelColor == GetHoverEffect(newGameButton).CurrentLabelColor,
+                "Primary Continue must not be permanently brighter than other enabled actions.");
 
             continueButton.interactable = false;
             controller.ApplyPlayerFacingPresentation();
@@ -74,6 +78,7 @@ public static class MainMenuVisualPassASmokeTests
         }
         finally
         {
+            GetHoverEffect(continueButton).OnDeselect(null);
             continueButton.interactable = originalInteractable;
             controller.ApplyPlayerFacingPresentation();
         }
@@ -139,33 +144,39 @@ public static class MainMenuVisualPassASmokeTests
         Require(separators.All(separator => !separator.gameObject.activeSelf),
             "Main Menu must not show long decorative separators between action groups.");
 
+        Color? normalEnabledColor = null;
         foreach (Button button in controller.PlayerFacingActionButtons)
         {
             Outline outline = button.GetComponent<Outline>();
-            Require(outline == null || !outline.enabled,
-                "Main Menu navigation must rely on its compact red focus marker, not text outlines.");
-
+            Require(outline == null || !outline.enabled, "Main Menu must not use text outlines.");
             MainMenuButtonHoverEffect effect = GetHoverEffect(button);
-            effect.OnDeselect(null);
-            Require(!effect.IsFocusAccentVisible,
-                "Main Menu normal navigation must not retain a focus marker.");
-
-            effect.OnPointerEnter(null);
-            Require(effect.IsFocusAccentVisible && effect.FocusAccentColor.a >= 0.9f,
-                "Pointer hover must use the same clearly visible focus marker.");
             effect.OnPointerExit(null);
-            Require(!effect.IsFocusAccentVisible,
-                "Pointer exit must restore the transparent normal state.");
-
-            effect.OnSelect(null);
-            Require(effect.IsFocusAccentVisible
-                    && effect.FocusAccentColor.r > effect.FocusAccentColor.g
-                && effect.FocusAccentSize.x >= 5f
-                && effect.FocusAccentSize.y >= 22f,
-                "Keyboard/controller focus must expose a clearly visible compact red Focus Accent.");
             effect.OnDeselect(null);
-            Require(!effect.IsFocusAccentVisible,
-                "Deselect must remove the Main Menu focus marker.");
+            Color normal = effect.CurrentLabelColor;
+            Require(!effect.IsFocusAccentVisible && !effect.IsInteractionVisible,
+                "Normal actions must not retain an interaction marker.");
+            if (button.interactable)
+            {
+                Require(!normalEnabledColor.HasValue || normal == normalEnabledColor.Value,
+                    "All enabled normal actions must have equal text treatment, including Primary.");
+                normalEnabledColor = normal;
+            }
+            effect.OnPointerEnter(null);
+            Require(!effect.IsFocusAccentVisible, "Hover must never expose a Focus Accent.");
+            Require(button.interactable ? effect.CurrentLabelColor != normal : effect.CurrentLabelColor == normal,
+                "Only enabled actions may brighten on hover.");
+            Require(((Image)button.targetGraphic).color.a <= 0.06f, "Hover must remain subtle.");
+            effect.OnPointerExit(null);
+            Require(effect.CurrentLabelColor == normal && !effect.IsInteractionVisible,
+                "Pointer exit must clear hover even with retained EventSystem selection.");
+            effect.OnSelect(null);
+            Require(!effect.IsFocusAccentVisible, "Keyboard focus must not expose an accent.");
+            Require(button.interactable ? effect.IsInteractionVisible && effect.CurrentLabelColor != normal
+                    : !effect.IsInteractionVisible && effect.CurrentLabelColor == normal,
+                "Keyboard focus must be distinguishable only on enabled actions.");
+            Require(controller.PlayerFacingActionButtons.Count(action => GetHoverEffect(action).IsInteractionVisible) <= 1,
+                "Only one Main Menu action may be visually active.");
+            effect.OnDeselect(null);
         }
     }
 

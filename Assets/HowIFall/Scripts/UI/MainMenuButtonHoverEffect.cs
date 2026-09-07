@@ -1,4 +1,5 @@
 ﻿using TMPro;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -13,10 +14,12 @@ public enum MainMenuButtonVisualRole
 public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     IPointerEnterHandler,
     IPointerExitHandler,
+    IPointerMoveHandler,
     IPointerDownHandler,
     IPointerUpHandler,
     ISelectHandler,
-    IDeselectHandler
+    IDeselectHandler,
+    IMoveHandler
 {
     public Image highlightImage;
     public Text labelText;
@@ -38,8 +41,10 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     private bool isPointerInside;
     private bool isSelected;
     private MainMenuButtonVisualRole role;
+    private IReadOnlyList<Button> mainMenuActions;
 
     public MainMenuButtonVisualRole Role => role;
+    public bool IsInteractionVisible => button != null && button.interactable && (isPointerInside || isSelected);
     public Color CurrentLabelColor => labelGraphic != null ? labelGraphic.color : Color.clear;
     public bool IsFocusAccentVisible => focusAccent != null && focusAccent.gameObject.activeSelf;
     public Color FocusAccentColor => focusAccent != null ? focusAccent.color : Color.clear;
@@ -109,6 +114,36 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         RefreshState();
     }
 
+    // Only root actions share this policy; modal buttons keep their styling.
+    public void ConfigureMainMenuActions(IReadOnlyList<Button> actions)
+    {
+        mainMenuActions = actions;
+        suppressFocusAccent = true;
+        RefreshState();
+    }
+
+    private void SetMainMenuInteraction(bool pointer)
+    {
+        foreach (Button action in mainMenuActions)
+        {
+            MainMenuButtonHoverEffect effect = action.GetComponent<MainMenuButtonHoverEffect>();
+            if (effect == null) continue;
+            effect.isPointerInside = effect == this && pointer;
+            effect.isSelected = effect == this && !pointer;
+            effect.RefreshState();
+        }
+    }
+
+    public void OnMove(AxisEventData eventData)
+    {
+        if (mainMenuActions == null) return;
+        // Button may already have moved selection, or stayed at a navigation edge.
+        GameObject selected = EventSystem.current?.currentSelectedGameObject;
+        MainMenuButtonHoverEffect effect = selected != null ? selected.GetComponent<MainMenuButtonHoverEffect>() : null;
+        if (effect != null && effect.mainMenuActions == mainMenuActions)
+            effect.SetMainMenuInteraction(false);
+    }
+
     public void RefreshState()
     {
         EnsureReferences();
@@ -137,6 +172,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         {
             (EventSystem.current ?? FindFirstObjectByType<EventSystem>())?.SetSelectedGameObject(button.gameObject);
         }
+        if (mainMenuActions != null) SetMainMenuInteraction(true);
         RefreshState();
     }
 
@@ -146,8 +182,22 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         RefreshState();
     }
 
+    public void OnPointerMove(PointerEventData eventData)
+    {
+        if (mainMenuActions != null && eventData != null && eventData.delta.sqrMagnitude > 0f)
+            OnPointerEnter(eventData);
+    }
+
+    private void OnDisable()
+    {
+        if (mainMenuActions == null) return;
+        isPointerInside = false;
+        isSelected = false;
+    }
+
     public void OnPointerDown(PointerEventData eventData)
     {
+        if (mainMenuActions != null) SetMainMenuInteraction(true);
         if (button == null || button.interactable)
         {
             ApplyPressedState();
@@ -161,12 +211,18 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     public void OnSelect(BaseEventData eventData)
     {
+        if (mainMenuActions != null)
+        {
+            SetMainMenuInteraction(false);
+            return;
+        }
         isSelected = true;
         RefreshState();
     }
 
     public void OnDeselect(BaseEventData eventData)
     {
+        if (mainMenuActions != null) isPointerInside = false;
         isSelected = false;
         RefreshState();
     }
@@ -178,6 +234,11 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private void ApplyHoverState()
     {
+        if (mainMenuActions != null)
+        {
+            Apply(new Color(1f, 1f, 1f, 0.045f), Color.white);
+            return;
+        }
         Apply(Color.clear, useRedFocusText
             ? new Color(0.92f, 0.20f, 0.25f, 1f)
             : RoleHoverText());
@@ -185,7 +246,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private void ApplyPressedState()
     {
-        Apply(RolePressedBackground(), Color.white);
+        Apply(mainMenuActions != null ? new Color(1f, 1f, 1f, 0.09f) : RolePressedBackground(), Color.white);
     }
 
     private void ApplyDisabledState()
@@ -259,6 +320,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private Color RoleNormalText()
     {
+        if (mainMenuActions != null) return new Color(0.86f, 0.88f, 0.91f, 0.96f);
         return role switch
         {
             MainMenuButtonVisualRole.Primary => Color.white,

@@ -115,6 +115,10 @@ public static class PlayerUiGraphicalE2ERunner
                 case "WaitMainMenu": WaitMainMenu(); break;
                 case "WaitMainMenuFade": WaitMainMenuFade(); break;
                 case "CaptureMainMenuAlternate": CaptureMainMenuAlternate(); break;
+                case "CaptureMainMenuNormal": CaptureMainMenuNormal(); break;
+                case "CaptureMainMenuHover": CaptureMainMenuHover(); break;
+                case "CaptureMainMenuExit": CaptureMainMenuExit(); break;
+                case "CaptureMainMenuNavigation": CaptureMainMenuNavigation(); break;
                 case "OpenMainPreferences": OpenMainPreferences(); break;
                 case "WaitMainPreferences": WaitMainPreferences(); break;
                 case "OpenScreenMode": OpenDropdown(SharedPreferencesView.ScreenModeId, "SelectScreenMode", "main_menu_preferences_screen_mode_open_1920x1080.png"); break;
@@ -220,7 +224,58 @@ public static class PlayerUiGraphicalE2ERunner
             effect.OnPointerExit(null);
         }
         menu.FocusDefaultAction();
-        Capture("main_menu_1920x1080.png", "CaptureMainMenuAlternate");
+        Capture("main_menu_1920x1080.png", "CaptureMainMenuNormal");
+    }
+
+    private static void CaptureMainMenuNormal()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        // TECH DEMO ONLY / NOT CANON: visual availability fixture, never invoke Continue.
+        menu.continueButton.interactable = true;
+        menu.ApplyPlayerFacingPresentation();
+        EventSystem.current.SetSelectedGameObject(null);
+        foreach (Button action in menu.PlayerFacingActionButtons)
+        {
+            var effect = action.GetComponent<MainMenuButtonHoverEffect>();
+            effect.OnPointerExit(null);
+            effect.OnDeselect(null);
+        }
+        Require(menu.PlayerFacingActionButtons.Select(b => b.GetComponent<MainMenuButtonHoverEffect>().CurrentLabelColor).Distinct().Count() == 1,
+            "Enabled normal actions must be visually equal.");
+        Capture("main_menu_normal_enabled_1920x1080.png", "CaptureMainMenuHover");
+    }
+
+    private static void CaptureMainMenuHover()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        menu.PlayerFacingActionButtons[1].GetComponent<MainMenuButtonHoverEffect>().OnPointerEnter(new PointerEventData(EventSystem.current));
+        Require(menu.PlayerFacingActionButtons.Count(b => b.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible) == 1,
+            "Hover must activate exactly one action.");
+        Capture("main_menu_hover_1920x1080.png", "CaptureMainMenuExit");
+    }
+
+    private static void CaptureMainMenuExit()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        menu.PlayerFacingActionButtons[1].GetComponent<MainMenuButtonHoverEffect>().OnPointerExit(new PointerEventData(EventSystem.current));
+        Require(menu.PlayerFacingActionButtons.All(b => !b.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible),
+            "Pointer exit must clear the selected mouse action's visual.");
+        Capture("main_menu_pointer_exit_1920x1080.png", "CaptureMainMenuNavigation");
+    }
+
+    private static void CaptureMainMenuNavigation()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        ExecuteEvents.Execute(EventSystem.current.currentSelectedGameObject,
+            new AxisEventData(EventSystem.current) { moveDir = MoveDirection.Down, moveVector = Vector2.down }, ExecuteEvents.moveHandler);
+        Require(EventSystem.current.currentSelectedGameObject == menu.PlayerFacingActionButtons[2].gameObject,
+            "Navigation after mouse exit must move to Load.");
+        Require(menu.PlayerFacingActionButtons.Count(b => b.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible) == 1,
+            "Navigation must have exactly one visible focus.");
+        Require(menu.PlayerFacingActionButtons.All(b => !b.GetComponent<MainMenuButtonHoverEffect>().IsFocusAccentVisible),
+            "Root actions must never display Focus Accent.");
+        menu.RefreshContinueAvailability();
+        Capture("main_menu_keyboard_focus_1920x1080.png", "CaptureMainMenuAlternate");
     }
 
     private static void CaptureMainMenuAlternate()

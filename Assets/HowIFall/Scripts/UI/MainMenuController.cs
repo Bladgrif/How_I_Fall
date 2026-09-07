@@ -716,7 +716,7 @@ public sealed class MainMenuController : MonoBehaviour
         notificationCoroutine = null;
     }
 
-    private static void ApplyMainMenuButtonPresentation(Button button, MainMenuButtonVisualRole role)
+    private void ApplyMainMenuButtonPresentation(Button button, MainMenuButtonVisualRole role)
     {
         if (button == null)
         {
@@ -747,6 +747,7 @@ public sealed class MainMenuController : MonoBehaviour
         MainMenuButtonHoverEffect hoverEffect = button.GetComponent<MainMenuButtonHoverEffect>();
         if (hoverEffect != null)
         {
+            hoverEffect.ConfigureMainMenuActions(playerFacingActionButtons);
             hoverEffect.Configure(role);
         }
     }
