@@ -79,6 +79,35 @@ Relevant implementation: `plugins/shunt/README.md`.
 5. **Worker output считается предложением.** Production diff всё равно проходит HIF tests, graphical QA и reviewer.
 6. **Не внедрять Portal в проект ради идеи.** Сначала используем routing policy средствами доступной среды; отдельная external-tool dependency потребует собственного обоснования.
 
+## 4. OpenAI — official GPT-6 Astra model guidance
+
+Источник: https://developers.openai.com/api/docs/guides/latest-model
+
+Статус источника: официальный OpenAI guide для GPT-6 Astra; прямой источник поведения модели и prompt guidance.
+
+Ключевые наблюдения OpenAI, полезные для HIF:
+
+- Astra лучше держит длинные задачи, но чаще останавливается за уточнением там, где более ранняя модель сделала бы разумное предположение;
+- Astra чувствительнее к инструкциям в skills и `AGENTS.md`, поэтому конфликтующие или слишком жёсткие правила могут преждевременно заблокировать работу;
+- Astra может делегировать меньше, чем ожидается, если явно не задать policy delegation;
+- на coding-задачах Astra склонна тестировать тщательнее, чем нужно для маленького изменения;
+- OpenAI рекомендует явно настраивать initiative/follow-through, instruction priority, subagent delegation и test breadth.
+
+Что берём в HIF:
+
+1. **Bias to action для уже авторизованной работы.** Если пользователь явно попросил исправить/реализовать bounded task, агент сначала выполняет все reversible/read-only/подготовительные шаги и не останавливается на плане или лишнем вопросе.
+2. **Approval только у реальной границы.** Не спрашивать разрешение на read-only действия, isolated worktree, targeted tests и reversible fixes, когда они уже следуют из задачи. Отдельное подтверждение остаётся для genuinely destructive/irreversible действий или когда repository safety contract этого требует.
+3. **Instruction priority должна быть явной.** User task определяет конкретную цель; project `AGENTS.md` и skills задают guardrails. Если skill реально блокирует выполнение, агент должен назвать точный `SKILL.md` и правило, а не молча остановиться.
+4. **Delegation задаётся policy, а не надеждой.** При доступных subagents дешёвый I/O/boilerplate делегируется; judgement и exact editing остаются подходящей сильной модели.
+5. **Calibrated testing.** После targeted regression + required smoke/graphical proof не расширять и не повторять тесты без нового изменения, failure или конкретного unresolved risk. Низко-impact reversible change не требует собственного зеркального теста только ради количества coverage.
+6. **Короткий technical report.** Astra склонна к подробным Markdown-ответам; HIF сохраняет короткий report contract, чтобы не расходовать контекст на narrative self-report.
+
+Отдельный вывод для HIF Astra-pass:
+
+- дорогая модель должна получить заранее явные stop conditions;
+- не задавать уточняющий вопрос, если bounded intent уже достаточно определён и недостающую деталь можно безопасно вывести из repository/current context;
+- после достижения objective acceptance перейти к review candidate, а не продолжать polishing/test expansion из-за собственной склонности к thoroughness.
+
 ## Текущая модель routing для HIF
 
 - **Luna** — маленькие fixes, docs, deterministic tests/config/boilerplate, дешёвая механическая работа.
