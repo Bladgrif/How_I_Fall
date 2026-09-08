@@ -1,6 +1,6 @@
 interface:
   display_name: "How I Fall — polish loop"
   short_description: "Бюджетный visual feedback loop для одной UI surface"
-  default_prompt: "Используй $hif-polish-loop для одной bounded player-facing поверхности How I Fall: собери узкий context pack, зафиксируй objective acceptance, сделай минимальный diff, проверь через targeted tests и $hif-visual-qa, максимум три visual correction iterations, затем остановись с REVIEW CANDIDATE или BLOCKED. Не трать дорогую модель на механические повторные проверки без причины."
+  default_prompt: "Используй $hif-polish-loop для одной bounded player-facing поверхности How I Fall: собери узкий context pack, маршрутизируй bulk read/boilerplate на более дешёвый worker, если среда реально поддерживает delegation, оставляй дорогой judgement для root cause/product/visual решений, сделай минимальный diff, проверь через targeted tests и $hif-visual-qa, максимум три visual correction iterations, затем остановись с REVIEW CANDIDATE или BLOCKED."
 policy:
   allow_implicit_invocation: true
