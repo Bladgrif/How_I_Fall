@@ -76,9 +76,9 @@ public static class PreferencesUiParitySmokeTests
             };
             Require(prohibited.All(id => !mainView.HasControl(id) && !gameplayView.HasControl(id)),
                 "A fake, deferred, or B03 control leaked into the Phase 2 player-facing view.");
-            Require(mainView.GetComponentsInChildren<RectTransform>(true).Count(rect => rect.gameObject.name == "Preferences Columns") == 1
-                && gameplayView.GetComponentsInChildren<RectTransform>(true).Count(rect => rect.gameObject.name == "Preferences Columns") == 1,
-                "Each shared Preferences instance must have exactly one two-column content context.");
+            Require(mainView.GetComponentsInChildren<RectTransform>(true).Count(rect => rect.gameObject.name == "Preferences Categories") == 1
+                && gameplayView.GetComponentsInChildren<RectTransform>(true).Count(rect => rect.gameObject.name == "Preferences Categories") == 1,
+                "Each shared Preferences instance must have exactly one category content context.");
             Require(!mainLegacy.activeSelf && !gameplayPanel.activeSelf && !gameplayOverlay.activeSelf,
                 "Legacy settings surfaces must remain unreachable and hidden.");
         }
@@ -104,29 +104,25 @@ public static class PreferencesUiParitySmokeTests
         Require(view.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 0,
             "All Preferences controls fit at 1920x1080 and must not be hidden behind a scroll viewport mask.");
         RectTransform columns = view.GetComponentsInChildren<RectTransform>(true)
-            .FirstOrDefault(rect => rect.gameObject.name == "Preferences Columns");
-        Require(columns != null && columns.childCount == 2,
-            "Shared Preferences must use two balanced columns at 1920x1080.");
+            .FirstOrDefault(rect => rect.gameObject.name == "Preferences Categories");
+        Require(columns != null && columns.childCount == 5,
+            "Shared Preferences must use one rail and four category pages at 1920x1080.");
         LayoutRebuilder.ForceRebuildLayoutImmediate(columns);
-        RectTransform[] columnRects = columns.Cast<Transform>().Select(transform => transform as RectTransform).ToArray();
-        Require(!Overlaps(columnRects[0], columnRects[1]), $"Preferences columns must not overlap. left={columnRects[0].rect}, right={columnRects[1].rect}");
-
         RectTransform viewport = window;
-        foreach (TextMeshProUGUI heading in view.GetComponentsInChildren<TextMeshProUGUI>(true)
-                     .Where(text => text.gameObject.name.StartsWith("Section ") || text.gameObject.name == "Label"))
+        for (int category = 0; category < 4; category++)
         {
-            Require(IsFullyInside(heading.rectTransform, viewport),
-                $"Preferences heading or row label '{heading.text}' is clipped by its effective window.");
+            view.SelectCategory(category);
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(columns);
+            Require(columns.Cast<Transform>().Count(child => child.name.StartsWith("Category Content") && child.gameObject.activeSelf) == 1,
+                "Only one category can be visible.");
+            foreach (TextMeshProUGUI heading in view.GetComponentsInChildren<TextMeshProUGUI>())
+                Require(IsFullyInside(heading.rectTransform, viewport), $"Preferences text '{heading.text}' leaves window.");
+            foreach (Selectable control in view.GetComponentsInChildren<Selectable>())
+                Require(IsFullyInside((RectTransform)control.transform, viewport), $"Preferences control '{control.name}' leaves window.");
         }
-        foreach (string id in SharedPreferencesView.VisibleControlIds)
-        {
-            RectTransform control = view.GetButton(id)?.GetComponent<RectTransform>()
-                ?? view.GetDropdown(id)?.GetComponent<RectTransform>()
-                ?? view.GetSlider(id)?.GetComponent<RectTransform>()
-                ?? view.GetToggle(id)?.GetComponent<RectTransform>();
-            Require(control != null && IsFullyInside(control, viewport),
-                $"Preferences control '{id}' leaves the effective window.");
-        }
+        view.SelectCategory(2);
+        Canvas.ForceUpdateCanvases();
         Require(IsFullyInside(view.GetButton("reset").GetComponent<RectTransform>(), window)
                 && IsFullyInside(view.GetButton("back").GetComponent<RectTransform>(), window),
             "Preferences footer controls must remain inside the window.");
@@ -188,37 +184,46 @@ public static class PreferencesUiParitySmokeTests
             Require(screenMode != null && resolution != null,
                 "Screen Mode and Resolution must use TMP dropdown controls.");
             screenMode.value = 1;
+            controller.Apply();
             Require(service.Source.screenMode == SettingsOptionValues.Windowed, "Screen Mode dropdown must apply Windowed.");
             screenMode.value = 2;
+            controller.Apply();
             Require(service.Source.screenMode == SettingsOptionValues.Borderless, "Screen Mode dropdown must apply Borderless.");
             screenMode.value = 0;
+            controller.Apply();
             Require(service.Source.screenMode == SettingsOptionValues.Fullscreen, "Screen Mode dropdown must apply Fullscreen.");
             resolution.value = 3;
+            controller.Apply();
             Require(service.Source.resolution == "2560x1440", "Resolution dropdown must apply the selected supported value.");
             resolution.value = 0;
+            controller.Apply();
             Require(service.Source.resolution == "1280x720", "Resolution dropdown must apply the first supported value without an invalid index.");
 
             view.GetSlider(SharedPreferencesView.AutoForwardDelayId).value = 3.7f;
+            controller.Apply();
             Require(Mathf.Approximately(service.Source.autoForwardDelay, 370f), "Auto delay seconds did not roundtrip to legacy storage safely.");
             Require(Mathf.Approximately(PreferencesFormatting.AutoForwardDelaySeconds(service.Source.autoForwardDelay), 3.7f),
                 "Auto delay legacy storage did not roundtrip back to seconds.");
             view.GetToggle(SharedPreferencesView.SkipUnseenId).isOn = true;
+            controller.Apply();
             Require(service.Source.skipMode == "Всё", "Skip unseen ON must map to the existing all-text runtime behavior.");
             view.GetToggle(SharedPreferencesView.SkipUnseenId).isOn = false;
+            controller.Apply();
             Require(service.Source.skipMode == "Виденное", "Skip unseen OFF must map to seen-only behavior.");
 
             view.GetSlider(SharedPreferencesView.MasterVolumeId).value = 0.23f;
+            controller.Apply();
             view.GetButton(SharedPreferencesView.TextSizeId).onClick.Invoke();
             view.GetSlider(SharedPreferencesView.TextboxOpacityId).value = 0.35f;
+            controller.Apply();
             view.GetToggle(SharedPreferencesView.ShowQuickMenuId).isOn = false;
+            controller.Apply();
             Require(!service.Source.showQuickMenu, "Show Quick Menu did not update the shared settings truth immediately.");
-            Require(string.IsNullOrEmpty(view.GetDisplayedValue(SharedPreferencesView.MasterVolumeId))
-                && string.IsNullOrEmpty(view.GetDisplayedValue(SharedPreferencesView.MusicVolumeId))
-                && string.IsNullOrEmpty(view.GetDisplayedValue(SharedPreferencesView.SfxVolumeId)),
-                "Volume sliders must not display percent labels.");
+            Require(view.GetDisplayedValue(SharedPreferencesView.MasterVolumeId).Contains("%"),
+                "Volume must expose a readable value.");
             view.GetButton("reset").onClick.Invoke();
             GameSettings defaults = new GameSettings();
-            Require(service.ResetCount == 1, "Reset action did not use the shared service.");
+            Require(service.ResetCount == 0, "Reset must not call the persistence service.");
             Require(Mathf.Approximately(view.GetSlider(SharedPreferencesView.MasterVolumeId).value, defaults.masterVolume)
                 && view.GetDisplayedValue(SharedPreferencesView.TextSizeId) == "Обычный"
                 && Mathf.Approximately(view.GetSlider(SharedPreferencesView.TextboxOpacityId).value, defaults.textboxOpacity)

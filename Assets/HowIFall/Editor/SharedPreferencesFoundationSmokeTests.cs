@@ -140,6 +140,7 @@ public static class SharedPreferencesFoundationSmokeTests
     {
         SettingsManager manager = GetSettingsManager();
         GameSettings previousSettings = manager.settings;
+        var snapshots = CapturePreferences();
         var mainView = new RecordingView();
         var gameplayView = new RecordingView();
         var mainController = new PreferencesController(new PreferencesService(manager), mainView);
@@ -156,32 +157,41 @@ public static class SharedPreferencesFoundationSmokeTests
             Require(!typeof(PreferencesService).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Any(field => field.FieldType == typeof(GameSettings) || field.FieldType == typeof(PreferencesState)),
                 "PreferencesService must not store a second settings copy or cached presentation state.");
-            Require(!typeof(PreferencesController).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Any(field => field.FieldType == typeof(GameSettings) || field.FieldType == typeof(PreferencesState)),
-                "PreferencesController must not store a second settings copy or cached presentation state.");
-
+            float persistedMusic = PlayerPrefs.GetFloat(MusicVolumeKey, -1f);
+            string persistedScreen = PlayerPrefs.GetString(ScreenModeKey, "absent");
             mainController.SetMusicVolume(0.31f);
-            gameplayController.Refresh();
+            mainController.SetScreenMode(SettingsOptionValues.Windowed);
+            Require(Mathf.Approximately(manager.CurrentSettings.musicVolume, 0.8f), "Slider draft changed SettingsManager.");
+            Require(manager.CurrentSettings.screenMode == SettingsOptionValues.Fullscreen, "Dropdown draft changed SettingsManager.");
+            Require(PlayerPrefs.GetFloat(MusicVolumeKey, -1f) == persistedMusic
+                && PlayerPrefs.GetString(ScreenModeKey, "absent") == persistedScreen, "Draft wrote PlayerPrefs.");
+            mainController.Apply();
+            Require(Mathf.Approximately(PlayerPrefs.GetFloat(MusicVolumeKey), 0.31f)
+                && PlayerPrefs.GetString(ScreenModeKey) == SettingsOptionValues.Windowed, "Apply did not persist draft.");
+            gameplayController.Close(); gameplayController.Open();
             Require(Mathf.Approximately(gameplayView.LastSettings.musicVolume, 0.31f), "Gameplay must see a Main Menu change on refresh.");
 
             gameplayController.SetTextSpeed(73f);
             gameplayController.SetDialogueTextScale(1.15f);
             gameplayController.SetTextboxOpacity(0.44f);
             gameplayController.SetShowQuickMenu(false);
-            mainController.Refresh();
+            gameplayController.Apply();
+            mainController.Close(); mainController.Open();
             Require(Mathf.Approximately(mainView.LastSettings.textSpeed, 73f), "Main Menu must see a gameplay change on refresh.");
             Require(Mathf.Approximately(mainView.LastSettings.dialogueTextScale, 1.15f), "Main Menu must see gameplay Text Size changes.");
             Require(Mathf.Approximately(mainView.LastSettings.textboxOpacity, 0.44f), "Main Menu must see gameplay Textbox Opacity changes.");
             Require(!mainView.LastSettings.showQuickMenu, "Main Menu must see gameplay Show Quick Menu changes.");
 
             gameplayController.Reset();
-            mainController.Refresh();
+            gameplayController.Apply();
+            mainController.Close(); mainController.Open();
             Require(Mathf.Approximately(mainView.LastSettings.musicVolume, new GameSettings().musicVolume), "Reset in gameplay must refresh shared defaults in Main Menu.");
             Require(Mathf.Approximately(gameplayView.LastSettings.textSpeed, new GameSettings().textSpeed), "Reset must refresh the currently open gameplay view.");
         }
         finally
         {
             manager.settings = previousSettings;
+            RestorePreferences(snapshots);
         }
     }
 

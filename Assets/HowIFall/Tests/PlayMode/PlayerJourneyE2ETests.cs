@@ -128,18 +128,22 @@ namespace HowIFall.PlayModeTests
             Assert.That(preferences, Is.Not.Null.And.Property("IsVisible").True);
             TMP_Dropdown screenModeSelector = preferences.GetDropdown(SharedPreferencesView.ScreenModeId);
             Assert.That(screenModeSelector, Is.Not.Null.And.Property("interactable").True);
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(screenModeSelector.gameObject),
-                "Main Menu Preferences did not assign deterministic dropdown focus.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(preferences.GetButton("category_0").gameObject),
+                "Main Menu Preferences did not assign deterministic category focus.");
             string previousScreenMode = SettingsManager.Instance.settings.screenMode;
             screenModeSelector.value = (screenModeSelector.value + 1) % screenModeSelector.options.Count;
             yield return null;
+            Assert.That(SettingsManager.Instance.settings.screenMode, Is.EqualTo(previousScreenMode), "Dropdown edit must remain a draft.");
+            Click(preferences.GetButton("apply"), "Preferences Apply");
             Assert.That(SettingsManager.Instance.settings.screenMode, Is.Not.EqualTo(previousScreenMode),
                 "Screen Mode dropdown did not apply its selected setting.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.Not.Null,
                 "Screen Mode selector interaction left an invalid selected object.");
             Toggle quickMenuToggle = preferences.GetToggle(SharedPreferencesView.ShowQuickMenuId);
             Assert.That(quickMenuToggle, Is.Not.Null);
+            preferences.SelectCategory(3);
             quickMenuToggle.isOn = false;
+            Click(preferences.GetButton("apply"), "Apply Quick Menu preference");
             yield return null;
             Assert.That(SettingsManager.Instance.settings.showQuickMenu, Is.False, "The player-facing setting did not reach its runtime consumer.");
             Click(preferences.GetButton("back"), "Preferences Back");
@@ -156,6 +160,7 @@ namespace HowIFall.PlayModeTests
             Assert.That(preferences.GetToggle(SharedPreferencesView.ShowQuickMenuId).isOn, Is.False,
                 "Preferences did not retain the changed value after reopen.");
             Click(preferences.GetButton("reset"), "Preferences Reset");
+            Click(preferences.GetButton("apply"), "Apply Preferences Reset");
             yield return null;
             Assert.That(preferences.GetToggle(SharedPreferencesView.ShowQuickMenuId).isOn, Is.True,
                 "Preferences Reset did not restore the expected default.");
@@ -245,7 +250,7 @@ namespace HowIFall.PlayModeTests
             SharedPreferencesView gameplayPreferences = FindPreferencesView("Gameplay");
             Assert.That(gameplayPreferences.IsVisible, Is.True);
             Assert.That(EventSystem.current.currentSelectedGameObject,
-                Is.EqualTo(gameplayPreferences.GetDropdown(SharedPreferencesView.ScreenModeId).gameObject),
+                Is.EqualTo(gameplayPreferences.GetButton("category_0").gameObject),
                 "Gameplay Preferences did not assign deterministic default focus.");
             Assert.That(dialogue.HandleEscapePressed(), Is.True, "Preferences Back/Esc was not handled.");
             yield return WaitForCondition(() => gameMenu.IsPresentationVisible, "Preferences Back did not restore Game Menu.");

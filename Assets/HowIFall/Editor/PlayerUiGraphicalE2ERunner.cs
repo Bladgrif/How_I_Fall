@@ -123,8 +123,27 @@ public static class PlayerUiGraphicalE2ERunner
                 case "WaitMainPreferences": WaitMainPreferences(); break;
                 case "OpenScreenMode": OpenDropdown(SharedPreferencesView.ScreenModeId, "SelectScreenMode", "main_menu_preferences_screen_mode_open_1920x1080.png"); break;
                 case "SelectScreenMode": CloseDropdown(SharedPreferencesView.ScreenModeId, "OpenResolution", "main_menu_preferences_screen_mode_selected_1920x1080.png"); break;
+                case "CaptureDropdownReady": CaptureDropdownReady(); break;
                 case "OpenResolution": OpenDropdown(SharedPreferencesView.ResolutionId, "SelectResolution", "main_menu_preferences_resolution_open_1920x1080.png"); break;
                 case "SelectResolution": CloseDropdown(SharedPreferencesView.ResolutionId, "FocusSlider", "main_menu_preferences_resolution_selected_1920x1080.png"); break;
+                case "PreferencesDirty":
+                    Slider draftVolume = FindVisiblePreferences().GetSlider(SharedPreferencesView.MasterVolumeId);
+                    draftVolume.value = Mathf.Approximately(draftVolume.value, 0.37f) ? 0.53f : 0.37f;
+                    Require(FindVisiblePreferences().GetButton("apply").interactable, "Draft did not enable Apply.");
+                    Capture("preferences_dirty_1920x1080.png", "PreferencesApplied"); break;
+                case "PreferencesApplied":
+                    FindVisiblePreferences().GetButton("apply").onClick.Invoke();
+                    Require(FindVisiblePreferences() != null && !FindVisiblePreferences().GetButton("apply").interactable, "Apply must keep a clean view open.");
+                    Capture("preferences_applied_1920x1080.png", "CaptureTextSpeedMaximum"); break;
+                case "PreferencesResponsiveScreen":
+                    FindVisiblePreferences().SelectCategory(0);
+                    Capture("preferences_screen_1280x720.png", "PreferencesResponsiveDropdown"); break;
+                case "PreferencesResponsiveDropdown":
+                    OpenDropdown(SharedPreferencesView.ScreenModeId, "PreferencesResponsiveDropdownClose", "preferences_dropdown_1280x720.png"); break;
+                case "PreferencesResponsiveDropdownClose":
+                    FindVisiblePreferences().GetDropdown(SharedPreferencesView.ScreenModeId).Hide();
+                    FindVisiblePreferences().SelectCategory(1);
+                    Capture("preferences_sound_1280x720.png", "RestoreMainPreferencesResolution"); break;
                 case "FocusSlider": FocusSlider(); break;
                 case "CaptureTextSpeedMaximum": CaptureTextSpeedMaximum(); break;
                 case "PrepareResponsiveMainPreferences": PrepareResponsiveMainPreferences(); break;
@@ -316,7 +335,31 @@ public static class PlayerUiGraphicalE2ERunner
         Require(selector.IsExpanded, $"Dropdown '{id}' did not open.");
         Require(view.IsHandlingDropdownCancel,
             $"Dropdown '{id}' open state would also close the parent Preferences modal on Escape.");
-        Capture(fileName, nextStage);
+        SessionState.SetString("HIF.Preferences.DropdownFile", fileName);
+        SessionState.SetString("HIF.Preferences.DropdownNext", nextStage);
+        SessionState.SetString(StageKey, "CaptureDropdownReady");
+        SetDelay(0.5d);
+    }
+
+    private static void CaptureDropdownReady()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null && view.IsAnyDropdownExpanded, "Dropdown disappeared before settled capture.");
+        Transform popup = view.GetComponentsInChildren<Transform>().FirstOrDefault(child => child.name == "Dropdown List");
+        Require(popup != null && popup.GetComponent<CanvasGroup>().alpha >= 0.99f, "Dropdown capture must wait for its fade.");
+        RectTransform popupRect = (RectTransform)popup;
+        Require(popupRect.rect.width <= 310f && popupRect.rect.height <= 180f, "Dropdown popup became oversized.");
+        foreach (TextMeshProUGUI text in popup.GetComponentsInChildren<TextMeshProUGUI>())
+        {
+            Vector3[] corners = new Vector3[4];
+            text.rectTransform.GetWorldCorners(corners);
+            foreach (Vector3 corner in corners)
+            {
+                Vector2 local = popupRect.InverseTransformPoint(corner);
+                Require(popupRect.rect.Contains(local), "Dropdown option leaves popup: " + text.text);
+            }
+        }
+        Capture(SessionState.GetString("HIF.Preferences.DropdownFile", ""), SessionState.GetString("HIF.Preferences.DropdownNext", ""));
     }
 
     private static void CloseDropdown(string id, string nextStage, string fileName)
@@ -335,15 +378,17 @@ public static class PlayerUiGraphicalE2ERunner
     private static void FocusSlider()
     {
         SharedPreferencesView view = FindVisiblePreferences();
+        view?.SelectCategory(1);
         Slider slider = view != null ? view.GetSlider(SharedPreferencesView.MasterVolumeId) : null;
         Require(slider != null, "Master Volume slider is missing.");
         EventSystem.current.SetSelectedGameObject(slider.gameObject);
-        Capture("main_menu_preferences_slider_focus_1920x1080.png", "CaptureTextSpeedMaximum");
+        Capture("main_menu_preferences_slider_focus_1920x1080.png", "PreferencesDirty");
     }
 
     private static void CaptureTextSpeedMaximum()
     {
         SharedPreferencesView view = FindVisiblePreferences();
+        view?.SelectCategory(2);
         Slider slider = view != null ? view.GetSlider(SharedPreferencesView.TextSpeedId) : null;
         Require(slider != null, "Text Speed slider is missing.");
         slider.value = slider.maxValue;
@@ -369,7 +414,7 @@ public static class PlayerUiGraphicalE2ERunner
         }
 
         Require(FindVisiblePreferences() != null, "Main Menu Preferences closed before 1280x720 proof.");
-        Capture("main_menu_preferences_1280x720.png", "RestoreMainPreferencesResolution");
+        Capture("main_menu_preferences_1280x720.png", "PreferencesResponsiveScreen");
     }
 
     private static void RestoreMainPreferencesResolution()

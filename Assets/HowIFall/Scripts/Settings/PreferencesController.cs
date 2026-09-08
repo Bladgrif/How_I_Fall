@@ -37,6 +37,62 @@ public sealed class PreferencesController
 
     public IPreferencesService Service => service;
     public bool IsOpen { get; private set; }
+    private GameSettings draft;
+    private PreferencesState baseline;
+    public bool IsDirty => IsOpen && draft != null && !new PreferencesState(draft).Equals(baseline);
+
+    private static GameSettings Copy(PreferencesState state) => new GameSettings
+    {
+        masterVolume = state.masterVolume,
+        musicVolume = state.musicVolume,
+        sfxVolume = state.sfxVolume,
+        muteAll = state.muteAll,
+        screenMode = state.screenMode,
+        resolution = state.resolution,
+        runInBackground = state.runInBackground,
+        skipMode = state.skipMode,
+        skipBehavior = state.skipBehavior,
+        textSpeed = state.textSpeed,
+        dialogueTextScale = state.dialogueTextScale,
+        textboxOpacity = state.textboxOpacity,
+        autoForwardDelay = state.autoForwardDelay,
+        skipAfterChoices = state.skipAfterChoices,
+        autoForward = state.autoForward,
+        autoSave = state.autoSave,
+        showQuickMenu = state.showQuickMenu,
+    };
+
+    private void Edit(Action<GameSettings> edit)
+    {
+        if (!IsOpen || draft == null) return;
+        edit(draft);
+        Refresh();
+    }
+
+    public void Apply()
+    {
+        if (!IsOpen || draft == null || service == null || !service.IsAvailable) return;
+        if (draft.masterVolume != baseline.masterVolume) service.SetMasterVolume(draft.masterVolume);
+        if (draft.musicVolume != baseline.musicVolume) service.SetMusicVolume(draft.musicVolume);
+        if (draft.sfxVolume != baseline.sfxVolume) service.SetSfxVolume(draft.sfxVolume);
+        if (draft.muteAll != baseline.muteAll) service.SetMuteAll(draft.muteAll);
+        if (draft.screenMode != baseline.screenMode) service.SetScreenMode(draft.screenMode);
+        if (draft.resolution != baseline.resolution) service.SetResolution(draft.resolution);
+        if (draft.runInBackground != baseline.runInBackground) service.SetRunInBackground(draft.runInBackground);
+        if (draft.skipMode != baseline.skipMode) service.SetSkipMode(draft.skipMode);
+        if (draft.skipBehavior != baseline.skipBehavior) service.SetSkipBehavior(draft.skipBehavior);
+        if (draft.textSpeed != baseline.textSpeed) service.SetTextSpeed(draft.textSpeed);
+        if (draft.dialogueTextScale != baseline.dialogueTextScale) service.SetDialogueTextScale(draft.dialogueTextScale);
+        if (draft.textboxOpacity != baseline.textboxOpacity) service.SetTextboxOpacity(draft.textboxOpacity);
+        if (draft.autoForwardDelay != baseline.autoForwardDelay) service.SetAutoForwardDelay(draft.autoForwardDelay);
+        if (draft.skipAfterChoices != baseline.skipAfterChoices) service.SetSkipAfterChoices(draft.skipAfterChoices);
+        if (draft.autoForward != baseline.autoForward) service.SetAutoForward(draft.autoForward);
+        if (draft.autoSave != baseline.autoSave) service.SetAutoSave(draft.autoSave);
+        if (draft.showQuickMenu != baseline.showQuickMenu) service.SetShowQuickMenu(draft.showQuickMenu);
+        baseline = service.Current;
+        draft = Copy(baseline);
+        Refresh();
+    }
 
     public void Initialize()
     {
@@ -52,9 +108,12 @@ public sealed class PreferencesController
             return;
         }
 
+        if (service == null || !service.IsAvailable) return;
+        baseline = service.Current;
+        draft = Copy(baseline);
+        IsOpen = true;
         Refresh();
         view.SetVisible(true);
-        IsOpen = true;
     }
 
     public void Close()
@@ -67,13 +126,15 @@ public sealed class PreferencesController
     {
         view?.SetVisible(false);
         IsOpen = false;
+        draft = null;
+        baseline = default;
     }
 
     public void Refresh()
     {
         if (service != null && service.IsAvailable)
         {
-            view?.Refresh(service.Current);
+            view?.Refresh(draft != null ? new PreferencesState(draft) : service.Current);
         }
     }
 
@@ -84,24 +145,38 @@ public sealed class PreferencesController
             return;
         }
 
-        service.Reset();
+        if (!IsOpen || draft == null) return;
+        GameSettings defaults = new GameSettings();
+        // Reset only the player-facing settings; compatibility-only values stay untouched.
+        draft.masterVolume = defaults.masterVolume;
+        draft.musicVolume = defaults.musicVolume;
+        draft.sfxVolume = defaults.sfxVolume;
+        draft.screenMode = defaults.screenMode;
+        draft.resolution = defaults.resolution;
+        draft.skipMode = defaults.skipMode;
+        draft.textSpeed = defaults.textSpeed;
+        draft.dialogueTextScale = defaults.dialogueTextScale;
+        draft.textboxOpacity = defaults.textboxOpacity;
+        draft.autoForwardDelay = defaults.autoForwardDelay;
+        draft.skipAfterChoices = defaults.skipAfterChoices;
+        draft.autoSave = defaults.autoSave;
+        draft.showQuickMenu = defaults.showQuickMenu;
         Refresh();
-        showToast?.Invoke("Настройки сброшены");
     }
 
-    public void SetMasterVolume(float value) => service?.SetMasterVolume(value);
-    public void SetMusicVolume(float value) => service?.SetMusicVolume(value);
-    public void SetSfxVolume(float value) => service?.SetSfxVolume(value);
-    public void SetMuteAll(bool value) => service?.SetMuteAll(value);
-    public void SetRunInBackground(bool value) => service?.SetRunInBackground(value);
-    public void SetTextSpeed(float value) => service?.SetTextSpeed(value);
-    public void SetDialogueTextScale(float value) => service?.SetDialogueTextScale(value);
-    public void SetTextboxOpacity(float value) => service?.SetTextboxOpacity(value);
-    public void SetAutoForwardDelay(float value) => service?.SetAutoForwardDelay(value);
-    public void SetSkipAfterChoices(bool value) => service?.SetSkipAfterChoices(value);
-    public void SetAutoForward(bool value) => service?.SetAutoForward(value);
-    public void SetAutoSave(bool value) => service?.SetAutoSave(value);
-    public void SetShowQuickMenu(bool value) => service?.SetShowQuickMenu(value);
+    public void SetMasterVolume(float value) => Edit(state => state.masterVolume = Mathf.Clamp01(value));
+    public void SetMusicVolume(float value) => Edit(state => state.musicVolume = Mathf.Clamp01(value));
+    public void SetSfxVolume(float value) => Edit(state => state.sfxVolume = Mathf.Clamp01(value));
+    public void SetMuteAll(bool value) => Edit(state => state.muteAll = value);
+    public void SetRunInBackground(bool value) => Edit(state => state.runInBackground = value);
+    public void SetTextSpeed(float value) => Edit(state => state.textSpeed = Mathf.Clamp(value, 20f, 100f));
+    public void SetDialogueTextScale(float value) => Edit(state => state.dialogueTextScale = Mathf.Clamp(value, 0.85f, 1.25f));
+    public void SetTextboxOpacity(float value) => Edit(state => state.textboxOpacity = Mathf.Clamp01(value));
+    public void SetAutoForwardDelay(float value) => Edit(state => state.autoForwardDelay = Mathf.Clamp(value, 50f, 500f));
+    public void SetSkipAfterChoices(bool value) => Edit(state => state.skipAfterChoices = value);
+    public void SetAutoForward(bool value) => Edit(state => state.autoForward = value);
+    public void SetAutoSave(bool value) => Edit(state => state.autoSave = value);
+    public void SetShowQuickMenu(bool value) => Edit(state => state.showQuickMenu = value);
 
     public void SetSkipUnseen(bool value)
     {
@@ -110,46 +185,42 @@ public sealed class PreferencesController
 
     public void SetScreenMode(string value)
     {
-        service?.SetScreenMode(value);
-        Refresh();
+        Edit(state => state.screenMode = string.IsNullOrEmpty(value) ? SettingsOptionValues.Fullscreen : value);
     }
 
     public void CycleScreenMode()
     {
-        SetScreenMode(PreferencesOptions.GetNext(PreferencesOptions.ScreenModes, service != null ? service.Current.screenMode : null));
+        SetScreenMode(PreferencesOptions.GetNext(PreferencesOptions.ScreenModes, draft != null ? draft.screenMode : null));
     }
 
     public void SetResolution(string value)
     {
-        service?.SetResolution(value);
-        Refresh();
+        Edit(state => state.resolution = string.IsNullOrEmpty(value) ? "1920x1080" : value);
     }
 
     public void CycleResolution()
     {
-        SetResolution(PreferencesOptions.GetNext(PreferencesOptions.Resolutions, service != null ? service.Current.resolution : null));
+        SetResolution(PreferencesOptions.GetNext(PreferencesOptions.Resolutions, draft != null ? draft.resolution : null));
     }
 
     public void SetSkipMode(string value)
     {
-        service?.SetSkipMode(value);
-        Refresh();
+        Edit(state => state.skipMode = string.IsNullOrEmpty(value) ? "Виденное" : value);
     }
 
     public void CycleSkipMode()
     {
-        SetSkipMode(PreferencesOptions.GetNext(PreferencesOptions.SkipModes, service != null ? service.Current.skipMode : null));
+        SetSkipMode(PreferencesOptions.GetNext(PreferencesOptions.SkipModes, draft != null ? draft.skipMode : null));
     }
 
     public void SetSkipBehavior(string value)
     {
-        service?.SetSkipBehavior(value);
-        Refresh();
+        Edit(state => state.skipBehavior = string.IsNullOrEmpty(value) ? SettingsOptionValues.ClassicSkip : value);
     }
 
     public void CycleSkipBehavior()
     {
-        SetSkipBehavior(PreferencesOptions.GetNext(PreferencesOptions.SkipBehaviors, service != null ? service.Current.skipBehavior : null));
+        SetSkipBehavior(PreferencesOptions.GetNext(PreferencesOptions.SkipBehaviors, draft != null ? draft.skipBehavior : null));
     }
 
     /// <summary>Compatibility for the compact gameplay toggle; screenMode remains canonical.</summary>

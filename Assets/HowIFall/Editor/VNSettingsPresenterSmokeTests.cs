@@ -51,14 +51,16 @@ public static class VNSettingsPresenterSmokeTests
             view.SharedView.GetSlider(SharedPreferencesView.MasterVolumeId).value = 0.35f;
             view.SharedView.GetSlider(SharedPreferencesView.AutoForwardDelayId).value = 4f;
             view.SharedView.GetToggle(SharedPreferencesView.SkipUnseenId).isOn = true;
+            Require(Mathf.Approximately(service.Source.masterVolume, 0.7f), "Draft mutated service before Apply.");
+            controller.Apply();
             Require(Mathf.Approximately(service.Source.masterVolume, 0.35f), "Master volume change was not forwarded.");
             Require(Mathf.Approximately(service.Source.autoForwardDelay, 400f), "Auto-forward delay change was not forwarded.");
             Require(service.Source.skipMode == "Всё", "Skip unseen toggle was not forwarded truthfully.");
 
             view.SharedView.GetButton("reset").onClick.Invoke();
-            Require(service.ResetCount == 1, "Reset was not forwarded.");
-            Require(toast == "Настройки сброшены", "Reset toast was not shown.");
-            Require(Mathf.Approximately(view.SharedView.GetSlider(SharedPreferencesView.MasterVolumeId).value, service.Source.masterVolume), "Reset did not refresh the open view.");
+            Require(service.ResetCount == 0, "Reset was not forwarded.");
+            Require(string.IsNullOrEmpty(toast), "Draft reset must not claim committed reset.");
+            Require(Mathf.Approximately(view.SharedView.GetSlider(SharedPreferencesView.MasterVolumeId).value, new GameSettings().masterVolume), "Reset did not refresh the open view.");
 
             view.SharedView.GetButton("back").onClick.Invoke();
             Require(!overlay.activeSelf && !panel.activeSelf && !view.SharedView.IsVisible, "Close did not hide the Preferences UI.");
