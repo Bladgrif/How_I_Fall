@@ -15,6 +15,8 @@ Repository contracts важнее предположений, памяти и в
 
 Не расширяй product scope и не добавляй speculative architecture. Защищай `SaveData` v3, working APIs, scenes/prefabs/serialized refs, `Packages`, `ProjectSettings` и unrelated local changes.
 
+До independent implementation определи и проверь accepted base SHA текущей задачи. Если заданный expected base больше не совпадает, остановись до редактирования и сообщи actual SHA. Не reset/clean/overwrite dirty, divergent или содержащий unrelated user changes checkout: при авторизованной implementation и доступной среде работай в clean disposable worktree от verified accepted base, сохраняя пользовательские изменения.
+
 ## Старт и компактное состояние
 
 Перед правками коротко зафиксируй reproduced problems, protected behavior, 3–5 objective acceptance criteria и subjective вопросы, не блокирующие automated pass.
