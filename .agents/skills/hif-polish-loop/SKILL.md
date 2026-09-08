@@ -37,6 +37,8 @@ description: Бюджетный bounded-loop для player-facing polish How I F
 
 Расширяй context только после доказанной зависимости.
 
+Для большого файла сначала используй targeted search/read по нужному symbol/section. Не загружай весь большой corpus в дорогую модель только ради общего обзора.
+
 Repository определяет текущие HIF contracts. References используются для принципов, а не для копирования чужого layout/assets.
 
 ## 3. Зафиксируй цель до implementation
@@ -117,18 +119,46 @@ Repository определяет текущие HIF contracts. References исп�
 - infrastructure блокирует proof;
 - следующая correction выходит за исходный scope.
 
-## 8. Работа с дорогой моделью
+## 8. Routing работы по стоимости модели
 
-Если задача запущена на дорогом/high-effort агенте (например Astra), не трать его контекст на механическую работу без необходимости:
+Следуй принципу: **дорогой judgement не должен тратиться на дешёвый I/O и boilerplate**.
 
-- держи context узким;
-- не перечитывай уже известные файлы;
+Если execution environment поддерживает model/subagent delegation:
+
+- большой file/corpus overview, deterministic summary, docs extraction → дешёвый worker;
+- boilerplate test/config/helper → дешёвый worker, но только с точной spec и существующим HIF reference file;
+- обычная Unity/C#/UI implementation → Terra-class worker;
+- маленький correction/docs/test → Luna-class worker;
+- сложный root cause / architecture / взаимозависимый state → Sol-class judgement;
+- редкий autonomous visual/product loop → Astra-class judgement, только если цена оправдана surface-level задачей.
+
+Не делегируй дешёвому worker:
+
+- debugging root cause;
+- архитектурные решения;
+- SaveData / compatibility judgement;
+- player-facing product decision;
+- точное editing, если implementer ещё не прочитал relevant code spans;
+- reviewer verdict.
+
+Если среда **не умеет** реальное delegation/model routing — не имитируй его. Держи текущий context узким и оставляй маленькие последующие corrections для отдельной более дешёвой сессии.
+
+Любой worker summary/code — только вход для основной работы, не доказательство корректности. Финальный diff всё равно проходит HIF regression/graphical QA/reviewer.
+
+## 9. Работа с дорогой моделью
+
+Если задача запущена на дорогом/high-effort агенте (например Astra):
+
+- не перечитывай один и тот же большой corpus после того, как objective context уже извлечён;
+- предпочитай targeted reads полному чтению больших файлов;
 - не повторяй успешные проверки без причины;
-- после крупной implementation/visual judgement предпочитай остановиться с чётким correction list, если оставшееся — маленькие fixes/tests/docs, которые разумно передать более дешёвому агенту.
+- не трать Astra на механический git/QA loop, если это можно безопасно оставить Terra/Luna;
+- после крупной implementation/visual judgement остановись с чётким correction list, если оставшееся — маленькие fixes/tests/docs;
+- не расходуй весь доступный budget только потому, что он есть.
 
-Не пытайся расходовать весь доступный budget только потому, что он есть.
+Если дешёвый `bulk-reader`-подобный worker доступен, сильная модель получает от него ответ только на конкретный вопрос. Но перед изменением кода implementer обязан прочитать точные relevant spans сам: summary не заменяет source при editing/debugging.
 
-## 9. Baselines и git
+## 10. Baselines и git
 
 После accepted-looking visual iteration:
 
@@ -141,21 +171,22 @@ Repository определяет текущие HIF contracts. References исп�
 
 После push результат всегда **REVIEW CANDIDATE**, не `DONE`. ChatGPT reviewer отдельно проверяет GitHub diff/CI и синхронизирует Drive.
 
-## 10. Короткий отчёт
+## 11. Короткий отчёт
 
 Верни:
 
 1. base SHA;
 2. surface и reproduced problems;
 3. context files actually read;
-4. production files changed;
-5. tests changed;
-6. фактически запущенные tests;
-7. graphical E2E;
-8. screenshots inspected;
-9. количество visual iterations;
-10. baselines changed;
-11. `NOT RUN`;
-12. remaining objective/subjective gaps;
-13. commit/push/CI, если были;
-14. `REVIEW CANDIDATE` либо `BLOCKED`.
+4. что было delegated и какой worker использован, если delegation реально была;
+5. production files changed;
+6. tests changed;
+7. фактически запущенные tests;
+8. graphical E2E;
+9. screenshots inspected;
+10. количество visual iterations;
+11. baselines changed;
+12. `NOT RUN`;
+13. remaining objective/subjective gaps;
+14. commit/push/CI, если были;
+15. `REVIEW CANDIDATE` либо `BLOCKED`.
