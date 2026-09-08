@@ -108,6 +108,64 @@ Relevant implementation: `plugins/shunt/README.md`.
 - не задавать уточняющий вопрос, если bounded intent уже достаточно определён и недостающую деталь можно безопасно вывести из repository/current context;
 - после достижения objective acceptance перейти к review candidate, а не продолжать polishing/test expansion из-за собственной склонности к thoroughness.
 
+## 5. SKILL.state — structured execution state вместо растущей истории
+
+Источник: https://arxiv.org/abs/2608.26263
+
+Название: `SKILL.state: Scalable Long-Horizon Agent Skills`.
+
+Авторы: Sanket Badhe, Priyanka Tiwari, Jonghyun Chung; аффилиации Google LLC / Purdue University.
+
+Статус источника: research paper, arXiv 2608.26263; использовать как архитектурный reference для long-horizon agent state, не считать прямой гарантией для Codex/Astra runtime.
+
+Ключевая идея:
+
+- history-based agent каждый шаг тащит всё более длинный transcript;
+- `SKILL.state` вместо этого подаёт модели только immutable skill specification, mutable structured execution state и latest observation;
+- intermediate reasoning после validated state update не становится частью следующего prompt;
+- canonical execution record — текущее структурированное состояние, а не реконструкция из полной истории.
+
+Что реально показано в long-horizon scaling:
+
+- при horizon `T=200` `SKILL.state` получил accuracy `0.94` при примерно `122,384` cumulative tokens;
+- summary-memory baseline получил `0.84` при примерно `6,175,509` tokens;
+- это около 50× разницы по token consumption в данном эксперименте;
+- paper также показывает почти flat prompt footprint для `SKILL.state`, в то время как history-based baselines растут с длиной выполнения.
+
+Что берём в HIF:
+
+1. **Текущее состояние важнее transcript.** Для длинного polish pass держать компактный canonical task-state: goal, accepted base SHA, protected contracts, current iteration, completed work, validated evidence, current blockers, remaining defects, next action, budget left.
+2. **State заменяется, а не бесконечно дописывается.** После существенного шага обновлять существующие поля; не хранить в рабочем state полный журнал команд, промежуточные гипотезы и повторяющиеся test logs.
+3. **Evidence хранить как ссылки/результаты.** Например `PreferencesInteraction 5/5 PASS`, `PlayerUiGraphicalE2E PASS`, paths к fresh screenshots — а не копировать весь stdout в контекст.
+4. **Не переносить stale hypotheses.** Если root cause опровергнут или defect закрыт проверкой, удалить его из active state; исторический narrative остаётся в Git/report при необходимости, но не участвует в следующей итерации.
+5. **Latest observation должен быть свежим.** После production change следующая итерация опирается на новый test/screenshot result, а не на старое впечатление.
+6. **State recovery сверять с внешней реальностью.** Git SHA/status, Unity test results и screenshots важнее внутренней памяти агента; при расхождении обновить state по repository/runtime evidence.
+
+Ограничение применения:
+
+- обычный repository skill не может сам гарантировать, что runtime физически удалит старые turns из model context;
+- поэтому HIF заимствует принцип как **execution discipline**: не перечитывать и не пересказывать историю, поддерживать компактный mutable state и использовать его как canonical checkpoint;
+- отдельный state manager/runtime сейчас НЕ добавляем. Если Work/Codex позже даст нативную structured-state/context-compaction primitive, можно адаптировать skill без изменения product code.
+
+Минимальный HIF task-state schema:
+
+```text
+Goal:
+Base SHA:
+Surface / scope:
+Protected contracts:
+Acceptance:
+Iteration: 0/3
+Completed:
+Validated evidence:
+Open objective defects:
+Blockers:
+Next action:
+Budget remaining:
+```
+
+Этот state — ephemeral agent/worktree metadata, не новая production система и не обязательный committed artifact.
+
 ## Текущая модель routing для HIF
 
 - **Luna** — маленькие fixes, docs, deterministic tests/config/boilerplate, дешёвая механическая работа.
