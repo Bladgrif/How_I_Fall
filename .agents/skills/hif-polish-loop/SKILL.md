@@ -52,6 +52,40 @@ Repository определяет текущие HIF contracts. References исп�
 
 Не придумывай новые функции, story/canon или final art.
 
+### Компактный mutable execution state
+
+Для длинного pass не используй полный transcript как рабочую память. Поддерживай один компактный **canonical task-state** и обновляй его после каждого существенного шага.
+
+Минимальные поля:
+
+```text
+Goal:
+Base SHA:
+Surface / scope:
+Protected contracts:
+Acceptance:
+Iteration: 0/3
+Completed:
+Validated evidence:
+Open objective defects:
+Blockers:
+Next action:
+Budget remaining:
+```
+
+Правила state:
+
+- обновляй существующие поля, а не дописывай бесконечный журнал;
+- не переносись в следующий шаг полный stdout, длинные tool traces, промежуточные рассуждения и уже опровергнутые hypotheses;
+- test/QA evidence храни компактно: имя проверки + результат + relevant artifact/path;
+- закрытый defect удаляй из `Open objective defects` после свежего proof;
+- `Next action` должен быть один конкретный ближайший шаг;
+- после production change опирайся на свежую latest observation: новый test/runtime/screenshot result;
+- если internal state расходится с Git SHA/status, Unity result или screenshot evidence, внешнее evidence побеждает и state обновляется;
+- если environment умеет persistent scratch/state — используй его как ephemeral metadata; не коммить task-state в repository без отдельной причины.
+
+Это execution discipline по мотивам `SKILL.state`, а не новая HIF production система. Не добавляй state manager, database или generic memory framework.
+
 ## 4. Baseline
 
 До изменения player-facing UI:
@@ -102,6 +136,8 @@ Repository определяет текущие HIF contracts. References исп�
 - anchors/layout;
 - missing sprite/texture;
 - очевидную несогласованность visual weight.
+
+После validation обнови `Validated evidence`, `Open objective defects`, `Next action` и `Budget remaining` в task-state. Не пересказывай весь предыдущий цикл заново.
 
 ## 7. Visual correction loop
 
@@ -180,6 +216,8 @@ Repository определяет текущие HIF contracts. References исп�
 - не расходуй весь доступный budget только потому, что он есть.
 
 Если дешёвый `bulk-reader`-подобный worker доступен, сильная модель получает от него ответ только на конкретный вопрос. Но перед изменением кода implementer обязан прочитать точные relevant spans сам: summary не заменяет source при editing/debugging.
+
+Используй compact task-state как рабочий checkpoint между итерациями. Не трать дорогой контекст на повторное восстановление уже подтверждённых фактов из длинной истории.
 
 ## 11. Baselines и git
 
