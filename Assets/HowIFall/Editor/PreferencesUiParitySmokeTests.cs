@@ -132,6 +132,12 @@ public static class PreferencesUiParitySmokeTests
         Require(view.GetDropdown(SharedPreferencesView.ScreenModeId) != null && view.GetDropdown(SharedPreferencesView.ResolutionId) != null,
             "Display dropdowns must remain keyboard/controller reachable.");
 
+        view.SelectCategory(1);
+        Canvas.ForceUpdateCanvases();
+        VerifyCompactSliderPresentation(view.GetSlider(SharedPreferencesView.MasterVolumeId));
+
+        view.SelectCategory(2);
+        Canvas.ForceUpdateCanvases();
         Slider textSpeed = view.GetSlider(SharedPreferencesView.TextSpeedId);
         textSpeed.value = textSpeed.maxValue;
         TextMeshProUGUI textSpeedValue = textSpeed.transform.parent.GetComponentsInChildren<TextMeshProUGUI>(true)
@@ -139,6 +145,26 @@ public static class PreferencesUiParitySmokeTests
         Require(textSpeedValue != null
                 && textSpeedValue.GetPreferredValues(textSpeedValue.text).x <= textSpeedValue.rectTransform.rect.width + 0.5f,
             "The maximum Text Speed label must fit beside its slider without overlap.");
+    }
+
+    private static void VerifyCompactSliderPresentation(Slider slider)
+    {
+        Require(slider != null && slider.handleRect != null, "Representative Preferences slider must expose a visible handle rect.");
+        RectTransform sliderRect = (RectTransform)slider.transform;
+        LayoutRebuilder.ForceRebuildLayoutImmediate(sliderRect);
+        Canvas.ForceUpdateCanvases();
+
+        Rect handle = slider.handleRect.rect;
+        Require(handle.width > 0f && handle.height > 0f,
+            "Preferences slider handle must have non-zero visible width and height.");
+        Require(handle.width >= 10f && handle.width <= 14f && handle.height >= 10f && handle.height <= 14f,
+            "Preferences slider handle must remain compact instead of returning to an oversized presentation.");
+
+        RectTransform track = slider.transform.Cast<Transform>().FirstOrDefault(child => child.name == "Track") as RectTransform;
+        Require(track != null && track.rect.height > 0f && track.rect.height < sliderRect.rect.height,
+            "Preferences slider track must remain thinner than its interaction rect.");
+        Require(IsFullyInside(slider.handleRect, sliderRect),
+            "Preferences slider handle must remain inside the usable slider presentation.");
     }
 
     private static bool IsFullyInside(RectTransform child, RectTransform parent)
