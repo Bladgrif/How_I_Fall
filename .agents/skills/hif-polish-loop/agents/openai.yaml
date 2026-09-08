@@ -1,0 +1,6 @@
+interface:
+  display_name: "How I Fall — polish loop"
+  short_description: "Bounded visual feedback loop для одной UI-поверхности"
+  default_prompt: "Используй $hif-polish-loop для одной bounded player-facing поверхности How I Fall: собери малый context pack, сделай минимальный diff, выполни meaningful targeted proof и существующий graphical QA, осмотри свежие screenshots, сделай не более трёх objective correction iterations и остановись с REVIEW CANDIDATE либо BLOCKED."
+policy:
+  allow_implicit_invocation: true
