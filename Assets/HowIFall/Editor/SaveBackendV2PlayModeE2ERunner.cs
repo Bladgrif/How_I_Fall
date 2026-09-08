@@ -8,6 +8,8 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
 [InitializeOnLoad]
@@ -634,6 +636,23 @@ public static class SaveBackendV2PlayModeE2ERunner
                     "Manual page 2 selection or pagination visibility is incorrect.");
                 yield return new WaitForEndOfFrame();
                 CaptureTabsScreenshot(type, resolution, "page_2");
+
+                panel.manualPageButtons[SaveManager.ManualPageCount - 1].onClick.Invoke();
+                yield return null;
+                VerifyManualPaginationInteraction(panel, SaveManager.ManualPageCount);
+                yield return new WaitForEndOfFrame();
+                CaptureTabsScreenshot(type, resolution, "page_10");
+
+                EventSystem.current.SetSelectedGameObject(panel.manualPageButtons[SaveManager.ManualPageCount - 1].gameObject);
+                Require(EventSystem.current.currentSelectedGameObject == panel.manualPageButtons[SaveManager.ManualPageCount - 1].gameObject,
+                    "Manual page focus was not assigned to the selected numeric button.");
+                yield return new WaitForEndOfFrame();
+                CaptureTabsScreenshot(type, resolution, "page_10_focus");
+
+                panel.manualPageButtons[0].onClick.Invoke();
+                yield return null;
+                VerifyManualPaginationInteraction(panel, 1);
+                panel.SelectManualPage(2);
             }
         }
 
@@ -662,6 +681,14 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(panel.CurrentSlotType == SaveSlotType.Manual, "OpenSave did not reset the panel to Manual.");
         Require(panel.titleText.text == "СОХРАНИТЬ", "Save title is incorrect.");
         Require(panel.slotViews.All(view => view.button.interactable), "Manual slots are not writable in Save mode.");
+        yield return new WaitForEndOfFrame();
+        CaptureTabsScreenshot(SaveSlotType.Manual, resolution, "save_page_1");
+        panel.manualPageButtons[SaveManager.ManualPageCount - 1].onClick.Invoke();
+        yield return null;
+        VerifyManualPaginationInteraction(panel, SaveManager.ManualPageCount);
+        yield return new WaitForEndOfFrame();
+        CaptureTabsScreenshot(SaveSlotType.Manual, resolution, "save_page_10");
+        panel.SelectManualPage(1);
 
         Dictionary<string, byte[]> autoFilesBeforeReadOnlyClick = CaptureTypeFiles(manager, SaveSlotType.Auto);
         panel.SelectAutoTab();
@@ -753,10 +780,20 @@ public static class SaveBackendV2PlayModeE2ERunner
             $"{type} previous-page visibility is incorrect.");
         Require(panel.nextManualPageButton.gameObject.activeSelf == (type == SaveSlotType.Manual),
             $"{type} next-page visibility is incorrect.");
-        Require(GetButtonLabel(panel.manualTabButton) == (saveMode
-                ? $"{panel.CurrentManualPage} / {SaveManager.ManualPageCount}"
-                : $"РУЧНЫЕ {panel.CurrentManualPage} / {SaveManager.ManualPageCount}"),
-            "Manual family/page label is incorrect.");
+        Require(GetButtonLabel(panel.manualTabButton) == "РУЧНЫЕ", "Manual family label is incorrect.");
+        Require(panel.manualPageButtons != null && panel.manualPageButtons.Length == SaveManager.ManualPageCount,
+            "Manual numeric page buttons are unavailable.");
+        for (int page = 1; page <= SaveManager.ManualPageCount; page++)
+        {
+            Button pageButton = panel.manualPageButtons[page - 1];
+            Require(pageButton.gameObject.activeSelf == (type == SaveSlotType.Manual),
+                $"Manual page {page} visibility is incorrect for {type}.");
+            if (type == SaveSlotType.Manual)
+            {
+                Require(pageButton.interactable && GetButtonLabel(pageButton) == page.ToString(),
+                    $"Manual page {page} is not a direct selectable page button.");
+            }
+        }
         if (!saveMode)
         {
             Require(GetButtonLabel(panel.autoTabButton) == (type == SaveSlotType.Auto ? "АВТОСОХРАНЕНИЯ" : "АВТО"),
@@ -786,6 +823,26 @@ public static class SaveBackendV2PlayModeE2ERunner
             ? button.GetComponentInChildren<TMPro.TextMeshProUGUI>(true)
             : null;
         return label != null ? label.text : string.Empty;
+    }
+
+    private static void VerifyManualPaginationInteraction(ManualSaveLoadPanel panel, int expectedPage)
+    {
+        Require(panel.CurrentManualPage == expectedPage, $"Direct numeric page selection did not select page {expectedPage}.");
+        Require(panel.previousManualPageButton.interactable == (expectedPage > 1),
+            $"Previous-page edge state is incorrect on page {expectedPage}.");
+        Require(panel.nextManualPageButton.interactable == (expectedPage < SaveManager.ManualPageCount),
+            $"Next-page edge state is incorrect on page {expectedPage}.");
+
+        if (expectedPage == 1)
+        {
+            panel.PreviousManualPage();
+            Require(panel.CurrentManualPage == 1, "Previous-page navigation moved before page 1.");
+        }
+        else if (expectedPage == SaveManager.ManualPageCount)
+        {
+            panel.NextManualPage();
+            Require(panel.CurrentManualPage == SaveManager.ManualPageCount, "Next-page navigation moved after page 10.");
+        }
     }
 
     private static void SelectTab(ManualSaveLoadPanel panel, SaveSlotType type)
@@ -836,10 +893,10 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(GetScreenRect(panel.previousManualPageButton.transform as RectTransform).xMin >= row.xMin
                 && GetScreenRect(panel.nextManualPageButton.transform as RectTransform).xMax <= row.xMax,
             "Manual page arrows are outside the compact navigation row.");
-        Require(panel.manualPageButtons.All(button => !button.gameObject.activeSelf),
-            "Legacy individual page buttons remain visible in compact navigation.");
-        Require(GetButtonLabel(panel.manualTabButton) == $"РУЧНЫЕ {panel.CurrentManualPage} / {SaveManager.ManualPageCount}",
-            "Compact Manual page label is incorrect at the responsive resolution.");
+        Require(panel.manualPageButtons.All(button => button.gameObject.activeSelf && button.interactable),
+            "Manual numeric page buttons are not visible and interactive in responsive navigation.");
+        Require(panel.manualPageButtons.Select(GetButtonLabel).SequenceEqual(Enumerable.Range(1, SaveManager.ManualPageCount).Select(page => page.ToString())),
+            "Manual numeric page labels are incorrect at the responsive resolution.");
     }
 
     private static Rect GetScreenRect(RectTransform rectTransform)

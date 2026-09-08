@@ -164,15 +164,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         MoveToCompactNavigation(quickTabButton);
         MoveToCompactNavigation(previousManualPageButton);
         MoveToCompactNavigation(nextManualPageButton);
-
         if (manualPageButtons != null)
         {
             foreach (Button pageButton in manualPageButtons)
             {
-                if (pageButton != null)
-                {
-                    pageButton.gameObject.SetActive(false);
-                }
+                MoveToCompactNavigation(pageButton);
             }
         }
 
@@ -184,8 +180,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         compactNavigationRoot.anchorMin = new Vector2(0.5f, 0f);
         compactNavigationRoot.anchorMax = new Vector2(0.5f, 0f);
         compactNavigationRoot.pivot = new Vector2(0.5f, 0.5f);
-        compactNavigationRoot.anchoredPosition = new Vector2(0f, 52f);
-        compactNavigationRoot.sizeDelta = new Vector2(860f, 48f);
+        compactNavigationRoot.anchoredPosition = new Vector2(0f, 64f);
+        compactNavigationRoot.sizeDelta = new Vector2(860f, 92f);
     }
 
     private void MoveToCompactNavigation(Button button)
@@ -894,15 +890,16 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         if (manualPaginationRoot != null) manualPaginationRoot.SetActive(true);
-        SetButtonLabel(manualTabButton, loadMode ? $"РУЧНЫЕ {currentManualPage} / {SaveManager.ManualPageCount}" : $"{currentManualPage} / {SaveManager.ManualPageCount}");
+        SetButtonLabel(manualTabButton, "РУЧНЫЕ");
         SetButtonLabel(autoTabButton, currentSlotType == SaveSlotType.Auto ? "АВТОСОХРАНЕНИЯ" : "АВТО");
         SetButtonLabel(quickTabButton, currentSlotType == SaveSlotType.Quick ? "БЫСТРЫЕ СОХРАНЕНИЯ" : "БЫСТРЫЕ");
 
-        SetCompactButtonLayout(manualTabButton, 0f, loadMode ? 220f : 116f);
-        SetCompactButtonLayout(autoTabButton, -300f, currentSlotType == SaveSlotType.Auto ? 240f : 130f);
-        SetCompactButtonLayout(quickTabButton, 300f, currentSlotType == SaveSlotType.Quick ? 250f : 150f);
-        SetCompactButtonLayout(previousManualPageButton, -155f, 42f);
-        SetCompactButtonLayout(nextManualPageButton, 155f, 42f);
+        SetCompactButtonLayout(manualTabButton, loadMode ? -190f : 0f, loadMode ? 160f : 170f, 22f);
+        SetCompactButtonLayout(autoTabButton, 0f, currentSlotType == SaveSlotType.Auto ? 200f : 130f, 22f);
+        SetCompactButtonLayout(quickTabButton, 190f, currentSlotType == SaveSlotType.Quick ? 220f : 150f, 22f);
+        SetCompactButtonLayout(previousManualPageButton, -276f, 40f, -22f);
+        SetCompactButtonLayout(nextManualPageButton, 276f, 40f, -22f);
+        ConfigureManualPageButtons(manualActive);
 
         if (previousManualPageButton != null)
         {
@@ -924,7 +921,31 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         SetTabVisual(quickTabButton, currentSlotType == SaveSlotType.Quick);
     }
 
-    private static void SetCompactButtonLayout(Button button, float x, float width)
+    private void ConfigureManualPageButtons(bool manualActive)
+    {
+        if (manualPageButtons == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < manualPageButtons.Length; index++)
+        {
+            Button pageButton = manualPageButtons[index];
+            if (pageButton == null)
+            {
+                continue;
+            }
+
+            int page = index + 1;
+            pageButton.gameObject.SetActive(manualActive && page <= SaveManager.ManualPageCount);
+            pageButton.interactable = page <= SaveManager.ManualPageCount;
+            SetButtonLabel(pageButton, page.ToString());
+            SetCompactButtonLayout(pageButton, (index - (SaveManager.ManualPageCount - 1) * 0.5f) * 48f, 40f, -22f);
+            SetPageVisual(pageButton, page == currentManualPage);
+        }
+    }
+
+    private static void SetCompactButtonLayout(Button button, float x, float width, float y = 0f)
     {
         if (button == null)
         {
@@ -940,7 +961,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(x, 0f);
+        rect.anchoredPosition = new Vector2(x, y);
         rect.sizeDelta = new Vector2(width, 38f);
     }
 
@@ -959,27 +980,14 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         Button firstSlot = FindFirstInteractiveSlotButton();
         Button gridEntry = firstSlot ?? closeButton;
         Button activeFamilyButton = GetTabButton(currentSlotType);
-        Button pageEntry = currentSlotType == SaveSlotType.Manual && IsInteractive(manualTabButton)
-            ? manualTabButton
+        Button selectedPage = firstSlot != null ? GetManualPageButton(currentManualPage) : null;
+        Button pageEntry = currentSlotType == SaveSlotType.Manual && selectedPage != null
+            ? selectedPage
             : gridEntry;
 
-        if (mode == PanelMode.Save)
+        if (currentSlotType == SaveSlotType.Manual)
         {
-            Button previous = previousManualPageButton;
-            Button next = nextManualPageButton;
-            SetNavigation(previous, closeButton, manualTabButton, firstSlot, closeButton);
-            SetNavigation(manualTabButton, previous, next, firstSlot, closeButton);
-            SetNavigation(next, manualTabButton, closeButton, firstSlot, closeButton);
-            SetNavigation(closeButton, next, previous, gridEntry, manualTabButton);
-        }
-        else if (currentSlotType == SaveSlotType.Manual)
-        {
-            SetNavigation(autoTabButton, closeButton, previousManualPageButton, gridEntry, closeButton);
-            SetNavigation(previousManualPageButton, autoTabButton, manualTabButton, firstSlot, closeButton);
-            SetNavigation(manualTabButton, previousManualPageButton, nextManualPageButton, firstSlot, closeButton);
-            SetNavigation(nextManualPageButton, manualTabButton, quickTabButton, firstSlot, closeButton);
-            SetNavigation(quickTabButton, nextManualPageButton, closeButton, gridEntry, closeButton);
-            SetNavigation(closeButton, quickTabButton, autoTabButton, gridEntry, manualTabButton);
+            ConfigureManualPaginationNavigation(firstSlot, gridEntry, selectedPage);
         }
         else
         {
@@ -1003,11 +1011,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             Button left = FindInteractiveSlotInDirection(index, -1, row, true) ?? activeFamilyButton;
             Button right = FindInteractiveSlotInDirection(index, 1, row, true) ?? (view != null && IsInteractive(view.deleteButton) ? view.deleteButton : closeButton);
             Button up = row == 0
-                ? activeFamilyButton
-                : FindSlotButton(index - 3) ?? activeFamilyButton;
+                ? pageEntry
+                : FindSlotButton(index - 3) ?? pageEntry;
             Button down = row == 0
                 ? FindSlotButton(index + 3) ?? pageEntry
-                : pageEntry;
+                : currentSlotType == SaveSlotType.Manual ? manualTabButton : pageEntry;
             SetNavigation(slotButton, left, right, up, down);
 
             if (view != null && IsInteractive(view.deleteButton))
@@ -1015,6 +1023,50 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
                 SetNavigation(view.deleteButton, slotButton, closeButton, slotButton, slotButton);
             }
         }
+    }
+
+    private void ConfigureManualPaginationNavigation(Button firstSlot, Button gridEntry, Button selectedPage)
+    {
+        Button firstPage = GetManualPageButton(1);
+        Button lastPage = GetManualPageButton(SaveManager.ManualPageCount);
+        SetNavigation(previousManualPageButton, closeButton, firstPage, manualTabButton, gridEntry);
+        SetNavigation(nextManualPageButton, lastPage, closeButton, manualTabButton, gridEntry);
+
+        for (int page = 1; page <= SaveManager.ManualPageCount; page++)
+        {
+            Button pageButton = GetManualPageButton(page);
+            if (pageButton == null)
+            {
+                continue;
+            }
+
+            Button left = page > 1 ? GetManualPageButton(page - 1) : previousManualPageButton;
+            Button right = page < SaveManager.ManualPageCount ? GetManualPageButton(page + 1) : nextManualPageButton;
+            SetNavigation(pageButton, left, right, manualTabButton, gridEntry);
+        }
+
+        if (mode == PanelMode.Save)
+        {
+            SetNavigation(manualTabButton, closeButton, closeButton, gridEntry, selectedPage ?? closeButton);
+            SetNavigation(closeButton, manualTabButton, manualTabButton, gridEntry, manualTabButton);
+            return;
+        }
+
+        SetNavigation(manualTabButton, closeButton, autoTabButton, gridEntry, selectedPage ?? closeButton);
+        SetNavigation(autoTabButton, manualTabButton, quickTabButton, closeButton, selectedPage);
+        SetNavigation(quickTabButton, autoTabButton, closeButton, closeButton, selectedPage);
+        SetNavigation(closeButton, quickTabButton, manualTabButton, gridEntry, manualTabButton);
+    }
+
+    private Button GetManualPageButton(int page)
+    {
+        if (manualPageButtons == null || page < 1 || page > manualPageButtons.Length)
+        {
+            return null;
+        }
+
+        Button pageButton = manualPageButtons[page - 1];
+        return IsInteractive(pageButton) ? pageButton : null;
     }
 
     private Button FindInteractiveSlotInDirection(int startIndex, int direction, int row, bool sameRow)
@@ -1296,11 +1348,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private static void SetPageVisual(Button button, bool selected)
     {
         if (button == null || !(button.targetGraphic is Image background)) return;
-        background.color = selected ? new Color(0.22f, 0.08f, 0.11f, 0.92f) : new Color(0.03f, 0.055f, 0.085f, 0.54f);
+        background.color = selected ? new Color(0.10f, 0.25f, 0.36f, 0.96f) : new Color(0.03f, 0.055f, 0.085f, 0.54f);
         TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
         if (label != null)
         {
-            label.color = selected ? new Color(1f, 0.9f, 0.91f, 1f) : new Color(0.52f, 0.62f, 0.73f, 0.9f);
+            label.color = selected ? new Color(0.9f, 0.97f, 1f, 1f) : new Color(0.52f, 0.62f, 0.73f, 0.9f);
             label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
         }
     }

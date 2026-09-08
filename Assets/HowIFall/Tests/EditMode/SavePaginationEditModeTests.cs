@@ -13,6 +13,11 @@ public sealed class SavePaginationEditModeTests
         Assert.That(SaveManager.GetSlotCapacity(SaveSlotType.Manual), Is.EqualTo(60));
         Assert.That(ManualSaveLoadPanel.GetGlobalManualSlot(1, 1), Is.EqualTo(1));
         Assert.That(ManualSaveLoadPanel.GetGlobalManualSlot(1, 6), Is.EqualTo(6));
+        for (int page = 1; page <= SaveManager.ManualPageCount; page++)
+        {
+            Assert.That(ManualSaveLoadPanel.GetGlobalManualSlot(page, 1), Is.EqualTo((page - 1) * SaveManager.SlotsPerPage + 1));
+            Assert.That(ManualSaveLoadPanel.GetGlobalManualSlot(page, SaveManager.SlotsPerPage), Is.EqualTo(page * SaveManager.SlotsPerPage));
+        }
         Assert.That(ManualSaveLoadPanel.GetGlobalManualSlot(2, 1), Is.EqualTo(7));
         Assert.That(ManualSaveLoadPanel.GetGlobalManualSlot(10, 6), Is.EqualTo(60));
         Assert.That(ManualSaveLoadPanel.GetGlobalManualSlot(11, 1), Is.EqualTo(0));
