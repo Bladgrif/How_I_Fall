@@ -83,10 +83,14 @@ Repository определяет текущие HIF contracts. References исп�
 Порядок:
 
 1. compile/import preflight;
-2. самый узкий regression test изменённого поведения;
+2. самый узкий meaningful regression test изменённого поведения;
 3. relevant smoke/regression;
 4. для player-facing surface — `$hif-visual-qa` через существующий graphical E2E;
 5. inspect fresh screenshots.
+
+После успешного targeted proof и обязательных checks **не расширяй и не повторяй тестирование автоматически**. Повтор/расширение оправданы только если был новый production change, failure или конкретный unresolved risk.
+
+Для bug fix или изменённого поведения сохраняй разумное regression coverage по `AGENTS.md`. Для низко-impact reversible visual change не добавляй отдельный тест, который только зеркалит implementation, если существующий graphical/smoke proof уже объективно ловит defect.
 
 На screenshot проверяй именно изменённые состояния, а не только общий вид:
 
@@ -132,6 +136,8 @@ Repository определяет текущие HIF contracts. References исп�
 - сложный root cause / architecture / взаимозависимый state → Sol-class judgement;
 - редкий autonomous visual/product loop → Astra-class judgement, только если цена оправдана surface-level задачей.
 
+Параллелизуй только независимые read/research/analysis части или не пересекающиеся задачи. Не давай нескольким агентам одновременно редактировать одни и те же production files или competing implementations одной UI surface.
+
 Не делегируй дешёвому worker:
 
 - debugging root cause;
@@ -145,7 +151,24 @@ Repository определяет текущие HIF contracts. References исп�
 
 Любой worker summary/code — только вход для основной работы, не доказательство корректности. Финальный diff всё равно проходит HIF regression/graphical QA/reviewer.
 
-## 9. Работа с дорогой моделью
+## 9. Astra: initiative, instruction priority и stop behavior
+
+Для GPT-6 Astra следуй official model guidance OpenAI и настрой автономность явно.
+
+Если user task уже однозначно авторизует bounded implementation:
+
+- bias to action: не останавливайся на плане или вопросе, если безопасное разумное решение можно вывести из repository/current context;
+- выполняй reversible/read-only шаги самостоятельно: `git fetch`, inspect, isolated worktree, targeted reads, tests, screenshots;
+- если основной checkout dirty/divergent, но verified `origin/master` даёт нужную accepted base, создай clean disposable worktree вместо запроса разрешения, если task уже разрешает implementation;
+- спрашивай пользователя только когда недостающая информация материально меняет product decision или действие genuinely destructive/irreversible.
+
+Конкретная user task instruction имеет приоритет над **default/guideline** правилами этого skill. `AGENTS.md`, repository contracts и явно защищённые safety constraints остаются обязательными.
+
+Если skill/instruction действительно заставляет остановиться, запросить разрешение или отклониться от цели, в отчёте назови точный файл/правило, которое стало blocker. Не маскируй интерпретацию под жёсткое требование.
+
+Не продолжай работу ради «идеальной полноты», когда objective acceptance уже выполнен. Astra склонна к broad verification; HIF stop condition важнее дополнительного необязательного тестирования.
+
+## 10. Работа с дорогой моделью
 
 Если задача запущена на дорогом/high-effort агенте (например Astra):
 
@@ -158,7 +181,7 @@ Repository определяет текущие HIF contracts. References исп�
 
 Если дешёвый `bulk-reader`-подобный worker доступен, сильная модель получает от него ответ только на конкретный вопрос. Но перед изменением кода implementer обязан прочитать точные relevant spans сам: summary не заменяет source при editing/debugging.
 
-## 10. Baselines и git
+## 11. Baselines и git
 
 После accepted-looking visual iteration:
 
@@ -171,7 +194,9 @@ Repository определяет текущие HIF contracts. References исп�
 
 После push результат всегда **REVIEW CANDIDATE**, не `DONE`. ChatGPT reviewer отдельно проверяет GitHub diff/CI и синхронизирует Drive.
 
-## 11. Короткий отчёт
+## 12. Короткий отчёт
+
+Пиши отчёт компактно; не пересказывай ход работы по шагам, если он не нужен для review.
 
 Верни:
 
