@@ -30,6 +30,7 @@
 - Не создавай commit/push, если задача явно этого не просит.
 - После push техническая задача не считается полностью проверенной, пока релевантные обязательные проверки GitHub CI не зелёные: `Unity Test Framework` и `Unity smoke tests`.
 - Review candidate не становится `DONE`, пока reviewer не проверил реальный commit/diff и не синхронизировал живую product roadmap по правилам `docs/product/review_workflow.md`. При рассинхронизации репозиторий остаётся главным источником истины.
+- Для выбора модели/сессии, бюджета контекста и orchestration implementation prompts используй `docs/product/agent_orchestration.md`; execution-specific player-facing loops остаются в `$hif-polish-loop`.
 
 ## Синхронизация дорожной карты reviewer'ом
 
