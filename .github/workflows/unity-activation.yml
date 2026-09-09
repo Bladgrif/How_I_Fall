@@ -6,17 +6,24 @@ on:
       - codex/unity-activation-temp-20260909
 
 jobs:
-  request-activation:
-    name: Request Unity activation file
+  credentials-only-diagnostic:
+    name: Unity Personal credentials-only diagnostic
     runs-on: ubuntu-latest
 
     steps:
-      - name: Request manual activation file
-        id: getActivationFile
-        uses: game-ci/unity-request-activation-file@v2
-
-      - name: Upload activation file
-        uses: actions/upload-artifact@v4
+      - name: Checkout accepted product SHA
+        uses: actions/checkout@v4
         with:
-          name: unity-activation-alf
-          path: ${{ steps.getActivationFile.outputs.filePath }}
+          ref: 68916d49a2be5a4fc4253f869d64b87c6ae5dbef
+          fetch-depth: 1
+
+      - name: Run Unity EditMode diagnostic
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: auto
+          cliVersion: v0.1.53
+          testMode: editmode
+          artifactsPath: artifacts
