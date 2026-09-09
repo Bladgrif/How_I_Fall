@@ -634,6 +634,7 @@ public static class SaveBackendV2PlayModeE2ERunner
                 VerifyTabPresentation(panel, manager, type, false);
                 Require(panel.CurrentManualPage == 2 && panel.manualPaginationRoot.activeSelf,
                     "Manual page 2 selection or pagination visibility is incorrect.");
+                VerifyEmptyManualPagePaginationReachability(panel);
                 yield return new WaitForEndOfFrame();
                 CaptureTabsScreenshot(type, resolution, "page_2");
 
@@ -823,6 +824,22 @@ public static class SaveBackendV2PlayModeE2ERunner
             ? button.GetComponentInChildren<TMPro.TextMeshProUGUI>(true)
             : null;
         return label != null ? label.text : string.Empty;
+    }
+
+    private static void VerifyEmptyManualPagePaginationReachability(ManualSaveLoadPanel panel)
+    {
+        Require(panel.slotViews.All(view => !view.button.interactable),
+            "Empty Manual Load page left an interactive slot.");
+        Button currentPage = panel.manualPageButtons[panel.CurrentManualPage - 1];
+        Require(currentPage.gameObject.activeSelf && currentPage.interactable,
+            "Current numeric page is not interactive on an empty Manual Load page.");
+        Require(panel.manualTabButton.navigation.selectOnDown == currentPage,
+            "Manual family navigation does not reach the current numeric page when all slots are empty.");
+        Require(panel.closeButton.navigation.selectOnRight == panel.manualTabButton,
+            "Close cannot reach Manual family navigation on an empty page.");
+        Require(currentPage.navigation.selectOnUp == panel.manualTabButton,
+            "Current numeric page cannot return to Manual family navigation.");
+        Pass("Empty Manual Load page keeps numeric pagination reachable from Close and Manual navigation");
     }
 
     private static void VerifyManualPaginationInteraction(ManualSaveLoadPanel panel, int expectedPage)

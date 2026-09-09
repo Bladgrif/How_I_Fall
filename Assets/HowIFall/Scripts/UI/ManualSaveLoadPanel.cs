@@ -980,7 +980,9 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         Button firstSlot = FindFirstInteractiveSlotButton();
         Button gridEntry = firstSlot ?? closeButton;
         Button activeFamilyButton = GetTabButton(currentSlotType);
-        Button selectedPage = firstSlot != null ? GetManualPageButton(currentManualPage) : null;
+        Button selectedPage = currentSlotType == SaveSlotType.Manual
+            ? GetManualPageButton(currentManualPage)
+            : null;
         Button pageEntry = currentSlotType == SaveSlotType.Manual && selectedPage != null
             ? selectedPage
             : gridEntry;
