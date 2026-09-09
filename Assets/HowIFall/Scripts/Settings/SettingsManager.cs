@@ -104,6 +104,11 @@ public class SettingsManager : MonoBehaviour
         settings.showHints = PlayerPrefs.GetInt(ShowHintsKey, 1) == 1;
         settings.showQuickMenu = PlayerPrefs.GetInt(ShowQuickMenuKey, 1) == 1;
         settings.fullscreen = IsFullscreenScreenMode(settings.screenMode);
+        if (NormalizeWindowedResolutionForCurrentDisplay())
+        {
+            PlayerPrefs.SetString(ResolutionKey, settings.resolution);
+            PlayerPrefs.Save();
+        }
         ApplySettings();
         AudioManager.Instance?.ApplySettingsVolume();
         QuickMenuVisibilityChanged?.Invoke();
@@ -378,6 +383,54 @@ public class SettingsManager : MonoBehaviour
             && height > 0;
     }
 
+    public static string NormalizeResolutionForDisplay(string resolution, string screenMode, int displayWidth, int displayHeight)
+    {
+        if (screenMode != SettingsOptionValues.Windowed
+            || !TryParseResolution(resolution, out int requestedWidth, out int requestedHeight)
+            || requestedWidth < displayWidth && requestedHeight < displayHeight)
+        {
+            return resolution;
+        }
+
+        string largestSupportedResolution = null;
+        int largestSupportedArea = 0;
+        foreach (string supportedResolution in PreferencesOptions.Resolutions)
+        {
+            if (!TryParseResolution(supportedResolution, out int width, out int height)
+                || width >= displayWidth
+                || height >= displayHeight)
+            {
+                continue;
+            }
+
+            int area = width * height;
+            if (area > largestSupportedArea)
+            {
+                largestSupportedResolution = supportedResolution;
+                largestSupportedArea = area;
+            }
+        }
+
+        return largestSupportedResolution ?? resolution;
+    }
+
+    private bool NormalizeWindowedResolutionForCurrentDisplay()
+    {
+        Resolution displayResolution = Screen.currentResolution;
+        string normalizedResolution = NormalizeResolutionForDisplay(
+            settings.resolution,
+            settings.screenMode,
+            displayResolution.width,
+            displayResolution.height);
+        if (normalizedResolution == settings.resolution)
+        {
+            return false;
+        }
+
+        settings.resolution = normalizedResolution;
+        return true;
+    }
+
     private void ApplyResolution()
     {
         if (string.IsNullOrWhiteSpace(settings.resolution))
@@ -386,6 +439,12 @@ public class SettingsManager : MonoBehaviour
         }
 
         if (!TryParseResolution(settings.resolution, out int width, out int height))
+        {
+            return;
+        }
+
+        NormalizeWindowedResolutionForCurrentDisplay();
+        if (!TryParseResolution(settings.resolution, out width, out height))
         {
             return;
         }
