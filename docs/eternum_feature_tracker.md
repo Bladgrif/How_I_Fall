@@ -4,7 +4,7 @@
 
 Краткая карта того, **что реально существует в текущем HIF**, чтобы исследования и новые задачи не создавали дублирующие системы. При конфликте с этим файлом сначала проверить current master, production code и tests; затем обновить tracker.
 
-Источник текущего состояния: `master` на `e6a1da9d5ddad8d80a1844ee4486512788cd2b25`. Polished Functional Demo функционально собрана; новые работы начинаются только от воспроизведённого дефекта, явного product decision или предоставленного story/content need.
+Трекер синхронизирован с состоянием проекта после UX audit на `e6a1da9d5ddad8d80a1844ee4486512788cd2b25`. Polished Functional Demo функционально собрана; новые работы начинаются только от воспроизведённого дефекта, явного product decision или предоставленного story/content need.
 
 Текущая фаза: **Polished Functional Demo First**. Сюжет, canonical routes/flags, финальный art и final visual identity сейчас не являются приоритетом.
 
