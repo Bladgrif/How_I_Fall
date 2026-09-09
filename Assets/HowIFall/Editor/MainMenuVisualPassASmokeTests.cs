@@ -26,6 +26,7 @@ public static class MainMenuVisualPassASmokeTests
         Require(controller.ApplyPlayerFacingPresentation(), "Main Menu visual presentation could not be applied.");
 
         VerifyFinalActionSet(controller);
+        VerifyTemporaryMenuMusicAssignment();
         VerifyDynamicPrimaryAction(controller);
         VerifyNavigationLayout(controller);
         VerifyNavigationPanel(controller);
@@ -47,6 +48,18 @@ public static class MainMenuVisualPassASmokeTests
             "Main Menu must expose exactly five player-facing actions.");
     }
 
+    private static void VerifyTemporaryMenuMusicAssignment()
+    {
+        MainMenuMusicPlayer musicPlayer = UnityEngine.Object.FindFirstObjectByType<MainMenuMusicPlayer>(FindObjectsInactive.Include);
+        Require(musicPlayer != null, "MainMenu must contain MainMenuMusicPlayer.");
+        Require(musicPlayer.musicClip != null, "MainMenuMusicPlayer must have a temporary menu music clip assigned.");
+
+        const string ExpectedMusicPath = "Assets/HowIFall/Audio/Music/HIF_TEMP_menu_ambient.wav";
+        Require(AssetDatabase.GetAssetPath(musicPlayer.musicClip) == ExpectedMusicPath,
+            "MainMenuMusicPlayer must reference the approved temporary menu AudioClip.");
+        Require(AssetDatabase.LoadAssetAtPath<AudioClip>(ExpectedMusicPath) == musicPlayer.musicClip,
+            "The approved temporary menu AudioClip must resolve to the serialized MainMenu reference.");
+    }
     private static void VerifyDynamicPrimaryAction(MainMenuController controller)
     {
         Button continueButton = controller.continueButton;

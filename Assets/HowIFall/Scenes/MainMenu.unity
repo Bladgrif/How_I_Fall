@@ -6228,7 +6228,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2eb5718499eb9294ea074146207f9cf2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MainMenuMusicPlayer
-  musicClip: {fileID: 0}
+  musicClip: {fileID: 8300000, guid: 9282c7544e8f9e54784fc9335767870a, type: 3}
 --- !u!114 &562018400
 MonoBehaviour:
   m_ObjectHideFlags: 0

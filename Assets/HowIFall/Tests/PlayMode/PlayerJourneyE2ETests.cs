@@ -197,6 +197,36 @@ namespace HowIFall.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator MainMenuMusicJourney_PersistsIntoConfiguredFirstDialogueScene()
+        {
+            MainMenuMusicPlayer musicPlayer = FindObject<MainMenuMusicPlayer>();
+            Assert.That(musicPlayer, Is.Not.Null, "Main Menu is missing MainMenuMusicPlayer.");
+            AudioClip expectedClip = musicPlayer.musicClip;
+            Assert.That(expectedClip, Is.Not.Null, "Main Menu music clip is not assigned.");
+
+            yield return WaitForCondition(
+                () => AudioManager.Instance != null
+                    && AudioManager.Instance.musicSource != null
+                    && AudioManager.Instance.musicSource.clip == expectedClip
+                    && AudioManager.Instance.musicSource.isPlaying,
+                "Main Menu did not start its assigned music clip through AudioManager.");
+
+            AudioManager menuAudioManager = AudioManager.Instance;
+            MainMenuController menu = FindObject<MainMenuController>();
+            Assert.That(menu, Is.Not.Null);
+            Click(menu.PlayerFacingActionButtons[1], "New Game with Main Menu music");
+            yield return WaitForGameplayReady();
+
+            Assert.That(VNDialogueController.Instance.sceneData, Is.Not.Null);
+            Assert.That(VNDialogueController.Instance.sceneData.sceneId, Is.EqualTo("classroom_first_lesson"));
+            Assert.That(AudioManager.Instance, Is.SameAs(menuAudioManager),
+                "New Game unexpectedly replaced the persistent AudioManager.");
+            Assert.That(AudioManager.Instance.musicSource.clip, Is.SameAs(expectedClip),
+                "The first classroom scene unexpectedly replaced the temporary Main Menu music clip.");
+            Assert.That(AudioManager.Instance.musicSource.isPlaying, Is.True,
+                "The temporary Main Menu music stopped before the first classroom scene.");
+        }
+        [UnityTest]
         public IEnumerator GameplayNavigationJourney_NewGameAndModalBackStackRestoreDialogueShell()
         {
             VNDialogueController dialogue = null;
