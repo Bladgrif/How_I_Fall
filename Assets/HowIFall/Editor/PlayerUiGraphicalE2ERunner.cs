@@ -58,6 +58,8 @@ public static class PlayerUiGraphicalE2ERunner
     };
 
     private const string LongReadingFixtureText = "Это длинная нейтральная реплика для проверки чтения на 1920×1080. При масштабе текста 125 % она переносится на несколько строк, остаётся внутри окна и не сталкивается с быстрым меню.";
+    private const string NamedSpeakerFixtureName = "TECH DEMO — Голос проверки";
+    private const string NamedSpeakerFixtureText = "TECH DEMO ONLY / NOT CANON: нейтральная реплика с видимым именем говорящего для проверки поверхности чтения.";
 
     static PlayerUiGraphicalE2ERunner()
     {
@@ -163,6 +165,9 @@ public static class PlayerUiGraphicalE2ERunner
                 case "WaitGameplay": WaitGameplay(); break;
                 case "CaptureQuickSaveFeedback": CaptureQuickSaveFeedback(); break;
                 case "PrepareLongDialogue": PrepareLongDialogue(); break;
+                case "PrepareNamedSpeakerDialogue": PrepareNamedSpeakerDialogue(); break;
+                case "CaptureNamedSpeakerResponsive": CaptureNamedSpeakerResponsive(); break;
+                case "RestoreAfterNamedSpeaker": RestoreAfterNamedSpeaker(); break;
                 case "OpenReadingChoices": OpenReadingChoices(); break;
                 case "OpenFourChoices": OpenFourChoices(); break;
                 case "VerifyFourthChoiceSlot": VerifyFourthChoiceSlot(); break;
@@ -613,7 +618,47 @@ public static class PlayerUiGraphicalE2ERunner
         LoadRuntimeFixture(dialogue, LongReadingFixtureText, new List<DialogueChoice>());
         SettingsManager.Instance.SetDialogueTextScale(1.25f);
         CompleteTyping(dialogue);
-        Capture("gameplay_dialogue_long_125pct_1920x1080.png", "OpenReadingChoices");
+        Capture("gameplay_dialogue_long_125pct_1920x1080.png", "PrepareNamedSpeakerDialogue");
+    }
+
+    private static void PrepareNamedSpeakerDialogue()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        LoadRuntimeFixture(dialogue, new List<DialogueLine>
+        {
+            new DialogueLine { lineId = "named_speaker_1", speaker = NamedSpeakerFixtureName, text = NamedSpeakerFixtureText }
+        }, new List<DialogueChoice>());
+        SettingsManager.Instance.SetDialogueTextScale(1f);
+        VerifyNamedSpeakerReadingState(dialogue);
+        Capture("gameplay_dialogue_named_speaker_1920x1080.png", "CaptureNamedSpeakerResponsive");
+    }
+
+    private static void CaptureNamedSpeakerResponsive()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for named-speaker proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VerifyNamedSpeakerReadingState(dialogue);
+        Capture("gameplay_dialogue_named_speaker_1280x720.png", "RestoreAfterNamedSpeaker");
+    }
+
+    private static void RestoreAfterNamedSpeaker()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 after named-speaker proof.");
+            return;
+        }
+
+        SessionState.SetString(StageKey, "OpenReadingChoices");
+        ResetCounter();
+        SetDelay(0.35d);
     }
 
     private static void OpenReadingChoices()
@@ -1275,6 +1320,60 @@ public static class PlayerUiGraphicalE2ERunner
             "Temporary title/chapter chrome remains visible in ordinary gameplay.");
         Require(dialogue.dialogueUiRoot != null && dialogue.dialogueUiRoot.activeInHierarchy,
             "Ordinary gameplay dialogue surface is unavailable.");
+    }
+
+    private static void VerifyNamedSpeakerReadingState(VNDialogueController dialogue)
+    {
+        VerifyReadingQuickMenuContract(dialogue);
+        Require(dialogue.nameBox != null && dialogue.nameBox.activeInHierarchy,
+            "Named-speaker fixture did not activate the name box.");
+        Require(dialogue.speakerText != null && dialogue.speakerText.isActiveAndEnabled
+            && dialogue.speakerText.text == NamedSpeakerFixtureName,
+            "Named-speaker fixture text is missing or unexpected.");
+        Require(dialogue.dialogueText != null && dialogue.dialogueText.isActiveAndEnabled
+            && dialogue.dialogueText.text.IndexOf(NamedSpeakerFixtureText, StringComparison.Ordinal) >= 0,
+            "Named-speaker dialogue text is missing or not visible.");
+
+        // The name box is intentionally attached above the dialogue box; the
+        // shared VN Root is the reading shell boundary for this composition.
+        Rect shell = GetScreenRect((RectTransform)dialogue.dialogueUiRoot.transform.parent);
+        Rect nameBox = GetScreenRect((RectTransform)dialogue.nameBox.transform);
+        Rect speaker = GetScreenRect(dialogue.speakerText.rectTransform);
+        Rect text = GetScreenRect(dialogue.dialogueText.rectTransform);
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Rect quickMenuRect = GetScreenRect((RectTransform)quickMenu.root.transform);
+
+        Require(Contains(shell, nameBox) && ContainsScreen(nameBox), "Named speaker/name box leaves the reading shell or screen.");
+        Require(Contains(shell, speaker) && ContainsScreen(speaker), "Speaker text leaves the intended reading shell or screen.");
+        Require(Contains(shell, text) && ContainsScreen(text), "Dialogue text leaves the intended reading shell or screen.");
+        Require(!nameBox.Overlaps(quickMenuRect) && !speaker.Overlaps(quickMenuRect) && !text.Overlaps(quickMenuRect),
+            "Named-speaker reading state overlaps the Quick Menu/read controls.");
+    }
+
+    private static Rect GetScreenRect(RectTransform rectTransform)
+    {
+        Vector3[] corners = new Vector3[4];
+        rectTransform.GetWorldCorners(corners);
+        Vector2 min = RectTransformUtility.WorldToScreenPoint(null, corners[0]);
+        Vector2 max = min;
+        for (int i = 1; i < corners.Length; i++)
+        {
+            Vector2 point = RectTransformUtility.WorldToScreenPoint(null, corners[i]);
+            min = Vector2.Min(min, point);
+            max = Vector2.Max(max, point);
+        }
+        return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+    }
+
+    private static bool Contains(Rect outer, Rect inner)
+    {
+        return outer.Contains(new Vector2(inner.xMin, inner.yMin))
+            && outer.Contains(new Vector2(inner.xMax, inner.yMax));
+    }
+
+    private static bool ContainsScreen(Rect rect)
+    {
+        return rect.xMin >= 0f && rect.yMin >= 0f && rect.xMax <= Screen.width && rect.yMax <= Screen.height;
     }
 
     private static GameObject FindNamedSceneObject(string objectName)
