@@ -20,9 +20,11 @@ public class VNDialogueController : MonoBehaviour
     private const string ChoiceConfigurationErrorText = "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0430.";
     private const string BacklogFallbackFontResourcePath = "Fonts & Materials/LiberationSans SDF - Fallback";
     private const string RuntimeBacklogFallbackFontName = "Runtime Backlog Cyrillic Fallback";
-    private const float ChoiceRowMinimumHeight = 54f;
-    private const float ChoiceRowMaximumHeight = 88f;
-    private const float ChoiceRowSpacing = 6f;
+    private const float ChoiceRowMinimumHeight = 60f;
+    private const float ChoiceRowMaximumHeight = 108f;
+    private const float ChoiceRowSpacing = 10f;
+    private const float ChoicePanelVerticalPadding = 28f;
+    private const float ChoicePanelHeaderHeight = 58f;
     public const int SupportedChoiceButtonCapacity = 4;
     private static readonly string[] TemporaryReadingChromeNames =
     {
@@ -2319,14 +2321,14 @@ public class VNDialogueController : MonoBehaviour
             if (label != null)
             {
                 label.alignment = TextAlignmentOptions.MidlineLeft;
-                label.margin = new Vector4(28f, 8f, 28f, 8f);
+                label.margin = new Vector4(34f, 10f, 34f, 10f);
                 label.enableWordWrapping = true;
                 label.overflowMode = TextOverflowModes.Overflow;
                 label.fontSize = Mathf.Max(label.fontSize, 20f);
             }
 
             RectTransform rect = button.transform as RectTransform;
-            float height = 54f;
+            float height = ChoiceRowMinimumHeight;
             if (rect != null && label != null)
             {
                 float textWidth = Mathf.Max(1f, rect.rect.width - label.margin.x - label.margin.z);
@@ -2345,7 +2347,32 @@ public class VNDialogueController : MonoBehaviour
         }
 
         RectTransform panelRect = choicePanel != null ? choicePanel.transform as RectTransform : null;
-        float currentTop = panelRect != null ? panelRect.rect.height * 0.5f - 22f : totalHeight * 0.5f;
+        if (panelRect != null)
+        {
+            panelRect.sizeDelta = new Vector2(
+                panelRect.sizeDelta.x,
+                totalHeight + ChoicePanelHeaderHeight + ChoicePanelVerticalPadding * 2f);
+
+            RectTransform titleRect = choicePanel.transform.Find("Choice Title") as RectTransform;
+            if (titleRect != null)
+            {
+                titleRect.anchoredPosition = new Vector2(
+                    titleRect.anchoredPosition.x,
+                    panelRect.rect.height * 0.5f - ChoicePanelVerticalPadding - titleRect.rect.height * 0.5f);
+
+                RectTransform underlineRect = choicePanel.transform.Find("Choice Title Red Underline") as RectTransform;
+                if (underlineRect != null)
+                {
+                    underlineRect.anchoredPosition = new Vector2(
+                        underlineRect.anchoredPosition.x,
+                        titleRect.anchoredPosition.y - titleRect.rect.height * 0.5f - 8f);
+                }
+            }
+        }
+
+        float currentTop = panelRect != null
+            ? panelRect.rect.height * 0.5f - ChoicePanelVerticalPadding - ChoicePanelHeaderHeight
+            : totalHeight * 0.5f;
         for (int i = 0; i < visibleButtons.Count; i++)
         {
             Button button = visibleButtons[i];
@@ -2563,7 +2590,7 @@ public class VNDialogueController : MonoBehaviour
             {
                 outline.effectColor = selected
                     ? new Color(0.58f, 0.90f, 1f, 0.96f)
-                    : new Color(0.44f, 0.78f, 0.98f, 0.32f);
+                    : new Color(0.44f, 0.78f, 0.98f, 0.14f);
                 outline.effectDistance = selected ? new Vector2(2f, -2f) : new Vector2(1f, -1f);
             }
 
@@ -2573,7 +2600,7 @@ public class VNDialogueController : MonoBehaviour
                 {
                     image.color = selected
                         ? new Color(0.48f, 0.86f, 1f, 1f)
-                        : new Color(0.34f, 0.72f, 0.94f, 0.72f);
+                        : new Color(0.34f, 0.72f, 0.94f, 0.32f);
                 }
             }
         }

@@ -112,7 +112,7 @@ public static class ReadingExperienceSmokeTests
         EventSystem.current = eventSystem;
         GameObject gameStateOwner = new GameObject("ReadingChoiceSmokeGameState", typeof(GameState));
         GameObject controllerOwner = new GameObject("ReadingChoiceSmokeController");
-        GameObject choicePanel = new GameObject("ReadingChoiceSmokePanel");
+        GameObject choicePanel = new GameObject("ReadingChoiceSmokePanel", typeof(RectTransform));
         GameObject nameBox = new GameObject("ReadingChoiceSmokeNameBox");
         GameObject dialogueTextOwner = new GameObject("ReadingChoiceSmokeText", typeof(RectTransform), typeof(TextMeshProUGUI));
         var temporaryAssets = new List<UnityEngine.Object>();
@@ -130,6 +130,9 @@ public static class ReadingExperienceSmokeTests
             controller.choiceMashaButton = CreateButton("ReadingChoiceSmokeOne");
             controller.choiceArtemButton = CreateButton("ReadingChoiceSmokeTwo");
             controller.choiceLeraButton = CreateButton("ReadingChoiceSmokeThree");
+            controller.choiceMashaButton.transform.SetParent(choicePanel.transform, false);
+            controller.choiceArtemButton.transform.SetParent(choicePanel.transform, false);
+            controller.choiceLeraButton.transform.SetParent(choicePanel.transform, false);
             fourthButton = UnityEngine.Object.Instantiate(controller.choiceLeraButton, choicePanel.transform);
             fourthButton.name = "Choice Runtime Slot 4";
             choicePanel.SetActive(false);
@@ -168,6 +171,11 @@ public static class ReadingExperienceSmokeTests
                 "Long fourth choice must retain complete text without semantic ellipsis.");
             Require(fourthLabel.text == threeChoices[3].text,
                 "Fourth choice label must retain the complete source text.");
+            RectTransform panelRect = choicePanel.transform as RectTransform;
+            RectTransform fourthRect = fourthButton.transform as RectTransform;
+            Require(panelRect.rect.yMin <= fourthRect.anchoredPosition.y - fourthRect.rect.height * 0.5f
+                && panelRect.rect.yMax >= fourthRect.anchoredPosition.y + fourthRect.rect.height * 0.5f,
+                "The adaptive choice panel must contain the full long fourth option.");
             InvokeChoose(controller, 3);
             Require(GameState.Instance.selectedChoiceIndex == 3 && GameState.Instance.trustMasha == 7,
                 "Fourth runtime slot must select source index 3 and keep its own delta.");
