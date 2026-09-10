@@ -237,6 +237,8 @@ public static class GameMenuSmokeTests
             Require(view.GetComponentsInChildren<Canvas>(true).Length == 0, "Game Menu must reuse the VN Canvas instead of creating another Canvas.");
             Require(view.GetComponent<Image>() != null && view.GetComponent<Image>().raycastTarget,
                 "Full-screen Game Menu root must block clicks to dialogue, choices, and Quick Menu underneath.");
+            Require(view.GetComponent<Image>().color.a >= 0.70f && view.GetComponent<Image>().color.a <= 0.80f,
+                "Game Menu dim layer must preserve readable scene context without losing modal contrast.");
 
             view.SetReplayMode(false);
             AssertVisibleActions(view, new[]

@@ -21,7 +21,7 @@ public enum VNGameMenuAction
 /// <summary>Runtime-built, scene-local presentation for the gameplay navigation menu.</summary>
 public sealed class VNGameMenuView : MonoBehaviour
 {
-    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.94f);
+    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.78f);
     private static readonly Color LeftWashColor = new Color(0.008f, 0.024f, 0.050f, 0.76f);
     private static readonly Color NavigationColor = new Color(0.025f, 0.060f, 0.105f, 0.94f);
     private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
