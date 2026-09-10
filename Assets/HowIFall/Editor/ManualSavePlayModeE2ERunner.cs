@@ -217,12 +217,19 @@ public static class ManualSavePlayModeE2ERunner
 
         menu.manualSaveLoadPanel.OpenLoad();
         Require(menu.manualSaveLoadPanel.slotViews.Length == SaveManager.SlotCount, "Load panel does not contain six slots.");
-        Require(!menu.manualSaveLoadPanel.slotViews[1].button.interactable, "Empty slot is interactable in Load mode.");
+        Require(menu.manualSaveLoadPanel.slotViews.All(view => !view.button.interactable),
+            "Empty Manual Load page left an interactive slot.");
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == menu.manualSaveLoadPanel.closeButton.gameObject,
             "Empty Main Menu Load did not select the safe Close control.");
-        UnityEngine.UI.Selectable emptyLoadDown = menu.manualSaveLoadPanel.manualTabButton.navigation.selectOnDown;
-        Require(emptyLoadDown == menu.manualSaveLoadPanel.closeButton,
-            "Empty Main Menu Load tab navigation points at a disabled slot.");
+        Button currentPage = menu.manualSaveLoadPanel.manualPageButtons[menu.manualSaveLoadPanel.CurrentManualPage - 1];
+        Require(currentPage.gameObject.activeSelf && currentPage.interactable,
+            "Current numeric page is not interactive on an empty Manual Load page.");
+        Require(menu.manualSaveLoadPanel.manualTabButton.navigation.selectOnDown == currentPage,
+            "Manual family navigation does not reach the current numeric page when all slots are empty.");
+        Require(menu.manualSaveLoadPanel.closeButton.navigation.selectOnRight == menu.manualSaveLoadPanel.manualTabButton,
+            "Close cannot reach Manual family navigation on an empty page.");
+        Require(currentPage.navigation.selectOnUp == menu.manualSaveLoadPanel.manualTabButton,
+            "Current numeric page cannot return to Manual family navigation.");
         menu.manualSaveLoadPanel.Close();
         Pass("Empty slot, safe initial focus and six-slot Main Menu UI");
 
