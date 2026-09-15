@@ -107,23 +107,28 @@ public sealed class DialogueBacklog
         var formattedEntries = new string[entries.Count];
         for (int i = 0; i < entries.Count; i++)
         {
-            formattedEntries[i] = FormatEntry(entries[i]);
+            formattedEntries[i] = FormatEntry(entries[i], i == entries.Count - 1);
         }
 
         return string.Join("\n\n", formattedEntries);
     }
 
-    private static string FormatEntry(DialogueBacklogEntry entry)
+    private static string FormatEntry(DialogueBacklogEntry entry, bool latest)
     {
         string text = EscapeRichText(entry.text);
+        string divider = latest
+            ? "<color=#75C9F2FF>----------------</color>"
+            : "<color=#31516B99>----------------</color>";
+        string textColor = latest ? "#F6FBFFFF" : "#E7EDF4E8";
 
         if (string.IsNullOrWhiteSpace(entry.speaker))
         {
-            return $"<size=24><color=#FFFFFFDB>{text}</color></size>";
+            return $"{divider}\n<size=30><color={textColor}>{text}</color></size>";
         }
 
         string speaker = EscapeRichText(entry.speaker);
-        return $"<size=22><b><color=#F2F2FFFF>{speaker}</color></b></size>\n<size=24><color=#FFFFFFDB>{text}</color></size>";
+        string speakerColor = latest ? "#8FD8FAFF" : "#AFC5D8FF";
+        return $"{divider}\n<size=22><b><color={speakerColor}>{speaker}</color></b></size>\n<size=30><color={textColor}>{text}</color></size>";
     }
 
     private static string EscapeRichText(string text)

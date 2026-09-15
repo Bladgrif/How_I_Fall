@@ -97,8 +97,8 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             accentRect.anchorMin = new Vector2(0f, 0.5f);
             accentRect.anchorMax = new Vector2(0f, 0.5f);
             accentRect.pivot = new Vector2(0f, 0.5f);
-            accentRect.anchoredPosition = new Vector2(0f, 0f);
-            accentRect.sizeDelta = new Vector2(6f, 24f);
+            accentRect.anchoredPosition = new Vector2(2f, 0f);
+            accentRect.sizeDelta = new Vector2(5f, 44f);
             focusAccent.raycastTarget = false;
         }
     }
@@ -238,7 +238,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         if (mainMenuActions != null)
         {
-            Apply(new Color(1f, 1f, 1f, 0.055f), Color.white);
+            Apply(new Color(0.18f, 0.38f, 0.54f, 0.035f), new Color(0.83f, 0.94f, 1f, 1f));
             return;
         }
         Apply(Color.clear, useRedFocusText
@@ -248,7 +248,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private void ApplyPressedState()
     {
-        Apply(mainMenuActions != null ? new Color(1f, 1f, 1f, 0.09f) : RolePressedBackground(), Color.white);
+        Apply(mainMenuActions != null ? new Color(0.18f, 0.38f, 0.54f, 0.10f) : RolePressedBackground(), Color.white);
     }
 
     private void ApplyDisabledState()
@@ -287,7 +287,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
         if (focusAccent != null)
         {
-            focusAccent.color = new Color(0.86f, 0.20f, 0.24f, 0.96f);
+            focusAccent.color = new Color(0.44f, 0.78f, 1f, 0.96f);
             focusAccent.gameObject.SetActive(!suppressFocusAccent && (isPointerInside || isSelected));
         }
     }
@@ -322,7 +322,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private Color RoleNormalText()
     {
-        if (mainMenuActions != null) return new Color(0.86f, 0.88f, 0.91f, 0.96f);
+        if (mainMenuActions != null) return new Color(0.80f, 0.84f, 0.89f, 0.94f);
         return role switch
         {
             MainMenuButtonVisualRole.Primary => Color.white,

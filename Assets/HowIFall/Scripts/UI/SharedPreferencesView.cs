@@ -30,12 +30,12 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         SkipUnseenId, SkipAfterChoicesId, AutosaveId, ShowQuickMenuId
     };
 
-    private static readonly Color WindowColor = new Color(0.045f, 0.060f, 0.075f, 0.94f);
-    private static readonly Color HeaderColor = new Color(0.065f, 0.082f, 0.100f, 0.72f);
+    private static readonly Color WindowColor = new Color(0.025f, 0.043f, 0.061f, 0.965f);
+    private static readonly Color HeaderColor = new Color(0.035f, 0.066f, 0.088f, 0.76f);
     private static readonly Color RowColor = Color.clear;
-    private static readonly Color FocusedRowColor = new Color(0.55f, 0.13f, 0.16f, 0.18f);
-    private static readonly Color ControlColor = new Color(0.12f, 0.145f, 0.17f, 0.88f);
-    private static readonly Color AccentColor = new Color(0.86f, 0.20f, 0.24f, 1f);
+    private static readonly Color FocusedRowColor = new Color(0.20f, 0.48f, 0.66f, 0.22f);
+    private static readonly Color ControlColor = new Color(0.045f, 0.105f, 0.14f, 0.92f);
+    private static readonly Color AccentColor = new Color(0.42f, 0.78f, 0.96f, 1f);
     private static readonly Color PrimaryText = new Color(0.97f, 0.98f, 1f, 1f);
     private static readonly Color SecondaryText = new Color(0.74f, 0.80f, 0.88f, 1f);
 
@@ -210,10 +210,10 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         windowRect.anchorMin = windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.pivot = new Vector2(0.5f, 0.5f);
         windowRect.anchoredPosition = Vector2.zero;
-        windowRect.sizeDelta = new Vector2(1240f, 740f);
+        windowRect.sizeDelta = new Vector2(1600f, 900f);
         window.AddComponent<Image>().color = WindowColor;
         Outline outline = window.AddComponent<Outline>();
-        outline.effectColor = new Color(0.62f, 0.16f, 0.19f, 0.42f);
+        outline.effectColor = new Color(0.34f, 0.66f, 0.82f, 0.46f);
         outline.effectDistance = new Vector2(1f, -1f);
         CreateHeader(window.transform);
         CreateFooter(window.transform);
@@ -225,21 +225,22 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     {
         GameObject header = CreateUi(window, "Header");
         RectTransform rect = header.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0f, 1f); rect.anchorMax = Vector2.one; rect.pivot = new Vector2(0.5f, 1f); rect.sizeDelta = new Vector2(0f, 68f);
+        rect.anchorMin = new Vector2(0f, 1f); rect.anchorMax = Vector2.one; rect.pivot = new Vector2(0.5f, 1f); rect.sizeDelta = new Vector2(0f, 96f);
         header.AddComponent<Image>().color = HeaderColor;
-        TextMeshProUGUI title = Text(header.transform, "Title", "НАСТРОЙКИ", 28f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
-        Stretch(title.rectTransform, 28f, 28f);
+        TextMeshProUGUI title = Text(header.transform, "Title", "НАСТРОЙКИ", 40f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
+        title.characterSpacing = 3f;
+        Stretch(title.rectTransform, 48f, 48f);
         GameObject accent = CreateUi(header.transform, "Accent");
         RectTransform accentRect = accent.GetComponent<RectTransform>();
         accentRect.anchorMin = new Vector2(0f, 0f); accentRect.anchorMax = new Vector2(1f, 0f); accentRect.pivot = new Vector2(0.5f, 0f); accentRect.sizeDelta = new Vector2(0f, 2f);
-        accent.AddComponent<Image>().color = new Color(0.86f, 0.20f, 0.24f, 0.76f);
+        accent.AddComponent<Image>().color = new Color(0.42f, 0.78f, 0.96f, 0.72f);
     }
 
     private void CreateFooter(Transform window)
     {
         GameObject footer = CreateUi(window, "Footer");
         RectTransform rect = footer.GetComponent<RectTransform>();
-        rect.anchorMin = Vector2.zero; rect.anchorMax = new Vector2(1f, 0f); rect.pivot = new Vector2(0.5f, 0f); rect.sizeDelta = new Vector2(0f, 68f);
+        rect.anchorMin = Vector2.zero; rect.anchorMax = new Vector2(1f, 0f); rect.pivot = new Vector2(0.5f, 0f); rect.sizeDelta = new Vector2(0f, 86f);
         footer.AddComponent<Image>().color = HeaderColor;
         RegisterHint(FooterButton(footer.transform, "reset", "СБРОСИТЬ", new Vector2(0f, 0.5f), new Vector2(24f, 0f)), "Вернуть значения черновика к рекомендуемым по умолчанию.");
         RegisterHint(FooterButton(footer.transform, "back", "НАЗАД", new Vector2(1f, 0.5f), new Vector2(-224f, 0f)), "Закрыть настройки без применения изменений черновика.");
@@ -249,24 +250,33 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     private void CreateContent(Transform window)
     {
         GameObject content = CreateUi(window, "Preferences Categories");
-        Stretch(content.GetComponent<RectTransform>(), 42f, 42f, 112f, 106f);
-        Transform rail = CreateColumn(content.transform, "Category Rail");
-        RectTransform railRect = (RectTransform)rail;
-        railRect.anchorMin = Vector2.zero; railRect.anchorMax = new Vector2(0f, 1f);
-        railRect.pivot = new Vector2(0f, 0.5f); railRect.sizeDelta = new Vector2(210f, 0f);
+        Stretch(content.GetComponent<RectTransform>(), 64f, 64f, 132f, 116f);
+        GameObject railObject = CreateUi(content.transform, "Category Tabs");
+        Transform rail = railObject.transform;
+        RectTransform railRect = railObject.GetComponent<RectTransform>();
+        railRect.anchorMin = new Vector2(0f, 1f); railRect.anchorMax = new Vector2(1f, 1f);
+        railRect.pivot = new Vector2(0.5f, 1f); railRect.anchoredPosition = Vector2.zero; railRect.sizeDelta = new Vector2(0f, 68f);
+        HorizontalLayoutGroup tabLayout = railObject.AddComponent<HorizontalLayoutGroup>();
+        tabLayout.spacing = 12f; tabLayout.childAlignment = TextAnchor.MiddleCenter;
+        tabLayout.childControlWidth = true; tabLayout.childControlHeight = true;
+        tabLayout.childForceExpandWidth = true; tabLayout.childForceExpandHeight = true;
         string[] names = { "Экран", "Звук", "Текст", "Игра" };
         for (int i = 0; i < names.Length; i++)
         {
             int index = i;
-            Button button = Button(rail, "Category " + i, names[i], 210f);
-            button.GetComponent<LayoutElement>().preferredHeight = 52f;
+            Button button = Button(rail, "Category " + i, names[i].ToUpperInvariant(), 280f);
+            button.GetComponent<LayoutElement>().preferredHeight = 58f;
+            TextMeshProUGUI tabLabel = button.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tabLabel != null) { tabLabel.fontSize = 18f; tabLabel.characterSpacing = 2f; }
+            Outline tabOutline = button.gameObject.AddComponent<Outline>();
+            tabOutline.effectDistance = new Vector2(1f, -1f);
             RegisterHint(button, CategoryHint(i));
             categoryButtons.Add(button);
             buttons["category_" + i] = button;
             button.onClick.AddListener(() => SelectCategory(index));
             Transform page = CreateColumn(content.transform, "Category Content " + i);
-            Stretch((RectTransform)page, 254f, 0f);
-            page.GetComponent<VerticalLayoutGroup>().spacing = 20f;
+            Stretch((RectTransform)page, 34f, 34f, 0f, 92f);
+            page.GetComponent<VerticalLayoutGroup>().spacing = 14f;
             categories.Add(page.gameObject);
             Section(page, names[i].ToUpperInvariant());
         }
@@ -301,8 +311,15 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         {
             categories[i].SetActive(i == index);
             categoryButtons[i].GetComponent<Image>().color = i == index
-                ? new Color(0.40f, 0.10f, 0.13f, 0.92f)
-                : new Color(0.09f, 0.11f, 0.14f, 0.62f);
+                ? new Color(0.10f, 0.28f, 0.38f, 0.96f)
+                : new Color(0.025f, 0.07f, 0.095f, 0.72f);
+            Outline tabOutline = categoryButtons[i].GetComponent<Outline>();
+            if (tabOutline != null)
+            {
+                tabOutline.effectColor = i == index
+                    ? new Color(0.48f, 0.84f, 1f, 0.82f)
+                    : new Color(0.22f, 0.40f, 0.52f, 0.18f);
+            }
         }
         Selectable[] controls = categories[index].GetComponentsInChildren<Selectable>()
             .Where(control => control.gameObject.activeInHierarchy).ToArray();
@@ -337,8 +354,8 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         GameObject hint = CreateUi(window, "Focused Control Hint");
         RectTransform rect = hint.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0f, 0f); rect.anchorMax = new Vector2(1f, 0f);
-        rect.pivot = new Vector2(0.5f, 0f); rect.anchoredPosition = new Vector2(0f, 70f);
-        rect.sizeDelta = new Vector2(-84f, 30f);
+        rect.pivot = new Vector2(0.5f, 0f); rect.anchoredPosition = new Vector2(0f, 88f);
+        rect.sizeDelta = new Vector2(-128f, 36f);
         Image background = hint.AddComponent<Image>();
         background.color = new Color(0.08f, 0.10f, 0.12f, 0.72f);
         contextualHintText = Text(hint.transform, "Text", "Выберите раздел, чтобы увидеть доступные параметры.", 14f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
@@ -399,9 +416,9 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
 
     private void Section(Transform parent, string value)
     {
-        TextMeshProUGUI text = Text(parent, "Section " + value, value, 17f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+        TextMeshProUGUI text = Text(parent, "Section " + value, value, 25f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
         text.color = new Color(0.54f, 0.78f, 1f, 1f);
-        LayoutElement layout = text.gameObject.AddComponent<LayoutElement>(); layout.minHeight = 30f; layout.preferredHeight = 30f;
+        LayoutElement layout = text.gameObject.AddComponent<LayoutElement>(); layout.minHeight = 44f; layout.preferredHeight = 44f;
     }
 
     private void CycleRow(Transform parent, string id, string label, IReadOnlyList<string> options, string hint)
@@ -468,9 +485,9 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         HorizontalLayoutGroup layout = row.AddComponent<HorizontalLayoutGroup>();
         layout.padding = new RectOffset(16, 16, 7, 7); layout.spacing = 18f; layout.childAlignment = TextAnchor.MiddleCenter;
         layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = false; layout.childForceExpandHeight = false;
-        LayoutElement rowLayout = row.AddComponent<LayoutElement>(); rowLayout.minHeight = 64f; rowLayout.preferredHeight = 64f;
-        TextMeshProUGUI labelText = Text(row.transform, "Label", label, 17f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); labelText.color = PrimaryText; labelText.enableWordWrapping = true; labelText.overflowMode = TextOverflowModes.Ellipsis;
-        LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>(); labelLayout.minWidth = 210f; labelLayout.flexibleWidth = 1f;
+        LayoutElement rowLayout = row.AddComponent<LayoutElement>(); rowLayout.minHeight = 76f; rowLayout.preferredHeight = 76f;
+        TextMeshProUGUI labelText = Text(row.transform, "Label", label, 20f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); labelText.color = PrimaryText; labelText.enableWordWrapping = true; labelText.overflowMode = TextOverflowModes.Ellipsis;
+        LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>(); labelLayout.minWidth = 300f; labelLayout.flexibleWidth = 1f;
         GameObject control = CreateUi(row.transform, "Control");
         HorizontalLayoutGroup controlLayout = control.AddComponent<HorizontalLayoutGroup>(); controlLayout.childAlignment = TextAnchor.MiddleRight; controlLayout.childControlWidth = true; controlLayout.childControlHeight = true; controlLayout.childForceExpandWidth = false; controlLayout.childForceExpandHeight = false;
         LayoutElement width = control.AddComponent<LayoutElement>(); width.preferredWidth = 300f; width.minWidth = 300f;

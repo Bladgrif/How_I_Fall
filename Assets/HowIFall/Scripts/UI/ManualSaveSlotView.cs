@@ -51,6 +51,33 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     public bool IsOccupied => isOccupied;
     public int GlobalSlotIndex => slotIndex;
 
+    public void ApplyStoryMomentLayout()
+    {
+        if (previewFrameImage != null)
+        {
+            RectTransform previewRect = previewFrameImage.rectTransform;
+            previewRect.anchoredPosition = new Vector2(0f, -92f);
+            previewRect.sizeDelta = new Vector2(446f, 158f);
+        }
+        if (sceneNameText != null)
+        {
+            sceneNameText.rectTransform.anchoredPosition = new Vector2(232f, 48f);
+            sceneNameText.rectTransform.sizeDelta = new Vector2(426f, 30f);
+            sceneNameText.fontSize = 20f;
+        }
+        if (slotNumberText != null)
+        {
+            slotNumberText.rectTransform.anchoredPosition = new Vector2(76f, 18f);
+            slotNumberText.fontSize = 14f;
+        }
+        if (dateText != null)
+        {
+            dateText.rectTransform.anchoredPosition = new Vector2(-130f, 18f);
+            dateText.fontSize = 14f;
+        }
+        if (emptyText != null) emptyText.fontSize = 20f;
+    }
+
     public void Initialize(ManualSaveLoadPanel owner, int index)
     {
         panel = owner;
@@ -147,6 +174,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     public void OnSelect(BaseEventData eventData)
     {
         hasEventSystemFocus = true;
+        panel?.OnSlotFocused(slotIndex);
         ApplyVisualState(true);
     }
 
@@ -159,6 +187,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     public void OnPointerEnter(PointerEventData eventData)
     {
         pointerInside = true;
+        panel?.OnSlotFocused(slotIndex);
     }
 
     public void OnPointerExit(PointerEventData eventData)

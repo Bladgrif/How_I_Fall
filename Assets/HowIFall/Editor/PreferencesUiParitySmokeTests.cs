@@ -97,16 +97,16 @@ public static class PreferencesUiParitySmokeTests
         Require(window != null
                 && window.anchorMin == new Vector2(0.5f, 0.5f)
                 && window.anchorMax == new Vector2(0.5f, 0.5f)
-                && window.sizeDelta.x >= 1150f && window.sizeDelta.x <= 1250f
-                && window.sizeDelta.y >= 680f && window.sizeDelta.y <= 760f,
-            "Shared Preferences must use the compact centered modal geometry at 1920x1080.");
+                && window.sizeDelta.x >= 1550f && window.sizeDelta.x <= 1650f
+                && window.sizeDelta.y >= 850f && window.sizeDelta.y <= 950f,
+            "Shared Preferences must use the approved large calm-panel geometry at 1920x1080.");
 
         Require(view.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 0,
             "All Preferences controls fit at 1920x1080 and must not be hidden behind a scroll viewport mask.");
         RectTransform columns = view.GetComponentsInChildren<RectTransform>(true)
             .FirstOrDefault(rect => rect.gameObject.name == "Preferences Categories");
         Require(columns != null && columns.childCount == 5,
-            "Shared Preferences must use one rail and four category pages at 1920x1080.");
+            "Shared Preferences must use one horizontal navigation strip and four category pages at 1920x1080.");
         LayoutRebuilder.ForceRebuildLayoutImmediate(columns);
         RectTransform viewport = window;
         for (int category = 0; category < 4; category++)

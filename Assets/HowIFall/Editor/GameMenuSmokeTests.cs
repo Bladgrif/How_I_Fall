@@ -237,8 +237,8 @@ public static class GameMenuSmokeTests
             Require(view.GetComponentsInChildren<Canvas>(true).Length == 0, "Game Menu must reuse the VN Canvas instead of creating another Canvas.");
             Require(view.GetComponent<Image>() != null && view.GetComponent<Image>().raycastTarget,
                 "Full-screen Game Menu root must block clicks to dialogue, choices, and Quick Menu underneath.");
-            Require(view.GetComponent<Image>().color.a >= 0.70f && view.GetComponent<Image>().color.a <= 0.80f,
-                "Game Menu dim layer must preserve readable scene context without losing modal contrast.");
+            Require(view.GetComponent<Image>().color.a >= 0.50f && view.GetComponent<Image>().color.a <= 0.60f,
+                "Game Menu dim layer must preserve the approved visible-scene context without losing modal contrast.");
 
             view.SetReplayMode(false);
             AssertVisibleActions(view, new[]
@@ -288,8 +288,8 @@ public static class GameMenuSmokeTests
             RectTransform saveLoadHost = view.SaveLoadContentHost;
             Require(saveLoadHost != null && !view.IsSaveLoadContentVisible,
                 "Save/Load content host must exist but remain hidden until a section is opened.");
-            Require(saveLoadHost.anchorMin.x > navigation.anchorMax.x && saveLoadHost.anchorMax.x == 1f,
-                "Save/Load content host must occupy only the right side of the shared shell.");
+            Require(saveLoadHost.anchorMin.x == 0f && saveLoadHost.anchorMax.x < navigation.anchorMin.x,
+                "Save/Load content host must occupy the scene-side region without overlapping the right navigation panel.");
             Require(view.GetComponentsInChildren<TextMeshProUGUI>(true).All(text => text.text != "НАВИГАЦИЯ"
                 && text.text != "Выберите раздел. Esc возвращает к игре."),
                 "Game Menu retained placeholder navigation copy.");

@@ -64,6 +64,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private Coroutine confirmationAnimation;
     private Coroutine statusAnimation;
     private RectTransform compactNavigationRoot;
+    private TextMeshProUGUI selectedSlotTitle;
+    private TextMeshProUGUI selectedSlotMetadata;
 
     public bool IsOpen => gameObject.activeSelf;
     public bool IsConfirmationOpen => confirmationRoot != null && confirmationRoot.activeSelf;
@@ -141,6 +143,8 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             }
         }
 
+        ConfigureStoryMomentPresentation();
+
         SetConfirmationVisible(false, true);
         ApplySlotTypePresentation();
     }
@@ -180,8 +184,88 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         compactNavigationRoot.anchorMin = new Vector2(0.5f, 0f);
         compactNavigationRoot.anchorMax = new Vector2(0.5f, 0f);
         compactNavigationRoot.pivot = new Vector2(0.5f, 0.5f);
-        compactNavigationRoot.anchoredPosition = new Vector2(0f, 64f);
-        compactNavigationRoot.sizeDelta = new Vector2(860f, 92f);
+        compactNavigationRoot.anchoredPosition = new Vector2(0f, 54f);
+        compactNavigationRoot.sizeDelta = new Vector2(1040f, 64f);
+    }
+
+    private void ConfigureStoryMomentPresentation()
+    {
+        if (windowRect == null || slotViews == null || slotViews.Length == 0)
+        {
+            return;
+        }
+
+        windowRect.sizeDelta = new Vector2(1680f, 960f);
+        RectTransform gridRect = slotViews[0] != null ? slotViews[0].transform.parent as RectTransform : null;
+        GridLayoutGroup grid = gridRect != null ? gridRect.GetComponent<GridLayoutGroup>() : null;
+        if (gridRect != null)
+        {
+            gridRect.anchorMin = gridRect.anchorMax = new Vector2(0.5f, 0.5f);
+            gridRect.anchoredPosition = new Vector2(0f, 54f);
+            gridRect.sizeDelta = new Vector2(1460f, 496f);
+        }
+        if (grid != null)
+        {
+            grid.cellSize = new Vector2(470f, 238f);
+            grid.spacing = new Vector2(25f, 20f);
+        }
+
+        foreach (ManualSaveSlotView view in slotViews)
+        {
+            view?.ApplyStoryMomentLayout();
+        }
+
+        Transform existing = windowRect.Find("Selected Story Moment");
+        GameObject summary = existing != null ? existing.gameObject : new GameObject(
+            "Selected Story Moment",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(Image),
+            typeof(Outline));
+        summary.layer = windowRect.gameObject.layer;
+        summary.transform.SetParent(windowRect, false);
+        RectTransform summaryRect = summary.GetComponent<RectTransform>();
+        summaryRect.anchorMin = summaryRect.anchorMax = new Vector2(0.5f, 0f);
+        summaryRect.pivot = new Vector2(0.5f, 0.5f);
+        summaryRect.anchoredPosition = new Vector2(0f, 174f);
+        summaryRect.sizeDelta = new Vector2(1460f, 124f);
+        Image summaryImage = summary.GetComponent<Image>();
+        summaryImage.color = new Color(0.018f, 0.050f, 0.075f, 0.92f);
+        summaryImage.raycastTarget = false;
+        Outline summaryOutline = summary.GetComponent<Outline>();
+        summaryOutline.effectColor = new Color(0.28f, 0.57f, 0.78f, 0.42f);
+        summaryOutline.effectDistance = new Vector2(1f, -1f);
+
+        selectedSlotTitle = CreateSummaryText(summary.transform, "Moment Title", 24f, FontStyles.Bold);
+        RectTransform titleRect = selectedSlotTitle.rectTransform;
+        titleRect.anchorMin = new Vector2(0f, 0.46f); titleRect.anchorMax = Vector2.one;
+        titleRect.offsetMin = new Vector2(28f, 0f); titleRect.offsetMax = new Vector2(-28f, -16f);
+        selectedSlotTitle.color = new Color(0.93f, 0.97f, 1f, 1f);
+
+        selectedSlotMetadata = CreateSummaryText(summary.transform, "Moment Metadata", 17f, FontStyles.Normal);
+        RectTransform metadataRect = selectedSlotMetadata.rectTransform;
+        metadataRect.anchorMin = Vector2.zero; metadataRect.anchorMax = new Vector2(1f, 0.46f);
+        metadataRect.offsetMin = new Vector2(28f, 12f); metadataRect.offsetMax = new Vector2(-28f, 0f);
+        selectedSlotMetadata.color = new Color(0.58f, 0.72f, 0.84f, 1f);
+        summary.transform.SetAsLastSibling();
+        if (confirmationRoot != null) confirmationRoot.transform.SetAsLastSibling();
+    }
+
+    private static TextMeshProUGUI CreateSummaryText(Transform parent, string name, float size, FontStyles style)
+    {
+        Transform existing = parent.Find(name);
+        GameObject owner = existing != null ? existing.gameObject : new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+        owner.layer = parent.gameObject.layer;
+        owner.transform.SetParent(parent, false);
+        TextMeshProUGUI text = owner.GetComponent<TextMeshProUGUI>();
+        text.font = TMP_Settings.defaultFontAsset;
+        text.fontSize = size;
+        text.fontStyle = style;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.enableWordWrapping = false;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.raycastTarget = false;
+        return text;
     }
 
     private void MoveToCompactNavigation(Button button)
@@ -853,7 +937,41 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             slotViews[i]?.Render(slot, mode == PanelMode.Save, localSlotIndex);
         }
 
+        ManualSaveSlotView focusedView = slotViews.FirstOrDefault(view => view != null && view.HasEventSystemFocus)
+            ?? slotViews.FirstOrDefault(view => view != null && view.IsLoadable)
+            ?? slotViews.FirstOrDefault(view => view != null);
+        if (focusedView != null)
+        {
+            OnSlotFocused(focusedView.GlobalSlotIndex);
+        }
+
         ConfigureNavigation();
+    }
+
+    public void OnSlotFocused(int slotIndex)
+    {
+        if (selectedSlotTitle == null || selectedSlotMetadata == null || slotIndex <= 0)
+        {
+            return;
+        }
+
+        SaveManager saveManager = ResolveSaveManager();
+        SaveSlotInfo slot = saveManager != null ? saveManager.GetSlot(currentSlotType, slotIndex) : null;
+        string family = currentSlotType switch
+        {
+            SaveSlotType.Auto => "АВТО",
+            SaveSlotType.Quick => "БЫСТРОЕ",
+            _ => "РУЧНОЕ"
+        };
+        if (slot != null && slot.IsLoadable)
+        {
+            selectedSlotTitle.text = slot.DisplayName;
+            selectedSlotMetadata.text = $"{family}  ·  СЛОТ {slot.SlotIndex:00}  ·  {slot.DisplayDate}";
+            return;
+        }
+
+        selectedSlotTitle.text = slot != null && slot.IsOccupied ? "Сохранение недоступно" : "Свободный момент истории";
+        selectedSlotMetadata.text = $"{family}  ·  СЛОТ {slotIndex:00}";
     }
 
     private void SelectSlotType(SaveSlotType slotType)
@@ -894,11 +1012,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         SetButtonLabel(autoTabButton, currentSlotType == SaveSlotType.Auto ? "АВТОСОХРАНЕНИЯ" : "АВТО");
         SetButtonLabel(quickTabButton, currentSlotType == SaveSlotType.Quick ? "БЫСТРЫЕ СОХРАНЕНИЯ" : "БЫСТРЫЕ");
 
-        SetCompactButtonLayout(manualTabButton, loadMode ? -190f : 0f, loadMode ? 160f : 170f, 22f);
-        SetCompactButtonLayout(autoTabButton, 0f, currentSlotType == SaveSlotType.Auto ? 200f : 130f, 22f);
-        SetCompactButtonLayout(quickTabButton, 190f, currentSlotType == SaveSlotType.Quick ? 220f : 150f, 22f);
-        SetCompactButtonLayout(previousManualPageButton, -276f, 40f, -22f);
-        SetCompactButtonLayout(nextManualPageButton, 276f, 40f, -22f);
+        SetCompactButtonLayout(manualTabButton, loadMode ? -250f : 0f, loadMode ? 200f : 220f, 15f);
+        SetCompactButtonLayout(autoTabButton, 0f, currentSlotType == SaveSlotType.Auto ? 230f : 160f, 15f);
+        SetCompactButtonLayout(quickTabButton, 250f, currentSlotType == SaveSlotType.Quick ? 250f : 180f, 15f);
+        SetCompactButtonLayout(previousManualPageButton, -330f, 40f, -17f);
+        SetCompactButtonLayout(nextManualPageButton, 330f, 40f, -17f);
         ConfigureManualPageButtons(manualActive);
 
         if (previousManualPageButton != null)
@@ -940,7 +1058,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             pageButton.gameObject.SetActive(manualActive && page <= SaveManager.ManualPageCount);
             pageButton.interactable = page <= SaveManager.ManualPageCount;
             SetButtonLabel(pageButton, page.ToString());
-            SetCompactButtonLayout(pageButton, (index - (SaveManager.ManualPageCount - 1) * 0.5f) * 48f, 40f, -22f);
+            SetCompactButtonLayout(pageButton, (index - (SaveManager.ManualPageCount - 1) * 0.5f) * 48f, 40f, -17f);
             SetPageVisual(pageButton, page == currentManualPage);
         }
     }
@@ -1266,15 +1384,9 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
     private Vector3 GetWindowPresentationScale()
     {
-        if (windowRect == null || Screen.width <= 0 || Screen.height <= 0)
-        {
-            return Vector3.one;
-        }
-
-        const float viewportMargin = 24f;
-        float widthScale = Mathf.Max(0.1f, (Screen.width - viewportMargin * 2f) / windowRect.rect.width);
-        float heightScale = Mathf.Max(0.1f, (Screen.height - viewportMargin * 2f) / windowRect.rect.height);
-        return Vector3.one * Mathf.Min(1f, widthScale, heightScale);
+        // Both player canvases already use Scale With Screen Size at 1920x1080.
+        // A second screen-space scale here would shrink the panel twice at 1280x720.
+        return Vector3.one;
     }
 
     private bool HasOperationInProgress()

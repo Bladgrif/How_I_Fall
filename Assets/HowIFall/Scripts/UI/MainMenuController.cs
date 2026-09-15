@@ -142,11 +142,11 @@ public sealed class MainMenuController : MonoBehaviour
 
     private void ApplyMainNavigationLayout(Transform[] orderedRows)
     {
-        // Keep the compact navigation column visually connected to the logo while
-        // leaving the authored background as the dominant title-screen element.
-        // A deliberately quiet type-led stack: it leaves the background and logo
-        // room to breathe, but keeps the routes easy to scan from a sofa distance.
-        float[] verticalPositions = { 232f, 168f, 104f, 40f, -56f };
+        // Treat navigation as large title typography laid over the illustration,
+        // rather than a stack of conventional Unity buttons. The asymmetrical
+        // left composition preserves the authored focal point and leaves the
+        // bright centre/right of the scene deliberately quiet.
+        float[] verticalPositions = { 126f, 42f, -42f, -126f, -238f };
         for (int index = 0; index < orderedRows.Length; index++)
         {
             RectTransform row = orderedRows[index] as RectTransform;
@@ -157,8 +157,8 @@ public sealed class MainMenuController : MonoBehaviour
 
             row.anchorMin = row.anchorMax = new Vector2(0f, 0.5f);
             row.pivot = new Vector2(0f, 0.5f);
-            row.anchoredPosition = new Vector2(220f, verticalPositions[index]);
-            row.sizeDelta = new Vector2(332f, 52f);
+            row.anchoredPosition = new Vector2(176f, verticalPositions[index]);
+            row.sizeDelta = new Vector2(470f, 66f);
 
             RectTransform buttonRect = playerFacingActionButtons[index].transform as RectTransform;
             if (buttonRect != null)
@@ -240,8 +240,8 @@ public sealed class MainMenuController : MonoBehaviour
         panel.SetAsFirstSibling();
         panel.anchorMin = panel.anchorMax = new Vector2(0f, 0.5f);
         panel.pivot = new Vector2(0f, 0.5f);
-        panel.anchoredPosition = new Vector2(184f, 92f);
-        panel.sizeDelta = new Vector2(388f, 410f);
+        panel.anchoredPosition = new Vector2(150f, -42f);
+        panel.sizeDelta = new Vector2(520f, 520f);
 
         Image panelImage = panel.GetComponent<Image>();
         panelImage.sprite = null;
@@ -287,8 +287,8 @@ public sealed class MainMenuController : MonoBehaviour
         RectTransform logoRect = logo as RectTransform;
         logoRect.anchorMin = logoRect.anchorMax = new Vector2(0f, 1f);
         logoRect.pivot = new Vector2(0f, 1f);
-        logoRect.anchoredPosition = new Vector2(184f, -64f);
-        logoRect.sizeDelta = new Vector2(360f, 160f);
+        logoRect.anchoredPosition = new Vector2(104f, -48f);
+        logoRect.sizeDelta = new Vector2(560f, 248f);
         logoRect.localRotation = Quaternion.identity;
         logoImage.color = Color.white;
         logoImage.preserveAspect = true;
@@ -760,7 +760,12 @@ public sealed class MainMenuController : MonoBehaviour
         if (tmpLabel != null)
         {
             tmpLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            tmpLabel.fontSize = 22f;
+            tmpLabel.fontSize = 40f;
+            tmpLabel.fontStyle = FontStyles.Normal;
+            tmpLabel.characterSpacing = 1.5f;
+            Shadow textShadow = tmpLabel.GetComponent<Shadow>() ?? tmpLabel.gameObject.AddComponent<Shadow>();
+            textShadow.effectColor = new Color(0.005f, 0.012f, 0.02f, 0.66f);
+            textShadow.effectDistance = new Vector2(2f, -2f);
             tmpLabel.enableAutoSizing = false;
             ApplyLabelPadding(tmpLabel.rectTransform);
             return;
@@ -770,7 +775,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (label != null)
         {
             label.alignment = TextAnchor.MiddleLeft;
-            label.fontSize = 22;
+            label.fontSize = 40;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
             ApplyLabelPadding(label.rectTransform);
@@ -786,7 +791,7 @@ public sealed class MainMenuController : MonoBehaviour
 
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(18f, 0f);
+        labelRect.offsetMin = new Vector2(28f, 0f);
         labelRect.offsetMax = new Vector2(-18f, 0f);
     }
 

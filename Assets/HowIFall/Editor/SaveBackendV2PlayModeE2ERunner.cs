@@ -668,6 +668,11 @@ public static class SaveBackendV2PlayModeE2ERunner
 
         Require(Screen.width == responsiveResolution.x && Screen.height == responsiveResolution.y,
             "Game View did not switch to 1280x720 for Save/Load responsive proof.");
+        // CanvasScaler updates after the Game View reports its new dimensions.
+        // Give the shared panel one full layout frame before measuring bounds.
+        yield return null;
+        Canvas.ForceUpdateCanvases();
+        yield return new WaitForEndOfFrame();
         VerifyTabPresentation(panel, manager, SaveSlotType.Manual, false);
         VerifyTabsLayout(panel, responsiveResolution);
         VerifyManualPaginationLayout(panel, responsiveResolution);

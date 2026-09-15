@@ -2237,8 +2237,8 @@ public class VNDialogueController : MonoBehaviour
         }
 
         backlogText.alignment = TextAlignmentOptions.TopLeft;
-        backlogText.margin = new Vector4(10f, 12f, 40f, 12f);
-        backlogText.lineSpacing = 8f;
+        backlogText.margin = new Vector4(22f, 18f, 54f, 22f);
+        backlogText.lineSpacing = 12f;
         backlogText.enableWordWrapping = true;
         backlogText.overflowMode = TextOverflowModes.Overflow;
         TMP_FontAsset fallbackFont = GetRuntimeBacklogFallbackFont();
@@ -2250,6 +2250,39 @@ public class VNDialogueController : MonoBehaviour
         {
             backlogText.font = fallbackFont;
             backlogText.fontSharedMaterial = fallbackFont.material;
+        }
+
+        if (backlogPanel != null)
+        {
+            RectTransform panelRect = backlogPanel.transform as RectTransform;
+            if (panelRect != null)
+            {
+                panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+                panelRect.pivot = new Vector2(0.5f, 0.5f);
+                panelRect.anchoredPosition = Vector2.zero;
+                panelRect.sizeDelta = new Vector2(1640f, 880f);
+            }
+            TextMeshProUGUI title = backlogPanel.GetComponentsInChildren<TextMeshProUGUI>(true)
+                .FirstOrDefault(candidate => candidate.gameObject.name == "History Title");
+            if (title != null)
+            {
+                RectTransform titleRect = title.rectTransform;
+                titleRect.anchorMin = titleRect.anchorMax = new Vector2(0f, 1f);
+                titleRect.pivot = new Vector2(0f, 1f);
+                titleRect.anchoredPosition = new Vector2(64f, -34f);
+                titleRect.sizeDelta = new Vector2(520f, 64f);
+                title.fontSize = 42f;
+                title.fontStyle = FontStyles.Normal;
+                title.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+            ScrollRect historyScroll = backlogPanel.GetComponentInChildren<ScrollRect>(true);
+            if (historyScroll != null && historyScroll.transform is RectTransform historyRect)
+            {
+                historyRect.anchorMin = Vector2.zero;
+                historyRect.anchorMax = Vector2.one;
+                historyRect.offsetMin = new Vector2(64f, 78f);
+                historyRect.offsetMax = new Vector2(-48f, -150f);
+            }
         }
 
         if (backlogCloseButton != null)
@@ -2807,11 +2840,15 @@ public class VNDialogueController : MonoBehaviour
             readingPresentationInitialized = true;
         }
 
-        // The authored 90 px text area clips several ordinary lines at 125%.
-        // Reserve height rather than weakening the existing accessibility setting.
-        boxRect.sizeDelta = new Vector2(dialogueBaseBoxSize.x, Mathf.Max(dialogueBaseBoxSize.y, 360f));
-        textRect.sizeDelta = new Vector2(dialogueBaseTextSize.x, -80f);
-        dialogueText.margin = new Vector4(4f, 12f, 4f, 8f);
+        // A deliberately asymmetrical reading column keeps the image visible and
+        // removes the full-width "HUD bar" feeling while retaining the 125% text
+        // capacity and the existing opacity/readability controls.
+        boxRect.anchorMin = boxRect.anchorMax = new Vector2(0f, 0f);
+        boxRect.pivot = new Vector2(0f, 0f);
+        boxRect.anchoredPosition = new Vector2(86f, 88f);
+        boxRect.sizeDelta = new Vector2(1240f, Mathf.Max(dialogueBaseBoxSize.y, 340f));
+        textRect.sizeDelta = new Vector2(-104f, -76f);
+        dialogueText.margin = new Vector4(16f, 14f, 20f, 10f);
         dialogueText.alignment = TextAlignmentOptions.TopLeft;
         dialogueText.lineSpacing = 5f;
         dialogueText.enableWordWrapping = true;
@@ -2821,7 +2858,7 @@ public class VNDialogueController : MonoBehaviour
         if (dialogueBoxBackground != null)
         {
             Color textboxColor = dialogueBoxBackground.color;
-            dialogueBoxBackground.color = new Color(0.025f, 0.035f, 0.05f, textboxColor.a);
+            dialogueBoxBackground.color = new Color(0.018f, 0.030f, 0.045f, textboxColor.a);
         }
 
         if (nameBox != null)
@@ -2829,20 +2866,23 @@ public class VNDialogueController : MonoBehaviour
             RectTransform nameRect = nameBox.transform as RectTransform;
             if (nameRect != null)
             {
-                nameRect.sizeDelta = new Vector2(280f, 52f);
-                nameRect.anchoredPosition = new Vector2(38f, 24f);
+                nameRect.sizeDelta = new Vector2(500f, 56f);
+                nameRect.anchoredPosition = new Vector2(18f, 18f);
             }
 
             Image nameBackground = nameBox.GetComponent<Image>();
             if (nameBackground != null)
             {
-                nameBackground.color = new Color(0.025f, 0.035f, 0.05f, 0.94f);
+                nameBackground.color = new Color(0.018f, 0.030f, 0.045f, 0.72f);
             }
         }
 
         if (speakerText != null)
         {
-            speakerText.fontStyle = FontStyles.Bold;
+            speakerText.fontStyle = FontStyles.Normal;
+            speakerText.enableAutoSizing = true;
+            speakerText.fontSizeMin = 18f;
+            speakerText.fontSizeMax = 26f;
             speakerText.color = new Color(0.74f, 0.90f, 1f, 1f);
             speakerText.alignment = TextAlignmentOptions.Left;
         }

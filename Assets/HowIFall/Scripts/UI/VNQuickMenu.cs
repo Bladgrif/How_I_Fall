@@ -19,8 +19,8 @@ public sealed class VNQuickMenu : MonoBehaviour
     public Button mainMenuButton;
 
     private const float MinimumDialogueSpacing = 12f;
-    private static readonly Color NormalColor = new Color(0.035f, 0.07f, 0.11f, 0.90f);
-    private static readonly Color ActiveColor = new Color(0.055f, 0.16f, 0.23f, 0.96f);
+    private static readonly Color NormalColor = new Color(0.02f, 0.045f, 0.07f, 0.34f);
+    private static readonly Color ActiveColor = new Color(0.055f, 0.18f, 0.24f, 0.88f);
 
     private bool hiddenBySpecialMode;
     private bool hiddenByPlayer;
@@ -148,6 +148,16 @@ public sealed class VNQuickMenu : MonoBehaviour
             autoButton,
             quickSaveButton
         };
+        RectTransform rootRect = root != null ? root.transform as RectTransform : null;
+        if (rootRect != null)
+        {
+            rootRect.anchorMin = rootRect.anchorMax = new Vector2(1f, 0f);
+            rootRect.pivot = new Vector2(1f, 0f);
+            rootRect.anchoredPosition = new Vector2(-34f, 22f);
+            rootRect.sizeDelta = new Vector2(430f, 32f);
+        }
+        HorizontalLayoutGroup rootLayout = root != null ? root.GetComponent<HorizontalLayoutGroup>() : null;
+        if (rootLayout != null) rootLayout.spacing = 10f;
         for (int index = 0; index < ordered.Length; index++)
         {
             Button button = ordered[index];
@@ -409,18 +419,18 @@ public sealed class VNQuickMenu : MonoBehaviour
         }
 
         Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.24f);
+        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.10f);
         outline.effectDistance = new Vector2(1f, -1f);
 
         TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
         if (label != null)
         {
-            label.fontSize = Mathf.Max(label.fontSize, 16f);
-            label.fontStyle = FontStyles.Bold;
+            label.fontSize = 13f;
+            label.fontStyle = FontStyles.Normal;
             RectTransform rect = button.transform as RectTransform;
             if (rect != null)
             {
-                float width = Mathf.Clamp(label.GetPreferredValues(label.text).x + 28f, 88f, 142f);
+                float width = Mathf.Clamp(label.GetPreferredValues(label.text).x + 22f, 68f, 112f);
                 rect.sizeDelta = new Vector2(width, rect.sizeDelta.y);
             }
         }

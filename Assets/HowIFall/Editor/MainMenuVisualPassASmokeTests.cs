@@ -123,10 +123,10 @@ public static class MainMenuVisualPassASmokeTests
             }
         }
 
-        Require(gaps.All(gap => gap >= 8f && gap <= 12f) || gaps[3] > gaps[2],
-            "Main Menu actions must use compact spacing with Quit visibly separated.");
-        Require(gaps.Take(3).All(gap => gap >= 8f && gap <= 12f),
-            "The first four Main Menu actions must use consistent compact spacing.");
+        Require(gaps.All(gap => gap >= 16f && gap <= 20f) || gaps[3] > gaps[2],
+            "Main Menu actions must use a readable typography-led rhythm with Quit visibly separated.");
+        Require(gaps.Take(3).All(gap => gap >= 16f && gap <= 20f),
+            "The first four Main Menu actions must use consistent spacious typography-led spacing.");
         Require(gaps[3] > gaps[2], "Quit must be visually separated from the main action group.");
 
         foreach (RectTransform row in rows)
@@ -215,9 +215,9 @@ public static class MainMenuVisualPassASmokeTests
             .ToArray();
         Require(rows.All(row => row.anchoredPosition.x >= 176f && row.anchoredPosition.x <= 224f),
             "Main Menu actions must stay in the left visual column.");
-        Require(rows.All(row => row.sizeDelta.x >= 280f && row.sizeDelta.x <= 340f
-                && row.sizeDelta.y >= 44f && row.sizeDelta.y <= 52f),
-            "Main Menu actions must use compact 1920x1080 button geometry.");
+        Require(rows.All(row => row.sizeDelta.x >= 450f && row.sizeDelta.x <= 490f
+                && row.sizeDelta.y >= 62f && row.sizeDelta.y <= 70f),
+            "Main Menu actions must use the approved large typography-led 1920x1080 geometry.");
 
         CanvasScaler scaler = UnityEngine.Object.FindFirstObjectByType<CanvasScaler>(FindObjectsInactive.Include);
         Require(scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize,

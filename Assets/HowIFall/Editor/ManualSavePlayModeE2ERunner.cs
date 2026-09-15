@@ -28,6 +28,7 @@ public static class ManualSavePlayModeE2ERunner
     private const string LoadConfirmationProofFileName = "gameplay_load_confirmation_1920x1080.png";
     private const string InvalidSaveProofFileName = "gameplay_invalid_save_slot_1920x1080.png";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
+    private static readonly Vector2Int CompactQaResolution = new Vector2Int(1280, 720);
 
     static ManualSavePlayModeE2ERunner()
     {
@@ -120,6 +121,12 @@ public static class ManualSavePlayModeE2ERunner
                 break;
             case "WaitUiScreenshot":
                 WaitUiScreenshot();
+                break;
+            case "CaptureCompactUiResolution":
+                CaptureCompactUiResolution();
+                break;
+            case "WaitCompactUiScreenshot":
+                WaitCompactUiScreenshot();
                 break;
             case "WaitMainLoadScreenshot":
                 WaitMainLoadScreenshot();
@@ -386,6 +393,59 @@ public static class ManualSavePlayModeE2ERunner
         }
 
         VerifyImageDimensions(path, resolution.x, resolution.y, "UI screenshot");
+        Pass($"Save UI layout and screenshot {resolution.x}x{resolution.y}");
+
+        ConfigureGameViewResolution(CompactQaResolution);
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureCompactUiResolution");
+        SetDelay(0.5d);
+    }
+
+    private static void CaptureCompactUiResolution()
+    {
+        Vector2Int resolution = CompactQaResolution;
+        if (Screen.width != resolution.x || Screen.height != resolution.y)
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 40, $"Game View did not switch to {resolution.x}x{resolution.y}; actual {Screen.width}x{Screen.height}.");
+            ConfigureGameViewResolution(resolution);
+            SetDelay(0.2d);
+            return;
+        }
+
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen, "Save panel closed before compact UI screenshot capture.");
+        VerifyPanelLayout(panel, resolution);
+        Canvas.ForceUpdateCanvases();
+
+        string path = GetUiScreenshotPath(resolution);
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+
+        ScreenCapture.CaptureScreenshot(path);
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "WaitCompactUiScreenshot");
+        SetDelay(0.25d);
+    }
+
+    private static void WaitCompactUiScreenshot()
+    {
+        Vector2Int resolution = CompactQaResolution;
+        string path = GetUiScreenshotPath(resolution);
+        if (!File.Exists(path) || new FileInfo(path).Length == 0)
+        {
+            int attempts = SessionState.GetInt(CounterKey, 0) + 1;
+            SessionState.SetInt(CounterKey, attempts);
+            Require(attempts < 80, $"UI screenshot was not written for {resolution.x}x{resolution.y}.");
+            SetDelay(0.1d);
+            return;
+        }
+
+        VerifyImageDimensions(path, resolution.x, resolution.y, "compact UI screenshot");
         Pass($"Save UI layout and screenshot {resolution.x}x{resolution.y}");
 
         ConfigureGameViewResolution(QaResolution);
@@ -997,7 +1057,8 @@ public static class ManualSavePlayModeE2ERunner
         Require(cardRects.Length == SaveManager.SlotCount, "Layout validation did not find six cards.");
         foreach (Rect rect in cardRects)
         {
-            Require(rect.width > 200f && rect.height > 140f, $"Save card collapsed at {resolution.x}x{resolution.y}.");
+            Require(rect.width > 200f && rect.height > 140f,
+                $"Save card collapsed at {resolution.x}x{resolution.y}: {rect.width:0.0}x{rect.height:0.0}.");
             Require(rect.xMin >= 0f && rect.yMin >= 0f && rect.xMax <= Screen.width && rect.yMax <= Screen.height, $"Save card is outside screen at {resolution.x}x{resolution.y}.");
         }
 

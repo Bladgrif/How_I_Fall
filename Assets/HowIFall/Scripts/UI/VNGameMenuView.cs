@@ -21,9 +21,9 @@ public enum VNGameMenuAction
 /// <summary>Runtime-built, scene-local presentation for the gameplay navigation menu.</summary>
 public sealed class VNGameMenuView : MonoBehaviour
 {
-    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.78f);
-    private static readonly Color LeftWashColor = new Color(0.008f, 0.024f, 0.050f, 0.76f);
-    private static readonly Color NavigationColor = new Color(0.025f, 0.060f, 0.105f, 0.94f);
+    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.54f);
+    private static readonly Color LeftWashColor = new Color(0.008f, 0.024f, 0.050f, 0.86f);
+    private static readonly Color NavigationColor = new Color(0.018f, 0.050f, 0.082f, 0.90f);
     private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
 
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
@@ -171,10 +171,10 @@ public sealed class VNGameMenuView : MonoBehaviour
         dim.color = OverlayColor;
         dim.raycastTarget = true;
 
-        GameObject leftWash = CreateSurface(root.transform, "Left Background Wash", LeftWashColor);
+        GameObject leftWash = CreateSurface(root.transform, "Right Background Wash", LeftWashColor);
         RectTransform leftWashRect = leftWash.GetComponent<RectTransform>();
-        leftWashRect.anchorMin = Vector2.zero;
-        leftWashRect.anchorMax = new Vector2(0.38f, 1f);
+        leftWashRect.anchorMin = new Vector2(0.72f, 0f);
+        leftWashRect.anchorMax = Vector2.one;
         leftWashRect.offsetMin = Vector2.zero;
         leftWashRect.offsetMax = Vector2.zero;
 
@@ -196,8 +196,8 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         GameObject host = CreateUiObject(window, "Save Load Content Host");
         saveLoadContentHost = host.GetComponent<RectTransform>();
-        saveLoadContentHost.anchorMin = new Vector2(0.31f, 0.02f);
-        saveLoadContentHost.anchorMax = new Vector2(1f, 0.98f);
+        saveLoadContentHost.anchorMin = new Vector2(0f, 0.02f);
+        saveLoadContentHost.anchorMax = new Vector2(0.70f, 0.98f);
         saveLoadContentHost.offsetMin = Vector2.zero;
         saveLoadContentHost.offsetMax = Vector2.zero;
         host.AddComponent<RectMask2D>();
@@ -208,13 +208,13 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         GameObject header = CreateSurface(window, "Header", new Color(0.018f, 0.040f, 0.078f, 0.94f));
         RectTransform rect = header.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0f, 0.86f);
-        rect.anchorMax = new Vector2(0.29f, 1f);
+        rect.anchorMin = new Vector2(0.73f, 0.84f);
+        rect.anchorMax = Vector2.one;
         rect.pivot = new Vector2(0.5f, 1f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
 
-        TextMeshProUGUI title = CreateText(header.transform, "Title", "ИГРОВОЕ МЕНЮ", 28f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft, Color.white);
+        TextMeshProUGUI title = CreateText(header.transform, "Title", "МЕНЮ", 38f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, Color.white);
         Stretch(title.rectTransform, 24f, 24f, 0f, 0f);
 
         GameObject accent = CreateSurface(header.transform, "Accent", AccentColor);
@@ -229,12 +229,12 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         GameObject navigation = CreateSurface(window, "Navigation", NavigationColor);
         RectTransform rect = navigation.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0f, 0.06f);
-        rect.anchorMax = new Vector2(0.29f, 0.84f);
+        rect.anchorMin = new Vector2(0.73f, 0.05f);
+        rect.anchorMax = new Vector2(1f, 0.83f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
         Outline outline = navigation.AddComponent<Outline>();
-        outline.effectColor = new Color(0.45f, 0.56f, 0.70f, 0.22f);
+        outline.effectColor = new Color(0.45f, 0.66f, 0.80f, 0.18f);
         outline.effectDistance = new Vector2(1f, -1f);
 
         GameObject primaryActions = CreateUiObject(navigation.transform, "Primary Actions");
@@ -246,7 +246,7 @@ public sealed class VNGameMenuView : MonoBehaviour
 
         VerticalLayoutGroup layout = primaryActions.AddComponent<VerticalLayoutGroup>();
         layout.padding = new RectOffset(0, 0, 0, 0);
-        layout.spacing = 10f;
+        layout.spacing = 8f;
         layout.childAlignment = TextAnchor.UpperCenter;
         layout.childControlWidth = true;
         layout.childControlHeight = true;
@@ -320,18 +320,18 @@ public sealed class VNGameMenuView : MonoBehaviour
 
     private void CreateActionButton(Transform parent, VNGameMenuAction action, string label)
     {
-        GameObject buttonObject = CreateSurface(parent, action + " Button", new Color(0.045f, 0.095f, 0.145f, 0.94f));
+        GameObject buttonObject = CreateSurface(parent, action + " Button", new Color(0.035f, 0.085f, 0.12f, 0.42f));
         LayoutElement layout = buttonObject.AddComponent<LayoutElement>();
-        layout.preferredHeight = 50f;
+        layout.preferredHeight = 54f;
         layout.minHeight = 42f;
         Button button = buttonObject.AddComponent<Button>();
         button.targetGraphic = buttonObject.GetComponent<Image>();
         button.colors = CreateButtonColors();
         Outline outline = buttonObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.34f, 0.45f, 0.56f, 0.24f);
+        outline.effectColor = new Color(0.34f, 0.55f, 0.68f, 0.12f);
         outline.effectDistance = new Vector2(1f, -1f);
 
-        TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 19f, FontStyles.Bold, TextAlignmentOptions.MidlineLeft, Color.white);
+        TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 22f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, Color.white);
         Stretch(text.rectTransform, 18f, 18f, 0f, 0f);
         GameObject activeMarker = CreateSurface(buttonObject.transform, "Active Marker", AccentColor);
         RectTransform markerRect = activeMarker.GetComponent<RectTransform>();
