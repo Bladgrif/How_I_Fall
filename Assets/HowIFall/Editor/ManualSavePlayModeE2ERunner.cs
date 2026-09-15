@@ -362,6 +362,9 @@ public static class ManualSavePlayModeE2ERunner
 
         ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
         Require(panel != null && panel.IsOpen, "Save panel closed before UI screenshot capture.");
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
+        Require(quickMenu != null && !quickMenu.IsEffectivelyVisible,
+            "Quick Menu remains visible while Save/Load owns the modal surface.");
         VerifyPanelLayout(panel, resolution);
         Canvas.ForceUpdateCanvases();
 
@@ -416,6 +419,9 @@ public static class ManualSavePlayModeE2ERunner
 
         ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
         Require(panel != null && panel.IsOpen, "Save panel closed before compact UI screenshot capture.");
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
+        Require(quickMenu != null && !quickMenu.IsEffectivelyVisible,
+            "Quick Menu remains visible while Save/Load owns the compact modal surface.");
         VerifyPanelLayout(panel, resolution);
         Canvas.ForceUpdateCanvases();
 
@@ -1071,6 +1077,10 @@ public static class ManualSavePlayModeE2ERunner
         Rect statusRect = GetScreenRect(panel.statusText.rectTransform);
         float lowestCardBottom = cardRects.Min(rect => rect.yMin);
         Require(statusRect.yMax <= lowestCardBottom + 2f, $"Status text overlaps cards at {resolution.x}x{resolution.y}.");
+        Rect navigationRect = GetScreenRect(panel.manualPaginationRoot.transform as RectTransform);
+        Require(!statusRect.Overlaps(navigationRect), $"Save feedback overlaps family/page navigation at {resolution.x}x{resolution.y}.");
+        Require(windowRect.Contains(statusRect.min) && windowRect.Contains(statusRect.max),
+            $"Save feedback is outside the panel at {resolution.x}x{resolution.y}.");
     }
 
     private static Rect GetScreenRect(RectTransform rectTransform)

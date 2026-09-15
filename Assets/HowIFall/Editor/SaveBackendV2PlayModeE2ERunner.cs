@@ -901,6 +901,8 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(navigation.yMax < cards.Min(card => card.yMin), $"Compact navigation overlaps cards at {resolution.x}x{resolution.y}.");
         Require(GetScreenRect(panel.closeButton.transform as RectTransform).xMax <= Screen.width + 1f, $"Back button is clipped at {resolution.x}x{resolution.y}.");
         Require(GetScreenRect(panel.statusText.rectTransform).yMax <= cards.Min(card => card.yMin) + 2f, $"Toast overlaps cards at {resolution.x}x{resolution.y}.");
+        Require(!GetScreenRect(panel.statusText.rectTransform).Overlaps(GetScreenRect(panel.manualPaginationRoot.transform as RectTransform)),
+            $"Toast overlaps Manual family/page navigation at {resolution.x}x{resolution.y}.");
     }
 
     private static void VerifyManualPaginationLayout(ManualSaveLoadPanel panel, Vector2Int resolution)

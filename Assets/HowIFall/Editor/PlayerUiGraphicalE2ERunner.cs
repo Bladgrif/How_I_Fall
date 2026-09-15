@@ -852,6 +852,9 @@ public static class PlayerUiGraphicalE2ERunner
 
         CompleteTyping(dialogue);
         dialogue.ShowBacklog();
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
+        Require(quickMenu != null && !quickMenu.IsEffectivelyVisible && !dialogue.dialogueUiRoot.activeInHierarchy,
+            "History did not isolate Quick Menu and the ordinary dialogue shell.");
         Capture("gameplay_backlog_1920x1080.png", "PrepareDetailedBacklog");
     }
 
@@ -922,8 +925,10 @@ public static class PlayerUiGraphicalE2ERunner
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
         dialogue.HideBacklog();
-        Require(!dialogue.backlogPanel.activeSelf && dialogue.dialogueUiRoot.activeInHierarchy,
-            "Closing History did not restore the reading shell.");
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
+        Require(!dialogue.backlogPanel.activeSelf && dialogue.dialogueUiRoot.activeInHierarchy
+            && quickMenu != null && quickMenu.IsEffectivelyVisible,
+            "Closing History did not restore the reading shell and Quick Menu.");
         Capture("gameplay_reading_after_backlog_close_1920x1080.png", "PrepareAuto");
     }
 
@@ -989,10 +994,12 @@ public static class PlayerUiGraphicalE2ERunner
         Require(preferences != null && preferences.isActiveAndEnabled && preferences.interactable,
             "Game Menu Preferences action is unavailable for focus proof.");
         preferences.Select();
+        view.RefreshFocusMarkers();
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == preferences.gameObject,
             "Game Menu alternate focus did not select Preferences.");
         Require(IsFocusMarkerVisible(view, VNGameMenuAction.Preferences)
-            && !IsFocusMarkerVisible(view, VNGameMenuAction.Return),
+            && !IsFocusMarkerVisible(view, VNGameMenuAction.Return)
+            && view.VisibleFocusMarkerCount == 1,
             "Game Menu focus marker did not move to Preferences.");
         Capture("game_menu_alternate_focus_1920x1080.png", "OpenGameplayPreferences");
     }

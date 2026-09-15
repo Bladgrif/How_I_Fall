@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -28,6 +29,7 @@ public sealed class VNGameMenuView : MonoBehaviour
 
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
     private readonly Dictionary<VNGameMenuAction, GameObject> activeMarkers = new Dictionary<VNGameMenuAction, GameObject>();
+    private readonly Dictionary<VNGameMenuAction, GameObject> focusMarkers = new Dictionary<VNGameMenuAction, GameObject>();
     private GameObject root;
     private RectTransform saveLoadContentHost;
     private GameObject confirmationRoot;
@@ -81,6 +83,8 @@ public sealed class VNGameMenuView : MonoBehaviour
         return activeMarkers.TryGetValue(action, out GameObject marker) && marker.activeSelf;
     }
 
+    public int VisibleFocusMarkerCount => focusMarkers.Values.Count(marker => marker != null && marker.activeInHierarchy);
+
     public void SetReplayMode(bool replay)
     {
         SetActionVisible(VNGameMenuAction.Save, !replay);
@@ -104,10 +108,12 @@ public sealed class VNGameMenuView : MonoBehaviour
         {
             root.transform.SetAsLastSibling();
             FocusDefaultAction();
+            RefreshFocusMarkers();
         }
         else
         {
             HideConfirmation();
+            RefreshFocusMarkers();
         }
     }
 
@@ -154,6 +160,35 @@ public sealed class VNGameMenuView : MonoBehaviour
         if (fallback != null && fallback.isActiveAndEnabled && fallback.interactable)
         {
             eventSystem?.SetSelectedGameObject(fallback.gameObject);
+        }
+
+        RefreshFocusMarkers();
+    }
+
+    private void Update()
+    {
+        if (root != null && root.activeSelf)
+        {
+            RefreshFocusMarkers();
+        }
+    }
+
+    /// <summary>Synchronizes the visual marker with the sole EventSystem selection.</summary>
+    public void RefreshFocusMarkers()
+    {
+        GameObject selected = (EventSystem.current ?? FindFirstObjectByType<EventSystem>())?.currentSelectedGameObject;
+        foreach (KeyValuePair<VNGameMenuAction, GameObject> pair in focusMarkers)
+        {
+            Button button = GetButton(pair.Key);
+            bool focused = root != null
+                && root.activeSelf
+                && button != null
+                && button.gameObject.activeInHierarchy
+                && selected == button.gameObject;
+            if (pair.Value != null && pair.Value.activeSelf != focused)
+            {
+                pair.Value.SetActive(focused);
+            }
         }
     }
 
@@ -348,18 +383,19 @@ public sealed class VNGameMenuView : MonoBehaviour
         focusMarkerRect.pivot = new Vector2(1f, 0.5f);
         focusMarkerRect.sizeDelta = new Vector2(5f, 0f);
         focusMarker.SetActive(false);
-        AddFocusMarkerEvents(buttonObject, focusMarker);
+        focusMarkers[action] = focusMarker;
+        AddFocusMarkerEvents(buttonObject);
 
         buttons[action] = button;
         activeMarkers[action] = activeMarker;
     }
 
-    private static void AddFocusMarkerEvents(GameObject buttonObject, GameObject focusMarker)
+    private void AddFocusMarkerEvents(GameObject buttonObject)
     {
         EventTrigger trigger = buttonObject.AddComponent<EventTrigger>();
         trigger.triggers = new List<EventTrigger.Entry>();
-        AddFocusMarkerEvent(trigger, EventTriggerType.Select, () => focusMarker.SetActive(true));
-        AddFocusMarkerEvent(trigger, EventTriggerType.Deselect, () => focusMarker.SetActive(false));
+        AddFocusMarkerEvent(trigger, EventTriggerType.Select, RefreshFocusMarkers);
+        AddFocusMarkerEvent(trigger, EventTriggerType.Deselect, RefreshFocusMarkers);
     }
 
     private static void AddFocusMarkerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction action)

@@ -144,6 +144,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         ConfigureStoryMomentPresentation();
+        ConfigureStatusFeedbackPresentation();
 
         SetConfirmationVisible(false, true);
         ApplySlotTypePresentation();
@@ -227,7 +228,10 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         RectTransform summaryRect = summary.GetComponent<RectTransform>();
         summaryRect.anchorMin = summaryRect.anchorMax = new Vector2(0.5f, 0f);
         summaryRect.pivot = new Vector2(0.5f, 0.5f);
-        summaryRect.anchoredPosition = new Vector2(0f, 174f);
+        // Reserve a dedicated band for transient feedback above the compact
+        // family/page navigation. At 1280x720 the old footer coordinates let
+        // the toast occupy the same pixels as the numeric page controls.
+        summaryRect.anchoredPosition = new Vector2(0f, 194f);
         summaryRect.sizeDelta = new Vector2(1460f, 124f);
         Image summaryImage = summary.GetComponent<Image>();
         summaryImage.color = new Color(0.018f, 0.050f, 0.075f, 0.92f);
@@ -249,6 +253,26 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         selectedSlotMetadata.color = new Color(0.58f, 0.72f, 0.84f, 1f);
         summary.transform.SetAsLastSibling();
         if (confirmationRoot != null) confirmationRoot.transform.SetAsLastSibling();
+    }
+
+    private void ConfigureStatusFeedbackPresentation()
+    {
+        RectTransform statusRoot = statusCanvasGroup != null
+            ? statusCanvasGroup.transform as RectTransform
+            : statusText != null ? statusText.rectTransform : null;
+        if (statusRoot == null)
+        {
+            return;
+        }
+
+        statusRoot.anchorMin = statusRoot.anchorMax = new Vector2(0.5f, 0f);
+        statusRoot.pivot = new Vector2(0.5f, 0.5f);
+        statusRoot.anchoredPosition = new Vector2(0f, 112f);
+        statusRoot.sizeDelta = new Vector2(720f, 36f);
+        if (statusText != null)
+        {
+            statusText.alignment = TextAlignmentOptions.Center;
+        }
     }
 
     private static TextMeshProUGUI CreateSummaryText(Transform parent, string name, float size, FontStyles style)
@@ -519,6 +543,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     {
         bool wasAlreadyOpen = gameObject.activeSelf;
         gameObject.SetActive(true);
+        VNDialogueController.Instance?.SetQuickMenuSaveLoadModalHidden(true);
         ClearPendingConfirmation();
         SetConfirmationVisible(false, true);
         SetStatus(string.Empty, false);
@@ -637,6 +662,13 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         gameObject.SetActive(false);
+    }
+
+    private void OnDisable()
+    {
+        // This is a transient modal owner only; never write the persistent
+        // Quick Menu preference when Save/Load closes or a scene unloads.
+        VNDialogueController.Instance?.SetQuickMenuSaveLoadModalHidden(false);
     }
 
     private void ConfirmPendingAction()

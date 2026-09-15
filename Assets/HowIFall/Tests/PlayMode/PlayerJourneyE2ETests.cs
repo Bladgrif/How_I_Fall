@@ -304,7 +304,11 @@ namespace HowIFall.PlayModeTests
             yield return WaitForCondition(
                 () => dialogue.backlogPanel != null && dialogue.backlogPanel.activeSelf,
                 "History did not open from Quick Menu.");
-            Click(dialogue.nextButton, "Dialogue Next while History is open");
+            Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.False,
+                "History did not hide the ordinary dialogue shell.");
+            Assert.That(quickMenu.IsEffectivelyVisible, Is.False,
+                "History did not hide the ordinary Quick Menu chrome.");
+            dialogue.AdvanceDialogue();
             yield return null;
             Assert.That(GameState.Instance.currentSceneId, Is.EqualTo(stableSceneId));
             Assert.That(GameState.Instance.currentLineIndex, Is.EqualTo(stableLineIndex),

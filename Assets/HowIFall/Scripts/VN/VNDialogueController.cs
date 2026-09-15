@@ -2177,6 +2177,11 @@ public class VNDialogueController : MonoBehaviour
             Debug.LogError($"VNDialogueController: backlog fallback font is missing characters: {missingCharacters}", this);
         }
         backlogText.ForceMeshUpdate();
+        // Direct History (rather than the Game Menu child route) owns the
+        // ordinary reading shell while it is visible. Existing suppression
+        // ownership keeps Game Menu and player Hide UI semantics intact.
+        TrySuppressDialogueShell(backlogPanel);
+        SetQuickMenuBacklogModalHidden(true);
         SetBacklogOverlayActive(true);
         backlogPanel.SetActive(true);
         Canvas.ForceUpdateCanvases();
@@ -2216,6 +2221,8 @@ public class VNDialogueController : MonoBehaviour
         }
 
         SetBacklogOverlayActive(false);
+        SetQuickMenuBacklogModalHidden(false);
+        ReleaseDialogueShellSuppression(backlogPanel);
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
         gameMenuController?.NotifyHistoryClosed();
@@ -2741,6 +2748,16 @@ public class VNDialogueController : MonoBehaviour
     private void SetQuickMenuPreferencesModalHidden(bool hidden)
     {
         FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetPreferencesModalHidden(hidden);
+    }
+
+    public void SetQuickMenuSaveLoadModalHidden(bool hidden)
+    {
+        FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetSaveLoadModalHidden(hidden);
+    }
+
+    private void SetQuickMenuBacklogModalHidden(bool hidden)
+    {
+        FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetBacklogModalHidden(hidden);
     }
 
     public bool OpenGameMenu()

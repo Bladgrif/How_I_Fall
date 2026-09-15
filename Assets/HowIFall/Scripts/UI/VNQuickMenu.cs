@@ -26,6 +26,8 @@ public sealed class VNQuickMenu : MonoBehaviour
     private bool hiddenByPlayer;
     private bool hiddenByPreferencesModal;
     private bool hiddenByGameMenuModal;
+    private bool hiddenBySaveLoadModal;
+    private bool hiddenByBacklogModal;
     private bool effectiveVisible;
     private bool safeAreaInitialized;
     private float dialogueBaseAnchoredY;
@@ -210,7 +212,9 @@ public sealed class VNQuickMenu : MonoBehaviour
             && !hiddenByPlayer
             && !hiddenBySpecialMode
             && !hiddenByPreferencesModal
-            && !hiddenByGameMenuModal;
+            && !hiddenByGameMenuModal
+            && !hiddenBySaveLoadModal
+            && !hiddenByBacklogModal;
         if (root != null && root.activeSelf != effectiveVisible)
         {
             root.SetActive(effectiveVisible);
@@ -234,6 +238,20 @@ public sealed class VNQuickMenu : MonoBehaviour
     public void SetGameMenuModalHidden(bool hidden)
     {
         hiddenByGameMenuModal = hidden;
+        RefreshEffectiveVisibility();
+    }
+
+    /// <summary>Temporary Save/Load blocker that leaves the player's preference unchanged.</summary>
+    public void SetSaveLoadModalHidden(bool hidden)
+    {
+        hiddenBySaveLoadModal = hidden;
+        RefreshEffectiveVisibility();
+    }
+
+    /// <summary>Temporary History blocker that leaves the player's preference unchanged.</summary>
+    public void SetBacklogModalHidden(bool hidden)
+    {
+        hiddenByBacklogModal = hidden;
         RefreshEffectiveVisibility();
     }
 
