@@ -144,7 +144,9 @@ public sealed class MainMenuController : MonoBehaviour
     {
         // Keep the compact navigation column visually connected to the logo while
         // leaving the authored background as the dominant title-screen element.
-        float[] verticalPositions = { 244f, 184f, 124f, 64f, -28f };
+        // A deliberately quiet type-led stack: it leaves the background and logo
+        // room to breathe, but keeps the routes easy to scan from a sofa distance.
+        float[] verticalPositions = { 232f, 168f, 104f, 40f, -56f };
         for (int index = 0; index < orderedRows.Length; index++)
         {
             RectTransform row = orderedRows[index] as RectTransform;
@@ -156,7 +158,7 @@ public sealed class MainMenuController : MonoBehaviour
             row.anchorMin = row.anchorMax = new Vector2(0f, 0.5f);
             row.pivot = new Vector2(0f, 0.5f);
             row.anchoredPosition = new Vector2(220f, verticalPositions[index]);
-            row.sizeDelta = new Vector2(320f, 48f);
+            row.sizeDelta = new Vector2(332f, 52f);
 
             RectTransform buttonRect = playerFacingActionButtons[index].transform as RectTransform;
             if (buttonRect != null)
@@ -238,8 +240,8 @@ public sealed class MainMenuController : MonoBehaviour
         panel.SetAsFirstSibling();
         panel.anchorMin = panel.anchorMax = new Vector2(0f, 0.5f);
         panel.pivot = new Vector2(0f, 0.5f);
-        panel.anchoredPosition = new Vector2(184f, 108f);
-        panel.sizeDelta = new Vector2(376f, 392f);
+        panel.anchoredPosition = new Vector2(184f, 92f);
+        panel.sizeDelta = new Vector2(388f, 410f);
 
         Image panelImage = panel.GetComponent<Image>();
         panelImage.sprite = null;
@@ -758,7 +760,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (tmpLabel != null)
         {
             tmpLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            tmpLabel.fontSize = 20f;
+            tmpLabel.fontSize = 22f;
             tmpLabel.enableAutoSizing = false;
             ApplyLabelPadding(tmpLabel.rectTransform);
             return;
@@ -768,7 +770,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (label != null)
         {
             label.alignment = TextAnchor.MiddleLeft;
-            label.fontSize = 20;
+            label.fontSize = 22;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
             ApplyLabelPadding(label.rectTransform);

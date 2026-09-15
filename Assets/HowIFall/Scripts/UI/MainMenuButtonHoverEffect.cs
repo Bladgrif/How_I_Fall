@@ -118,7 +118,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     public void ConfigureMainMenuActions(IReadOnlyList<Button> actions)
     {
         mainMenuActions = actions;
-        suppressFocusAccent = true;
+        // Root navigation gets one small, stable HIF-colour anchor. This is
+        // intentionally not a panel, particle system, or copied reference look.
+        suppressFocusAccent = false;
         RefreshState();
     }
 
@@ -236,7 +238,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         if (mainMenuActions != null)
         {
-            Apply(new Color(1f, 1f, 1f, 0.045f), Color.white);
+            Apply(new Color(1f, 1f, 1f, 0.055f), Color.white);
             return;
         }
         Apply(Color.clear, useRedFocusText
@@ -285,7 +287,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
         if (focusAccent != null)
         {
-            focusAccent.color = new Color(0.78f, 0.18f, 0.22f, 0.96f);
+            focusAccent.color = new Color(0.86f, 0.20f, 0.24f, 0.96f);
             focusAccent.gameObject.SetActive(!suppressFocusAccent && (isPointerInside || isSelected));
         }
     }

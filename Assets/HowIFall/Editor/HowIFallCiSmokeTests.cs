@@ -26,6 +26,7 @@ public static class HowIFallCiSmokeTests
             Run("Settings truth", SettingsTruthSmokeTests.RunBatchMode);
             Run("Quick Menu visibility B03", QuickMenuVisibilitySmokeTests.RunBatchMode);
             Run("Main Menu and Quick Menu cleanup Phase 4", Phase4UiSmokeTests.RunBatchMode);
+            Run("Main Menu visual presentation", MainMenuVisualPassASmokeTests.RunBatchMode);
             Run("Audio ambience", AudioAmbienceSmokeTests.RunBatchMode);
             Run("VN quick menu", VNQuickMenuSmokeTests.RunBatchMode);
             Run("Core reading experience", ReadingExperienceSmokeTests.RunBatchMode);

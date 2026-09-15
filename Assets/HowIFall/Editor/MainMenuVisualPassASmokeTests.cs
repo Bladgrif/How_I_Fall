@@ -175,7 +175,8 @@ public static class MainMenuVisualPassASmokeTests
                 normalEnabledColor = normal;
             }
             effect.OnPointerEnter(null);
-            Require(!effect.IsFocusAccentVisible, "Hover must never expose a Focus Accent.");
+            Require(button.interactable ? effect.IsFocusAccentVisible : !effect.IsFocusAccentVisible,
+                "Enabled hover must expose the restrained focus accent without enabling it for disabled Continue.");
             Require(button.interactable ? effect.CurrentLabelColor != normal : effect.CurrentLabelColor == normal,
                 "Only enabled actions may brighten on hover.");
             Require(((Image)button.targetGraphic).color.a <= 0.06f, "Hover must remain subtle.");
@@ -183,7 +184,8 @@ public static class MainMenuVisualPassASmokeTests
             Require(effect.CurrentLabelColor == normal && !effect.IsInteractionVisible,
                 "Pointer exit must clear hover even with retained EventSystem selection.");
             effect.OnSelect(null);
-            Require(!effect.IsFocusAccentVisible, "Keyboard focus must not expose an accent.");
+            Require(button.interactable ? effect.IsFocusAccentVisible : !effect.IsFocusAccentVisible,
+                "Keyboard focus must expose the restrained accent only for enabled actions.");
             Require(button.interactable ? effect.IsInteractionVisible && effect.CurrentLabelColor != normal
                     : !effect.IsInteractionVisible && effect.CurrentLabelColor == normal,
                 "Keyboard focus must be distinguishable only on enabled actions.");

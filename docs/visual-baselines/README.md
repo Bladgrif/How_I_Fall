@@ -19,16 +19,16 @@
 
 ## Главное меню и настройки
 
-- `main_menu.png` — равноправные доступные действия без постоянного CTA или Focus Accent (TECH DEMO ONLY / NOT CANON: тестовая доступность).
+- `main_menu.png` — art-first меню с равноправными доступными действиями без постоянного CTA (TECH DEMO ONLY / NOT CANON: тестовая доступность).
 - `main_menu_hover.png` — лёгкое наведение на один пункт; уход мыши восстанавливает обычный вид при сохранённом EventSystem selection.
-- `main_menu_keyboard_focus.png` — один фокус клавиатуры/контроллера после ухода мыши; недоступное «Продолжить» приглушено, вертикального маркера нет.
+- `main_menu_keyboard_focus.png` — один фокус клавиатуры/контроллера после ухода мыши; недоступное «Продолжить» приглушено, активный пункт получает небольшой HIF-red маркер и лёгкий фон.
 - `main_menu_quit_confirmation.png` — подтверждение выхода с одним однозначным состоянием наведения/активности.
-- `preferences.png` — общие настройки: rail Экран / Звук / Текст / Игра, активная категория Экран и чистый черновик с недоступным Apply.
-- `preferences_dropdown.png` — компактный Resolution TMP dropdown: все пять пунктов видны без обрезания при 1920×1080.
-- `preferences_sound_dirty.png` — категория Звук: тонкие slider, значения громкости, неприменённое изменение и доступный Apply.
-- `preferences_dropdown_1280.png` — Screen Mode dropdown при 1280×720; список не выходит за окно, footer не перекрыт.
+- `preferences.png` — общие настройки: спокойная тёмная поверхность, rail Экран / Звук / Текст / Игра, активная категория Экран, контекстная подсказка и чистый черновик с недоступным Apply.
+- `preferences_dropdown.png` — TMP dropdown режима экрана: все пункты видны без обрезания при 1920×1080.
+- `preferences_sound_dirty.png` — категория Звук: лёгкие sliders, читаемые значения, строка фокуса с контекстной подсказкой, неприменённое изменение и доступный Apply.
+- `preferences_dropdown_1280.png` — Text category при 1280×720: controls, contextual hint и footer остаются читаемыми и не перекрываются.
 
-Preferences-набор обновлён по полному PlayerUi graphical E2E от 2026-09-08: 53 свежих снимка, `playerPrefsRestored=true`. Дополнительные состояния Text, after Apply, slider focus и gameplay parity остаются в ignored QAArtifacts. Это REVIEW CANDIDATE, не субъективное visual approval.
+Main Menu и Preferences-набор обновлён по полному PlayerUi graphical E2E от 2026-09-15: 55 свежих снимков, `playerPrefsRestored=true`. Дополнительные состояния Text, after Apply, slider focus и gameplay parity остаются в ignored QAArtifacts. Это REVIEW CANDIDATE, не субъективное visual approval.
 
 ## Сохранение и загрузка
 

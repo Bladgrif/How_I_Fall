@@ -248,7 +248,9 @@ public static class PlayerUiGraphicalE2ERunner
             effect.OnPointerExit(null);
         }
         menu.FocusDefaultAction();
-        Capture("main_menu_1920x1080.png", "CaptureMainMenuNormal");
+        Require(!menu.continueButton.interactable,
+            "Fresh PlayerUi fixture must expose the disabled Continue state before the enabled visual fixture is applied.");
+        Capture("main_menu_disabled_continue_1920x1080.png", "CaptureMainMenuNormal");
     }
 
     private static void CaptureMainMenuNormal()
@@ -296,8 +298,8 @@ public static class PlayerUiGraphicalE2ERunner
             "Navigation after mouse exit must move to Load.");
         Require(menu.PlayerFacingActionButtons.Count(b => b.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible) == 1,
             "Navigation must have exactly one visible focus.");
-        Require(menu.PlayerFacingActionButtons.All(b => !b.GetComponent<MainMenuButtonHoverEffect>().IsFocusAccentVisible),
-            "Root actions must never display Focus Accent.");
+        Require(menu.PlayerFacingActionButtons.Count(b => b.GetComponent<MainMenuButtonHoverEffect>().IsFocusAccentVisible) == 1,
+            "Root keyboard/controller navigation must display exactly one restrained focus accent.");
         menu.RefreshContinueAvailability();
         Capture("main_menu_keyboard_focus_1920x1080.png", "CaptureMainMenuAlternate");
     }
