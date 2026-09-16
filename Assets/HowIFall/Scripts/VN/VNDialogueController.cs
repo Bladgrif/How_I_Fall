@@ -1827,6 +1827,10 @@ public class VNDialogueController : MonoBehaviour
         bool hasSpeaker = !string.IsNullOrWhiteSpace(line.speaker);
         nameBox.SetActive(hasSpeaker);
         speakerText.text = hasSpeaker ? line.speaker : string.Empty;
+        if (hasSpeaker)
+        {
+            ApplyNameBoxWidth(line.speaker);
+        }
         AddToBacklog(line.speaker, line.text);
         ApplyVisuals(line);
         ShowText(line.text);
@@ -2834,6 +2838,7 @@ public class VNDialogueController : MonoBehaviour
         HideTemporaryReadingChrome();
         ApplyReadingShellPresentation();
         ApplyDialoguePresentation(dialogueText, dialogueBoxBackground, dialogueBaseFontSize, presentationSettings);
+        ApplyReadingShellContentHeight(currentFullText);
     }
 
     /// <summary>Keeps the ordinary reading shell readable at the supported text-scale range without serializing the scene.</summary>
@@ -2891,7 +2896,10 @@ public class VNDialogueController : MonoBehaviour
             Image nameBackground = nameBox.GetComponent<Image>();
             if (nameBackground != null)
             {
-                nameBackground.color = new Color(0.018f, 0.030f, 0.045f, 0.72f);
+                // A flat quiet plate keeps the speaker as a light label above the
+                // dialogue instead of a heavy separate card with baked decoration.
+                nameBackground.sprite = null;
+                nameBackground.color = new Color(0.018f, 0.030f, 0.045f, 0.60f);
             }
         }
 
@@ -2915,6 +2923,62 @@ public class VNDialogueController : MonoBehaviour
 
         ApplyChoicePresentation();
         ApplyBacklogPresentation();
+    }
+
+    private const float ReadingShellWidth = 1240f;
+    private const float ReadingShellTextInsetX = 104f;
+    private const float ReadingShellTextInsetY = 76f;
+    private const float ReadingShellMinHeight = 150f;
+    private const float ReadingShellBreathing = 20f;
+
+    /// <summary>
+    /// Sizes the reading shell to the rendered line so short replies stop reserving a
+    /// full HUD bar while the existing 125% long-text capacity bound stays unchanged.
+    /// </summary>
+    private void ApplyReadingShellContentHeight(string text)
+    {
+        if (dialogueUiRoot == null || dialogueText == null || !readingPresentationInitialized)
+        {
+            return;
+        }
+
+        RectTransform boxRect = dialogueUiRoot.transform as RectTransform;
+        if (boxRect == null)
+        {
+            return;
+        }
+
+        string source = string.IsNullOrEmpty(text) ? " " : text;
+        Vector4 margin = dialogueText.margin;
+        float textWidth = Mathf.Max(120f, ReadingShellWidth - ReadingShellTextInsetX - margin.x - margin.z);
+        float contentHeight = dialogueText.GetPreferredValues(source, textWidth, float.MaxValue).y;
+        float maxHeight = Mathf.Max(ReadingShellMinHeight, Mathf.Max(dialogueBaseBoxSize.y, 340f));
+        float targetHeight = Mathf.Clamp(
+            contentHeight + margin.y + margin.w + ReadingShellTextInsetY + ReadingShellBreathing,
+            ReadingShellMinHeight,
+            maxHeight);
+        boxRect.sizeDelta = new Vector2(ReadingShellWidth, targetHeight);
+    }
+
+    /// <summary>Keeps the speaker plate hugging the name instead of a fixed wide card.</summary>
+    private void ApplyNameBoxWidth(string speaker)
+    {
+        if (nameBox == null || speakerText == null)
+        {
+            return;
+        }
+
+        RectTransform nameRect = nameBox.transform as RectTransform;
+        if (nameRect == null)
+        {
+            return;
+        }
+
+        float preferredWidth = speakerText.GetPreferredValues(speaker).x;
+        Vector2 size = nameRect.sizeDelta;
+        size.x = Mathf.Clamp(preferredWidth + 56f, 180f, 500f);
+        size.y = 56f;
+        nameRect.sizeDelta = size;
     }
 
     public static void ApplyDialoguePresentation(
@@ -3196,6 +3260,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         currentFullText = text;
+        ApplyReadingShellContentHeight(text);
         typingCoroutine = StartCoroutine(TypeText(text));
     }
 

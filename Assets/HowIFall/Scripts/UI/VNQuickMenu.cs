@@ -19,8 +19,10 @@ public sealed class VNQuickMenu : MonoBehaviour
     public Button mainMenuButton;
 
     private const float MinimumDialogueSpacing = 12f;
-    private static readonly Color NormalColor = new Color(0.02f, 0.045f, 0.07f, 0.34f);
-    private static readonly Color ActiveColor = new Color(0.055f, 0.18f, 0.24f, 0.88f);
+    private static readonly Color NormalColor = new Color(0.02f, 0.045f, 0.07f, 0.46f);
+    private static readonly Color ActiveColor = new Color(0.055f, 0.20f, 0.28f, 0.80f);
+    private static readonly Color IdleLabelColor = new Color(0.94f, 0.96f, 0.98f, 0.92f);
+    private static readonly Color ActiveLabelColor = new Color(0.78f, 0.92f, 1f, 1f);
 
     private bool hiddenBySpecialMode;
     private bool hiddenByPlayer;
@@ -159,7 +161,7 @@ public sealed class VNQuickMenu : MonoBehaviour
             rootRect.sizeDelta = new Vector2(430f, 32f);
         }
         HorizontalLayoutGroup rootLayout = root != null ? root.GetComponent<HorizontalLayoutGroup>() : null;
-        if (rootLayout != null) rootLayout.spacing = 10f;
+        if (rootLayout != null) rootLayout.spacing = 12f;
         for (int index = 0; index < ordered.Length; index++)
         {
             Button button = ordered[index];
@@ -378,7 +380,13 @@ public sealed class VNQuickMenu : MonoBehaviour
         button.colors = colors;
         if (button.targetGraphic is Image image)
         {
-            image.color = colors.normalColor;
+            image.color = active ? ActiveColor : NormalColor;
+        }
+
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.color = active ? ActiveLabelColor : IdleLabelColor;
         }
 
         Outline outline = button.GetComponent<Outline>();
@@ -386,7 +394,7 @@ public sealed class VNQuickMenu : MonoBehaviour
         {
             outline.effectColor = active
                 ? new Color(0.40f, 0.82f, 1f, 0.72f)
-                : new Color(0.46f, 0.60f, 0.76f, 0.24f);
+                : new Color(0.46f, 0.60f, 0.76f, 0.16f);
         }
     }
 
@@ -409,16 +417,14 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private static ColorBlock CreateButtonColors(bool active = false)
     {
+        // State tints stay neutral so the plate color is owned by the target graphic
+        // instead of being multiplied twice into an unpredictable shade.
         ColorBlock colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = active ? ActiveColor : NormalColor;
-        colors.highlightedColor = active
-            ? new Color(0.10f, 0.27f, 0.36f, 0.98f)
-            : new Color(0.08f, 0.16f, 0.22f, 0.96f);
-        colors.pressedColor = new Color(0.12f, 0.32f, 0.42f, 1f);
-        colors.selectedColor = active
-            ? new Color(0.12f, 0.31f, 0.40f, 1f)
-            : new Color(0.10f, 0.25f, 0.34f, 0.98f);
-        colors.disabledColor = new Color(0.45f, 0.48f, 0.52f, 0.72f);
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(1.16f, 1.18f, 1.22f, 1f);
+        colors.pressedColor = new Color(1.28f, 1.30f, 1.34f, 1f);
+        colors.selectedColor = Color.white;
+        colors.disabledColor = new Color(0.64f, 0.66f, 0.70f, 0.72f);
         colors.colorMultiplier = 1f;
         return colors;
     }
@@ -436,8 +442,13 @@ public sealed class VNQuickMenu : MonoBehaviour
             button.targetGraphic = image;
         }
 
+        if (button.targetGraphic is Image targetImage)
+        {
+            targetImage.color = NormalColor;
+        }
+
         Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.10f);
+        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.16f);
         outline.effectDistance = new Vector2(1f, -1f);
 
         TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
@@ -445,6 +456,7 @@ public sealed class VNQuickMenu : MonoBehaviour
         {
             label.fontSize = 13f;
             label.fontStyle = FontStyles.Normal;
+            label.color = IdleLabelColor;
             RectTransform rect = button.transform as RectTransform;
             if (rect != null)
             {

@@ -167,6 +167,8 @@ public static class PlayerUiGraphicalE2ERunner
                 case "WaitGameplay": WaitGameplay(); break;
                 case "CaptureQuickSaveFeedback": CaptureQuickSaveFeedback(); break;
                 case "PrepareLongDialogue": PrepareLongDialogue(); break;
+                case "CaptureResponsiveLongDialogue": CaptureResponsiveLongDialogue(); break;
+                case "RestoreAfterLongDialogue": RestoreAfterLongDialogue(); break;
                 case "PrepareNamedSpeakerDialogue": PrepareNamedSpeakerDialogue(); break;
                 case "CaptureNamedSpeakerResponsive": CaptureNamedSpeakerResponsive(); break;
                 case "RestoreAfterNamedSpeaker": RestoreAfterNamedSpeaker(); break;
@@ -183,9 +185,13 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareBacklog": PrepareBacklog(); break;
                 case "PrepareDetailedBacklog": PrepareDetailedBacklog(); break;
                 case "CloseDetailedBacklog": CloseDetailedBacklog(); break;
+                case "CaptureQuickMenuHover": CaptureQuickMenuHover(); break;
+                case "CaptureQuickMenuHoverExit": CaptureQuickMenuHoverExit(); break;
                 case "CaptureResponsiveBacklog": CaptureResponsiveBacklog(); break;
                 case "RestoreQaAfterResponsiveBacklog": RestoreQaAfterResponsiveBacklog(); break;
                 case "PrepareAuto": PrepareAuto(); break;
+                case "CaptureResponsiveAuto": CaptureResponsiveAuto(); break;
+                case "RestoreAfterResponsiveAuto": RestoreAfterResponsiveAuto(); break;
                 case "PrepareSkip": PrepareSkip(); break;
                 case "PrepareHideUi": PrepareHideUi(); break;
                 case "RestoreAfterHideUi": RestoreAfterHideUi(); break;
@@ -659,7 +665,35 @@ public static class PlayerUiGraphicalE2ERunner
         LoadRuntimeFixture(dialogue, LongReadingFixtureText, new List<DialogueChoice>());
         SettingsManager.Instance.SetDialogueTextScale(1.25f);
         CompleteTyping(dialogue);
-        Capture("gameplay_dialogue_long_125pct_1920x1080.png", "PrepareNamedSpeakerDialogue");
+        Capture("gameplay_dialogue_long_125pct_1920x1080.png", "CaptureResponsiveLongDialogue");
+    }
+
+    private static void CaptureResponsiveLongDialogue()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for the long-dialogue proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        CompleteTyping(dialogue);
+        Capture("gameplay_dialogue_long_125pct_1280x720.png", "RestoreAfterLongDialogue");
+    }
+
+    private static void RestoreAfterLongDialogue()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 after the long-dialogue proof.");
+            return;
+        }
+
+        SessionState.SetString(StageKey, "PrepareNamedSpeakerDialogue");
+        ResetCounter();
+        SetDelay(0.35d);
     }
 
     private static void PrepareNamedSpeakerDialogue()
@@ -968,7 +1002,28 @@ public static class PlayerUiGraphicalE2ERunner
         Require(!dialogue.backlogPanel.activeSelf && dialogue.dialogueUiRoot.activeInHierarchy
             && quickMenu != null && quickMenu.IsEffectivelyVisible,
             "Closing History did not restore the reading shell and Quick Menu.");
-        Capture("gameplay_reading_after_backlog_close_1920x1080.png", "PrepareAuto");
+        Capture("gameplay_reading_after_backlog_close_1920x1080.png", "CaptureQuickMenuHover");
+    }
+
+    private static void CaptureQuickMenuHover()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.historyButton != null && quickMenu.historyButton.gameObject.activeSelf,
+            "Quick Menu History action is unavailable for the hover proof.");
+        quickMenu.historyButton.OnPointerEnter(new PointerEventData(EventSystem.current));
+        Capture("gameplay_quick_menu_hover_1920x1080.png", "CaptureQuickMenuHoverExit");
+    }
+
+    private static void CaptureQuickMenuHoverExit()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.historyButton != null, "Quick Menu vanished before hover exit proof.");
+        quickMenu.historyButton.OnPointerExit(new PointerEventData(EventSystem.current));
+        SessionState.SetString(StageKey, "PrepareAuto");
+        ResetCounter();
+        SetDelay(0.35d);
     }
 
     private static void PrepareAuto()
@@ -979,7 +1034,36 @@ public static class PlayerUiGraphicalE2ERunner
         CompleteTyping(dialogue);
         dialogue.SetAutoForward(true);
         Require(dialogue.IsAutoForwardEnabledState, "Auto did not become active for the reading proof.");
-        Capture("gameplay_auto_active_1920x1080.png", "PrepareSkip");
+        InvokePrivate(dialogue, "StopAutoForwardTimer");
+        Capture("gameplay_auto_active_1920x1080.png", "CaptureResponsiveAuto");
+    }
+
+    private static void CaptureResponsiveAuto()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for the Auto proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Require(dialogue.IsAutoForwardEnabledState, "Auto state did not survive the responsive proof switch.");
+        Capture("gameplay_auto_active_1280x720.png", "RestoreAfterResponsiveAuto");
+    }
+
+    private static void RestoreAfterResponsiveAuto()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 after the Auto proof.");
+            return;
+        }
+
+        SessionState.SetString(StageKey, "PrepareSkip");
+        ResetCounter();
+        SetDelay(0.35d);
     }
 
     private static void PrepareSkip()

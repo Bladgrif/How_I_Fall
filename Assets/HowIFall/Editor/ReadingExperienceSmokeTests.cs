@@ -21,6 +21,7 @@ public static class ReadingExperienceSmokeTests
     {
         VerifyPresentationSettingsRange();
         VerifyTypewriterAdvanceContract();
+        VerifyAdaptiveReadingShellAndNamePlate();
         VerifyChoiceFocusAndSingleActivation();
     }
 
@@ -221,6 +222,73 @@ public static class ReadingExperienceSmokeTests
             UnityEngine.Object.DestroyImmediate(gameStateOwner);
             UnityEngine.Object.DestroyImmediate(eventSystemOwner);
         }
+    }
+
+    private static void VerifyAdaptiveReadingShellAndNamePlate()
+    {
+        GameObject shellOwner = new GameObject("ReadingShellSmokeBox", typeof(RectTransform), typeof(Image));
+        GameObject textOwner = new GameObject("ReadingShellSmokeText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        GameObject nameOwner = new GameObject("ReadingShellSmokeNameBox", typeof(RectTransform), typeof(Image));
+        GameObject speakerOwner = new GameObject("ReadingShellSmokeSpeaker", typeof(RectTransform), typeof(TextMeshProUGUI));
+        try
+        {
+            textOwner.transform.SetParent(shellOwner.transform, false);
+            RectTransform boxRect = shellOwner.transform as RectTransform;
+            boxRect.sizeDelta = new Vector2(-440f, 180f);
+
+            TextMeshProUGUI text = textOwner.GetComponent<TextMeshProUGUI>();
+            text.font = TMP_Settings.defaultFontAsset;
+            TextMeshProUGUI speaker = speakerOwner.GetComponent<TextMeshProUGUI>();
+            speaker.font = TMP_Settings.defaultFontAsset;
+
+            VNDialogueController controller = shellOwner.AddComponent<VNDialogueController>();
+            controller.dialogueUiRoot = shellOwner;
+            controller.dialogueText = text;
+            controller.nameBox = nameOwner;
+            controller.speakerText = speaker;
+
+            InvokePrivate(controller, "ApplyReadingShellPresentation");
+
+            Require(Mathf.Approximately(boxRect.sizeDelta.x, 1240f), "Reading shell must keep its reading-column width.");
+            Require(boxRect.sizeDelta.y <= 340f + 0.01f, "Idle reading shell must respect the existing height bound.");
+
+            InvokePrivate(controller, "ApplyReadingShellContentHeight", "Короткая TECH DEMO ONLY реплика.");
+            float shortHeight = boxRect.sizeDelta.y;
+            Require(shortHeight >= 150f - 0.01f, "Short replies must not collapse below the readable shell minimum.");
+            Require(shortHeight < 340f, "Short replies must stop reserving the full HUD-bar height.");
+
+            text.fontSize = 40f;
+            InvokePrivate(controller, "ApplyReadingShellContentHeight",
+                "Длинная TECH DEMO ONLY реплика для проверки того, что адаптивная высота чтения растёт вместе с содержанием, сохраняет читаемый запас под строками и не обрезает многострочный текст при поддерживаемом масштабе диалога.");
+            float grownHeight = boxRect.sizeDelta.y;
+            Require(grownHeight > shortHeight, "Adaptive shell must grow with multi-line content.");
+            Require(grownHeight <= 340f + 0.01f, "Adaptive shell must keep the existing long-text capacity bound.");
+
+            InvokePrivate(controller, "ApplyReadingShellContentHeight", new string('Д', 4000));
+            Require(Mathf.Approximately(boxRect.sizeDelta.y, 340f), "Overflowing content must stay capped at the existing bound.");
+
+            Image nameBackground = nameOwner.GetComponent<Image>();
+            Require(nameBackground.sprite == null, "Speaker plate must drop the baked decorative sprite.");
+            Require(Mathf.Approximately(nameBackground.color.a, 0.60f), "Speaker plate must stay lighter than the dialogue shell.");
+
+            InvokePrivate(controller, "ApplyNameBoxWidth", "TECH DEMO — Голос проверки");
+            float plateWidth = ((RectTransform)nameOwner.transform).sizeDelta.x;
+            Require(plateWidth >= 180f && plateWidth < 500f, "Speaker plate must hug the speaker name inside its bounded width.");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(speakerOwner);
+            UnityEngine.Object.DestroyImmediate(nameOwner);
+            UnityEngine.Object.DestroyImmediate(textOwner);
+            UnityEngine.Object.DestroyImmediate(shellOwner);
+        }
+    }
+
+    private static void InvokePrivate(VNDialogueController controller, string methodName, params object[] arguments)
+    {
+        MethodInfo method = typeof(VNDialogueController).GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Require(method != null, "Missing reading-loop method: " + methodName);
+        method.Invoke(controller, arguments);
     }
 
     private static Button CreateButton(string name)
