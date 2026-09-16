@@ -97,9 +97,9 @@ public static class PreferencesUiParitySmokeTests
         Require(window != null
                 && window.anchorMin == new Vector2(0.5f, 0.5f)
                 && window.anchorMax == new Vector2(0.5f, 0.5f)
-                && window.sizeDelta.x >= 1550f && window.sizeDelta.x <= 1650f
-                && window.sizeDelta.y >= 850f && window.sizeDelta.y <= 950f,
-            "Shared Preferences must use the approved large calm-panel geometry at 1920x1080.");
+                && window.sizeDelta.x >= 1740f && window.sizeDelta.x <= 1780f
+                && window.sizeDelta.y >= 960f && window.sizeDelta.y <= 1000f,
+            "Shared Preferences must use the approved broad low-chrome geometry at 1920x1080.");
 
         Require(view.GetComponentsInChildren<ScrollRect>(true).Count(scroll => scroll.gameObject.name == "Single Scroll Viewport") == 0,
             "All Preferences controls fit at 1920x1080 and must not be hidden behind a scroll viewport mask.");
@@ -158,7 +158,7 @@ public static class PreferencesUiParitySmokeTests
         Require(handle.width > 0f && handle.height > 0f,
             "Preferences slider handle must have non-zero visible width and height.");
         Require(handle.width >= 10f && handle.width <= 14f && handle.height >= 10f && handle.height <= 14f,
-            "Preferences slider handle must remain compact instead of returning to an oversized presentation.");
+            $"Preferences slider handle must remain compact instead of returning to an oversized presentation (actual {handle.width}x{handle.height}).");
 
         RectTransform track = slider.transform.Cast<Transform>().FirstOrDefault(child => child.name == "Track") as RectTransform;
         Require(track != null && track.rect.height > 0f && track.rect.height < sliderRect.rect.height,

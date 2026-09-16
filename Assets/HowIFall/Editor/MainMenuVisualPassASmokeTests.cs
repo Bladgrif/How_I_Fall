@@ -213,10 +213,10 @@ public static class MainMenuVisualPassASmokeTests
         RectTransform[] rows = controller.PlayerFacingActionButtons
             .Select(button => button.transform.parent as RectTransform)
             .ToArray();
-        Require(rows.All(row => row.anchoredPosition.x >= 176f && row.anchoredPosition.x <= 224f),
+        Require(rows.All(row => row.anchoredPosition.x >= 190f && row.anchoredPosition.x <= 210f),
             "Main Menu actions must stay in the left visual column.");
-        Require(rows.All(row => row.sizeDelta.x >= 450f && row.sizeDelta.x <= 490f
-                && row.sizeDelta.y >= 62f && row.sizeDelta.y <= 70f),
+        Require(rows.All(row => row.sizeDelta.x >= 490f && row.sizeDelta.x <= 510f
+                && row.sizeDelta.y >= 70f && row.sizeDelta.y <= 74f),
             "Main Menu actions must use the approved large typography-led 1920x1080 geometry.");
 
         CanvasScaler scaler = UnityEngine.Object.FindFirstObjectByType<CanvasScaler>(FindObjectsInactive.Include);

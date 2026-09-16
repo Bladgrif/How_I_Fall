@@ -148,6 +148,7 @@ public static class PlayerUiGraphicalE2ERunner
                     Capture("preferences_sound_1280x720.png", "RestoreMainPreferencesResolution"); break;
                 case "FocusSlider": FocusSlider(); break;
                 case "CaptureTextSpeedMaximum": CaptureTextSpeedMaximum(); break;
+                case "CaptureGameplayCategory": CaptureGameplayCategory(); break;
                 case "PrepareResponsiveMainPreferences": PrepareResponsiveMainPreferences(); break;
                 case "CaptureResponsiveMainPreferences": CaptureResponsiveMainPreferences(); break;
                 case "RestoreMainPreferencesResolution": RestoreMainPreferencesResolution(); break;
@@ -361,7 +362,7 @@ public static class PlayerUiGraphicalE2ERunner
         Transform popup = view.GetComponentsInChildren<Transform>().FirstOrDefault(child => child.name == "Dropdown List");
         Require(popup != null && popup.GetComponent<CanvasGroup>().alpha >= 0.99f, "Dropdown capture must wait for its fade.");
         RectTransform popupRect = (RectTransform)popup;
-        Require(popupRect.rect.width <= 310f && popupRect.rect.height <= 180f, "Dropdown popup became oversized.");
+        Require(popupRect.rect.width <= 390f && popupRect.rect.height <= 180f, "Dropdown popup became oversized.");
         foreach (TextMeshProUGUI text in popup.GetComponentsInChildren<TextMeshProUGUI>())
         {
             Vector3[] corners = new Vector3[4];
@@ -407,7 +408,15 @@ public static class PlayerUiGraphicalE2ERunner
         slider.value = slider.maxValue;
         Require(view.GetDisplayedValue(SharedPreferencesView.TextSpeedId) == "Очень быстро",
             "Text Speed maximum did not display its expected label.");
-        Capture("main_menu_preferences_text_speed_max_1920x1080.png", "PrepareResponsiveMainPreferences");
+        Capture("main_menu_preferences_text_speed_max_1920x1080.png", "CaptureGameplayCategory");
+    }
+
+    private static void CaptureGameplayCategory()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed before Gameplay category proof.");
+        view.SelectCategory(3);
+        Capture("main_menu_preferences_game_1920x1080.png", "PrepareResponsiveMainPreferences");
     }
 
     private static void PrepareResponsiveMainPreferences()

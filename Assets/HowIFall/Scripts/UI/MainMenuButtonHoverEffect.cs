@@ -99,7 +99,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             accentRect.anchorMax = new Vector2(0f, 0.5f);
             accentRect.pivot = new Vector2(0f, 0.5f);
             accentRect.anchoredPosition = new Vector2(2f, 0f);
-            accentRect.sizeDelta = new Vector2(5f, 44f);
+            accentRect.sizeDelta = new Vector2(4f, 50f);
             focusAccent.raycastTarget = false;
         }
     }
@@ -264,7 +264,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         if (mainMenuActions != null)
         {
-            Apply(new Color(0.18f, 0.38f, 0.54f, 0.035f), new Color(0.83f, 0.94f, 1f, 1f));
+            Apply(new Color(0.18f, 0.38f, 0.54f, 0.045f), new Color(0.88f, 0.96f, 1f, 1f));
             return;
         }
         Apply(Color.clear, useRedFocusText
@@ -348,7 +348,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private Color RoleNormalText()
     {
-        if (mainMenuActions != null) return new Color(0.80f, 0.84f, 0.89f, 0.94f);
+        if (mainMenuActions != null) return new Color(0.88f, 0.91f, 0.95f, 0.98f);
         return role switch
         {
             MainMenuButtonVisualRole.Primary => Color.white,

@@ -143,7 +143,7 @@ namespace HowIFall.PlayModeTests
                     Canvas.ForceUpdateCanvases();
                     RectTransform popup = dropdown.transform.Find("Dropdown List") as RectTransform;
                     Assert.That(popup, Is.Not.Null);
-                    Assert.That(popup.rect.width, Is.LessThanOrEqualTo(310f));
+                    Assert.That(popup.rect.width, Is.InRange(370f, 390f));
                     foreach (TMPro.TextMeshProUGUI label in popup.GetComponentsInChildren<TMPro.TextMeshProUGUI>())
                     {
                         var corners = new Vector3[4];

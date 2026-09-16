@@ -146,7 +146,7 @@ public sealed class MainMenuController : MonoBehaviour
         // rather than a stack of conventional Unity buttons. The asymmetrical
         // left composition preserves the authored focal point and leaves the
         // bright centre/right of the scene deliberately quiet.
-        float[] verticalPositions = { 126f, 42f, -42f, -126f, -238f };
+        float[] verticalPositions = { 154f, 64f, -26f, -116f, -230f };
         for (int index = 0; index < orderedRows.Length; index++)
         {
             RectTransform row = orderedRows[index] as RectTransform;
@@ -157,8 +157,8 @@ public sealed class MainMenuController : MonoBehaviour
 
             row.anchorMin = row.anchorMax = new Vector2(0f, 0.5f);
             row.pivot = new Vector2(0f, 0.5f);
-            row.anchoredPosition = new Vector2(176f, verticalPositions[index]);
-            row.sizeDelta = new Vector2(470f, 66f);
+            row.anchoredPosition = new Vector2(196f, verticalPositions[index]);
+            row.sizeDelta = new Vector2(500f, 72f);
 
             RectTransform buttonRect = playerFacingActionButtons[index].transform as RectTransform;
             if (buttonRect != null)
@@ -214,7 +214,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (gradient != null && gradient.TryGetComponent(out Image gradientImage) && gradientImage.sprite != null)
         {
             gradient.gameObject.SetActive(true);
-            gradientImage.color = new Color(1f, 1f, 1f, 0.72f);
+            gradientImage.color = new Color(1f, 1f, 1f, 0.88f);
             gradientImage.raycastTarget = false;
         }
 
@@ -240,8 +240,8 @@ public sealed class MainMenuController : MonoBehaviour
         panel.SetAsFirstSibling();
         panel.anchorMin = panel.anchorMax = new Vector2(0f, 0.5f);
         panel.pivot = new Vector2(0f, 0.5f);
-        panel.anchoredPosition = new Vector2(150f, -42f);
-        panel.sizeDelta = new Vector2(520f, 520f);
+        panel.anchoredPosition = new Vector2(166f, -30f);
+        panel.sizeDelta = new Vector2(560f, 560f);
 
         Image panelImage = panel.GetComponent<Image>();
         panelImage.sprite = null;
@@ -287,8 +287,8 @@ public sealed class MainMenuController : MonoBehaviour
         RectTransform logoRect = logo as RectTransform;
         logoRect.anchorMin = logoRect.anchorMax = new Vector2(0f, 1f);
         logoRect.pivot = new Vector2(0f, 1f);
-        logoRect.anchoredPosition = new Vector2(104f, -48f);
-        logoRect.sizeDelta = new Vector2(560f, 248f);
+        logoRect.anchoredPosition = new Vector2(108f, -34f);
+        logoRect.sizeDelta = new Vector2(620f, 304f);
         logoRect.localRotation = Quaternion.identity;
         logoImage.color = Color.white;
         logoImage.preserveAspect = true;
@@ -784,7 +784,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (tmpLabel != null)
         {
             tmpLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            tmpLabel.fontSize = 40f;
+            tmpLabel.fontSize = 44f;
             tmpLabel.fontStyle = FontStyles.Normal;
             tmpLabel.characterSpacing = 1.5f;
             Shadow textShadow = tmpLabel.GetComponent<Shadow>() ?? tmpLabel.gameObject.AddComponent<Shadow>();
@@ -799,7 +799,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (label != null)
         {
             label.alignment = TextAnchor.MiddleLeft;
-            label.fontSize = 40;
+            label.fontSize = 44;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
             ApplyLabelPadding(label.rectTransform);
@@ -815,7 +815,7 @@ public sealed class MainMenuController : MonoBehaviour
 
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(28f, 0f);
+        labelRect.offsetMin = new Vector2(32f, 0f);
         labelRect.offsetMax = new Vector2(-18f, 0f);
     }
 
