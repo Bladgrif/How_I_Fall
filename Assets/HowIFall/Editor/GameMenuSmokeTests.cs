@@ -204,9 +204,21 @@ public static class GameMenuSmokeTests
                 "Destructive confirmation must default keyboard focus to Cancel.");
             Require(view.ConfirmationYesButton.targetGraphic is Image yesImage
                 && view.ConfirmationNoButton.targetGraphic is Image noImage
-                && yesImage.color.r > yesImage.color.b
-                && noImage.color.b > noImage.color.r,
-                "Confirmation actions must keep the shared red destructive / navy cancel presentation.");
+                && yesImage.color.a <= 0.01f
+                && noImage.color.a <= 0.01f,
+                "Confirmation actions must keep the low-chrome transparent presentation.");
+            MainMenuButtonHoverEffect yesEffect = view.ConfirmationYesButton.GetComponent<MainMenuButtonHoverEffect>();
+            MainMenuButtonHoverEffect noEffect = view.ConfirmationNoButton.GetComponent<MainMenuButtonHoverEffect>();
+            Require(yesEffect != null && noEffect != null
+                && yesEffect.Role == MainMenuButtonVisualRole.Destructive
+                && noEffect.Role == MainMenuButtonVisualRole.Secondary,
+                "Confirmation actions lost destructive/safe visual roles.");
+            yesEffect.OnPointerEnter(new PointerEventData(eventSystem));
+            Require(yesEffect.IsInteractionVisible && !noEffect.IsInteractionVisible,
+                "Mouse hover left two confirmation actions active.");
+            eventSystem.SetSelectedGameObject(view.ConfirmationNoButton.gameObject);
+            Require(!yesEffect.IsInteractionVisible && noEffect.IsInteractionVisible,
+                "Safe keyboard focus did not clear the destructive hover state.");
 
             RectTransform confirmationWindow = view.transform.Find("Game Menu Confirmation/Confirmation Window") as RectTransform;
             Require(confirmationWindow != null, "Game Menu confirmation window is missing.");

@@ -26,6 +26,12 @@ public static class ManualSavePlayModeE2ERunner
     private const string ResultPath = "manual_save_playmode_result.txt";
     private const string MainMenuLoadProofFileName = "main_menu_load_1920x1080.png";
     private const string LoadConfirmationProofFileName = "gameplay_load_confirmation_1920x1080.png";
+    private const string LoadConfirmationCompactProofFileName = "gameplay_load_confirmation_1280x720.png";
+    private const string OverwriteConfirmationProofFileName = "gameplay_overwrite_confirmation_1920x1080.png";
+    private const string OverwriteConfirmationHoverProofFileName = "gameplay_overwrite_confirmation_hover_1920x1080.png";
+    private const string OverwriteConfirmationCompactProofFileName = "gameplay_overwrite_confirmation_1280x720.png";
+    private const string DeleteConfirmationProofFileName = "gameplay_delete_confirmation_1920x1080.png";
+    private const string DeleteConfirmationCompactProofFileName = "gameplay_delete_confirmation_1280x720.png";
     private const string InvalidSaveProofFileName = "gameplay_invalid_save_slot_1920x1080.png";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
     private static readonly Vector2Int CompactQaResolution = new Vector2Int(1280, 720);
@@ -143,6 +149,15 @@ public static class ManualSavePlayModeE2ERunner
             case "WaitLoadConfirmationScreenshot":
                 WaitLoadConfirmationScreenshot();
                 break;
+            case "CaptureResponsiveLoadConfirmation":
+                CaptureResponsiveLoadConfirmation();
+                break;
+            case "WaitResponsiveLoadConfirmationScreenshot":
+                WaitResponsiveLoadConfirmationScreenshot();
+                break;
+            case "ConfirmResponsiveLoad":
+                ConfirmResponsiveLoad();
+                break;
             case "WaitLoadConfirmationReady":
                 WaitLoadConfirmationReady();
                 break;
@@ -185,6 +200,21 @@ public static class ManualSavePlayModeE2ERunner
             case "OverwriteCancel":
                 OverwriteCancel();
                 break;
+            case "CaptureOverwriteConfirmation":
+                CaptureOverwriteConfirmation();
+                break;
+            case "CaptureOverwriteConfirmationHover":
+                CaptureOverwriteConfirmationHover();
+                break;
+            case "WaitOverwriteConfirmationScreenshot":
+                WaitOverwriteConfirmationScreenshot();
+                break;
+            case "CaptureResponsiveOverwriteConfirmation":
+                CaptureResponsiveOverwriteConfirmation();
+                break;
+            case "WaitResponsiveOverwriteConfirmationScreenshot":
+                WaitResponsiveOverwriteConfirmationScreenshot();
+                break;
             case "OverwriteConfirm":
                 OverwriteConfirm();
                 break;
@@ -193,6 +223,18 @@ public static class ManualSavePlayModeE2ERunner
                 break;
             case "DeleteCancel":
                 DeleteCancel();
+                break;
+            case "CaptureDeleteConfirmation":
+                CaptureDeleteConfirmation();
+                break;
+            case "WaitDeleteConfirmationScreenshot":
+                WaitDeleteConfirmationScreenshot();
+                break;
+            case "CaptureResponsiveDeleteConfirmation":
+                CaptureResponsiveDeleteConfirmation();
+                break;
+            case "WaitResponsiveDeleteConfirmationScreenshot":
+                WaitResponsiveDeleteConfirmationScreenshot();
                 break;
             case "DeleteConfirm":
                 DeleteConfirm();
@@ -508,11 +550,53 @@ public static class ManualSavePlayModeE2ERunner
             "Load confirmation re-enabled the parent Save/Load content.");
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
             "Load confirmation lost its safe Cancel focus before capture.");
-        Pass("Load confirmation screenshot with safe Cancel focus and inactive parent content");
+        ConfigureGameViewResolution(CompactQaResolution);
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureResponsiveLoadConfirmation");
+        SetDelay(0.4d);
+    }
+
+    private static void CaptureResponsiveLoadConfirmation()
+    {
+        if (!IsResolutionReady(CompactQaResolution))
+        {
+            ConfigureGameViewResolution(CompactQaResolution);
+            SetDelay(0.15d);
+            return;
+        }
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel.IsConfirmationOpen, "Load confirmation closed before 1280x720 proof.");
+        EventSystem.current.SetSelectedGameObject(panel.confirmationNoButton.gameObject);
+        CaptureProofScreenshot(LoadConfirmationCompactProofFileName, "WaitResponsiveLoadConfirmationScreenshot");
+    }
+
+    private static void WaitResponsiveLoadConfirmationScreenshot()
+    {
+        if (!WaitForProofScreenshot(LoadConfirmationCompactProofFileName, "Responsive Load confirmation screenshot", CompactQaResolution)) return;
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel.IsConfirmationOpen && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
+            "Responsive Load confirmation lost safe focus.");
+        Pass("Load confirmation screenshots at 1920x1080 and 1280x720 with safe Cancel focus");
+        ConfigureGameViewResolution(QaResolution);
+        SessionState.SetString(StageKey, "ConfirmResponsiveLoad");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.3d);
+    }
+
+    private static void ConfirmResponsiveLoad()
+    {
+        if (!IsResolutionReady(QaResolution))
+        {
+            ConfigureGameViewResolution(QaResolution);
+            SetDelay(0.15d);
+            return;
+        }
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel.IsConfirmationOpen, "Load confirmation closed before restored-resolution confirmation.");
         panel.confirmationYesButton.onClick.Invoke();
         SessionState.SetInt(CounterKey, 0);
         SessionState.SetString(StageKey, "WaitInPlaceLoadUiClosed");
-        SetDelay(0.1d);
+        SetDelay(0.2d);
     }
 
     private static void WaitInPlaceLoadUiClosed()
@@ -865,12 +949,63 @@ public static class ManualSavePlayModeE2ERunner
         Require(panel.confirmationRoot != null && panel.confirmationRoot.activeSelf, "Occupied slot did not open overwrite confirmation.");
         Require(EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
             "Overwrite confirmation did not default focus to Cancel.");
+        SessionState.SetString(StageKey, "CaptureOverwriteConfirmation");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.2d);
+    }
+
+    private static void CaptureOverwriteConfirmation()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel.IsConfirmationOpen && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
+            "Overwrite confirmation was not stable before capture.");
+        CaptureProofScreenshot(OverwriteConfirmationProofFileName, "CaptureOverwriteConfirmationHover");
+    }
+
+    private static void CaptureOverwriteConfirmationHover()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        MainMenuButtonHoverEffect effect = panel.confirmationYesButton.GetComponent<MainMenuButtonHoverEffect>();
+        Require(effect != null, "Overwrite destructive hover presentation is missing.");
+        effect.OnPointerEnter(new PointerEventData(EventSystem.current));
+        Require(EventSystem.current.currentSelectedGameObject == panel.confirmationYesButton.gameObject,
+            "Overwrite mouse hover did not move focus to the destructive action.");
+        CaptureProofScreenshot(OverwriteConfirmationHoverProofFileName, "WaitOverwriteConfirmationScreenshot");
+    }
+
+    private static void WaitOverwriteConfirmationScreenshot()
+    {
+        if (!WaitForProofScreenshot(OverwriteConfirmationProofFileName, "Overwrite confirmation screenshot")) return;
+        if (!WaitForProofScreenshot(OverwriteConfirmationHoverProofFileName, "Overwrite hover screenshot")) return;
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        EventSystem.current.SetSelectedGameObject(panel.confirmationNoButton.gameObject);
+        Require(!panel.confirmationYesButton.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible,
+            "Overwrite confirmation retained destructive hover after safe focus moved to Cancel.");
+        ConfigureGameViewResolution(CompactQaResolution);
+        SessionState.SetString(StageKey, "CaptureResponsiveOverwriteConfirmation");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.4d);
+    }
+
+    private static void CaptureResponsiveOverwriteConfirmation()
+    {
+        if (!IsResolutionReady(CompactQaResolution)) { ConfigureGameViewResolution(CompactQaResolution); SetDelay(0.15d); return; }
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        EventSystem.current.SetSelectedGameObject(panel.confirmationNoButton.gameObject);
+        CaptureProofScreenshot(OverwriteConfirmationCompactProofFileName, "WaitResponsiveOverwriteConfirmationScreenshot");
+    }
+
+    private static void WaitResponsiveOverwriteConfirmationScreenshot()
+    {
+        if (!WaitForProofScreenshot(OverwriteConfirmationCompactProofFileName, "Responsive Overwrite confirmation screenshot", CompactQaResolution)) return;
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        ConfigureGameViewResolution(QaResolution);
         panel.confirmationNoButton.onClick.Invoke();
         Require(!panel.confirmationRoot.activeSelf, "No did not close overwrite confirmation.");
         Require(SaveManager.Instance.GetSlot(1).Data.createdAtUtc == SessionState.GetString(InitialCreatedAtKey, string.Empty), "No changed the occupied slot.");
-        Pass("Overwrite confirmation No preserved the slot");
+        Pass("Overwrite confirmation at both resolutions; Cancel preserved the slot");
         SessionState.SetString(StageKey, "OverwriteConfirm");
-        SetDelay(0.2d);
+        SetDelay(0.3d);
     }
 
     private static void OverwriteConfirm()
@@ -918,15 +1053,51 @@ public static class ManualSavePlayModeE2ERunner
         Require(panel.confirmationText.text == "Удалить сохранение из слота 1?", "Delete confirmation text is incorrect.");
         Require(GetButtonLabel(panel.confirmationYesButton) == "Удалить", "Delete confirmation action label is incorrect.");
         Require(GetButtonLabel(panel.confirmationNoButton) == "Отмена", "Delete confirmation cancel label is incorrect.");
+        SessionState.SetString(StageKey, "CaptureDeleteConfirmation");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.2d);
+    }
 
+    private static void CaptureDeleteConfirmation()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel.IsConfirmationOpen && EventSystem.current.currentSelectedGameObject == panel.confirmationNoButton.gameObject,
+            "Delete confirmation was not stable before capture.");
+        CaptureProofScreenshot(DeleteConfirmationProofFileName, "WaitDeleteConfirmationScreenshot");
+    }
+
+    private static void WaitDeleteConfirmationScreenshot()
+    {
+        if (!WaitForProofScreenshot(DeleteConfirmationProofFileName, "Delete confirmation screenshot")) return;
+        ConfigureGameViewResolution(CompactQaResolution);
+        SessionState.SetString(StageKey, "CaptureResponsiveDeleteConfirmation");
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(0.4d);
+    }
+
+    private static void CaptureResponsiveDeleteConfirmation()
+    {
+        if (!IsResolutionReady(CompactQaResolution)) { ConfigureGameViewResolution(CompactQaResolution); SetDelay(0.15d); return; }
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        EventSystem.current.SetSelectedGameObject(panel.confirmationNoButton.gameObject);
+        CaptureProofScreenshot(DeleteConfirmationCompactProofFileName, "WaitResponsiveDeleteConfirmationScreenshot");
+    }
+
+    private static void WaitResponsiveDeleteConfirmationScreenshot()
+    {
+        if (!WaitForProofScreenshot(DeleteConfirmationCompactProofFileName, "Responsive Delete confirmation screenshot", CompactQaResolution)) return;
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        string jsonPath = SaveManager.Instance.GetSlotJsonPath(1);
+        string previewPath = SaveManager.Instance.GetSlotPreviewPath(1);
+        ConfigureGameViewResolution(QaResolution);
         panel.confirmationNoButton.onClick.Invoke();
         Require(!panel.confirmationRoot.activeSelf, "Delete Cancel did not close confirmation.");
         Require(File.Exists(jsonPath), "Delete Cancel removed the JSON file.");
         Require(File.Exists(previewPath), "Delete Cancel removed the PNG file.");
         Require(SaveManager.Instance.GetSlot(1).IsLoadable, "Delete Cancel changed slot 1.");
-        Pass("Delete confirmation Cancel preserved JSON and PNG");
+        Pass("Delete confirmation at both resolutions; Cancel preserved JSON and PNG");
         SessionState.SetString(StageKey, "DeleteConfirm");
-        SetDelay(0.2d);
+        SetDelay(0.3d);
     }
 
     private static void DeleteConfirm()
@@ -1110,7 +1281,7 @@ public static class ManualSavePlayModeE2ERunner
         SetDelay(0.25d);
     }
 
-    private static bool WaitForProofScreenshot(string fileName, string label)
+    private static bool WaitForProofScreenshot(string fileName, string label, Vector2Int? resolution = null)
     {
         string path = GetProofScreenshotPath(fileName);
         if (!File.Exists(path) || new FileInfo(path).Length == 0)
@@ -1122,8 +1293,14 @@ public static class ManualSavePlayModeE2ERunner
             return false;
         }
 
-        VerifyImageDimensions(path, QaResolution.x, QaResolution.y, label);
+        Vector2Int expected = resolution ?? QaResolution;
+        VerifyImageDimensions(path, expected.x, expected.y, label);
         return true;
+    }
+
+    private static bool IsResolutionReady(Vector2Int resolution)
+    {
+        return Screen.width == resolution.x && Screen.height == resolution.y;
     }
 
     private static string GetProofScreenshotPath(string fileName)

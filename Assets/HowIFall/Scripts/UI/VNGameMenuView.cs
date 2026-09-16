@@ -326,19 +326,19 @@ public sealed class VNGameMenuView : MonoBehaviour
         Stretch(confirmationRoot.GetComponent<RectTransform>());
         confirmationRoot.GetComponent<Image>().raycastTarget = true;
 
-        GameObject window = CreateSurface(confirmationRoot.transform, "Confirmation Window", new Color(0.025f, 0.055f, 0.095f, 1f));
+        GameObject window = CreateSurface(confirmationRoot.transform, "Confirmation Window", new Color(0.012f, 0.022f, 0.035f, 0.98f));
         RectTransform windowRect = window.GetComponent<RectTransform>();
         windowRect.anchorMin = windowRect.anchorMax = new Vector2(0.5f, 0.5f);
-        windowRect.sizeDelta = new Vector2(620f, 264f);
+        windowRect.sizeDelta = new Vector2(620f, 250f);
         Outline outline = window.AddComponent<Outline>();
-        outline.effectColor = new Color(0.30f, 0.58f, 0.80f, 0.72f);
-        outline.effectDistance = new Vector2(2f, -2f);
+        outline.effectColor = new Color(0.30f, 0.58f, 0.80f, 0.42f);
+        outline.effectDistance = new Vector2(1f, -1f);
 
         confirmationText = CreateText(window.transform, "Prompt", string.Empty, 22f, FontStyles.Normal, TextAlignmentOptions.Center, Color.white);
-        confirmationText.rectTransform.anchorMin = new Vector2(0f, 0.40f);
-        confirmationText.rectTransform.anchorMax = Vector2.one;
-        confirmationText.rectTransform.offsetMin = new Vector2(34f, 0f);
-        confirmationText.rectTransform.offsetMax = new Vector2(-34f, -26f);
+        confirmationText.rectTransform.anchorMin = new Vector2(0.08f, 0.40f);
+        confirmationText.rectTransform.anchorMax = new Vector2(0.92f, 0.82f);
+        confirmationText.rectTransform.offsetMin = Vector2.zero;
+        confirmationText.rectTransform.offsetMax = Vector2.zero;
 
         GameObject accent = CreateSurface(window.transform, "Confirmation Accent", AccentColor);
         RectTransform accentRect = accent.GetComponent<RectTransform>();
@@ -348,8 +348,11 @@ public sealed class VNGameMenuView : MonoBehaviour
         accentRect.sizeDelta = new Vector2(0f, 3f);
         accent.GetComponent<Image>().raycastTarget = false;
 
-        confirmationYesButton = CreateConfirmationButton(window.transform, "Да", new Vector2(0.35f, 0.20f), true);
-        confirmationNoButton = CreateConfirmationButton(window.transform, "Нет", new Vector2(0.65f, 0.20f), false);
+        confirmationYesButton = CreateConfirmationButton(window.transform, "Да", new Vector2(0.36f, 0.20f), true);
+        confirmationNoButton = CreateConfirmationButton(window.transform, "Нет", new Vector2(0.64f, 0.20f), false);
+        Button[] confirmationButtons = { confirmationYesButton, confirmationNoButton };
+        confirmationYesButton.GetComponent<MainMenuButtonHoverEffect>().ConfigureExclusiveActions(confirmationButtons);
+        confirmationNoButton.GetComponent<MainMenuButtonHoverEffect>().ConfigureExclusiveActions(confirmationButtons);
         confirmationRoot.SetActive(false);
     }
 
@@ -407,18 +410,21 @@ public sealed class VNGameMenuView : MonoBehaviour
 
     private static Button CreateConfirmationButton(Transform parent, string label, Vector2 anchor, bool destructive)
     {
-        GameObject buttonObject = CreateSurface(
-            parent,
-            label + " Button",
-            destructive ? new Color(0.34f, 0.075f, 0.105f, 1f) : new Color(0.075f, 0.11f, 0.17f, 1f));
+        GameObject buttonObject = CreateSurface(parent, label + " Button", Color.clear);
         RectTransform rect = buttonObject.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = anchor;
-        rect.sizeDelta = new Vector2(150f, 48f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = new Vector2(164f, 46f);
         Button button = buttonObject.AddComponent<Button>();
         button.targetGraphic = buttonObject.GetComponent<Image>();
-        button.colors = CreateButtonColors();
-        TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 19f, FontStyles.Bold, TextAlignmentOptions.Center, Color.white);
+        button.transition = Selectable.Transition.None;
+        TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 19f, FontStyles.Normal, TextAlignmentOptions.Center, Color.white);
         Stretch(text.rectTransform);
+        MainMenuButtonHoverEffect effect = buttonObject.AddComponent<MainMenuButtonHoverEffect>();
+        effect.highlightImage = buttonObject.GetComponent<Image>();
+        effect.useRedFocusText = destructive;
+        effect.suppressFocusAccent = destructive;
+        effect.Configure(destructive ? MainMenuButtonVisualRole.Destructive : MainMenuButtonVisualRole.Secondary);
         return button;
     }
 

@@ -42,6 +42,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     private bool isSelected;
     private MainMenuButtonVisualRole role;
     private IReadOnlyList<Button> mainMenuActions;
+    private IReadOnlyList<Button> exclusiveActions;
 
     public MainMenuButtonVisualRole Role => role;
     public bool IsInteractionVisible => button != null && button.interactable && (isPointerInside || isSelected);
@@ -124,6 +125,12 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         RefreshState();
     }
 
+    public void ConfigureExclusiveActions(IReadOnlyList<Button> actions)
+    {
+        exclusiveActions = actions;
+        RefreshState();
+    }
+
     private void SetMainMenuInteraction(bool pointer)
     {
         foreach (Button action in mainMenuActions)
@@ -132,6 +139,19 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             if (effect == null) continue;
             effect.isPointerInside = effect == this && pointer;
             effect.isSelected = effect == this && !pointer;
+            effect.RefreshState();
+        }
+    }
+
+    private void SetExclusiveInteraction(bool pointer)
+    {
+        if (exclusiveActions == null) return;
+        foreach (Button action in exclusiveActions)
+        {
+            MainMenuButtonHoverEffect effect = action != null ? action.GetComponent<MainMenuButtonHoverEffect>() : null;
+            if (effect == null) continue;
+            effect.isPointerInside = effect == this && pointer;
+            effect.isSelected = effect == this;
             effect.RefreshState();
         }
     }
@@ -175,6 +195,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             (EventSystem.current ?? FindFirstObjectByType<EventSystem>())?.SetSelectedGameObject(button.gameObject);
         }
         if (mainMenuActions != null) SetMainMenuInteraction(true);
+        if (exclusiveActions != null) SetExclusiveInteraction(true);
         RefreshState();
     }
 
@@ -218,13 +239,18 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             SetMainMenuInteraction(false);
             return;
         }
+        if (exclusiveActions != null)
+        {
+            SetExclusiveInteraction(false);
+            return;
+        }
         isSelected = true;
         RefreshState();
     }
 
     public void OnDeselect(BaseEventData eventData)
     {
-        if (mainMenuActions != null) isPointerInside = false;
+        if (mainMenuActions != null || exclusiveActions != null) isPointerInside = false;
         isSelected = false;
         RefreshState();
     }

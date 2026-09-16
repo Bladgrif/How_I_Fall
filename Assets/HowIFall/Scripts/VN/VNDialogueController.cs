@@ -236,6 +236,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         RefreshDialoguePresentation();
+        ApplyConfirmationPresentation();
 
         GameState gameState = GameState.EnsureInstance();
         characterHubController = CharacterHubController.TryCreateRuntime(this);
@@ -3012,6 +3013,113 @@ public class VNDialogueController : MonoBehaviour
 
         StopAutoForwardTimer();
         confirmExitPanel.SetActive(true);
+        FocusExitConfirmationCancel();
+    }
+
+    private void ApplyConfirmationPresentation()
+    {
+        if (confirmExitPanel == null)
+        {
+            return;
+        }
+
+        Image dimmer = confirmExitPanel.GetComponent<Image>();
+        if (dimmer != null)
+        {
+            dimmer.color = new Color(0.004f, 0.008f, 0.018f, 0.80f);
+            dimmer.raycastTarget = true;
+        }
+
+        RectTransform window = confirmExitPanel.GetComponentsInChildren<RectTransform>(true)
+            .FirstOrDefault(rect => rect.transform.parent == confirmExitPanel.transform && rect.name.Contains("Window"));
+        if (window == null)
+        {
+            return;
+        }
+
+        window.sizeDelta = new Vector2(620f, 250f);
+        Image windowImage = window.GetComponent<Image>();
+        if (windowImage != null)
+        {
+            windowImage.sprite = null;
+            windowImage.type = Image.Type.Simple;
+            windowImage.color = new Color(0.012f, 0.022f, 0.035f, 0.98f);
+        }
+
+        Outline outline = window.GetComponent<Outline>() ?? window.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.30f, 0.58f, 0.80f, 0.42f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        TextMeshProUGUI prompt = window.GetComponentsInChildren<TextMeshProUGUI>(true)
+            .FirstOrDefault(text => text.GetComponentInParent<Button>(true) == null);
+        if (prompt != null)
+        {
+            prompt.rectTransform.anchorMin = new Vector2(0.08f, 0.40f);
+            prompt.rectTransform.anchorMax = new Vector2(0.92f, 0.82f);
+            prompt.rectTransform.offsetMin = Vector2.zero;
+            prompt.rectTransform.offsetMax = Vector2.zero;
+            prompt.fontSize = 22f;
+            prompt.fontStyle = FontStyles.Normal;
+            prompt.alignment = TextAlignmentOptions.Center;
+            prompt.enableWordWrapping = true;
+            prompt.color = new Color(0.92f, 0.96f, 1f, 1f);
+        }
+
+        ConfigureConfirmationButton(confirmExitYesButton, true, new Vector2(0.36f, 0.20f));
+        ConfigureConfirmationButton(confirmExitNoButton, false, new Vector2(0.64f, 0.20f));
+        Button[] confirmationButtons = { confirmExitYesButton, confirmExitNoButton };
+        confirmExitYesButton?.GetComponent<MainMenuButtonHoverEffect>()?.ConfigureExclusiveActions(confirmationButtons);
+        confirmExitNoButton?.GetComponent<MainMenuButtonHoverEffect>()?.ConfigureExclusiveActions(confirmationButtons);
+        RectTransform actions = confirmExitYesButton != null
+            && confirmExitNoButton != null
+            && confirmExitYesButton.transform.parent == confirmExitNoButton.transform.parent
+            ? confirmExitYesButton.transform.parent as RectTransform
+            : null;
+        if (actions != null && actions != window)
+        {
+            actions.anchorMin = actions.anchorMax = new Vector2(0.5f, 0.22f);
+            actions.pivot = new Vector2(0.5f, 0.5f);
+            actions.anchoredPosition = Vector2.zero;
+            actions.sizeDelta = new Vector2(400f, 52f);
+        }
+    }
+
+    private static void ConfigureConfirmationButton(Button button, bool destructive, Vector2 anchor)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        RectTransform rect = button.transform as RectTransform;
+        rect.anchorMin = rect.anchorMax = anchor;
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = new Vector2(164f, 46f);
+        button.transition = Selectable.Transition.None;
+        Image image = button.targetGraphic as Image ?? button.GetComponent<Image>();
+        if (image != null)
+        {
+            image.sprite = null;
+            image.type = Image.Type.Simple;
+            image.color = Color.clear;
+            button.targetGraphic = image;
+        }
+
+        MainMenuButtonHoverEffect effect = button.GetComponent<MainMenuButtonHoverEffect>()
+            ?? button.gameObject.AddComponent<MainMenuButtonHoverEffect>();
+        effect.highlightImage = image;
+        effect.useRedFocusText = destructive;
+        effect.suppressFocusAccent = destructive;
+        effect.Configure(destructive ? MainMenuButtonVisualRole.Destructive : MainMenuButtonVisualRole.Secondary);
+    }
+
+    private void FocusExitConfirmationCancel()
+    {
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        if (confirmExitNoButton != null && eventSystem != null)
+        {
+            eventSystem.SetSelectedGameObject(confirmExitNoButton.gameObject);
+        }
     }
 
     public void ShowConfirmExitFromGameMenu()

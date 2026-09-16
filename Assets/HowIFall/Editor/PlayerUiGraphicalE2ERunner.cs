@@ -159,6 +159,7 @@ public static class PlayerUiGraphicalE2ERunner
                 case "OpenMainQuitConfirmation": OpenMainQuitConfirmation(); break;
                 case "WaitMainQuitConfirmation": WaitMainQuitConfirmation(); break;
                 case "CaptureMainQuitYesFocus": CaptureMainQuitYesFocus(); break;
+                case "CaptureResponsiveMainQuit": CaptureResponsiveMainQuit(); break;
                 case "CloseMainQuitConfirmation": CloseMainQuitConfirmation(); break;
                 case "CaptureResponsiveMainMenu": CaptureResponsiveMainMenu(); break;
                 case "StartGameplay": StartGameplay(); break;
@@ -188,6 +189,11 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareHideUi": PrepareHideUi(); break;
                 case "RestoreAfterHideUi": RestoreAfterHideUi(); break;
                 case "CaptureGameMenuAlternateFocus": CaptureGameMenuAlternateFocus(); break;
+                case "OpenGameMenuMainConfirmation": OpenGameMenuMainConfirmation(); break;
+                case "WaitGameMenuMainConfirmation": WaitGameMenuMainConfirmation(); break;
+                case "CaptureGameMenuMainConfirmFocus": CaptureGameMenuMainConfirmFocus(); break;
+                case "CaptureResponsiveGameMenuMainConfirmation": CaptureResponsiveGameMenuMainConfirmation(); break;
+                case "CloseGameMenuMainConfirmation": CloseGameMenuMainConfirmation(); break;
                 case "OpenGameplayPreferences": OpenGameplayPreferences(); break;
                 case "WaitGameplayPreferences": WaitGameplayPreferences(); break;
                 case "PrepareResponsivePreferences": PrepareResponsivePreferences(); break;
@@ -539,7 +545,31 @@ public static class PlayerUiGraphicalE2ERunner
         effect.OnPointerEnter(new PointerEventData(EventSystem.current));
         Require(EventSystem.current.currentSelectedGameObject == confirm.gameObject,
             "Quit confirmation mouse hover did not select Да.");
-        Capture("main_menu_quit_confirmation_yes_focus_1920x1080.png", "CloseMainQuitConfirmation");
+        Capture("main_menu_quit_confirmation_yes_focus_1920x1080.png", "CaptureResponsiveMainQuit");
+    }
+
+    private static void CaptureResponsiveMainQuit()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        GameObject exitPanel = menu != null
+            ? typeof(MainMenuController).GetField("exitConfirmPanel", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(menu) as GameObject
+            : null;
+        Require(exitPanel != null && exitPanel.activeSelf, "Quit confirmation closed before responsive proof.");
+        Button cancel = exitPanel.GetComponentsInChildren<Button>(true)
+            .FirstOrDefault(button => HasPersistentRoute(button, nameof(MainMenuController.CloseExitConfirm)));
+        Require(cancel != null, "Responsive Quit confirmation has no safe Cancel action.");
+        EventSystem.current.SetSelectedGameObject(cancel.gameObject);
+        Button confirm = exitPanel.GetComponentsInChildren<Button>(true)
+            .FirstOrDefault(button => HasPersistentRoute(button, nameof(MainMenuController.ConfirmExit)));
+        Require(confirm != null && !confirm.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible,
+            "Quit confirmation retained a second destructive active state after safe focus moved to Cancel.");
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for responsive Quit confirmation proof.");
+            return;
+        }
+        Capture("main_menu_quit_confirmation_1280x720.png", "CloseMainQuitConfirmation");
     }
 
     private static void CloseMainQuitConfirmation()
@@ -1001,7 +1031,81 @@ public static class PlayerUiGraphicalE2ERunner
             && !IsFocusMarkerVisible(view, VNGameMenuAction.Return)
             && view.VisibleFocusMarkerCount == 1,
             "Game Menu focus marker did not move to Preferences.");
-        Capture("game_menu_alternate_focus_1920x1080.png", "OpenGameplayPreferences");
+        Capture("game_menu_alternate_focus_1920x1080.png", "OpenGameMenuMainConfirmation");
+    }
+
+    private static void OpenGameMenuMainConfirmation()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Button mainMenu = view != null ? view.GetButton(VNGameMenuAction.MainMenu) : null;
+        Require(mainMenu != null && mainMenu.interactable, "Game Menu Main Menu action is unavailable.");
+        mainMenu.onClick.Invoke();
+        SessionState.SetString(StageKey, "WaitGameMenuMainConfirmation");
+        ResetCounter();
+        SetDelay(0.25d);
+    }
+
+    private static void WaitGameMenuMainConfirmation()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (dialogue.confirmExitPanel == null || !dialogue.confirmExitPanel.activeSelf)
+        {
+            Retry("Game Menu Main Menu confirmation did not become visible.");
+            return;
+        }
+
+        Require(!dialogue.GameMenuController.IsPresentationVisible,
+            "Game Menu remained visible beneath its Main Menu confirmation.");
+        Require(EventSystem.current != null
+            && EventSystem.current.currentSelectedGameObject == dialogue.confirmExitNoButton.gameObject,
+            "Game Menu Main Menu confirmation did not default to safe Cancel.");
+        Capture("game_menu_main_confirmation_1920x1080.png", "CaptureGameMenuMainConfirmFocus");
+    }
+
+    private static void CaptureGameMenuMainConfirmFocus()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Require(dialogue.confirmExitPanel != null && dialogue.confirmExitPanel.activeSelf,
+            "Game Menu Main Menu confirmation closed before destructive focus proof.");
+        MainMenuButtonHoverEffect effect = dialogue.confirmExitYesButton.GetComponent<MainMenuButtonHoverEffect>();
+        Require(effect != null, "Game Menu Main Menu destructive hover presentation is missing.");
+        effect.OnPointerEnter(new PointerEventData(EventSystem.current));
+        Require(EventSystem.current.currentSelectedGameObject == dialogue.confirmExitYesButton.gameObject,
+            "Mouse hover did not move confirmation focus to the destructive action.");
+        Capture("game_menu_main_confirmation_yes_focus_1920x1080.png", "CaptureResponsiveGameMenuMainConfirmation");
+    }
+
+    private static void CaptureResponsiveGameMenuMainConfirmation()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Require(dialogue.confirmExitPanel != null && dialogue.confirmExitPanel.activeSelf,
+            "Game Menu Main Menu confirmation closed before responsive proof.");
+        EventSystem.current.SetSelectedGameObject(dialogue.confirmExitNoButton.gameObject);
+        Require(!dialogue.confirmExitYesButton.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible,
+            "Game Menu confirmation retained destructive hover after safe focus moved to Cancel.");
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for Game Menu confirmation proof.");
+            return;
+        }
+        Capture("game_menu_main_confirmation_1280x720.png", "CloseGameMenuMainConfirmation");
+    }
+
+    private static void CloseGameMenuMainConfirmation()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.HideConfirmExit();
+        ConfigureGameViewResolution(QaResolution);
+        if (!dialogue.GameMenuController.IsPresentationVisible)
+        {
+            Retry("Cancel did not restore Game Menu after responsive confirmation proof.");
+            return;
+        }
+        SessionState.SetString(StageKey, "OpenGameplayPreferences");
+        ResetCounter();
+        SetDelay(0.4d);
     }
 
     private static void OpenGameplayPreferences()

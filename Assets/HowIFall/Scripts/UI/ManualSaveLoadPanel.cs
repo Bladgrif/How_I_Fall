@@ -97,6 +97,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private void Awake()
     {
         ApplyPlayerFacingPalette();
+        ConfigureConfirmationPresentation();
         ConfigureCompactNavigationPresentation();
         if (canvasGroup == null)
         {
@@ -318,6 +319,128 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             accentImage.type = Image.Type.Simple;
             accentImage.color = new Color(0.30f, 0.58f, 0.80f, 0.72f);
         }
+    }
+
+    private void ConfigureConfirmationPresentation()
+    {
+        if (confirmationRoot == null || confirmationWindow == null)
+        {
+            return;
+        }
+
+        Image dimmer = confirmationRoot.GetComponent<Image>();
+        if (dimmer != null)
+        {
+            dimmer.color = new Color(0.004f, 0.008f, 0.018f, 0.80f);
+            dimmer.raycastTarget = true;
+        }
+
+        confirmationWindow.sizeDelta = new Vector2(620f, 250f);
+        Image windowImage = confirmationWindow.GetComponent<Image>();
+        if (windowImage != null)
+        {
+            windowImage.sprite = null;
+            windowImage.type = Image.Type.Simple;
+            windowImage.color = new Color(0.012f, 0.022f, 0.035f, 0.98f);
+        }
+
+        Outline outline = confirmationWindow.GetComponent<Outline>() ?? confirmationWindow.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.30f, 0.58f, 0.80f, 0.42f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        Shadow shadow = confirmationWindow.GetComponent<Shadow>() ?? confirmationWindow.gameObject.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.72f);
+        shadow.effectDistance = new Vector2(5f, -5f);
+
+        Transform accent = confirmationWindow.Find("Confirmation Accent");
+        Image accentImage = accent != null ? accent.GetComponent<Image>() : null;
+        if (accentImage != null)
+        {
+            accentImage.sprite = null;
+            accentImage.type = Image.Type.Simple;
+            accentImage.color = new Color(0.66f, 0.16f, 0.20f, 0.76f);
+        }
+
+        if (confirmationText != null)
+        {
+            RectTransform textRect = confirmationText.rectTransform;
+            textRect.anchorMin = new Vector2(0.08f, 0.40f);
+            textRect.anchorMax = new Vector2(0.92f, 0.82f);
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            confirmationText.alignment = TextAlignmentOptions.Center;
+            confirmationText.fontStyle = FontStyles.Normal;
+            confirmationText.fontSize = 22f;
+            confirmationText.enableAutoSizing = true;
+            confirmationText.fontSizeMin = 17f;
+            confirmationText.fontSizeMax = 22f;
+            confirmationText.enableWordWrapping = true;
+            confirmationText.overflowMode = TextOverflowModes.Overflow;
+            confirmationText.color = new Color(0.92f, 0.96f, 1f, 1f);
+        }
+
+        if (confirmationYesButton != null && confirmationYesButton.transform.parent != confirmationWindow)
+        {
+            confirmationYesButton.transform.SetParent(confirmationWindow, false);
+        }
+        if (confirmationNoButton != null && confirmationNoButton.transform.parent != confirmationWindow)
+        {
+            confirmationNoButton.transform.SetParent(confirmationWindow, false);
+        }
+        ConfigureConfirmationButton(confirmationYesButton, true, new Vector2(0.36f, 0.20f));
+        ConfigureConfirmationButton(confirmationNoButton, false, new Vector2(0.64f, 0.20f));
+        Button[] confirmationButtons = { confirmationYesButton, confirmationNoButton };
+        confirmationYesButton?.GetComponent<MainMenuButtonHoverEffect>()?.ConfigureExclusiveActions(confirmationButtons);
+        confirmationNoButton?.GetComponent<MainMenuButtonHoverEffect>()?.ConfigureExclusiveActions(confirmationButtons);
+        RectTransform actions = confirmationYesButton != null
+            && confirmationNoButton != null
+            && confirmationYesButton.transform.parent == confirmationNoButton.transform.parent
+            ? confirmationYesButton.transform.parent as RectTransform
+            : null;
+        if (actions != null && actions != confirmationWindow)
+        {
+            actions.anchorMin = actions.anchorMax = new Vector2(0.5f, 0.22f);
+            actions.pivot = new Vector2(0.5f, 0.5f);
+            actions.anchoredPosition = Vector2.zero;
+            actions.sizeDelta = new Vector2(400f, 52f);
+        }
+    }
+
+    private static void ConfigureConfirmationButton(Button button, bool destructive, Vector2 anchor)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        RectTransform rect = button.transform as RectTransform;
+        rect.anchorMin = rect.anchorMax = anchor;
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = new Vector2(164f, 46f);
+        button.transition = Selectable.Transition.None;
+
+        Image image = button.targetGraphic as Image ?? button.GetComponent<Image>();
+        if (image != null)
+        {
+            image.sprite = null;
+            image.type = Image.Type.Simple;
+            image.color = Color.clear;
+            button.targetGraphic = image;
+        }
+
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.fontSize = 19f;
+            label.fontStyle = FontStyles.Normal;
+            label.alignment = TextAlignmentOptions.Center;
+        }
+
+        MainMenuButtonHoverEffect effect = button.GetComponent<MainMenuButtonHoverEffect>()
+            ?? button.gameObject.AddComponent<MainMenuButtonHoverEffect>();
+        effect.highlightImage = image;
+        effect.useRedFocusText = destructive;
+        effect.suppressFocusAccent = destructive;
+        effect.Configure(destructive ? MainMenuButtonVisualRole.Destructive : MainMenuButtonVisualRole.Secondary);
     }
 
     private void Update()

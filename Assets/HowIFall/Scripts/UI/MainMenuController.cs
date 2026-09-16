@@ -369,6 +369,11 @@ public sealed class MainMenuController : MonoBehaviour
             return;
         }
 
+        if (destructive)
+        {
+            window.sizeDelta = new Vector2(620f, 250f);
+        }
+
         Image windowImage = window.GetComponent<Image>();
         if (windowImage != null)
         {
@@ -407,6 +412,15 @@ public sealed class MainMenuController : MonoBehaviour
         {
             title.color = Color.white;
             title.enableWordWrapping = true;
+            if (destructive)
+            {
+                title.fontSize = 28f;
+                title.enableAutoSizing = false;
+                title.rectTransform.anchorMin = new Vector2(0.08f, 0.62f);
+                title.rectTransform.anchorMax = new Vector2(0.92f, 0.88f);
+                title.rectTransform.offsetMin = Vector2.zero;
+                title.rectTransform.offsetMax = Vector2.zero;
+            }
         }
 
         foreach (TextMeshProUGUI text in textElements)
@@ -417,15 +431,15 @@ public sealed class MainMenuController : MonoBehaviour
             }
 
             RectTransform textRect = text.rectTransform;
-            textRect.anchorMin = new Vector2(0.08f, 0.17f);
-            textRect.anchorMax = new Vector2(0.92f, 0.70f);
+            textRect.anchorMin = destructive ? new Vector2(0.10f, 0.38f) : new Vector2(0.08f, 0.17f);
+            textRect.anchorMax = destructive ? new Vector2(0.90f, 0.61f) : new Vector2(0.92f, 0.70f);
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
             text.enableWordWrapping = true;
             text.overflowMode = TextOverflowModes.Overflow;
             text.enableAutoSizing = true;
             text.fontSizeMin = 17f;
-            text.fontSizeMax = 25f;
+            text.fontSizeMax = destructive ? 20f : 25f;
             text.lineSpacing = 5f;
             text.color = new Color(0.90f, 0.94f, 1f, 0.96f);
         }
@@ -436,12 +450,17 @@ public sealed class MainMenuController : MonoBehaviour
             knownBodyText.overflowMode = TextOverflowModes.Ellipsis;
         }
 
-        foreach (Button button in window.GetComponentsInChildren<Button>(true))
+        Button[] modalButtons = window.GetComponentsInChildren<Button>(true);
+        foreach (Button button in modalButtons)
         {
             bool isDestructiveButton = destructive
                 && Enumerable.Range(0, button.onClick.GetPersistentEventCount())
                     .Any(index => button.onClick.GetPersistentMethodName(index) == nameof(ConfirmExit));
             ApplyModalButtonPresentation(button, isDestructiveButton);
+        }
+        foreach (Button button in modalButtons)
+        {
+            button.GetComponent<MainMenuButtonHoverEffect>()?.ConfigureExclusiveActions(modalButtons);
         }
     }
 
@@ -740,6 +759,11 @@ public sealed class MainMenuController : MonoBehaviour
         ApplyMainMenuButtonTypography(button);
         button.transition = Selectable.Transition.None;
 
+        if (button.transform is RectTransform buttonRect)
+        {
+            buttonRect.sizeDelta = new Vector2(164f, 46f);
+        }
+
         Outline outline = button.GetComponent<Outline>();
         if (outline != null)
         {
@@ -829,8 +853,8 @@ public sealed class MainMenuController : MonoBehaviour
 
         MainMenuButtonHoverEffect hoverEffect = button.GetComponent<MainMenuButtonHoverEffect>()
             ?? button.gameObject.AddComponent<MainMenuButtonHoverEffect>();
-        hoverEffect.useRedFocusText = true;
-        hoverEffect.suppressFocusAccent = true;
+        hoverEffect.useRedFocusText = destructive;
+        hoverEffect.suppressFocusAccent = destructive;
         hoverEffect.Configure(destructive
             ? MainMenuButtonVisualRole.Destructive
             : MainMenuButtonVisualRole.Secondary);
@@ -911,6 +935,15 @@ public sealed class MainMenuController : MonoBehaviour
         if (body != null)
         {
             body.text = "Вы действительно хотите выйти из игры?";
+        }
+
+        TextMeshProUGUI title = exitConfirmPanel.GetComponentsInChildren<TextMeshProUGUI>(true)
+            .Where(text => text.GetComponentInParent<Button>(true) == null && text != body)
+            .OrderByDescending(text => text.fontSize)
+            .FirstOrDefault();
+        if (title != null)
+        {
+            title.text = "Выход из игры";
         }
     }
 
