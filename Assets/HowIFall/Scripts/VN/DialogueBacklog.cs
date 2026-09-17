@@ -131,7 +131,7 @@ public sealed class DialogueBacklog
         return $"{divider}\n<size=22><b><color={speakerColor}>{speaker}</color></b></size>\n<size=30><color={textColor}>{text}</color></size>";
     }
 
-    private static string EscapeRichText(string text)
+    public static string EscapeRichText(string text)
     {
         return string.IsNullOrEmpty(text)
             ? string.Empty

@@ -20,6 +20,14 @@ public class VNDialogueController : MonoBehaviour
     private const string ChoiceConfigurationErrorText = "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0435\u043d\u0430.";
     private const string BacklogFallbackFontResourcePath = "Fonts & Materials/LiberationSans SDF - Fallback";
     private const string RuntimeBacklogFallbackFontName = "Runtime Backlog Cyrillic Fallback";
+    private const string HistoryTitleUnderlineName = "History Title Red Underline";
+    private static readonly Color HistoryLatestPlateColor = new Color(0.05f, 0.13f, 0.19f, 0.62f);
+    private static readonly Color HistoryEntryPlateColor = new Color(0.02f, 0.06f, 0.10f, 0.40f);
+    private static readonly Color HistoryFocusBarColor = new Color(0.46f, 0.79f, 0.95f, 0.85f);
+    private static readonly Color HistoryLatestSpeakerColor = new Color(0.56f, 0.85f, 0.98f, 1f);
+    private static readonly Color HistorySpeakerColor = new Color(0.69f, 0.77f, 0.85f, 0.91f);
+    private static readonly Color HistoryLatestBodyColor = new Color(0.96f, 0.98f, 1f, 1f);
+    private static readonly Color HistoryBodyColor = new Color(0.91f, 0.93f, 0.96f, 0.91f);
     private const float ChoiceRowMinimumHeight = 60f;
     private const float ChoiceRowMaximumHeight = 108f;
     private const float ChoiceRowSpacing = 10f;
@@ -101,6 +109,7 @@ public class VNDialogueController : MonoBehaviour
     private bool quickSaveInProgress;
     private bool autoSaveInProgress;
     private TMP_FontAsset runtimeBacklogFallbackFont;
+    private readonly List<GameObject> historyEntryRows = new List<GameObject>();
     private bool pendingAutoSave;
     private bool preLoadAutoSavePending;
     private System.Action<bool> preLoadAutoSaveCompletion;
@@ -2190,6 +2199,8 @@ public class VNDialogueController : MonoBehaviour
         SetBacklogOverlayActive(true);
         backlogPanel.SetActive(true);
         Canvas.ForceUpdateCanvases();
+        RebuildHistoryEntries();
+        Canvas.ForceUpdateCanvases();
         ScrollRect scrollRect = backlogPanel.GetComponentInChildren<ScrollRect>(true);
         if (scrollRect != null)
         {
@@ -2231,6 +2242,154 @@ public class VNDialogueController : MonoBehaviour
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
         gameMenuController?.NotifyHistoryClosed();
+    }
+
+    private void RebuildHistoryEntries()
+    {
+        ScrollRect scrollRect = backlogPanel != null ? backlogPanel.GetComponentInChildren<ScrollRect>(true) : null;
+        if (scrollRect == null || scrollRect.content == null)
+        {
+            return;
+        }
+
+        ClearHistoryEntryRows();
+        List<DialogueBacklogEntry> snapshot = backlog.CaptureSnapshot();
+        bool hasEntries = snapshot.Count > 0;
+        if (backlogText != null)
+        {
+            backlogText.gameObject.SetActive(!hasEntries);
+        }
+
+        if (!hasEntries)
+        {
+            return;
+        }
+
+        VerticalLayoutGroup contentLayout = scrollRect.content.GetComponent<VerticalLayoutGroup>();
+        if (contentLayout != null)
+        {
+            contentLayout.spacing = 12f;
+            contentLayout.padding = new RectOffset(0, 6, 6, 10);
+        }
+
+        TMP_FontAsset fallbackFont = GetRuntimeBacklogFallbackFont();
+        for (int i = 0; i < snapshot.Count; i++)
+        {
+            historyEntryRows.Add(
+                BuildHistoryEntryRow(scrollRect.content, snapshot[i], i == snapshot.Count - 1, fallbackFont));
+        }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(scrollRect.content);
+    }
+
+    private void ClearHistoryEntryRows()
+    {
+        for (int i = 0; i < historyEntryRows.Count; i++)
+        {
+            if (historyEntryRows[i] != null)
+            {
+                historyEntryRows[i].SetActive(false);
+                Destroy(historyEntryRows[i]);
+            }
+        }
+
+        historyEntryRows.Clear();
+    }
+
+    private static GameObject BuildHistoryEntryRow(
+        RectTransform content,
+        DialogueBacklogEntry entry,
+        bool latest,
+        TMP_FontAsset fallbackFont)
+    {
+        GameObject row = new GameObject(
+            "History Entry",
+            typeof(RectTransform),
+            typeof(Image),
+            typeof(VerticalLayoutGroup),
+            typeof(ContentSizeFitter));
+        row.layer = content.gameObject.layer;
+        row.transform.SetParent(content, false);
+
+        Image plate = row.GetComponent<Image>();
+        plate.sprite = null;
+        plate.type = Image.Type.Simple;
+        plate.raycastTarget = true;
+        plate.color = latest ? HistoryLatestPlateColor : HistoryEntryPlateColor;
+
+        VerticalLayoutGroup layout = row.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(28, 24, 16, 18);
+        layout.spacing = 4f;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+
+        ContentSizeFitter fitter = row.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        if (!string.IsNullOrWhiteSpace(entry.speaker))
+        {
+            TextMeshProUGUI speaker = CreateHistoryEntryLabel(row.transform, "History Entry Speaker", fallbackFont);
+            speaker.text = DialogueBacklog.EscapeRichText(entry.speaker);
+            speaker.fontSize = 24f;
+            speaker.fontStyle = FontStyles.Bold;
+            speaker.lineSpacing = 0f;
+            speaker.color = latest ? HistoryLatestSpeakerColor : HistorySpeakerColor;
+        }
+
+        TextMeshProUGUI body = CreateHistoryEntryLabel(row.transform, "History Entry Text", fallbackFont);
+        body.text = DialogueBacklog.EscapeRichText(entry.text);
+        body.fontSize = 30f;
+        body.lineSpacing = 10f;
+        body.color = latest ? HistoryLatestBodyColor : HistoryBodyColor;
+
+        if (latest)
+        {
+            GameObject focusBar = new GameObject(
+                "History Entry Focus Bar",
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(LayoutElement));
+            focusBar.layer = content.gameObject.layer;
+            focusBar.transform.SetParent(row.transform, false);
+            focusBar.GetComponent<LayoutElement>().ignoreLayout = true;
+            Image barImage = focusBar.GetComponent<Image>();
+            barImage.sprite = null;
+            barImage.type = Image.Type.Simple;
+            barImage.raycastTarget = false;
+            barImage.color = HistoryFocusBarColor;
+            RectTransform barRect = focusBar.transform as RectTransform;
+            barRect.anchorMin = new Vector2(0f, 0f);
+            barRect.anchorMax = new Vector2(0f, 1f);
+            barRect.pivot = new Vector2(0f, 0.5f);
+            barRect.anchoredPosition = new Vector2(0f, 0f);
+            barRect.sizeDelta = new Vector2(3f, 0f);
+        }
+
+        return row;
+    }
+
+    private static TextMeshProUGUI CreateHistoryEntryLabel(Transform parent, string labelName, TMP_FontAsset fallbackFont)
+    {
+        GameObject labelObject = new GameObject(labelName, typeof(RectTransform), typeof(TextMeshProUGUI));
+        labelObject.layer = parent.gameObject.layer;
+        labelObject.transform.SetParent(parent, false);
+        TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.alignment = TextAlignmentOptions.TopLeft;
+        label.enableWordWrapping = true;
+        label.overflowMode = TextOverflowModes.Overflow;
+        label.raycastTarget = false;
+        label.margin = Vector4.zero;
+        if (fallbackFont != null)
+        {
+            label.font = fallbackFont;
+            label.fontSharedMaterial = fallbackFont.material;
+        }
+
+        return label;
     }
 
     private void SetBacklogOverlayActive(bool isActive)
@@ -2286,6 +2445,16 @@ public class VNDialogueController : MonoBehaviour
                 title.fontSize = 42f;
                 title.fontStyle = FontStyles.Normal;
                 title.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+            Image titleUnderline = backlogPanel.GetComponentsInChildren<Image>(true)
+                .FirstOrDefault(candidate => candidate.gameObject.name == HistoryTitleUnderlineName);
+            if (titleUnderline != null)
+            {
+                RectTransform underlineRect = titleUnderline.rectTransform;
+                underlineRect.anchorMin = underlineRect.anchorMax = new Vector2(0f, 1f);
+                underlineRect.pivot = new Vector2(0f, 1f);
+                underlineRect.anchoredPosition = new Vector2(64f, -108f);
+                underlineRect.sizeDelta = new Vector2(224f, 4f);
             }
             ScrollRect historyScroll = backlogPanel.GetComponentInChildren<ScrollRect>(true);
             if (historyScroll != null && historyScroll.transform is RectTransform historyRect)
