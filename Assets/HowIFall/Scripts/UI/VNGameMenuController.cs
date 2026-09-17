@@ -345,6 +345,9 @@ public sealed class VNGameMenuController : MonoBehaviour
         childContext = ChildContext.None;
         view?.SetSaveLoadSection(null);
         ApplySessionActionAvailability();
+        // Embedded panel deactivation clears EventSystem selection; every other
+        // child return restores default focus, so Save/Load must match.
+        view?.FocusDefaultAction();
     }
 
     private bool TryLeaveSaveLoadSection()

@@ -200,6 +200,9 @@ public class RollbackBackendPlayModeTests
     [UnityTest]
     public IEnumerator GameMenuSaveLoadReturn_PreservesRollbackSessionAvailability()
     {
+        GameObject eventSystemObject = new GameObject("SaveLoad Return EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        createdObjects.Add(eventSystemObject);
+
         TestContext unavailable = CreateContext(CreateLinearScene("menu-unavailable", "A"));
         yield return null;
         CompleteCurrentLine(unavailable.Controller);
@@ -210,6 +213,10 @@ public class RollbackBackendPlayModeTests
         string unavailableLine = unavailable.GameState.currentLineId;
         SimulateSaveLoadReturn(unavailable.Controller, unavailableView);
         Assert.That(unavailableRollback.interactable, Is.False, "Save/Load return must retain disabled session Rollback.");
+        Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(unavailableView.GetButton(VNGameMenuAction.Return).gameObject),
+            "Save/Load return must restore default Return focus.");
+        Assert.That(unavailableView.VisibleFocusMarkerCount, Is.EqualTo(1),
+            "Save/Load return must show exactly one focus marker.");
         unavailableRollback.onClick.Invoke();
         Assert.That(unavailable.Controller.IsGameMenuOpen, Is.True, "Disabled Rollback must not close the Game Menu.");
         Assert.That(unavailable.GameState.currentLineId, Is.EqualTo(unavailableLine), "Disabled Rollback must not mutate dialogue state.");
@@ -228,6 +235,10 @@ public class RollbackBackendPlayModeTests
         Assert.That(availableRollback.interactable, Is.True);
         SimulateSaveLoadReturn(available.Controller, availableView);
         Assert.That(availableRollback.interactable, Is.True, "Save/Load return must retain enabled session Rollback.");
+        Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(availableView.GetButton(VNGameMenuAction.Return).gameObject),
+            "Save/Load return must restore default Return focus.");
+        Assert.That(availableView.VisibleFocusMarkerCount, Is.EqualTo(1),
+            "Save/Load return must show exactly one focus marker.");
         availableRollback.onClick.Invoke();
         Assert.That(available.Controller.IsGameMenuOpen, Is.False);
         Assert.That(available.GameState.currentLineId, Is.EqualTo("line-0"));

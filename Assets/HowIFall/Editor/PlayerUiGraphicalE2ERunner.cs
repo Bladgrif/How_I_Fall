@@ -1331,6 +1331,11 @@ public static class PlayerUiGraphicalE2ERunner
         Button rollback = view.GetButton(VNGameMenuAction.Rollback);
         Require(rollback != null && !rollback.interactable && !view.IsActionActive(VNGameMenuAction.Rollback),
             "Disabled Rollback became enabled or retained a stale active marker after Save/Load return.");
+        EventSystem eventSystem = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+        Require(eventSystem != null && eventSystem.currentSelectedGameObject == view.GetButton(VNGameMenuAction.Return).gameObject,
+            "Game Menu did not restore default Return focus after Save/Load return.");
+        Require(view.VisibleFocusMarkerCount == 1,
+            "Game Menu must show exactly one focus marker after Save/Load return.");
         Capture("game_menu_rollback_disabled_after_save_load_1920x1080.png", "OpenRollbackEnabled");
     }
 
