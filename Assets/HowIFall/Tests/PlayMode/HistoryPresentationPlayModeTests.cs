@@ -25,6 +25,33 @@ public class HistoryPresentationPlayModeTests
         }
         createdObjects.Clear();
         yield return null;
+
+        // The controller's Start creates GameState/SaveManager singletons through
+        // EnsureInstance; they are not part of the tracked objects and must not
+        // leak into later scene-loading test fixtures.
+        DestroyExistingSingletons();
+        yield return null;
+    }
+
+    private static void DestroyExistingSingletons()
+    {
+        DestroyAll<VNDialogueController>();
+        DestroyAll<GameState>();
+        DestroyAll<SettingsManager>();
+        DestroyAll<AudioManager>();
+        DestroyAll<SaveManager>();
+        DestroyAll<SceneFlowManager>();
+    }
+
+    private static void DestroyAll<T>() where T : Object
+    {
+        foreach (T item in Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (item != null)
+            {
+                Object.Destroy(item);
+            }
+        }
     }
 
     [UnityTest]
