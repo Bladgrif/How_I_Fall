@@ -3034,12 +3034,13 @@ public class VNDialogueController : MonoBehaviour
             readingPresentationInitialized = true;
         }
 
-        // The ordinary line lives directly over the scene. The shell only supplies
-        // a soft local contrast field; it is not meant to read as a permanent card.
-        boxRect.anchorMin = boxRect.anchorMax = new Vector2(0f, 0f);
-        boxRect.pivot = new Vector2(0f, 0f);
-        boxRect.anchoredPosition = new Vector2(78f, 92f);
-        boxRect.sizeDelta = new Vector2(1320f, Mathf.Max(dialogueBaseBoxSize.y, 330f));
+        // The ordinary line lives directly over the scene as a horizontally centered
+        // composition. The shell only supplies a soft local contrast field; it is not
+        // meant to read as a permanent card.
+        boxRect.anchorMin = boxRect.anchorMax = new Vector2(0.5f, 0f);
+        boxRect.pivot = new Vector2(0.5f, 0f);
+        boxRect.anchoredPosition = new Vector2(0f, ReadingShellBottomOffset);
+        boxRect.sizeDelta = new Vector2(ReadingShellWidth, Mathf.Max(dialogueBaseBoxSize.y, 330f));
         textRect.sizeDelta = new Vector2(-178f, -70f);
         dialogueText.margin = new Vector4(22f, 12f, 24f, 10f);
         dialogueText.alignment = TextAlignmentOptions.TopLeft;
@@ -3101,10 +3102,13 @@ public class VNDialogueController : MonoBehaviour
     }
 
     private const float ReadingShellWidth = 1320f;
+    private const float ReadingShellBottomOffset = 92f;
     private const float ReadingShellTextInsetX = 178f;
     private const float ReadingShellTextInsetY = 70f;
     private const float ReadingShellMinHeight = 132f;
     private const float ReadingShellBreathing = 18f;
+    private const float ReadingScrimEdgeAlpha = 0.24f;
+    private const float ReadingScrimCenterAlpha = 0.40f;
 
     /// <summary>
     /// Sizes the reading shell to the rendered line so short replies stop reserving a
@@ -3177,14 +3181,10 @@ public class VNDialogueController : MonoBehaviour
         for (int y = 0; y < height; y++)
         {
             float normalizedY = y / (height - 1f);
-            float vertical = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.10f, normalizedY))
-                * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 1f, normalizedY)));
             for (int x = 0; x < width; x++)
             {
                 float normalizedX = x / (width - 1f);
-                float leftFade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.035f, normalizedX));
-                float rightFade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.68f, 1f, normalizedX));
-                pixels[y * width + x] = new Color(1f, 1f, 1f, leftFade * rightFade * vertical * 0.22f);
+                pixels[y * width + x] = new Color(1f, 1f, 1f, ComputeReadingScrimAlpha(normalizedX, normalizedY));
             }
         }
 
@@ -3200,6 +3200,23 @@ public class VNDialogueController : MonoBehaviour
         readingScrimSprite.name = "Runtime Reading Soft Scrim Sprite";
         readingScrimSprite.hideFlags = HideFlags.HideAndDontSave;
         return readingScrimSprite;
+    }
+
+    /// <summary>
+    /// Borderless contrast field for the centered reading composition. Both horizontal
+    /// edges decay to full transparency while the useful center behind the dialogue keeps
+    /// a slightly stronger dark alpha, so bright art gains readability without a
+    /// rectangular card.
+    /// </summary>
+    internal static float ComputeReadingScrimAlpha(float normalizedX, float normalizedY)
+    {
+        float vertical = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.10f, normalizedY))
+            * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 1f, normalizedY)));
+        float leftFade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.10f, normalizedX));
+        float rightFade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.90f, 1f, normalizedX));
+        float centerWeight = Mathf.SmoothStep(0f, 1f, 1f - Mathf.Abs(normalizedX * 2f - 1f));
+        float peak = Mathf.Lerp(ReadingScrimEdgeAlpha, ReadingScrimCenterAlpha, centerWeight);
+        return leftFade * rightFade * vertical * peak;
     }
 
     private static void ConfigureReadingTextShadow(TextMeshProUGUI label, Vector2 distance, float opacity)

@@ -49,7 +49,90 @@ public static class VNQuickMenuSmokeTests
             "Quick Save must retain the existing VN controller entry point.");
         Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.RequestQuickLoad)) != null, "Quick Load must use the VN controller entry point.");
         Require(typeof(ManualSaveLoadPanel).GetMethod(nameof(ManualSaveLoadPanel.RequestQuickLoad)) != null, "Quick Load must use the existing ManualSaveLoadPanel pipeline.");
+        VerifyBottomCenterStripPresentation(menu);
+        VerifyCenteredStripDialogueClearance();
+        VerifyLogicalCanvasResolutionContract();
         VerifyPreferencesModalVisibilityOwnership();
+    }
+
+    private static void VerifyBottomCenterStripPresentation(VNQuickMenu menu)
+    {
+        RectTransform rootRect = menu.root.transform as RectTransform;
+        Require(rootRect != null, "Quick Menu root must be a RectTransform.");
+        Require(Mathf.Approximately(rootRect.anchorMin.x, 0.5f) && Mathf.Approximately(rootRect.anchorMax.x, 0.5f)
+            && Mathf.Approximately(rootRect.pivot.x, 0.5f) && Mathf.Abs(rootRect.anchoredPosition.x) <= 0.01f,
+            "Quick Menu must be anchored to the horizontal bottom-center axis.");
+        Require(Mathf.Approximately(rootRect.anchoredPosition.y, 22f),
+            "Quick Menu must keep its compact bottom offset below the reading field.");
+    }
+
+    private static void VerifyCenteredStripDialogueClearance()
+    {
+        GameObject zoneOwner = new GameObject("QuickMenuCenteringSmokeZone", typeof(RectTransform));
+        GameObject dialogueOwner = new GameObject("QuickMenuCenteringSmokeShell", typeof(RectTransform));
+        GameObject menuOwner = new GameObject("QuickMenuCenteringSmokeRoot", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        GameObject controllerOwner = new GameObject("QuickMenuCenteringSmokeController");
+        try
+        {
+            RectTransform zone = zoneOwner.GetComponent<RectTransform>();
+            zone.anchorMin = Vector2.zero;
+            zone.anchorMax = Vector2.zero;
+            zone.pivot = Vector2.zero;
+            zone.sizeDelta = new Vector2(1920f, 1080f);
+
+            RectTransform dialogueRect = dialogueOwner.GetComponent<RectTransform>();
+            dialogueRect.SetParent(zone, false);
+            dialogueRect.anchorMin = dialogueRect.anchorMax = new Vector2(0.5f, 0f);
+            dialogueRect.pivot = new Vector2(0.5f, 0f);
+            dialogueRect.anchoredPosition = new Vector2(0f, 92f);
+            dialogueRect.sizeDelta = new Vector2(1320f, 180f);
+
+            VNDialogueController controller = controllerOwner.AddComponent<VNDialogueController>();
+            controller.dialogueUiRoot = dialogueOwner;
+
+            VNQuickMenu menu = menuOwner.AddComponent<VNQuickMenu>();
+            menu.dialogueController = controller;
+            menu.root = menuOwner;
+            menuOwner.transform.SetParent(zone, false);
+
+            menu.ApplyPlayerFacingPresentation();
+            menu.RefreshEffectiveVisibility();
+
+            RectTransform menuRect = menuOwner.GetComponent<RectTransform>();
+            Require(Mathf.Approximately(menuRect.anchorMin.x, 0.5f) && Mathf.Approximately(menuRect.pivot.x, 0.5f)
+                && Mathf.Abs(menuRect.anchoredPosition.x) <= 0.01f,
+                "Runtime Quick Menu presentation must sit on the horizontal bottom-center axis.");
+
+            menu.RefreshDialogueSafeArea();
+            Bounds shellBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(zone, dialogueRect);
+            Bounds menuBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(zone, menuRect);
+            Require(Mathf.Abs(shellBounds.center.x - menuBounds.center.x) <= 1f,
+                "Quick Menu must share the centered reading composition axis.");
+            if (menu.IsEffectivelyVisible)
+            {
+                Require(shellBounds.min.y >= menuBounds.max.y + 12f,
+                    "Quick Menu must never collide with the reading text above it.");
+                Require(dialogueRect.anchoredPosition.y >= 92f - 0.01f,
+                    "Safe-area lift must not pull the centered reading field below its composition offset.");
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(menuOwner);
+            UnityEngine.Object.DestroyImmediate(controllerOwner);
+            UnityEngine.Object.DestroyImmediate(dialogueOwner);
+            UnityEngine.Object.DestroyImmediate(zoneOwner);
+        }
+    }
+
+    private static void VerifyLogicalCanvasResolutionContract()
+    {
+        Canvas canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+        Require(canvas != null, "VNPrototype must contain a Canvas.");
+        CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+        Require(scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize
+            && scaler.referenceResolution == new Vector2(1920f, 1080f),
+            "1280x720 containment relies on the shared 1920x1080 logical canvas reference.");
     }
 
     private static void VerifyPreferencesModalVisibilityOwnership()

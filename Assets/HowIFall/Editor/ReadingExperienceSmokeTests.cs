@@ -115,6 +115,7 @@ public static class ReadingExperienceSmokeTests
         EventSystem.current = eventSystem;
         GameObject gameStateOwner = new GameObject("ReadingChoiceSmokeGameState", typeof(GameState));
         GameObject controllerOwner = new GameObject("ReadingChoiceSmokeController");
+        GameObject choiceZoneOwner = new GameObject("ReadingChoiceSmokeZone", typeof(RectTransform));
         GameObject choicePanel = new GameObject("ReadingChoiceSmokePanel", typeof(RectTransform));
         GameObject nameBox = new GameObject("ReadingChoiceSmokeNameBox");
         GameObject dialogueTextOwner = new GameObject("ReadingChoiceSmokeText", typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -124,6 +125,17 @@ public static class ReadingExperienceSmokeTests
 
         try
         {
+            RectTransform choiceZone = choiceZoneOwner.GetComponent<RectTransform>();
+            choiceZone.anchorMin = Vector2.zero;
+            choiceZone.anchorMax = Vector2.zero;
+            choiceZone.pivot = Vector2.zero;
+            choiceZone.sizeDelta = new Vector2(1920f, 1080f);
+            choicePanel.transform.SetParent(choiceZone.transform, false);
+            RectTransform choicePanelRect = choicePanel.transform as RectTransform;
+            choicePanelRect.anchorMin = choicePanelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            choicePanelRect.pivot = new Vector2(0.5f, 0.5f);
+            choicePanelRect.anchoredPosition = Vector2.zero;
+
             controller = controllerOwner.AddComponent<VNDialogueController>();
             controller.choicePanel = choicePanel;
             controller.nameBox = nameBox;
@@ -179,9 +191,17 @@ public static class ReadingExperienceSmokeTests
             Require(panelRect.rect.yMin <= fourthRect.anchoredPosition.y - fourthRect.rect.height * 0.5f
                 && panelRect.rect.yMax >= fourthRect.anchoredPosition.y + fourthRect.rect.height * 0.5f,
                 "The adaptive choice panel must contain the full long fourth option.");
+            RequireChoicePanelClearsBottomStrip(choiceZone, panelRect);
             InvokeChoose(controller, 3);
             Require(GameState.Instance.selectedChoiceIndex == 3 && GameState.Instance.trustMasha == 7,
                 "Fourth runtime slot must select source index 3 and keep its own delta.");
+
+            List<DialogueChoice> twoChoices = new List<DialogueChoice> { threeChoices[0], threeChoices[1] };
+            SetPrivate(controller, "activeChoices", twoChoices);
+            InvokeShowChoices(controller);
+            Require(!controller.choiceLeraButton.gameObject.activeSelf && !fourthButton.gameObject.activeSelf,
+                "Two-choice state must deactivate the unused choice slots.");
+            RequireChoicePanelClearsBottomStrip(choiceZone, panelRect);
 
             SetPrivate(controller, "activeChoices", threeChoices);
             InvokeShowChoices(controller);
@@ -220,23 +240,51 @@ public static class ReadingExperienceSmokeTests
             UnityEngine.Object.DestroyImmediate(dialogueTextOwner);
             UnityEngine.Object.DestroyImmediate(nameBox);
             UnityEngine.Object.DestroyImmediate(choicePanel);
+            UnityEngine.Object.DestroyImmediate(choiceZoneOwner);
             UnityEngine.Object.DestroyImmediate(controllerOwner);
             UnityEngine.Object.DestroyImmediate(gameStateOwner);
             UnityEngine.Object.DestroyImmediate(eventSystemOwner);
         }
     }
 
+    /// <summary>
+    /// The bottom-center Quick Menu strip top sits 22px offset + 32px strip height above the
+    /// canvas bottom; choice states must keep a 12px margin above that edge (66px).
+    /// </summary>
+    private static void RequireChoicePanelClearsBottomStrip(RectTransform choiceZone, RectTransform panelRect)
+    {
+        Canvas.ForceUpdateCanvases();
+        Bounds panelBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(choiceZone, panelRect);
+        Require(panelBounds.min.y >= 66f,
+            "Choice states must stay clear of the bottom-center Quick Menu strip.");
+    }
+
     private static void VerifyAdaptiveReadingShellAndNamePlate()
     {
+        GameObject canvasOwner = new GameObject("ReadingShellSmokeCanvas", typeof(RectTransform));
         GameObject shellOwner = new GameObject("ReadingShellSmokeBox", typeof(RectTransform), typeof(Image));
         GameObject textOwner = new GameObject("ReadingShellSmokeText", typeof(RectTransform), typeof(TextMeshProUGUI));
         GameObject nameOwner = new GameObject("ReadingShellSmokeNameBox", typeof(RectTransform), typeof(Image));
         GameObject speakerOwner = new GameObject("ReadingShellSmokeSpeaker", typeof(RectTransform), typeof(TextMeshProUGUI));
         try
         {
+            RectTransform canvasRect = canvasOwner.GetComponent<RectTransform>();
+            canvasRect.anchorMin = Vector2.zero;
+            canvasRect.anchorMax = Vector2.zero;
+            canvasRect.pivot = Vector2.zero;
+            canvasRect.sizeDelta = new Vector2(1920f, 1080f);
+            shellOwner.transform.SetParent(canvasRect, false);
+
             textOwner.transform.SetParent(shellOwner.transform, false);
+            nameOwner.transform.SetParent(shellOwner.transform, false);
+            speakerOwner.transform.SetParent(nameOwner.transform, false);
             RectTransform boxRect = shellOwner.transform as RectTransform;
             boxRect.sizeDelta = new Vector2(-440f, 180f);
+
+            // Mirror the serialized speaker attachment: the shell's top-left corner.
+            RectTransform nameRect = nameOwner.transform as RectTransform;
+            nameRect.anchorMin = nameRect.anchorMax = new Vector2(0f, 1f);
+            nameRect.pivot = new Vector2(0f, 1f);
 
             TextMeshProUGUI text = textOwner.GetComponent<TextMeshProUGUI>();
             text.font = TMP_Settings.defaultFontAsset;
@@ -252,13 +300,30 @@ public static class ReadingExperienceSmokeTests
 
             InvokePrivate(controller, "ApplyReadingShellPresentation");
 
-            Require(Mathf.Approximately(boxRect.sizeDelta.x, 1320f), "Reading field must keep its left-weighted reading width.");
+            Require(Mathf.Approximately(boxRect.anchorMin.x, 0.5f) && Mathf.Approximately(boxRect.anchorMax.x, 0.5f),
+                "Reading field must be anchored to the horizontal canvas center.");
+            Require(Mathf.Approximately(boxRect.pivot.x, 0.5f) && Mathf.Abs(boxRect.anchoredPosition.x) <= 0.01f,
+                "Reading field must center its own horizontal middle on the canvas axis.");
+            Bounds shellBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(canvasRect, boxRect);
+            Require(Mathf.Abs(shellBounds.center.x - 960f) <= 1f,
+                "Reading field must be horizontally centered within a reasonable tolerance.");
+            Require(Mathf.Approximately(boxRect.sizeDelta.x, 1320f), "Reading field must keep its bounded centered reading width.");
             Require(boxRect.sizeDelta.y <= 330f + 0.01f, "Idle reading field must respect the long-text height bound.");
+            Require(text.alignment == TextAlignmentOptions.TopLeft && text.enableWordWrapping,
+                "Dialogue must stay left-aligned and wrapped inside the centered field.");
             Image shellBackground = shellOwner.GetComponent<Image>();
             Require(shellBackground.sprite != null && shellBackground.type == Image.Type.Simple,
                 "Reading contrast must use the runtime soft scrim instead of the serialized card sprite.");
             Require(shellBackground.sprite.border == Vector4.zero,
                 "Reading contrast scrim must not introduce a framed or sliced card edge.");
+            Require(InvokeReadingScrimAlpha(0.5f, 0.4f) >= 0.30f,
+                "Reading scrim must keep an adequate dark contrast field behind bright scene art.");
+            Require(Mathf.Abs(InvokeReadingScrimAlpha(0.2f, 0.5f) - InvokeReadingScrimAlpha(0.8f, 0.5f)) < 0.005f,
+                "Reading scrim must stay horizontally symmetric around the centered field.");
+            Require(InvokeReadingScrimAlpha(0f, 0.5f) < 0.01f && InvokeReadingScrimAlpha(1f, 0.5f) < 0.01f,
+                "Reading scrim must decay to full transparency at both horizontal edges instead of a card border.");
+            Require(InvokeReadingScrimAlpha(0.5f, 0.5f) > InvokeReadingScrimAlpha(0.12f, 0.5f),
+                "Reading scrim must be strongest in the useful center behind the dialogue.");
             Shadow dialogueShadow = text.GetComponent<Shadow>();
             Require(dialogueShadow != null && dialogueShadow.effectColor.a >= 0.85f,
                 "Floating dialogue text must retain a local contrast shadow.");
@@ -280,14 +345,24 @@ public static class ReadingExperienceSmokeTests
             InvokePrivate(controller, "ApplyReadingShellContentHeight", new string('Д', 4000));
             Require(Mathf.Approximately(boxRect.sizeDelta.y, 330f), "Overflowing content must stay capped at the reading bound.");
 
+            VNDialogueController.ApplyDialoguePresentation(text, shellBackground, 32f, new GameSettings { textboxOpacity = 0.15f });
+            float fadedAlpha = shellBackground.color.a;
+            VNDialogueController.ApplyDialoguePresentation(text, shellBackground, 32f, new GameSettings { textboxOpacity = 0.95f });
+            float strongAlpha = shellBackground.color.a;
+            Require(Mathf.Approximately(fadedAlpha, 0.15f) && Mathf.Approximately(strongAlpha, 0.95f) && strongAlpha - fadedAlpha > 0.5f,
+                "Textbox opacity preference must keep driving the reading scrim alpha.");
+
             Image nameBackground = nameOwner.GetComponent<Image>();
             Require(nameBackground.sprite == null, "Speaker plate must drop the baked decorative sprite.");
             Require(Mathf.Approximately(nameBackground.color.a, 0f), "Speaker label must not retain a detached background plate.");
             Require(speaker.GetComponent<Shadow>() != null, "Speaker label must keep a contrast shadow over scene art.");
 
             InvokePrivate(controller, "ApplyNameBoxWidth", "TECH DEMO — Голос проверки");
-            float plateWidth = ((RectTransform)nameOwner.transform).sizeDelta.x;
+            float plateWidth = nameRect.sizeDelta.x;
             Require(plateWidth >= 150f && plateWidth < 500f, "Speaker label must hug the speaker name inside its bounded width.");
+            Require(nameRect.anchoredPosition.x >= 0f
+                && nameRect.anchoredPosition.x + nameRect.rect.width <= boxRect.rect.width + 0.01f,
+                "Named speaker must stay attached and contained inside the centered reading field.");
         }
         finally
         {
@@ -295,7 +370,16 @@ public static class ReadingExperienceSmokeTests
             UnityEngine.Object.DestroyImmediate(nameOwner);
             UnityEngine.Object.DestroyImmediate(textOwner);
             UnityEngine.Object.DestroyImmediate(shellOwner);
+            UnityEngine.Object.DestroyImmediate(canvasOwner);
         }
+    }
+
+    private static float InvokeReadingScrimAlpha(float normalizedX, float normalizedY)
+    {
+        MethodInfo method = typeof(VNDialogueController).GetMethod(
+            "ComputeReadingScrimAlpha", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Require(method != null, "Missing reading scrim alpha function.");
+        return (float)method.Invoke(null, new object[] { normalizedX, normalizedY });
     }
 
     private static void InvokePrivate(VNDialogueController controller, string methodName, params object[] arguments)

@@ -155,13 +155,19 @@ public sealed class VNQuickMenu : MonoBehaviour
         RectTransform rootRect = root != null ? root.transform as RectTransform : null;
         if (rootRect != null)
         {
-            rootRect.anchorMin = rootRect.anchorMax = new Vector2(1f, 0f);
-            rootRect.pivot = new Vector2(1f, 0f);
-            rootRect.anchoredPosition = new Vector2(-34f, 22f);
+            // The compact strip mirrors the horizontally centered reading field and
+            // stays visually secondary to the dialogue above it.
+            rootRect.anchorMin = rootRect.anchorMax = new Vector2(0.5f, 0f);
+            rootRect.pivot = new Vector2(0.5f, 0f);
+            rootRect.anchoredPosition = new Vector2(0f, 22f);
             rootRect.sizeDelta = new Vector2(430f, 32f);
         }
         HorizontalLayoutGroup rootLayout = root != null ? root.GetComponent<HorizontalLayoutGroup>() : null;
-        if (rootLayout != null) rootLayout.spacing = 12f;
+        if (rootLayout != null)
+        {
+            rootLayout.spacing = 12f;
+            rootLayout.childAlignment = TextAnchor.MiddleCenter;
+        }
         for (int index = 0; index < ordered.Length; index++)
         {
             Button button = ordered[index];
