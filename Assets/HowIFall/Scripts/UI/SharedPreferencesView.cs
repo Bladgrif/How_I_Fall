@@ -182,6 +182,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         buttons["apply"].interactable = controller != null && controller.IsDirty;
         if (!buttons["apply"].interactable && applyWasSelected) Focus(buttons["back"]);
         SetDropdown(ScreenModeId, settings.screenMode);
+        RefreshResolutionOptions(settings);
         SetDropdown(ResolutionId, settings.resolution);
         SetToggle(SkipUnseenId, settings.skipMode == "Всё", settings.skipMode == "Всё" ? "Вкл. — можно всё" : "Выкл. — только виденное");
         SetToggle(SkipAfterChoicesId, settings.skipAfterChoices);
@@ -194,6 +195,37 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         SetSlider(AutoForwardDelayId, PreferencesFormatting.AutoForwardDelaySeconds(settings.autoForwardDelay), PreferencesFormatting.AutoForwardDelay(settings.autoForwardDelay));
         SetCycle(TextSizeId, PreferencesFormatting.TextScaleLabel(settings.dialogueTextScale));
         SetSlider(TextboxOpacityId, settings.textboxOpacity, PreferencesFormatting.Percent(settings.textboxOpacity));
+    }
+
+    /// <summary>
+    /// Windowed lists only resolutions that fit the current desktop, so the visible draft
+    /// always matches the value Apply persists.
+    /// </summary>
+    private void RefreshResolutionOptions(PreferencesState settings)
+    {
+        if (!dropdowns.TryGetValue(ResolutionId, out TMP_Dropdown dropdown) || dropdown == null) return;
+        IReadOnlyList<string> allowed = controller != null
+            ? controller.GetResolutionOptions(settings.screenMode)
+            : PreferencesOptions.Resolutions;
+        if (dropdown.options.Count == allowed.Count)
+        {
+            bool identical = true;
+            for (int i = 0; i < allowed.Count; i++)
+            {
+                if (dropdown.options[i].text != allowed[i])
+                {
+                    identical = false;
+                    break;
+                }
+            }
+
+            if (identical) return;
+        }
+
+        dropdown.ClearOptions();
+        List<TMP_Dropdown.OptionData> optionData = new List<TMP_Dropdown.OptionData>();
+        foreach (string option in allowed) optionData.Add(new TMP_Dropdown.OptionData(option));
+        dropdown.AddOptions(optionData);
     }
 
     private void Build(string contextId)
@@ -280,7 +312,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         }
         Transform screen = categories[0].transform;
         DropdownRow(screen, ScreenModeId, "Режим экрана", PreferencesOptions.ScreenModes, "Выберите полноэкранный или оконный режим. Изменение применится только после «Применить».");
-        DropdownRow(screen, ResolutionId, "Разрешение", PreferencesOptions.Resolutions, "Выберите удобный размер окна. В оконном режиме игра сохранит читаемую компоновку.");
+        DropdownRow(screen, ResolutionId, "Разрешение", PreferencesOptions.Resolutions, "Выберите удобный размер окна. В оконном режиме показываются только значения, которые помещаются на рабочий стол.");
         Transform audio = categories[1].transform;
         SliderRow(audio, MasterVolumeId, "Общая громкость", 0f, 1f, false, true, "Общий уровень звука. Слева тише, справа громче.");
         SliderRow(audio, MusicVolumeId, "Музыка", 0f, 1f, false, true, "Громкость музыкального сопровождения.");

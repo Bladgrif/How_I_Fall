@@ -28,6 +28,7 @@
 - `preferences_dropdown.png` — TMP dropdown режима экрана: все пункты видны без обрезания при 1920×1080.
 - `preferences_sound_dirty.png` — категория Звук: лёгкие sliders, читаемые значения, строка фокуса с контекстной подсказкой, неприменённое изменение и доступный Apply.
 - `preferences_dropdown_1280.png` — dropdown при 1280×720: controls, contextual hint и footer остаются читаемыми и не перекрываются.
+- `preferences_windowed_dropdown.png` — dropdown разрешения в режиме «Окно» на 1920×1080 desktop: показываются только значения, которые помещаются на рабочий стол (1280×720, 1600×900); черновик видимо нормализован в 1600×900 до Apply, без обрезания пунктов.
 
 Main Menu и Preferences-набор обновлён по полному PlayerUi graphical E2E от 2026-09-15: 55 свежих снимков, `playerPrefsRestored=true`. Дополнительные состояния Text, after Apply, slider focus и gameplay parity остаются в ignored QAArtifacts. Это REVIEW CANDIDATE, не субъективное visual approval.
 

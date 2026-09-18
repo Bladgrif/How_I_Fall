@@ -20,19 +20,23 @@ public sealed class PreferencesController
     private readonly Action<string> showToast;
     private readonly Action onClosed;
     private readonly UnityEngine.Object logContext;
+    private readonly Func<Vector2Int> displayResolutionProvider;
+    private Vector2Int openDisplayResolution;
 
     public PreferencesController(
         IPreferencesService service,
         IPreferencesView view,
         Action<string> showToast = null,
         Action onClosed = null,
-        UnityEngine.Object logContext = null)
+        UnityEngine.Object logContext = null,
+        Func<Vector2Int> displayResolutionProvider = null)
     {
         this.service = service;
         this.view = view;
         this.showToast = showToast;
         this.onClosed = onClosed;
         this.logContext = logContext;
+        this.displayResolutionProvider = displayResolutionProvider;
     }
 
     public IPreferencesService Service => service;
@@ -111,6 +115,8 @@ public sealed class PreferencesController
         if (service == null || !service.IsAvailable) return;
         baseline = service.Current;
         draft = Copy(baseline);
+        openDisplayResolution = ResolveDisplayResolution();
+        NormalizeDraftResolution();
         IsOpen = true;
         Refresh();
         view.SetVisible(true);
@@ -185,7 +191,11 @@ public sealed class PreferencesController
 
     public void SetScreenMode(string value)
     {
-        Edit(state => state.screenMode = string.IsNullOrEmpty(value) ? SettingsOptionValues.Fullscreen : value);
+        Edit(state =>
+        {
+            state.screenMode = string.IsNullOrEmpty(value) ? SettingsOptionValues.Fullscreen : value;
+            NormalizeDraftResolution();
+        });
     }
 
     public void CycleScreenMode()
@@ -193,14 +203,52 @@ public sealed class PreferencesController
         SetScreenMode(PreferencesOptions.GetNext(PreferencesOptions.ScreenModes, draft != null ? draft.screenMode : null));
     }
 
+    /// <summary>Resolution options the resolution control may present for a screen mode.</summary>
+    public IReadOnlyList<string> GetResolutionOptions(string screenMode)
+    {
+        return SettingsManager.GetSupportedResolutionsForScreenMode(screenMode, openDisplayResolution.x, openDisplayResolution.y);
+    }
+
     public void SetResolution(string value)
     {
-        Edit(state => state.resolution = string.IsNullOrEmpty(value) ? "1920x1080" : value);
+        Edit(state =>
+        {
+            state.resolution = string.IsNullOrEmpty(value) ? "1920x1080" : value;
+            NormalizeDraftResolution();
+        });
     }
 
     public void CycleResolution()
     {
-        SetResolution(PreferencesOptions.GetNext(PreferencesOptions.Resolutions, draft != null ? draft.resolution : null));
+        SetResolution(PreferencesOptions.GetNext(
+            GetResolutionOptions(draft != null ? draft.screenMode : null),
+            draft != null ? draft.resolution : null));
+    }
+
+    private Vector2Int ResolveDisplayResolution()
+    {
+        Vector2Int display = displayResolutionProvider != null
+            ? displayResolutionProvider()
+            : new Vector2Int(Screen.currentResolution.width, Screen.currentResolution.height);
+        return display.x > 0 && display.y > 0 ? display : new Vector2Int(Screen.width, Screen.height);
+    }
+
+    /// <summary>
+    /// Keeps the displayed draft identical to what Apply persists: a Windowed draft may never
+    /// rely on a size that would overflow the current desktop and be silently rewritten later.
+    /// </summary>
+    private void NormalizeDraftResolution()
+    {
+        if (draft == null)
+        {
+            return;
+        }
+
+        draft.resolution = SettingsManager.NormalizeResolutionForDisplay(
+            draft.resolution,
+            draft.screenMode,
+            openDisplayResolution.x,
+            openDisplayResolution.y);
     }
 
     public void SetSkipMode(string value)

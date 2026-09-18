@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,7 +19,10 @@ namespace HowIFall.PlayModeTests
             var host = new GameObject("DraftTest", typeof(RectTransform), typeof(Canvas));
             var service = new FakePreferencesService();
             var view = SharedPreferencesView.Create(host.transform, context);
-            var controller = new PreferencesController(service, view);
+            // This test owns the draft/apply lifecycle semantics; a large display keeps every
+            // supported resolution selectable so screen-mode switching never rewrites the draft.
+            var controller = new PreferencesController(service, view,
+                displayResolutionProvider: () => new Vector2Int(7680, 4320));
             try
             {
                 service.Source.masterVolume = 0.31f;
@@ -67,6 +71,105 @@ namespace HowIFall.PlayModeTests
                 Assert.That(service.Source.textboxOpacity, Is.Zero);
             }
             finally { Object.DestroyImmediate(host); }
+        }
+
+        [Test]
+        public void WindowedResolution_Ux_PersistsExactlyWhatItDisplays()
+        {
+            bool hadScreenMode = PlayerPrefs.HasKey("hif_screen_mode");
+            bool hadResolution = PlayerPrefs.HasKey("hif_resolution");
+            bool hadFullscreen = PlayerPrefs.HasKey("hif_fullscreen");
+            string savedScreenMode = PlayerPrefs.GetString("hif_screen_mode", string.Empty);
+            string savedResolution = PlayerPrefs.GetString("hif_resolution", string.Empty);
+            int savedFullscreen = PlayerPrefs.GetInt("hif_fullscreen", -1);
+            PlayerPrefs.DeleteKey("hif_screen_mode");
+            PlayerPrefs.DeleteKey("hif_resolution");
+            PlayerPrefs.DeleteKey("hif_fullscreen");
+            PlayerPrefs.Save();
+            GameObject managerObject = new GameObject("WindowedUxSettingsManager", typeof(SettingsManager));
+            GameObject host = new GameObject("WindowedUxTest", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                SettingsManager manager = SettingsManager.Instance;
+                Assert.That(manager, Is.Not.Null);
+                Assert.That(manager.CurrentSettings.screenMode, Is.EqualTo(SettingsOptionValues.Fullscreen));
+                Assert.That(manager.CurrentSettings.resolution, Is.EqualTo("1920x1080"));
+                var view = SharedPreferencesView.Create(host.transform, "WindowedUx");
+                var controller = new PreferencesController(
+                    new PreferencesService(manager), view,
+                    displayResolutionProvider: () => new Vector2Int(1920, 1080));
+                controller.Initialize();
+                controller.Open();
+
+                // A. Fullscreen presents the full list; staging the native-size value is valid there.
+                Assert.That(view.GetDropdown(SharedPreferencesView.ResolutionId).options.Count,
+                    Is.EqualTo(PreferencesOptions.Resolutions.Count));
+                view.GetDropdown(SharedPreferencesView.ResolutionId).value = 2;
+                // A. Switching to Windowed must visibly normalize the draft before Apply.
+                view.GetDropdown(SharedPreferencesView.ScreenModeId).value = 1;
+                Assert.That(view.GetDisplayedValue(SharedPreferencesView.ResolutionId), Is.EqualTo("1600x900"),
+                    "Switching to Windowed must visibly normalize the native-size draft before Apply.");
+                Assert.That(DropdownOptionTexts(view.GetDropdown(SharedPreferencesView.ResolutionId)),
+                    Is.EqualTo(new[] { "1280x720", "1600x900" }),
+                    "Windowed must present only resolutions that fit the current display.");
+                controller.Apply();
+                Assert.That(manager.CurrentSettings.resolution, Is.EqualTo(view.GetDisplayedValue(SharedPreferencesView.ResolutionId)),
+                    "Apply must persist exactly the displayed Windowed resolution.");
+                Assert.That(manager.CurrentSettings.resolution, Is.EqualTo("1600x900"));
+
+                // B. A fitting Windowed value stays exactly as displayed.
+                controller.SetResolution("1280x720");
+                controller.Apply();
+                Assert.That(view.GetDisplayedValue(SharedPreferencesView.ResolutionId), Is.EqualTo("1280x720"));
+                Assert.That(manager.CurrentSettings.resolution, Is.EqualTo("1280x720"));
+
+                // C. Fullscreen applies the selected resolution exactly, with the full list.
+                controller.SetScreenMode(SettingsOptionValues.Fullscreen);
+                controller.SetResolution("1920x1080");
+                Assert.That(view.GetDropdown(SharedPreferencesView.ResolutionId).options.Count,
+                    Is.EqualTo(PreferencesOptions.Resolutions.Count));
+                controller.Apply();
+                Assert.That(manager.CurrentSettings.screenMode, Is.EqualTo(SettingsOptionValues.Fullscreen));
+                Assert.That(manager.CurrentSettings.resolution, Is.EqualTo("1920x1080"));
+
+                // D. Borderless keeps the full list and applies the exact selected value.
+                controller.SetScreenMode(SettingsOptionValues.Borderless);
+                controller.SetResolution("2560x1440");
+                Assert.That(view.GetDropdown(SharedPreferencesView.ResolutionId).options.Count,
+                    Is.EqualTo(PreferencesOptions.Resolutions.Count));
+                controller.Apply();
+                Assert.That(manager.CurrentSettings.resolution, Is.EqualTo("2560x1440"));
+
+                // Reopening shows the same persisted resolution that was actually applied.
+                controller.SetScreenMode(SettingsOptionValues.Windowed);
+                controller.Apply();
+                string appliedResolution = manager.CurrentSettings.resolution;
+                Assert.That(PlayerPrefs.GetString("hif_resolution", string.Empty), Is.EqualTo(appliedResolution));
+                controller.Close();
+                controller.Open();
+                Assert.That(view.GetDisplayedValue(SharedPreferencesView.ResolutionId), Is.EqualTo(appliedResolution));
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+                Object.DestroyImmediate(managerObject);
+                RestorePlayerPrefsKey("hif_screen_mode", hadScreenMode, savedScreenMode);
+                RestorePlayerPrefsKey("hif_resolution", hadResolution, savedResolution);
+                if (hadFullscreen) PlayerPrefs.SetInt("hif_fullscreen", savedFullscreen); else PlayerPrefs.DeleteKey("hif_fullscreen");
+                PlayerPrefs.Save();
+            }
+        }
+
+        private static void RestorePlayerPrefsKey(string key, bool hadValue, string value)
+        {
+            if (hadValue) PlayerPrefs.SetString(key, value); else PlayerPrefs.DeleteKey(key);
+        }
+
+        private static List<string> DropdownOptionTexts(TMPro.TMP_Dropdown dropdown)
+        {
+            List<string> texts = new List<string>();
+            foreach (TMPro.TMP_Dropdown.OptionData option in dropdown.options) texts.Add(option.text);
+            return texts;
         }
 
         [UnityTest]

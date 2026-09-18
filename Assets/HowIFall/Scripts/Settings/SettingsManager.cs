@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class SettingsManager : MonoBehaviour
@@ -383,6 +384,37 @@ public class SettingsManager : MonoBehaviour
             && height > 0;
     }
 
+    public static bool IsWindowedResolutionValidForDisplay(string resolution, int displayWidth, int displayHeight)
+    {
+        return TryParseResolution(resolution, out int width, out int height)
+            && width < displayWidth
+            && height < displayHeight;
+    }
+
+    /// <summary>
+    /// Player-facing resolution options for a screen mode. Windowed lists only values that fit
+    /// the current desktop, so the draft a player selects is exactly the value Apply persists.
+    /// </summary>
+    public static IReadOnlyList<string> GetSupportedResolutionsForScreenMode(string screenMode, int displayWidth, int displayHeight)
+    {
+        if (screenMode != SettingsOptionValues.Windowed)
+        {
+            return PreferencesOptions.Resolutions;
+        }
+
+        List<string> fittingResolutions = new List<string>();
+        foreach (string supportedResolution in PreferencesOptions.Resolutions)
+        {
+            if (IsWindowedResolutionValidForDisplay(supportedResolution, displayWidth, displayHeight))
+            {
+                fittingResolutions.Add(supportedResolution);
+            }
+        }
+
+        // Mirrors NormalizeResolutionForDisplay: when nothing fits, the full list stays selectable.
+        return fittingResolutions.Count > 0 ? fittingResolutions : PreferencesOptions.Resolutions;
+    }
+
     public static string NormalizeResolutionForDisplay(string resolution, string screenMode, int displayWidth, int displayHeight)
     {
         if (screenMode != SettingsOptionValues.Windowed
@@ -396,13 +428,12 @@ public class SettingsManager : MonoBehaviour
         int largestSupportedArea = 0;
         foreach (string supportedResolution in PreferencesOptions.Resolutions)
         {
-            if (!TryParseResolution(supportedResolution, out int width, out int height)
-                || width >= displayWidth
-                || height >= displayHeight)
+            if (!IsWindowedResolutionValidForDisplay(supportedResolution, displayWidth, displayHeight))
             {
                 continue;
             }
 
+            TryParseResolution(supportedResolution, out int width, out int height);
             int area = width * height;
             if (area > largestSupportedArea)
             {

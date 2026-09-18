@@ -192,7 +192,8 @@ public static class PreferencesUiParitySmokeTests
             SharedPreferencesView view = SharedPreferencesView.Create(host.transform, "Test");
             var service = new FakePreferencesService();
             int closed = 0;
-            var controller = new PreferencesController(service, view, onClosed: () => closed++);
+            var controller = new PreferencesController(service, view, onClosed: () => closed++,
+                displayResolutionProvider: () => new Vector2Int(1920, 1080));
             controller.Initialize();
             controller.Open();
 
@@ -212,9 +213,18 @@ public static class PreferencesUiParitySmokeTests
             screenMode.value = 1;
             controller.Apply();
             Require(service.Source.screenMode == SettingsOptionValues.Windowed, "Screen Mode dropdown must apply Windowed.");
+            Require(resolution.options.Count == 2
+                && resolution.options[0].text == "1280x720" && resolution.options[1].text == "1600x900",
+                "Windowed must present only the resolutions that fit the simulated 1920x1080 display.");
+            Require(view.GetDisplayedValue(SharedPreferencesView.ResolutionId) == "1600x900",
+                "Switching to Windowed must visibly normalize the native-size draft before Apply.");
+            Require(service.Source.resolution == "1600x900",
+                "Applying Windowed must persist the displayed resolution instead of silently rewriting it.");
             screenMode.value = 2;
             controller.Apply();
             Require(service.Source.screenMode == SettingsOptionValues.Borderless, "Screen Mode dropdown must apply Borderless.");
+            Require(resolution.options.Count == PreferencesOptions.Resolutions.Count,
+                "Borderless must keep the full supported resolution list.");
             screenMode.value = 0;
             controller.Apply();
             Require(service.Source.screenMode == SettingsOptionValues.Fullscreen, "Screen Mode dropdown must apply Fullscreen.");

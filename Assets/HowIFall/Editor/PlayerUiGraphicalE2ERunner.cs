@@ -152,6 +152,13 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareResponsiveMainPreferences": PrepareResponsiveMainPreferences(); break;
                 case "CaptureResponsiveMainPreferences": CaptureResponsiveMainPreferences(); break;
                 case "RestoreMainPreferencesResolution": RestoreMainPreferencesResolution(); break;
+                case "PreferencesWindowedMode": PreferencesWindowedMode(); break;
+                case "WaitWindowedNormalizedDraft": WaitWindowedNormalizedDraft(); break;
+                case "OpenWindowedResolution": OpenDropdown(SharedPreferencesView.ResolutionId, "CloseWindowedResolution", "preferences_windowed_resolution_open_1920x1080.png"); break;
+                case "CloseWindowedResolution": CloseDropdown(SharedPreferencesView.ResolutionId, "PreferencesWindowedApplied", "preferences_windowed_resolution_selected_1920x1080.png"); break;
+                case "PreferencesWindowedApplied": PreferencesWindowedApplied(); break;
+                case "PreferencesFullscreenRestore": PreferencesFullscreenRestore(); break;
+                case "WaitFullscreenRestored": WaitFullscreenRestored(); break;
                 case "CloseMainPreferences": CloseMainPreferences(); break;
                 case "CaptureMainMenuReturnHover": CaptureMainMenuReturnHover(); break;
                 case "OpenMainLoad": OpenMainLoad(); break;
@@ -454,7 +461,120 @@ public static class PlayerUiGraphicalE2ERunner
             return;
         }
 
-        CloseMainPreferences();
+        PreferencesWindowedMode();
+    }
+
+    private static void PreferencesWindowedMode()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed before Windowed resolution proof.");
+        view.SelectCategory(0);
+        // Deterministic staging: exact Fullscreen mode plus a native-size resolution draft that
+        // is valid in Fullscreen but must visibly normalize once the mode switches to Windowed.
+        SetDropdownValue(view, SharedPreferencesView.ScreenModeId, SettingsOptionValues.Fullscreen);
+        FindVisiblePreferences().GetButton("apply").onClick.Invoke();
+        SetDropdownValue(view, SharedPreferencesView.ResolutionId, "1920x1080");
+        Require(view.GetDisplayedValue(SharedPreferencesView.ResolutionId) == "1920x1080",
+            "Fullscreen must stage the native-size draft before the Windowed proof.");
+        SetDropdownValue(view, SharedPreferencesView.ScreenModeId, SettingsOptionValues.Windowed);
+        SessionState.SetString(StageKey, "WaitWindowedNormalizedDraft");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void WaitWindowedNormalizedDraft()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed before Windowed draft proof.");
+        int displayWidth = Screen.currentResolution.width;
+        int displayHeight = Screen.currentResolution.height;
+        Require(displayWidth > 0 && displayHeight > 0, "Desktop resolution is unavailable for the Windowed proof.");
+        List<string> allowed = new List<string>(
+            SettingsManager.GetSupportedResolutionsForScreenMode(SettingsOptionValues.Windowed, displayWidth, displayHeight));
+        List<string> presented = new List<string>();
+        foreach (TMP_Dropdown.OptionData option in view.GetDropdown(SharedPreferencesView.ResolutionId).options)
+            presented.Add(option.text);
+        Require(presented.SequenceEqual(allowed),
+            $"Windowed must present exactly the resolutions that fit the {displayWidth}x{displayHeight} desktop.");
+        if (displayWidth == QaResolution.x && displayHeight == QaResolution.y)
+        {
+            Require(!presented.Contains("1920x1080") && !presented.Contains("2560x1440") && !presented.Contains("3840x2160"),
+                "Windowed must not present native-size or larger resolutions as selectable on the 1920x1080 desktop.");
+        }
+
+        string expectedDraft = SettingsManager.NormalizeResolutionForDisplay(
+            "1920x1080", SettingsOptionValues.Windowed, displayWidth, displayHeight);
+        Require(view.GetDisplayedValue(SharedPreferencesView.ResolutionId) == expectedDraft,
+            $"Switching to Windowed must visibly normalize the native-size draft to {expectedDraft} before Apply.");
+        SessionState.SetString("HIF.Preferences.WindowedDraft", expectedDraft);
+        SessionState.SetString(StageKey, "OpenWindowedResolution");
+        SetDelay(0.1d);
+    }
+
+    private static void PreferencesWindowedApplied()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed before Windowed Apply proof.");
+        string displayed = view.GetDisplayedValue(SharedPreferencesView.ResolutionId);
+        view.GetButton("apply").onClick.Invoke();
+        SettingsManager manager = UnityEngine.Object.FindFirstObjectByType<SettingsManager>();
+        Require(manager != null, "SettingsManager disappeared before the Windowed Apply proof.");
+        Require(manager.CurrentSettings.resolution == displayed,
+            "Apply must persist exactly the displayed Windowed resolution.");
+        Require(PlayerPrefs.GetString("hif_resolution", string.Empty) == displayed,
+            "PlayerPrefs must store the displayed Windowed resolution.");
+        Require(view.IsVisible, "Preferences must stay open after Windowed Apply.");
+        Require(!view.GetButton("apply").interactable, "Clean Windowed Apply must disable the Apply button.");
+        Require(view.GetDisplayedValue(SharedPreferencesView.ResolutionId) == displayed,
+            "Applied Windowed resolution must remain displayed after Apply.");
+        SessionState.SetString(StageKey, "PreferencesFullscreenRestore");
+        ResetCounter();
+        SetDelay(0.5d);
+    }
+
+    private static void PreferencesFullscreenRestore()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed before the Fullscreen restore proof.");
+        SetDropdownValue(view, SharedPreferencesView.ScreenModeId, SettingsOptionValues.Fullscreen);
+        SetDropdownValue(view, SharedPreferencesView.ResolutionId, "1920x1080");
+        view.GetButton("apply").onClick.Invoke();
+        SessionState.SetString(StageKey, "WaitFullscreenRestored");
+        ResetCounter();
+        SetDelay(0.5d);
+    }
+
+    private static void WaitFullscreenRestored()
+    {
+        if (!IsQaResolutionReady())
+        {
+            Retry("Game View did not restore 1920x1080 after the Fullscreen restore proof.");
+            return;
+        }
+
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed before the Fullscreen restored capture.");
+        Require(view.GetDisplayedValue(SharedPreferencesView.ScreenModeId) == SettingsOptionValues.Fullscreen,
+            "Fullscreen restore did not display Fullscreen.");
+        Require(view.GetDisplayedValue(SharedPreferencesView.ResolutionId) == "1920x1080",
+            "Fullscreen restore did not display the exact staged resolution.");
+        Require(view.GetDropdown(SharedPreferencesView.ResolutionId).options.Count == PreferencesOptions.Resolutions.Count,
+            "Fullscreen must present the full supported resolution list after restore.");
+        SettingsManager manager = UnityEngine.Object.FindFirstObjectByType<SettingsManager>();
+        Require(manager != null
+            && manager.CurrentSettings.screenMode == SettingsOptionValues.Fullscreen
+            && manager.CurrentSettings.resolution == "1920x1080",
+            "Fullscreen must apply the exact selected resolution without normalization.");
+        Capture("preferences_fullscreen_restored_1920x1080.png", "CloseMainPreferences");
+    }
+
+    private static void SetDropdownValue(SharedPreferencesView view, string id, string optionText)
+    {
+        TMP_Dropdown dropdown = view.GetDropdown(id);
+        Require(dropdown != null, $"Dropdown '{id}' is missing before the Windowed proof.");
+        int index = dropdown.options.FindIndex(option => option.text == optionText);
+        Require(index >= 0, $"Dropdown '{id}' does not contain option '{optionText}'.");
+        dropdown.value = index;
     }
 
     private static void CloseMainPreferences()
