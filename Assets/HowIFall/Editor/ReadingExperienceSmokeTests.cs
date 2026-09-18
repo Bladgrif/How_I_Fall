@@ -91,6 +91,8 @@ public static class ReadingExperienceSmokeTests
             controller.AdvanceDialogue();
             Require(GetPrivate<int>(controller, "currentLineIndex") == 1,
                 "The next Advance after type completion must progress exactly once.");
+            Require(!controller.nameBox.activeSelf && string.IsNullOrEmpty(controller.speakerText.text),
+                "No-speaker narration must not reserve or expose an empty speaker label.");
         }
         finally
         {
@@ -246,34 +248,46 @@ public static class ReadingExperienceSmokeTests
             controller.dialogueText = text;
             controller.nameBox = nameOwner;
             controller.speakerText = speaker;
+            SetPrivate(controller, "dialogueBoxBackground", shellOwner.GetComponent<Image>());
 
             InvokePrivate(controller, "ApplyReadingShellPresentation");
 
-            Require(Mathf.Approximately(boxRect.sizeDelta.x, 1240f), "Reading shell must keep its reading-column width.");
-            Require(boxRect.sizeDelta.y <= 340f + 0.01f, "Idle reading shell must respect the existing height bound.");
+            Require(Mathf.Approximately(boxRect.sizeDelta.x, 1320f), "Reading field must keep its left-weighted reading width.");
+            Require(boxRect.sizeDelta.y <= 330f + 0.01f, "Idle reading field must respect the long-text height bound.");
+            Image shellBackground = shellOwner.GetComponent<Image>();
+            Require(shellBackground.sprite != null && shellBackground.type == Image.Type.Simple,
+                "Reading contrast must use the runtime soft scrim instead of the serialized card sprite.");
+            Require(shellBackground.sprite.border == Vector4.zero,
+                "Reading contrast scrim must not introduce a framed or sliced card edge.");
+            Shadow dialogueShadow = text.GetComponent<Shadow>();
+            Require(dialogueShadow != null && dialogueShadow.effectColor.a >= 0.85f,
+                "Floating dialogue text must retain a local contrast shadow.");
+            Require(text.GetComponent<Outline>() != null,
+                "Floating dialogue text must retain a light outline over mixed-value scene art.");
 
             InvokePrivate(controller, "ApplyReadingShellContentHeight", "Короткая TECH DEMO ONLY реплика.");
             float shortHeight = boxRect.sizeDelta.y;
-            Require(shortHeight >= 150f - 0.01f, "Short replies must not collapse below the readable shell minimum.");
-            Require(shortHeight < 340f, "Short replies must stop reserving the full HUD-bar height.");
+            Require(shortHeight >= 132f - 0.01f, "Short replies must not collapse below the readable field minimum.");
+            Require(shortHeight < 330f, "Short replies must stop reserving a full HUD-like lower-third panel.");
 
             text.fontSize = 40f;
             InvokePrivate(controller, "ApplyReadingShellContentHeight",
                 "Длинная TECH DEMO ONLY реплика для проверки того, что адаптивная высота чтения растёт вместе с содержанием, сохраняет читаемый запас под строками и не обрезает многострочный текст при поддерживаемом масштабе диалога.");
             float grownHeight = boxRect.sizeDelta.y;
             Require(grownHeight > shortHeight, "Adaptive shell must grow with multi-line content.");
-            Require(grownHeight <= 340f + 0.01f, "Adaptive shell must keep the existing long-text capacity bound.");
+            Require(grownHeight <= 330f + 0.01f, "Adaptive reading field must keep the long-text capacity bound.");
 
             InvokePrivate(controller, "ApplyReadingShellContentHeight", new string('Д', 4000));
-            Require(Mathf.Approximately(boxRect.sizeDelta.y, 340f), "Overflowing content must stay capped at the existing bound.");
+            Require(Mathf.Approximately(boxRect.sizeDelta.y, 330f), "Overflowing content must stay capped at the reading bound.");
 
             Image nameBackground = nameOwner.GetComponent<Image>();
             Require(nameBackground.sprite == null, "Speaker plate must drop the baked decorative sprite.");
-            Require(Mathf.Approximately(nameBackground.color.a, 0.60f), "Speaker plate must stay lighter than the dialogue shell.");
+            Require(Mathf.Approximately(nameBackground.color.a, 0f), "Speaker label must not retain a detached background plate.");
+            Require(speaker.GetComponent<Shadow>() != null, "Speaker label must keep a contrast shadow over scene art.");
 
             InvokePrivate(controller, "ApplyNameBoxWidth", "TECH DEMO — Голос проверки");
             float plateWidth = ((RectTransform)nameOwner.transform).sizeDelta.x;
-            Require(plateWidth >= 180f && plateWidth < 500f, "Speaker plate must hug the speaker name inside its bounded width.");
+            Require(plateWidth >= 150f && plateWidth < 500f, "Speaker label must hug the speaker name inside its bounded width.");
         }
         finally
         {

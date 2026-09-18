@@ -118,6 +118,8 @@ public class VNDialogueController : MonoBehaviour
     private PreferencesController preferencesController;
     private float dialogueBaseFontSize;
     private Image dialogueBoxBackground;
+    private Texture2D readingScrimTexture;
+    private Sprite readingScrimSprite;
     private Vector2 dialogueBaseBoxSize;
     private Vector2 dialogueBaseTextSize;
     private bool readingPresentationInitialized;
@@ -3032,25 +3034,28 @@ public class VNDialogueController : MonoBehaviour
             readingPresentationInitialized = true;
         }
 
-        // A deliberately asymmetrical reading column keeps the image visible and
-        // removes the full-width "HUD bar" feeling while retaining the 125% text
-        // capacity and the existing opacity/readability controls.
+        // The ordinary line lives directly over the scene. The shell only supplies
+        // a soft local contrast field; it is not meant to read as a permanent card.
         boxRect.anchorMin = boxRect.anchorMax = new Vector2(0f, 0f);
         boxRect.pivot = new Vector2(0f, 0f);
-        boxRect.anchoredPosition = new Vector2(86f, 88f);
-        boxRect.sizeDelta = new Vector2(1240f, Mathf.Max(dialogueBaseBoxSize.y, 340f));
-        textRect.sizeDelta = new Vector2(-104f, -76f);
-        dialogueText.margin = new Vector4(16f, 14f, 20f, 10f);
+        boxRect.anchoredPosition = new Vector2(78f, 92f);
+        boxRect.sizeDelta = new Vector2(1320f, Mathf.Max(dialogueBaseBoxSize.y, 330f));
+        textRect.sizeDelta = new Vector2(-178f, -70f);
+        dialogueText.margin = new Vector4(22f, 12f, 24f, 10f);
         dialogueText.alignment = TextAlignmentOptions.TopLeft;
-        dialogueText.lineSpacing = 5f;
+        dialogueText.lineSpacing = 7f;
         dialogueText.enableWordWrapping = true;
         dialogueText.overflowMode = TextOverflowModes.Masking;
         dialogueText.color = new Color(0.96f, 0.97f, 0.98f, 1f);
+        ConfigureReadingTextShadow(dialogueText, new Vector2(2f, -2f), 0.88f);
 
         if (dialogueBoxBackground != null)
         {
             Color textboxColor = dialogueBoxBackground.color;
-            dialogueBoxBackground.color = new Color(0.018f, 0.030f, 0.045f, textboxColor.a);
+            dialogueBoxBackground.color = new Color(0.006f, 0.008f, 0.012f, textboxColor.a);
+            dialogueBoxBackground.sprite = GetOrCreateReadingScrimSprite();
+            dialogueBoxBackground.type = Image.Type.Simple;
+            dialogueBoxBackground.preserveAspect = false;
         }
 
         if (nameBox != null)
@@ -3058,17 +3063,17 @@ public class VNDialogueController : MonoBehaviour
             RectTransform nameRect = nameBox.transform as RectTransform;
             if (nameRect != null)
             {
-                nameRect.sizeDelta = new Vector2(500f, 56f);
-                nameRect.anchoredPosition = new Vector2(18f, 18f);
+                nameRect.sizeDelta = new Vector2(500f, 48f);
+                nameRect.anchoredPosition = new Vector2(22f, 12f);
             }
 
             Image nameBackground = nameBox.GetComponent<Image>();
             if (nameBackground != null)
             {
-                // A flat quiet plate keeps the speaker as a light label above the
-                // dialogue instead of a heavy separate card with baked decoration.
+                // The speaker stays typographically attached to the line without
+                // reintroducing a detached name card.
                 nameBackground.sprite = null;
-                nameBackground.color = new Color(0.018f, 0.030f, 0.045f, 0.60f);
+                nameBackground.color = Color.clear;
             }
         }
 
@@ -3080,6 +3085,7 @@ public class VNDialogueController : MonoBehaviour
             speakerText.fontSizeMax = 26f;
             speakerText.color = new Color(0.74f, 0.90f, 1f, 1f);
             speakerText.alignment = TextAlignmentOptions.Left;
+            ConfigureReadingTextShadow(speakerText, new Vector2(2f, -2f), 0.92f);
         }
 
         TextMeshProUGUI advanceIndicator = nextButton != null
@@ -3094,11 +3100,11 @@ public class VNDialogueController : MonoBehaviour
         ApplyBacklogPresentation();
     }
 
-    private const float ReadingShellWidth = 1240f;
-    private const float ReadingShellTextInsetX = 104f;
-    private const float ReadingShellTextInsetY = 76f;
-    private const float ReadingShellMinHeight = 150f;
-    private const float ReadingShellBreathing = 20f;
+    private const float ReadingShellWidth = 1320f;
+    private const float ReadingShellTextInsetX = 178f;
+    private const float ReadingShellTextInsetY = 70f;
+    private const float ReadingShellMinHeight = 132f;
+    private const float ReadingShellBreathing = 18f;
 
     /// <summary>
     /// Sizes the reading shell to the rendered line so short replies stop reserving a
@@ -3121,7 +3127,7 @@ public class VNDialogueController : MonoBehaviour
         Vector4 margin = dialogueText.margin;
         float textWidth = Mathf.Max(120f, ReadingShellWidth - ReadingShellTextInsetX - margin.x - margin.z);
         float contentHeight = dialogueText.GetPreferredValues(source, textWidth, float.MaxValue).y;
-        float maxHeight = Mathf.Max(ReadingShellMinHeight, Mathf.Max(dialogueBaseBoxSize.y, 340f));
+        float maxHeight = Mathf.Max(ReadingShellMinHeight, Mathf.Max(dialogueBaseBoxSize.y, 330f));
         float targetHeight = Mathf.Clamp(
             contentHeight + margin.y + margin.w + ReadingShellTextInsetY + ReadingShellBreathing,
             ReadingShellMinHeight,
@@ -3129,7 +3135,7 @@ public class VNDialogueController : MonoBehaviour
         boxRect.sizeDelta = new Vector2(ReadingShellWidth, targetHeight);
     }
 
-    /// <summary>Keeps the speaker plate hugging the name instead of a fixed wide card.</summary>
+    /// <summary>Keeps the speaker label hugging the name instead of reserving a detached plate.</summary>
     private void ApplyNameBoxWidth(string speaker)
     {
         if (nameBox == null || speakerText == null)
@@ -3145,9 +3151,100 @@ public class VNDialogueController : MonoBehaviour
 
         float preferredWidth = speakerText.GetPreferredValues(speaker).x;
         Vector2 size = nameRect.sizeDelta;
-        size.x = Mathf.Clamp(preferredWidth + 56f, 180f, 500f);
-        size.y = 56f;
+        size.x = Mathf.Clamp(preferredWidth + 24f, 150f, 500f);
+        size.y = 48f;
         nameRect.sizeDelta = size;
+    }
+
+    private Sprite GetOrCreateReadingScrimSprite()
+    {
+        if (readingScrimSprite != null)
+        {
+            return readingScrimSprite;
+        }
+
+        const int width = 64;
+        const int height = 32;
+        readingScrimTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime Reading Soft Scrim",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[width * height];
+        for (int y = 0; y < height; y++)
+        {
+            float normalizedY = y / (height - 1f);
+            float vertical = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.10f, normalizedY))
+                * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 1f, normalizedY)));
+            for (int x = 0; x < width; x++)
+            {
+                float normalizedX = x / (width - 1f);
+                float leftFade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.035f, normalizedX));
+                float rightFade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.68f, 1f, normalizedX));
+                pixels[y * width + x] = new Color(1f, 1f, 1f, leftFade * rightFade * vertical * 0.22f);
+            }
+        }
+
+        readingScrimTexture.SetPixels(pixels);
+        readingScrimTexture.Apply(false, true);
+        readingScrimSprite = Sprite.Create(
+            readingScrimTexture,
+            new Rect(0f, 0f, width, height),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect);
+        readingScrimSprite.name = "Runtime Reading Soft Scrim Sprite";
+        readingScrimSprite.hideFlags = HideFlags.HideAndDontSave;
+        return readingScrimSprite;
+    }
+
+    private static void ConfigureReadingTextShadow(TextMeshProUGUI label, Vector2 distance, float opacity)
+    {
+        if (label == null)
+        {
+            return;
+        }
+
+        Shadow shadow = label.GetComponent<Shadow>();
+        if (shadow == null)
+        {
+            shadow = label.gameObject.AddComponent<Shadow>();
+        }
+
+        shadow.effectColor = new Color(0f, 0f, 0f, opacity);
+        shadow.effectDistance = distance;
+        shadow.useGraphicAlpha = true;
+
+        Outline outline = label.GetComponent<Outline>();
+        if (outline == null)
+        {
+            outline = label.gameObject.AddComponent<Outline>();
+        }
+
+        outline.effectColor = new Color(0f, 0f, 0f, Mathf.Min(0.82f, opacity));
+        outline.effectDistance = new Vector2(1.25f, -1.25f);
+        outline.useGraphicAlpha = true;
+    }
+
+    private void DestroyReadingScrimResources()
+    {
+        if (readingScrimSprite != null)
+        {
+            if (Application.isPlaying) Destroy(readingScrimSprite);
+            else DestroyImmediate(readingScrimSprite);
+            readingScrimSprite = null;
+        }
+
+        if (readingScrimTexture != null)
+        {
+            if (Application.isPlaying) Destroy(readingScrimTexture);
+            else DestroyImmediate(readingScrimTexture);
+            readingScrimTexture = null;
+        }
     }
 
     public static void ApplyDialoguePresentation(
@@ -3999,6 +4096,8 @@ public class VNDialogueController : MonoBehaviour
             Destroy(runtimeBacklogFallbackFont);
             runtimeBacklogFallbackFont = null;
         }
+
+        DestroyReadingScrimResources();
 
         if (Instance == this)
         {

@@ -755,6 +755,7 @@ public static class PlayerUiGraphicalE2ERunner
         Require(SaveManager.Instance != null, "Gameplay SaveManager is missing.");
         CompleteTyping(dialogue);
         VerifyReadingQuickMenuContract(dialogue);
+        VerifyFloatingReadingState(dialogue, false);
         Capture("gameplay_dialogue_standard_1920x1080.png", "CaptureQuickSaveFeedback");
     }
 
@@ -785,6 +786,7 @@ public static class PlayerUiGraphicalE2ERunner
         LoadRuntimeFixture(dialogue, LongReadingFixtureText, new List<DialogueChoice>());
         SettingsManager.Instance.SetDialogueTextScale(1.25f);
         CompleteTyping(dialogue);
+        VerifyFloatingReadingState(dialogue, false);
         Capture("gameplay_dialogue_long_125pct_1920x1080.png", "CaptureResponsiveLongDialogue");
     }
 
@@ -799,6 +801,7 @@ public static class PlayerUiGraphicalE2ERunner
 
         VNDialogueController dialogue = RequireGameplayDialogue();
         CompleteTyping(dialogue);
+        VerifyFloatingReadingState(dialogue, false);
         Capture("gameplay_dialogue_long_125pct_1280x720.png", "RestoreAfterLongDialogue");
     }
 
@@ -867,6 +870,7 @@ public static class PlayerUiGraphicalE2ERunner
         InvokePrivate(dialogue, "ShowChoices", false);
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
             "The first visible choice did not receive EventSystem focus.");
+        VerifyChoiceReadingSeparation(dialogue);
         Capture("gameplay_choice_two_1920x1080.png", "OpenFourChoices");
     }
 
@@ -884,6 +888,7 @@ public static class PlayerUiGraphicalE2ERunner
         Require(dialogue.GetUsableChoiceButtonCapacity() >= 4, "Choice UI did not create the fourth runtime slot.");
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
             "The first four-choice option did not receive deterministic focus.");
+        VerifyChoiceReadingSeparation(dialogue);
         Capture("gameplay_choice_four_long_1920x1080.png", "VerifyFourthChoiceSlot");
     }
 
@@ -929,6 +934,7 @@ public static class PlayerUiGraphicalE2ERunner
             .FirstOrDefault(button => button.name == "Choice Runtime Slot 4");
         Require(fourth != null && fourth.gameObject.activeInHierarchy,
             "Fourth choice must remain selectable at 1280x720.");
+        VerifyChoiceReadingSeparation(dialogue);
         Capture("gameplay_choice_four_long_1280x720.png", "RestoreQaAfterResponsiveChoices");
     }
 
@@ -1656,6 +1662,7 @@ public static class PlayerUiGraphicalE2ERunner
     private static void VerifyNamedSpeakerReadingState(VNDialogueController dialogue)
     {
         VerifyReadingQuickMenuContract(dialogue);
+        VerifyFloatingReadingState(dialogue, true);
         Require(dialogue.nameBox != null && dialogue.nameBox.activeInHierarchy,
             "Named-speaker fixture did not activate the name box.");
         Require(dialogue.speakerText != null && dialogue.speakerText.isActiveAndEnabled
@@ -1679,6 +1686,50 @@ public static class PlayerUiGraphicalE2ERunner
         Require(Contains(shell, text) && ContainsScreen(text), "Dialogue text leaves the intended reading shell or screen.");
         Require(!nameBox.Overlaps(quickMenuRect) && !speaker.Overlaps(quickMenuRect) && !text.Overlaps(quickMenuRect),
             "Named-speaker reading state overlaps the Quick Menu/read controls.");
+    }
+
+    private static void VerifyFloatingReadingState(VNDialogueController dialogue, bool expectSpeaker)
+    {
+        VerifyReadingQuickMenuContract(dialogue);
+        Require(dialogue.dialogueText != null && dialogue.dialogueText.isActiveAndEnabled,
+            "Ordinary floating dialogue text is unavailable.");
+
+        Image scrim = dialogue.dialogueUiRoot.GetComponent<Image>();
+        Require(scrim != null && scrim.sprite != null && scrim.type == Image.Type.Simple,
+            "Ordinary reading did not replace the permanent card with a soft scrim.");
+        Require(scrim.sprite.border == Vector4.zero,
+            "Ordinary reading scrim retained a framed/sliced card edge.");
+        Require(dialogue.dialogueText.GetComponent<Shadow>() != null,
+            "Floating dialogue text is missing its local contrast shadow.");
+        Require(dialogue.dialogueText.GetComponent<Outline>() != null,
+            "Floating dialogue text is missing its mixed-value contrast outline.");
+
+        Rect text = GetScreenRect(dialogue.dialogueText.rectTransform);
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Rect quickMenuRect = GetScreenRect((RectTransform)quickMenu.root.transform);
+        Require(ContainsScreen(text), "Floating dialogue text leaves the screen.");
+        Require(!text.Overlaps(quickMenuRect), "Floating dialogue text overlaps the Quick Menu/read controls.");
+
+        if (!expectSpeaker)
+        {
+            Require(dialogue.nameBox == null || !dialogue.nameBox.activeInHierarchy,
+                "No-speaker narration reserved an empty speaker label.");
+        }
+    }
+
+    private static void VerifyChoiceReadingSeparation(VNDialogueController dialogue)
+    {
+        VerifyFloatingReadingState(dialogue, false);
+        Require(dialogue.choicePanel != null && dialogue.choicePanel.activeInHierarchy,
+            "Choice panel is unavailable for reading-surface separation proof.");
+
+        Rect choicePanel = GetScreenRect((RectTransform)dialogue.choicePanel.transform);
+        Rect dialogueText = GetScreenRect(dialogue.dialogueText.rectTransform);
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Rect quickMenuRect = GetScreenRect((RectTransform)quickMenu.root.transform);
+        Require(ContainsScreen(choicePanel), "Choice panel leaves the screen.");
+        Require(!choicePanel.Overlaps(dialogueText), "Choice panel overlaps the floating dialogue text.");
+        Require(!choicePanel.Overlaps(quickMenuRect), "Choice panel overlaps the Quick Menu/read controls.");
     }
 
     private static Rect GetScreenRect(RectTransform rectTransform)
