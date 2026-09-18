@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
@@ -86,9 +87,23 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     public void SelectManualPage(int pageIndex)
     {
         int clampedPage = Mathf.Clamp(pageIndex, 1, SaveManager.ManualPageCount);
-        if (currentManualPage == clampedPage) return;
+        if (HasOperationInProgress() || IsConfirmationOpen)
+        {
+            return;
+        }
+
+        if (currentSlotType == SaveSlotType.Manual && currentManualPage == clampedPage)
+        {
+            return;
+        }
+
+        // Numeric strip entries carry the whole Manual family meaning: selecting a
+        // number is a Manual selection with its page, in Load and Save alike.
+        currentSlotType = SaveSlotType.Manual;
         currentManualPage = clampedPage;
-        if (currentSlotType == SaveSlotType.Manual) { ApplySlotTypePresentation(); Refresh(); }
+        ApplySlotTypePresentation();
+        Refresh();
+        FocusButton(GetManualPageButton(clampedPage));
     }
 
     public void NextManualPage() => SelectManualPage(currentManualPage + 1);
@@ -1139,7 +1154,9 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         currentSlotType = slotType;
         ApplySlotTypePresentation();
         Refresh();
-        FocusButton(GetTabButton(slotType));
+        FocusButton(slotType == SaveSlotType.Manual
+            ? GetManualPageButton(currentManualPage)
+            : GetTabButton(slotType));
     }
 
     private void ApplySlotTypePresentation()
@@ -1154,7 +1171,6 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             };
         }
 
-        bool manualActive = currentSlotType == SaveSlotType.Manual;
         bool loadMode = mode == PanelMode.Load;
         if (slotTypeHintText != null)
         {
@@ -1163,44 +1179,31 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         }
 
         if (manualPaginationRoot != null) manualPaginationRoot.SetActive(true);
-        SetButtonLabel(manualTabButton, "РУЧНЫЕ");
-        SetButtonLabel(autoTabButton, currentSlotType == SaveSlotType.Auto ? "АВТОСОХРАНЕНИЯ" : "АВТО");
-        SetButtonLabel(quickTabButton, currentSlotType == SaveSlotType.Quick ? "БЫСТРЫЕ СОХРАНЕНИЯ" : "БЫСТРЫЕ");
+        SetButtonLabel(quickTabButton, "QS");
+        SetButtonLabel(autoTabButton, "AS");
 
-        SetCompactButtonLayout(manualTabButton, loadMode ? -250f : 0f, loadMode ? 200f : 220f, 15f);
-        SetCompactButtonLayout(autoTabButton, 0f, currentSlotType == SaveSlotType.Auto ? 230f : 160f, 15f);
-        SetCompactButtonLayout(quickTabButton, 250f, currentSlotType == SaveSlotType.Quick ? 250f : 180f, 15f);
-        SetCompactButtonLayout(previousManualPageButton, -330f, 40f, -17f);
-        SetCompactButtonLayout(nextManualPageButton, 330f, 40f, -17f);
-        ConfigureManualPageButtons(manualActive);
-
-        if (previousManualPageButton != null)
-        {
-            previousManualPageButton.gameObject.SetActive(manualActive);
-            previousManualPageButton.interactable = currentManualPage > 1;
-        }
-
-        if (nextManualPageButton != null)
-        {
-            nextManualPageButton.gameObject.SetActive(manualActive);
-            nextManualPageButton.interactable = currentManualPage < SaveManager.ManualPageCount;
-        }
-
+        // The strip itself carries family and page meaning, so the legacy
+        // family tab and arrow controls stay serialized but never visible.
+        if (manualTabButton != null) manualTabButton.gameObject.SetActive(false);
+        if (previousManualPageButton != null) previousManualPageButton.gameObject.SetActive(false);
+        if (nextManualPageButton != null) nextManualPageButton.gameObject.SetActive(false);
         if (autoTabButton != null) autoTabButton.gameObject.SetActive(loadMode);
         if (quickTabButton != null) quickTabButton.gameObject.SetActive(loadMode);
 
-        SetTabVisual(manualTabButton, manualActive);
-        SetTabVisual(autoTabButton, currentSlotType == SaveSlotType.Auto);
-        SetTabVisual(quickTabButton, currentSlotType == SaveSlotType.Quick);
+        SetStripEntryVisual(quickTabButton, loadMode && currentSlotType == SaveSlotType.Quick);
+        SetStripEntryVisual(autoTabButton, loadMode && currentSlotType == SaveSlotType.Auto);
+        ConfigureManualPageButtons();
+        LayoutStrip();
     }
 
-    private void ConfigureManualPageButtons(bool manualActive)
+    private void ConfigureManualPageButtons()
     {
         if (manualPageButtons == null)
         {
             return;
         }
 
+        bool manualActive = currentSlotType == SaveSlotType.Manual;
         for (int index = 0; index < manualPageButtons.Length; index++)
         {
             Button pageButton = manualPageButtons[index];
@@ -1210,12 +1213,70 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             }
 
             int page = index + 1;
-            pageButton.gameObject.SetActive(manualActive && page <= SaveManager.ManualPageCount);
+            pageButton.gameObject.SetActive(page <= SaveManager.ManualPageCount);
             pageButton.interactable = page <= SaveManager.ManualPageCount;
             SetButtonLabel(pageButton, page.ToString());
-            SetCompactButtonLayout(pageButton, (index - (SaveManager.ManualPageCount - 1) * 0.5f) * 48f, 40f, -17f);
-            SetPageVisual(pageButton, page == currentManualPage);
+            SetStripEntryVisual(pageButton, manualActive && page == currentManualPage);
         }
+    }
+
+    private List<Button> GetVisibleStripButtons()
+    {
+        List<Button> strip = new List<Button>();
+        if (mode == PanelMode.Load)
+        {
+            if (IsInteractive(quickTabButton)) strip.Add(quickTabButton);
+            if (IsInteractive(autoTabButton)) strip.Add(autoTabButton);
+        }
+
+        if (manualPageButtons != null)
+        {
+            for (int page = 1; page <= SaveManager.ManualPageCount && page <= manualPageButtons.Length; page++)
+            {
+                Button pageButton = manualPageButtons[page - 1];
+                if (IsInteractive(pageButton))
+                {
+                    strip.Add(pageButton);
+                }
+            }
+        }
+
+        return strip;
+    }
+
+    private Button GetActiveStripEntry()
+    {
+        if (mode == PanelMode.Load)
+        {
+            if (currentSlotType == SaveSlotType.Quick) return IsInteractive(quickTabButton) ? quickTabButton : null;
+            if (currentSlotType == SaveSlotType.Auto) return IsInteractive(autoTabButton) ? autoTabButton : null;
+        }
+
+        return GetManualPageButton(currentManualPage);
+    }
+
+    private void LayoutStrip()
+    {
+        if (compactNavigationRoot == null)
+        {
+            return;
+        }
+
+        const float gap = 10f;
+        List<Button> strip = GetVisibleStripButtons();
+        float totalWidth = strip.Sum(GetStripEntryWidth) + gap * Mathf.Max(0, strip.Count - 1);
+        float cursor = -totalWidth * 0.5f;
+        foreach (Button entry in strip)
+        {
+            float width = GetStripEntryWidth(entry);
+            SetCompactButtonLayout(entry, cursor + width * 0.5f, width);
+            cursor += width + gap;
+        }
+    }
+
+    private float GetStripEntryWidth(Button entry)
+    {
+        return entry != null && (entry == quickTabButton || entry == autoTabButton) ? 96f : 56f;
     }
 
     private static void SetCompactButtonLayout(Button button, float x, float width, float y = 0f)
@@ -1252,24 +1313,26 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     {
         Button firstSlot = FindFirstInteractiveSlotButton();
         Button gridEntry = firstSlot ?? closeButton;
-        Button activeFamilyButton = GetTabButton(currentSlotType);
-        Button selectedPage = currentSlotType == SaveSlotType.Manual
-            ? GetManualPageButton(currentManualPage)
-            : null;
-        Button pageEntry = currentSlotType == SaveSlotType.Manual && selectedPage != null
-            ? selectedPage
-            : gridEntry;
+        Button activeStripEntry = GetActiveStripEntry();
+        List<Button> strip = GetVisibleStripButtons();
 
-        if (currentSlotType == SaveSlotType.Manual)
+        // Explicit navigation is rebuilt only from visible strip entries, so
+        // keyboard/controller focus can never land on a hidden legacy control.
+        for (int index = 0; index < strip.Count; index++)
         {
-            ConfigureManualPaginationNavigation(firstSlot, gridEntry, selectedPage);
+            Button left = index > 0 ? strip[index - 1] : closeButton;
+            Button right = index < strip.Count - 1 ? strip[index + 1] : closeButton;
+            SetNavigation(strip[index], left, right, gridEntry, gridEntry);
         }
-        else
+
+        if (closeButton != null)
         {
-            SetNavigation(manualTabButton, closeButton, autoTabButton, gridEntry, closeButton);
-            SetNavigation(autoTabButton, manualTabButton, quickTabButton, gridEntry, closeButton);
-            SetNavigation(quickTabButton, autoTabButton, closeButton, gridEntry, closeButton);
-            SetNavigation(closeButton, quickTabButton, manualTabButton, gridEntry, activeFamilyButton);
+            SetNavigation(
+                closeButton,
+                strip.Count > 0 ? strip[strip.Count - 1] : gridEntry,
+                strip.Count > 0 ? strip[0] : gridEntry,
+                gridEntry,
+                activeStripEntry ?? gridEntry);
         }
 
         for (int index = 0; slotViews != null && index < slotViews.Length; index++)
@@ -1283,14 +1346,14 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
 
             int column = index % 3;
             int row = index / 3;
-            Button left = FindInteractiveSlotInDirection(index, -1, row, true) ?? activeFamilyButton;
+            Button left = FindInteractiveSlotInDirection(index, -1, row, true) ?? activeStripEntry;
             Button right = FindInteractiveSlotInDirection(index, 1, row, true) ?? (view != null && IsInteractive(view.deleteButton) ? view.deleteButton : closeButton);
             Button up = row == 0
-                ? pageEntry
-                : FindSlotButton(index - 3) ?? pageEntry;
+                ? activeStripEntry ?? gridEntry
+                : FindSlotButton(index - 3) ?? activeStripEntry ?? gridEntry;
             Button down = row == 0
-                ? FindSlotButton(index + 3) ?? pageEntry
-                : currentSlotType == SaveSlotType.Manual ? manualTabButton : pageEntry;
+                ? FindSlotButton(index + 3) ?? activeStripEntry ?? gridEntry
+                : activeStripEntry ?? gridEntry;
             SetNavigation(slotButton, left, right, up, down);
 
             if (view != null && IsInteractive(view.deleteButton))
@@ -1298,39 +1361,6 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
                 SetNavigation(view.deleteButton, slotButton, closeButton, slotButton, slotButton);
             }
         }
-    }
-
-    private void ConfigureManualPaginationNavigation(Button firstSlot, Button gridEntry, Button selectedPage)
-    {
-        Button firstPage = GetManualPageButton(1);
-        Button lastPage = GetManualPageButton(SaveManager.ManualPageCount);
-        SetNavigation(previousManualPageButton, closeButton, firstPage, manualTabButton, gridEntry);
-        SetNavigation(nextManualPageButton, lastPage, closeButton, manualTabButton, gridEntry);
-
-        for (int page = 1; page <= SaveManager.ManualPageCount; page++)
-        {
-            Button pageButton = GetManualPageButton(page);
-            if (pageButton == null)
-            {
-                continue;
-            }
-
-            Button left = page > 1 ? GetManualPageButton(page - 1) : previousManualPageButton;
-            Button right = page < SaveManager.ManualPageCount ? GetManualPageButton(page + 1) : nextManualPageButton;
-            SetNavigation(pageButton, left, right, manualTabButton, gridEntry);
-        }
-
-        if (mode == PanelMode.Save)
-        {
-            SetNavigation(manualTabButton, closeButton, closeButton, gridEntry, selectedPage ?? closeButton);
-            SetNavigation(closeButton, manualTabButton, manualTabButton, gridEntry, manualTabButton);
-            return;
-        }
-
-        SetNavigation(manualTabButton, closeButton, autoTabButton, gridEntry, selectedPage ?? closeButton);
-        SetNavigation(autoTabButton, manualTabButton, quickTabButton, closeButton, selectedPage);
-        SetNavigation(quickTabButton, autoTabButton, closeButton, closeButton, selectedPage);
-        SetNavigation(closeButton, quickTabButton, manualTabButton, gridEntry, manualTabButton);
     }
 
     private Button GetManualPageButton(int page)
@@ -1614,19 +1644,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         button.onClick.AddListener(action);
     }
 
-    private static void SetPageVisual(Button button, bool selected)
-    {
-        if (button == null || !(button.targetGraphic is Image background)) return;
-        background.color = selected ? new Color(0.10f, 0.25f, 0.36f, 0.96f) : new Color(0.03f, 0.055f, 0.085f, 0.54f);
-        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
-        if (label != null)
-        {
-            label.color = selected ? new Color(0.9f, 0.97f, 1f, 1f) : new Color(0.52f, 0.62f, 0.73f, 0.9f);
-            label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
-        }
-    }
-
-    private static void SetTabVisual(Button button, bool active)
+    private static void SetStripEntryVisual(Button button, bool active)
     {
         if (button == null)
         {
@@ -1636,7 +1654,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         if (button.targetGraphic is Image background)
         {
             background.color = active
-                ? new Color(0.075f, 0.145f, 0.22f, 0.96f)
+                ? new Color(0.10f, 0.25f, 0.36f, 0.96f)
                 : new Color(0.032f, 0.055f, 0.085f, 0.72f);
         }
 
@@ -1644,8 +1662,9 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         if (label != null)
         {
             label.color = active
-                ? new Color(0.88f, 0.95f, 1f, 1f)
-                : new Color(0.48f, 0.59f, 0.7f, 0.82f);
+                ? new Color(0.9f, 0.97f, 1f, 1f)
+                : new Color(0.52f, 0.62f, 0.73f, 0.9f);
+            label.fontStyle = active ? FontStyles.Bold : FontStyles.Normal;
         }
 
         Outline outline = button.GetComponent<Outline>();

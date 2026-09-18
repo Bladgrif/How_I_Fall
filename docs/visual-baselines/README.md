@@ -34,13 +34,18 @@ Main Menu и Preferences-набор обновлён по полному PlayerU
 
 ## Сохранение и загрузка
 
-- `save_load_save.png` — игровое сохранение Save / Manual после успешной записи.
-- `save_load_manual.png` — игровую загрузку Load / Manual с валидными и пустыми слотами.
-- `save_load_confirmation.png` — подтверждение загрузки: безопасный Cancel default, родительский контент заблокирован.
+Единая полоса навигации Save/Load: в Load — `QS | AS | 1..10`, в Save — только `1..10`. `QS` — 6 ротируемых Quick-слотов, `AS` — 6 Auto-слотов, число — страница ручных слотов (глобальный слот = (страница − 1) × 6 + локальный слот). Отдельного ряда Manual/Auto/Quick и стрелок страниц больше нет; активна ровно одна запись полосы. Запись в Quick/Auto через Save невозможна.
+
+- `save_load_manual.png` — Load, Manual страница 1: полоса `QS AS 1..10` с активной страницей 1, валидный слот и пустые карточки.
+- `save_load_quick.png` — Load, `QS` активна: шесть ротируемых Quick-слотов; состояние `AS`/Auto покрывается свежим graphical E2E.
+- `save_load_save.png` — Save после успешной записи: полоса только `1..10`, тост «Слот 1 сохранён» в собственной полосе над навигацией без перекрытия страниц.
+- `save_load_confirmation.png` — подтверждение загрузки поверх новой полосы: безопасный Cancel default, родительский контент заблокирован dimmer-слоем.
 - `save_load_delete_confirmation.png` — destructive-вариант той же лёгкой modal-композиции: действие различимо без большой красной кнопки.
-- `save_load_slot_types.png` — контролируемый занятый invalid-slot, визуально отличимый от пустого empty-slot. Auto/Quick дополнительно покрываются свежим graphical E2E.
-- `save_load_manual_page_2.png` — ручная страница 2 и компактная пагинация при 1280×720.
-- `save_load_save_1280.png` — thumbnail-first сетка 3×2, выбранный момент и навигация при 1280×720.
+- `save_load_slot_types.png` — занятый invalid-slot визуально отличим от пустого empty-slot; тост «Сохранение недоступно» больше не перекрывает полосу навигации.
+- `save_load_manual_page_2.png` — Load, страница 2 при 1280×720: сводка показывает глобальный СЛОТ 07, полоса без обрезок и перекрытий.
+- `save_load_save_1280.png` — Save при 1280×720: полоса `1..10` и сетка 3×2 без перекрытий.
+
+Save/Load-набор обновлён после unified strip graphical E2E от 2026-09-18 (SaveBackendV2 + ManualSave + PlayerUi). Это REVIEW CANDIDATE, не субъективное visual approval.
 
 ## Игровое меню и откат
 

@@ -605,6 +605,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         panel.OpenLoad();
         yield return new WaitForSecondsRealtime(0.2f);
         VerifyTabPresentation(panel, manager, SaveSlotType.Manual, false);
+        VerifyStripNavigationChain(panel, saveMode: false);
         Require(panel.CurrentSlotType == SaveSlotType.Manual, "OpenLoad did not reset the panel to Manual.");
         Require(panel.titleText.text == "ЗАГРУЗИТЬ", "Load title is incorrect.");
 
@@ -657,6 +658,18 @@ public static class SaveBackendV2PlayModeE2ERunner
             }
         }
 
+        // Numeric strip entries carry the whole Manual meaning: selecting a number
+        // from another family must switch Load to Manual with the exact page.
+        panel.manualPageButtons[3].onClick.Invoke();
+        yield return null;
+        Require(panel.CurrentSlotType == SaveSlotType.Manual && panel.CurrentManualPage == 4,
+            "Numeric strip entry did not select Manual page 4 from the Quick family.");
+        VerifyTabPresentation(panel, manager, SaveSlotType.Manual, false);
+        Require(ManualSaveLoadPanel.GetGlobalManualSlot(4, 1) == 19 && ManualSaveLoadPanel.GetGlobalManualSlot(4, 6) == 24,
+            "Page 4 does not map to Manual global slots 19-24.");
+        panel.SelectQuickTab();
+        yield return new WaitForSecondsRealtime(0.1f);
+
         Vector2Int responsiveResolution = new Vector2Int(1280, 720);
         panel.SelectManualTab();
         panel.SelectManualPage(2);
@@ -678,12 +691,24 @@ public static class SaveBackendV2PlayModeE2ERunner
         VerifyManualPaginationLayout(panel, responsiveResolution);
         yield return new WaitForEndOfFrame();
         CaptureTabsScreenshot(SaveSlotType.Manual, responsiveResolution, "page_2");
+
+        panel.OpenSave();
+        yield return new WaitForSecondsRealtime(0.12f);
+        VerifyTabPresentation(panel, manager, SaveSlotType.Manual, true);
+        VerifyTabsLayout(panel, responsiveResolution);
+        VerifyManualPaginationLayout(panel, responsiveResolution);
+        yield return new WaitForEndOfFrame();
+        CaptureTabsScreenshot(SaveSlotType.Manual, responsiveResolution, "save_page_1");
+        panel.OpenLoad();
+        panel.SelectManualPage(2);
+
         ConfigureGameViewResolution(resolution);
         yield return null;
 
         panel.OpenSave();
         yield return new WaitForSecondsRealtime(0.12f);
         VerifyTabPresentation(panel, manager, SaveSlotType.Manual, true);
+        VerifyStripNavigationChain(panel, saveMode: true);
         Require(panel.CurrentSlotType == SaveSlotType.Manual, "OpenSave did not reset the panel to Manual.");
         Require(panel.titleText.text == "СОХРАНИТЬ", "Save title is incorrect.");
         Require(panel.slotViews.All(view => view.button.interactable), "Manual slots are not writable in Save mode.");
@@ -718,6 +743,9 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(panel.PendingConfirmationSlotType == SaveSlotType.Auto && panel.PendingConfirmationSlot == 6, "Auto Delete confirmation lost type/index.");
         panel.SelectQuickTab();
         Require(panel.CurrentSlotType == SaveSlotType.Auto, "Tab switched while confirmation was open.");
+        int confirmedPage = panel.CurrentManualPage;
+        panel.SelectManualPage(confirmedPage == SaveManager.ManualPageCount ? 1 : confirmedPage + 1);
+        Require(panel.CurrentManualPage == confirmedPage, "Page selection ran while a confirmation was open.");
         Require(panel.HandleEscape(), "Escape did not handle Auto Delete confirmation.");
         Require(!panel.IsConfirmationOpen && !panel.PendingConfirmationSlotType.HasValue && panel.PendingConfirmationSlot == 0, "Escape did not clear pending confirmation.");
         Require(manager.GetSlot(SaveSlotType.Auto, 6).IsOccupied, "Escape deleted Auto slot 6.");
@@ -775,38 +803,34 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(panel.slotTypeHintText.gameObject.activeSelf == !string.IsNullOrEmpty(expectedHint), $"{type} Save hint visibility is incorrect.");
 
         Require(panel.manualPaginationRoot != null && panel.manualPaginationRoot.activeSelf,
-            $"{type} compact navigation root is hidden.");
-        Require(panel.manualTabButton != null && panel.manualTabButton.transform.parent == panel.manualPaginationRoot.transform,
-            "Manual family control is not in the compact navigation area.");
-        Require(panel.autoTabButton != null && panel.autoTabButton.gameObject.activeSelf == !saveMode,
-            "Auto family visibility does not match Save/Load contract.");
+            $"{type} unified strip root is hidden.");
+        Require(panel.manualTabButton == null || !panel.manualTabButton.gameObject.activeSelf,
+            $"{type} legacy Manual family control is visible; the strip must be the only navigation.");
+        Require(panel.previousManualPageButton == null || !panel.previousManualPageButton.gameObject.activeSelf,
+            $"{type} legacy previous-page arrow is visible.");
+        Require(panel.nextManualPageButton == null || !panel.nextManualPageButton.gameObject.activeSelf,
+            $"{type} legacy next-page arrow is visible.");
+
         Require(panel.quickTabButton != null && panel.quickTabButton.gameObject.activeSelf == !saveMode,
-            "Quick family visibility does not match Save/Load contract.");
-        Require(panel.previousManualPageButton.gameObject.activeSelf == (type == SaveSlotType.Manual),
-            $"{type} previous-page visibility is incorrect.");
-        Require(panel.nextManualPageButton.gameObject.activeSelf == (type == SaveSlotType.Manual),
-            $"{type} next-page visibility is incorrect.");
-        Require(GetButtonLabel(panel.manualTabButton) == "РУЧНЫЕ", "Manual family label is incorrect.");
+            "QS strip visibility does not match the Save/Load contract.");
+        Require(panel.autoTabButton != null && panel.autoTabButton.gameObject.activeSelf == !saveMode,
+            "AS strip visibility does not match the Save/Load contract.");
+        Require(GetButtonLabel(panel.quickTabButton) == "QS", "QS strip label is incorrect.");
+        Require(GetButtonLabel(panel.autoTabButton) == "AS", "AS strip label is incorrect.");
+
         Require(panel.manualPageButtons != null && panel.manualPageButtons.Length == SaveManager.ManualPageCount,
-            "Manual numeric page buttons are unavailable.");
+            "Manual numeric strip entries are unavailable.");
         for (int page = 1; page <= SaveManager.ManualPageCount; page++)
         {
             Button pageButton = panel.manualPageButtons[page - 1];
-            Require(pageButton.gameObject.activeSelf == (type == SaveSlotType.Manual),
-                $"Manual page {page} visibility is incorrect for {type}.");
-            if (type == SaveSlotType.Manual)
-            {
-                Require(pageButton.interactable && GetButtonLabel(pageButton) == page.ToString(),
-                    $"Manual page {page} is not a direct selectable page button.");
-            }
+            Require(pageButton != null && pageButton.gameObject.activeSelf && pageButton.interactable,
+                $"Manual page {page} strip entry is not visible and selectable.");
+            Require(GetButtonLabel(pageButton) == page.ToString(),
+                $"Manual page {page} strip label is incorrect.");
         }
-        if (!saveMode)
-        {
-            Require(GetButtonLabel(panel.autoTabButton) == (type == SaveSlotType.Auto ? "АВТОСОХРАНЕНИЯ" : "АВТО"),
-                "Auto family label is incorrect.");
-            Require(GetButtonLabel(panel.quickTabButton) == (type == SaveSlotType.Quick ? "БЫСТРЫЕ СОХРАНЕНИЯ" : "БЫСТРЫЕ"),
-                "Quick family label is incorrect.");
-        }
+
+        VerifySingleActiveStripEntry(panel, saveMode);
+
         for (int i = 0; i < SaveManager.SlotsPerPage; i++)
         {
             int localSlotIndex = i + 1;
@@ -821,7 +845,75 @@ public static class SaveBackendV2PlayModeE2ERunner
             bool expectedPrimary = saveMode ? type == SaveSlotType.Manual : slot.IsLoadable;
             Require(view.button.interactable == expectedPrimary, $"{type} card {localSlotIndex} primary interaction is incorrect.");
             if (!slot.IsOccupied) Require(view.emptyText.text == "Пусто", $"{type} card {localSlotIndex} empty label is incorrect.");
-        }    }
+        }
+    }
+
+    private static List<UnityEngine.UI.Button> GetOrderedStripEntries(ManualSaveLoadPanel panel, bool saveMode)
+    {
+        List<UnityEngine.UI.Button> strip = new List<UnityEngine.UI.Button>();
+        if (!saveMode)
+        {
+            strip.Add(panel.quickTabButton);
+            strip.Add(panel.autoTabButton);
+        }
+
+        strip.AddRange(panel.manualPageButtons);
+        return strip;
+    }
+
+    private static bool HasActiveStripPresentation(UnityEngine.UI.Button button)
+    {
+        if (button == null || !button.gameObject.activeSelf) return false;
+        Transform accent = button.transform.Find("Active Accent");
+        if (accent != null && accent.gameObject.activeSelf) return true;
+        return button.targetGraphic is UnityEngine.UI.Image image
+            && Mathf.Abs(image.color.r - 0.10f) < 0.002f
+            && Mathf.Abs(image.color.g - 0.25f) < 0.002f
+            && Mathf.Abs(image.color.b - 0.36f) < 0.002f
+            && Mathf.Abs(image.color.a - 0.96f) < 0.002f;
+    }
+
+    private static void VerifySingleActiveStripEntry(ManualSaveLoadPanel panel, bool saveMode)
+    {
+        List<UnityEngine.UI.Button> strip = GetOrderedStripEntries(panel, saveMode);
+        List<UnityEngine.UI.Button> activeEntries = strip.Where(HasActiveStripPresentation).ToList();
+        Require(activeEntries.Count == 1,
+            $"Strip must show exactly one active entry, but {activeEntries.Count} are active.");
+
+        UnityEngine.UI.Button expected = saveMode || panel.CurrentSlotType == SaveSlotType.Manual
+            ? panel.manualPageButtons[panel.CurrentManualPage - 1]
+            : panel.CurrentSlotType == SaveSlotType.Auto ? panel.autoTabButton : panel.quickTabButton;
+        Require(activeEntries[0] == expected,
+            $"Strip active entry is {(activeEntries.Count > 0 ? activeEntries[0].name : "none")}; expected {expected.name}.");
+    }
+
+    private static void VerifyStripNavigationChain(ManualSaveLoadPanel panel, bool saveMode)
+    {
+        List<UnityEngine.UI.Button> strip = GetOrderedStripEntries(panel, saveMode);
+        for (int index = 0; index < strip.Count; index++)
+        {
+            UnityEngine.UI.Navigation navigation = strip[index].navigation;
+            Require(navigation.selectOnLeft == (index > 0 ? strip[index - 1] : panel.closeButton),
+                $"Strip entry {index + 1} left navigation is incorrect.");
+            Require(navigation.selectOnRight == (index < strip.Count - 1 ? strip[index + 1] : panel.closeButton),
+                $"Strip entry {index + 1} right navigation is incorrect.");
+        }
+
+        IEnumerable<UnityEngine.UI.Button> focusable = strip.Append(panel.closeButton);
+        foreach (UnityEngine.UI.Button button in focusable)
+        {
+            UnityEngine.UI.Navigation navigation = button.navigation;
+            foreach (UnityEngine.UI.Selectable target in new[] { navigation.selectOnLeft, navigation.selectOnRight, navigation.selectOnUp, navigation.selectOnDown })
+            {
+                Require(target == null || target.gameObject.activeInHierarchy,
+                    $"Navigation of '{button.name}' points at hidden control '{target?.name}'.");
+            }
+        }
+
+        Pass(saveMode
+            ? "Save strip exposes only numeric pages with legacy-free explicit navigation"
+            : "Load strip QS/AS/1-10 chain is legacy-free and fully traversable");
+    }
 
     private static string GetButtonLabel(UnityEngine.UI.Button button)
     {
@@ -838,22 +930,22 @@ public static class SaveBackendV2PlayModeE2ERunner
         Button currentPage = panel.manualPageButtons[panel.CurrentManualPage - 1];
         Require(currentPage.gameObject.activeSelf && currentPage.interactable,
             "Current numeric page is not interactive on an empty Manual Load page.");
-        Require(panel.manualTabButton.navigation.selectOnDown == currentPage,
-            "Manual family navigation does not reach the current numeric page when all slots are empty.");
-        Require(panel.closeButton.navigation.selectOnRight == panel.manualTabButton,
-            "Close cannot reach Manual family navigation on an empty page.");
-        Require(currentPage.navigation.selectOnUp == panel.manualTabButton,
-            "Current numeric page cannot return to Manual family navigation.");
-        Pass("Empty Manual Load page keeps numeric pagination reachable from Close and Manual navigation");
+        Require(panel.closeButton.navigation.selectOnDown == currentPage,
+            "Close cannot reach the active strip page when all slots are empty.");
+        Require(panel.closeButton.navigation.selectOnRight == panel.quickTabButton,
+            "Close cannot reach the QS strip entry on an empty page.");
+        Require(currentPage.navigation.selectOnUp == panel.closeButton,
+            "Active strip page cannot return to the safe Close control on an empty page.");
+        Pass("Empty Manual Load page keeps the unified strip reachable from the safe Close control");
     }
 
     private static void VerifyManualPaginationInteraction(ManualSaveLoadPanel panel, int expectedPage)
     {
         Require(panel.CurrentManualPage == expectedPage, $"Direct numeric page selection did not select page {expectedPage}.");
-        Require(panel.previousManualPageButton.interactable == (expectedPage > 1),
-            $"Previous-page edge state is incorrect on page {expectedPage}.");
-        Require(panel.nextManualPageButton.interactable == (expectedPage < SaveManager.ManualPageCount),
-            $"Next-page edge state is incorrect on page {expectedPage}.");
+        Require(panel.CurrentSlotType == SaveSlotType.Manual,
+            $"Numeric page selection did not keep Manual addressing on page {expectedPage}.");
+        Require(ManualSaveLoadPanel.GetGlobalManualSlot(expectedPage, 1) == (expectedPage - 1) * SaveManager.SlotsPerPage + 1,
+            $"Page {expectedPage} lost its stable global slot mapping.");
 
         if (expectedPage == 1)
         {
@@ -908,19 +1000,35 @@ public static class SaveBackendV2PlayModeE2ERunner
     private static void VerifyManualPaginationLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
     {
         Require(panel.manualPaginationRoot != null && panel.manualPaginationRoot.activeSelf,
-            "Compact navigation is hidden in responsive proof.");
+            "Unified strip is hidden in responsive proof.");
         Require(panel.manualPageButtons != null && panel.manualPageButtons.Length == SaveManager.ManualPageCount,
             "Manual page range is unavailable.");
         Rect row = GetScreenRect(panel.manualPaginationRoot.transform as RectTransform);
         Require(row.xMin >= 0f && row.yMin >= 0f && row.xMax <= resolution.x && row.yMax <= resolution.y,
-            "Compact navigation row is outside the responsive viewport.");
-        Require(GetScreenRect(panel.previousManualPageButton.transform as RectTransform).xMin >= row.xMin
-                && GetScreenRect(panel.nextManualPageButton.transform as RectTransform).xMax <= row.xMax,
-            "Manual page arrows are outside the compact navigation row.");
+            "Unified strip row is outside the responsive viewport.");
+        Require(!panel.previousManualPageButton.gameObject.activeSelf && !panel.nextManualPageButton.gameObject.activeSelf,
+            "Legacy page arrows must stay hidden in the unified strip.");
+        if (!panel.IsSaveMode)
+        {
+            Require(panel.quickTabButton.gameObject.activeSelf && panel.autoTabButton.gameObject.activeSelf,
+                "QS/AS strip entries are missing in the responsive Load view.");
+        }
         Require(panel.manualPageButtons.All(button => button.gameObject.activeSelf && button.interactable),
-            "Manual numeric page buttons are not visible and interactive in responsive navigation.");
+            "Manual numeric strip entries are not visible and interactive in responsive navigation.");
         Require(panel.manualPageButtons.Select(GetButtonLabel).SequenceEqual(Enumerable.Range(1, SaveManager.ManualPageCount).Select(page => page.ToString())),
             "Manual numeric page labels are incorrect at the responsive resolution.");
+
+        List<Rect> entryRects = GetOrderedStripEntries(panel, panel.IsSaveMode)
+            .Select(button => GetScreenRect(button.transform as RectTransform))
+            .ToList();
+        for (int index = 1; index < entryRects.Count; index++)
+        {
+            Require(entryRects[index].xMin >= entryRects[index - 1].xMax - 1f,
+                $"Strip entries {index} and {index + 1} overlap at {resolution.x}x{resolution.y}.");
+        }
+
+        Require(entryRects.All(rect => row.yMin <= rect.yMin && rect.yMax <= row.yMax),
+            "A strip entry escapes the unified navigation row.");
     }
 
     private static Rect GetScreenRect(RectTransform rectTransform)

@@ -8,9 +8,6 @@ using UnityEngine;
 
 public static class ManualSaveSystemV1SmokeTests
 {
-    private static readonly Color ActiveTabOutlineColor = new Color(0.28f, 0.54f, 0.76f, 0.62f);
-    private static readonly Color InactiveTabOutlineColor = new Color(0.16f, 0.25f, 0.34f, 0.34f);
-
     private sealed class TestContext : IDisposable
     {
         public readonly string DirectoryPath;
@@ -168,7 +165,20 @@ public static class ManualSaveSystemV1SmokeTests
             }
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, false);
-            VerifyTabVisualState(panel, SaveSlotType.Manual);
+            VerifyStripVisualState(panel, SaveSlotType.Manual);
+            Require(panel.manualPaginationRoot.activeSelf, "Unified strip root is hidden in Load.");
+            Require(!panel.manualTabButton.gameObject.activeSelf && !panel.previousManualPageButton.gameObject.activeSelf
+                    && !panel.nextManualPageButton.gameObject.activeSelf,
+                "Legacy family tab or page arrows are visible in the unified strip presentation.");
+            Require(panel.quickTabButton.gameObject.activeSelf && GetButtonLabel(panel.quickTabButton) == "QS",
+                "QS strip entry is missing or mislabeled in Load.");
+            Require(panel.autoTabButton.gameObject.activeSelf && GetButtonLabel(panel.autoTabButton) == "AS",
+                "AS strip entry is missing or mislabeled in Load.");
+            Require(panel.manualPageButtons.All(button => button.gameObject.activeSelf && button.interactable),
+                "Numeric strip entries must stay visible and selectable in Load.");
+            Require(panel.manualPageButtons.Select(GetButtonLabel)
+                    .SequenceEqual(Enumerable.Range(1, SaveManager.ManualPageCount).Select(page => page.ToString())),
+                "Numeric strip labels are incorrect.");
             Require(panel.subtitleText.text == "РУЧНЫЕ СОХРАНЕНИЯ", "Manual subtitle is incorrect.");
             Require(panel.slotViews[0].slotNumberText.text == "1", "Manual occupied local index is incorrect.");
             Require(panel.slotViews[1].emptyText.text == "Пусто", "Manual empty label is incorrect.");
@@ -176,7 +186,9 @@ public static class ManualSaveSystemV1SmokeTests
             Require(panel.slotViews[0].button.interactable && !panel.slotViews[1].button.interactable, "Manual Load interaction is incorrect.");
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Auto, false);
-            VerifyTabVisualState(panel, SaveSlotType.Auto);
+            VerifyStripVisualState(panel, SaveSlotType.Auto);
+            Require(panel.manualPageButtons.All(button => button.gameObject.activeSelf && button.interactable),
+                "Numeric strip entries must stay visible while AS is active.");
             Require(panel.subtitleText.text == "АВТОСОХРАНЕНИЯ", "Auto subtitle is incorrect.");
             Require(panel.slotViews[0].slotNumberText.text == "1", "Auto occupied local index is incorrect.");
             Require(panel.slotViews[2].emptyText.text == "Пусто", "Auto empty label is incorrect.");
@@ -184,17 +196,20 @@ public static class ManualSaveSystemV1SmokeTests
             Require(!panel.slotViews[1].button.interactable && panel.slotViews[1].deleteButton.gameObject.activeSelf, "Corrupt Auto slot is not load-disabled/delete-enabled.");
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Quick, false);
-            VerifyTabVisualState(panel, SaveSlotType.Quick);
+            VerifyStripVisualState(panel, SaveSlotType.Quick);
             Require(panel.subtitleText.text == "БЫСТРЫЕ СОХРАНЕНИЯ", "Quick subtitle is incorrect.");
             Require(panel.slotViews[0].slotNumberText.text == "1", "Quick occupied local index is incorrect.");
             Require(panel.slotViews[1].emptyText.text == "Пусто", "Quick empty label is incorrect.");
 
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, true);
+            VerifyStripVisualState(panel, SaveSlotType.Manual);
+            Require(!panel.quickTabButton.gameObject.activeSelf && !panel.autoTabButton.gameObject.activeSelf,
+                "Save strip still exposes QS or AS entries.");
+            Require(panel.manualPageButtons.All(button => button.gameObject.activeSelf && button.interactable),
+                "Numeric strip entries must stay visible and selectable in Save.");
             Require(panel.slotViews.All(view => view.button.interactable), "Manual cards are not writable in Save mode.");
             Require(!panel.slotTypeHintText.gameObject.activeSelf,
                 "Save mode unexpectedly shows a duplicate supporting label.");
-            Require(!panel.autoTabButton.gameObject.activeSelf && !panel.quickTabButton.gameObject.activeSelf,
-                "Save mode exposes Auto or Quick family navigation.");
         }
         finally
         {
@@ -202,30 +217,48 @@ public static class ManualSaveSystemV1SmokeTests
         }
     }
 
-    private static void VerifyTabVisualState(ManualSaveLoadPanel panel, SaveSlotType activeType)
+    private static void VerifyStripVisualState(ManualSaveLoadPanel panel, SaveSlotType activeType)
     {
-        VerifyTabVisual(panel.manualTabButton, activeType == SaveSlotType.Manual, "Manual");
-        VerifyTabVisual(panel.autoTabButton, activeType == SaveSlotType.Auto, "Auto");
-        VerifyTabVisual(panel.quickTabButton, activeType == SaveSlotType.Quick, "Quick");
+        VerifyStripEntry(panel.quickTabButton, activeType == SaveSlotType.Quick, "QS");
+        VerifyStripEntry(panel.autoTabButton, activeType == SaveSlotType.Auto, "AS");
+        for (int page = 1; page <= SaveManager.ManualPageCount; page++)
+        {
+            VerifyStripEntry(
+                panel.manualPageButtons[page - 1],
+                activeType == SaveSlotType.Manual && panel.CurrentManualPage == page,
+                $"Page {page}");
+        }
+
+        int activeCount = new[] { panel.quickTabButton, panel.autoTabButton }
+            .Concat(panel.manualPageButtons)
+            .Count(HasActiveStripPresentation);
+        Require(activeCount == 1, $"Unified strip must keep exactly one active entry, found {activeCount}.");
     }
 
-    private static void VerifyTabVisual(UnityEngine.UI.Button button, bool active, string label)
+    private static void VerifyStripEntry(UnityEngine.UI.Button button, bool active, string label)
     {
-        Transform accent = button != null ? button.transform.Find("Active Accent") : null;
-        Require(accent != null && accent.gameObject.activeSelf == active, $"{label} Active Accent state is incorrect.");
-
-        UnityEngine.UI.Outline outline = button != null ? button.GetComponent<UnityEngine.UI.Outline>() : null;
-        Require(outline != null, $"{label} tab has no Outline.");
-        Color expected = active ? ActiveTabOutlineColor : InactiveTabOutlineColor;
-        Require(ColorsApproximatelyEqual(outline.effectColor, expected), $"{label} tab Outline color is incorrect.");
+        Require(button != null, $"{label} strip entry reference is missing.");
+        Require(HasActiveStripPresentation(button) == active, $"{label} strip active state is incorrect.");
     }
 
-    private static bool ColorsApproximatelyEqual(Color left, Color right)
+    private static bool HasActiveStripPresentation(UnityEngine.UI.Button button)
     {
-        return Mathf.Abs(left.r - right.r) < 0.001f
-            && Mathf.Abs(left.g - right.g) < 0.001f
-            && Mathf.Abs(left.b - right.b) < 0.001f
-            && Mathf.Abs(left.a - right.a) < 0.001f;
+        if (button == null || !button.gameObject.activeSelf) return false;
+        Transform accent = button.transform.Find("Active Accent");
+        if (accent != null && accent.gameObject.activeSelf) return true;
+        return button.targetGraphic is UnityEngine.UI.Image image
+            && Mathf.Abs(image.color.r - 0.10f) < 0.002f
+            && Mathf.Abs(image.color.g - 0.25f) < 0.002f
+            && Mathf.Abs(image.color.b - 0.36f) < 0.002f
+            && Mathf.Abs(image.color.a - 0.96f) < 0.002f;
+    }
+
+    private static string GetButtonLabel(UnityEngine.UI.Button button)
+    {
+        TMPro.TextMeshProUGUI label = button != null
+            ? button.GetComponentInChildren<TMPro.TextMeshProUGUI>(true)
+            : null;
+        return label != null ? label.text : string.Empty;
     }
 
     private static void RenderPanelForSmoke(

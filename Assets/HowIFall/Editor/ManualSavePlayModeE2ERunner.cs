@@ -273,12 +273,12 @@ public static class ManualSavePlayModeE2ERunner
         Button currentPage = menu.manualSaveLoadPanel.manualPageButtons[menu.manualSaveLoadPanel.CurrentManualPage - 1];
         Require(currentPage.gameObject.activeSelf && currentPage.interactable,
             "Current numeric page is not interactive on an empty Manual Load page.");
-        Require(menu.manualSaveLoadPanel.manualTabButton.navigation.selectOnDown == currentPage,
-            "Manual family navigation does not reach the current numeric page when all slots are empty.");
-        Require(menu.manualSaveLoadPanel.closeButton.navigation.selectOnRight == menu.manualSaveLoadPanel.manualTabButton,
-            "Close cannot reach Manual family navigation on an empty page.");
-        Require(currentPage.navigation.selectOnUp == menu.manualSaveLoadPanel.manualTabButton,
-            "Current numeric page cannot return to Manual family navigation.");
+        Require(menu.manualSaveLoadPanel.closeButton.navigation.selectOnDown == currentPage,
+            "Close cannot reach the active strip page when all slots are empty.");
+        Require(menu.manualSaveLoadPanel.closeButton.navigation.selectOnRight == menu.manualSaveLoadPanel.quickTabButton,
+            "Close cannot reach the QS strip entry on an empty page.");
+        Require(currentPage.navigation.selectOnUp == menu.manualSaveLoadPanel.closeButton,
+            "Active strip page cannot return to the safe Close control on an empty page.");
         menu.manualSaveLoadPanel.Close();
         Pass("Empty slot, safe initial focus and six-slot Main Menu UI");
 
@@ -1210,16 +1210,17 @@ public static class ManualSavePlayModeE2ERunner
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == panel.slotViews[0].button.gameObject,
             "Save panel has no deterministic selected card.");
         Require(panel.slotViews[0].HasEventSystemFocus, "Selected card has no EventSystem focus state.");
-        Require(panel.manualTabButton.navigation.selectOnUp == panel.slotViews[0].button,
-            "Compact Manual navigation cannot reach the first save card.");
+        Button activeStripEntry = panel.manualPageButtons[panel.CurrentManualPage - 1];
+        Require(activeStripEntry.navigation.selectOnUp == panel.slotViews[0].button,
+            "Unified strip cannot reach the first save card.");
         Require(panel.slotViews[0].button.navigation.selectOnRight == panel.slotViews[1].button,
             "Save grid does not preserve predictable horizontal card navigation.");
         Require(panel.slotViews[0].deleteButton.navigation.selectOnLeft == panel.slotViews[0].button,
             "Secondary Delete control cannot return to its owning card.");
         Require(panel.slotViews[0].button.navigation.selectOnDown == panel.slotViews[3].button,
             "Save grid does not navigate predictably to the second row.");
-        Require(panel.slotViews[3].button.navigation.selectOnDown == panel.manualTabButton,
-            "Second save row cannot reach compact Manual navigation without a navigation trap.");
+        Require(panel.slotViews[3].button.navigation.selectOnDown == activeStripEntry,
+            "Second save row cannot reach the unified strip without a navigation trap.");
     }
 
     private static void VerifyPanelLayout(ManualSaveLoadPanel panel, Vector2Int resolution)
