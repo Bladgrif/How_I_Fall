@@ -261,10 +261,10 @@ public static class GameMenuSmokeTests
             AssertLabel(view, VNGameMenuAction.Save, "Сохранить");
             AssertLabel(view, VNGameMenuAction.Load, "Загрузить");
             AssertLabel(view, VNGameMenuAction.Preferences, "Настройки");
-            AssertLabel(view, VNGameMenuAction.Rollback, "Откат");
+            AssertLabel(view, VNGameMenuAction.Rollback, "Назад");
             AssertLabel(view, VNGameMenuAction.MainMenu, "Главное меню");
             AssertLabel(view, VNGameMenuAction.Quit, "Выйти");
-            AssertLabel(view, VNGameMenuAction.Return, "Вернуться");
+            AssertLabel(view, VNGameMenuAction.Return, "Вернуться в игру");
             Require(!view.IsActionVisible(VNGameMenuAction.History), "History leaked into the normal Game Menu.");
             Require(!view.IsActionVisible(VNGameMenuAction.Characters), "Characters leaked into the normal Game Menu.");
 
@@ -300,13 +300,17 @@ public static class GameMenuSmokeTests
             RectTransform saveLoadHost = view.SaveLoadContentHost;
             Require(saveLoadHost != null && !view.IsSaveLoadContentVisible,
                 "Save/Load content host must exist but remain hidden until a section is opened.");
-            Require(saveLoadHost.anchorMin.x == 0f && saveLoadHost.anchorMax.x < navigation.anchorMin.x,
-                "Save/Load content host must occupy the scene-side region without overlapping the right navigation panel.");
+            Require(navigation.anchorMin.x == 0f && navigation.anchorMax.x <= 0.30f,
+                "Game Menu navigation must occupy the left side.");
+            Require(saveLoadHost.anchorMin.x > navigation.anchorMax.x && saveLoadHost.anchorMax.x == 1f,
+                "Save/Load content host must occupy the right scene-side region without overlapping left navigation.");
             Require(view.GetComponentsInChildren<TextMeshProUGUI>(true).All(text => text.text != "НАВИГАЦИЯ"
                 && text.text != "Выберите раздел. Esc возвращает к игре."),
                 "Game Menu retained placeholder navigation copy.");
             Require(view.GetButton(VNGameMenuAction.Return).transform.IsChildOf(returnArea),
                 "Return must remain visually separated in the bottom navigation area.");
+            Require(view.GetButton(VNGameMenuAction.Rollback).transform.GetSiblingIndex() == primaryActions.childCount - 1,
+                "Rollback must be the last primary Game Menu action.");
             Require(returnArea.anchorMax.y < primaryActions.anchorMin.y,
                 "Return area overlaps the primary navigation block.");
             Require(view.GetButton(VNGameMenuAction.Save).colors.highlightedColor

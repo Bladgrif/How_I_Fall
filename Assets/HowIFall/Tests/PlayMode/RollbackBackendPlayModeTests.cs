@@ -93,6 +93,56 @@ public class RollbackBackendPlayModeTests
     }
 
     [UnityTest]
+    public IEnumerator ReadingForward_CompletesTypingBeforeAdvancing_AndRollbackThenForwardReexecutes()
+    {
+        TestContext context = CreateContext(CreateLinearScene("wheel-forward", "A", "B"));
+        yield return null;
+
+        Assert.That(GetPrivate<bool>(context.Controller, "isTyping"), Is.True);
+        Assert.That((bool)InvokePrivate(context.Controller, "TryHandleReadingNavigation", VNInputAction.ReadingForward), Is.True);
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-0"), "First forward input must only complete the typewriter.");
+        Assert.That(GetPrivate<bool>(context.Controller, "isTyping"), Is.False);
+
+        Assert.That((bool)InvokePrivate(context.Controller, "TryHandleReadingNavigation", VNInputAction.ReadingForward), Is.True);
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-1"));
+        CompleteCurrentLine(context.Controller);
+
+        Assert.That((bool)InvokePrivate(context.Controller, "TryHandleReadingNavigation", VNInputAction.ReadingBack), Is.True);
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-0"));
+        Assert.That((bool)InvokePrivate(context.Controller, "TryHandleReadingNavigation", VNInputAction.ReadingForward), Is.True);
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-1"), "Forward after rollback must execute normal dialogue progression, not redo history.");
+    }
+
+    [UnityTest]
+    public IEnumerator ReadingNavigation_RespectsChoiceAndGameMenuBlockers()
+    {
+        DialogueSceneData choiceScene = CreateLinearScene("wheel-choice", "Choose");
+        choiceScene.choices = new List<DialogueChoice>
+        {
+            CreateChoice("A", "Result A", CreateLinearScene("wheel-target", "Target"), 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        };
+        TestContext context = CreateContext(choiceScene, choiceScene.choices[0].nextScene);
+        yield return null;
+
+        CompleteCurrentLine(context.Controller);
+        context.Controller.AdvanceDialogue();
+        Assert.That(context.Controller.choicePanel.activeSelf, Is.True);
+        string choiceLine = context.GameState.currentLineId;
+        _ = (bool)InvokePrivate(context.Controller, "TryHandleReadingNavigation", VNInputAction.ReadingForward);
+        _ = (bool)InvokePrivate(context.Controller, "TryHandleReadingNavigation", VNInputAction.ReadingBack);
+        Assert.That(context.Controller.choicePanel.activeSelf, Is.True);
+        Assert.That(context.GameState.currentLineId, Is.EqualTo(choiceLine));
+
+        context.Controller.choiceMashaButton.onClick.Invoke();
+        Assert.That(context.Controller.OpenGameMenu(), Is.True);
+        string menuLine = context.GameState.currentLineId;
+        _ = (bool)InvokePrivate(context.Controller, "TryHandleReadingNavigation", VNInputAction.ReadingForward);
+        _ = (bool)InvokePrivate(context.Controller, "TryHandleReadingNavigation", VNInputAction.ReadingBack);
+        Assert.That(context.Controller.IsGameMenuOpen, Is.True);
+        Assert.That(context.GameState.currentLineId, Is.EqualTo(menuLine));
+    }
+
+    [UnityTest]
     public IEnumerator RepeatedRollback_IsOrdered_AndSeenHistoryRemainsMonotonic()
     {
         TestContext context = CreateContext(CreateLinearScene("repeat", "A", "B", "C"));

@@ -29,6 +29,7 @@ public static class PlayerUiGraphicalE2ERunner
     private const string DirectoryKey = "HowIFall.PlayerUiE2E.Directory";
     private const string PlayerPrefsSnapshotKey = "HowIFall.PlayerUiE2E.PlayerPrefsSnapshot";
     private const string PlayerPrefsRestoredKey = "HowIFall.PlayerUiE2E.PlayerPrefsRestored";
+    private const string FocusedGameMenuKey = "HowIFall.PlayerUiE2E.FocusedGameMenu";
     private const string PlayerPrefsSnapshotPrefix = "HowIFall.PlayerUiE2E.PlayerPrefs.";
     private const string ResultPath = "player_ui_graphical_result.txt";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
@@ -86,6 +87,7 @@ public static class PlayerUiGraphicalE2ERunner
         if (File.Exists(resultPath)) File.Delete(resultPath);
 
         SessionState.SetBool(ActiveKey, true);
+        SessionState.SetBool(FocusedGameMenuKey, false);
         CapturePlayerPrefsSnapshot();
         CleanupTestDirectory();
         string saveDirectory = Path.Combine(Path.GetTempPath(), "HowIFall_PlayerUiE2E_" + Guid.NewGuid().ToString("N"));
@@ -104,6 +106,39 @@ public static class PlayerUiGraphicalE2ERunner
         EditorApplication.isPlaying = true;
     }
 
+    public static void StartGameMenuAutomatedPlayMode()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            throw new InvalidOperationException("Play Mode is already active.");
+        }
+
+        string root = Directory.GetCurrentDirectory();
+        string proofDirectory = Path.Combine(root, "QAArtifacts", "GraphicalE2E", "PlayerUi");
+        if (Directory.Exists(proofDirectory)) Directory.Delete(proofDirectory, true);
+        string resultPath = Path.Combine(root, ResultPath);
+        if (File.Exists(resultPath)) File.Delete(resultPath);
+
+        SessionState.SetBool(ActiveKey, true);
+        SessionState.SetBool(FocusedGameMenuKey, true);
+        CapturePlayerPrefsSnapshot();
+        CleanupTestDirectory();
+        string saveDirectory = Path.Combine(Path.GetTempPath(), "HowIFall_PlayerUiE2E_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(saveDirectory);
+        SessionState.SetString(StageKey, "WaitGameMenuGameplay");
+        SessionState.SetString(NextStageKey, string.Empty);
+        SessionState.SetString(CapturePathKey, string.Empty);
+        SessionState.SetString(RunStartedKey, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+        SessionState.SetString(ErrorsKey, string.Empty);
+        SessionState.SetString(DirectoryKey, saveDirectory);
+        SessionState.SetInt(CounterKey, 0);
+        SetDelay(1d);
+
+        EditorSceneManager.OpenScene("Assets/HowIFall/Scenes/VNPrototype.unity", OpenSceneMode.Single);
+        Debug.Log("[PLAYER UI E2E] START: focused Game Menu proof.");
+        EditorApplication.isPlaying = true;
+    }
+
     private static void Tick()
     {
         if (!SessionState.GetBool(ActiveKey, false)
@@ -115,6 +150,11 @@ public static class PlayerUiGraphicalE2ERunner
             switch (SessionState.GetString(StageKey, string.Empty))
             {
                 case "WaitMainMenu": WaitMainMenu(); break;
+                case "WaitGameMenuGameplay": WaitGameMenuGameplay(); break;
+                case "PrepareGameMenuConfirmation": PrepareGameMenuConfirmation(); break;
+                case "PrepareGameMenuConfirmation1280": PrepareGameMenuConfirmation1280(); break;
+                case "CaptureGameMenuConfirmation1280": CaptureGameMenuConfirmation1280(); break;
+                case "CloseGameMenuConfirmation": CloseGameMenuConfirmation(); break;
                 case "WaitMainMenuFade": WaitMainMenuFade(); break;
                 case "CaptureMainMenuAlternate": CaptureMainMenuAlternate(); break;
                 case "CaptureMainMenuNormal": CaptureMainMenuNormal(); break;
@@ -214,6 +254,12 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
                 case "PrepareRollbackDisabled": PrepareRollbackDisabled(); break;
                 case "OpenDisabledRollbackSaveLoad": OpenDisabledRollbackSaveLoad(); break;
+                case "CaptureEmbeddedSave1920": CaptureEmbeddedSave1920(); break;
+                case "PrepareEmbeddedSave1280": PrepareEmbeddedSave1280(); break;
+                case "CaptureEmbeddedSave1280": CaptureEmbeddedSave1280(); break;
+                case "PrepareEmbeddedLoad1920": PrepareEmbeddedLoad1920(); break;
+                case "OpenEmbeddedLoad": OpenEmbeddedLoad(); break;
+                case "CaptureEmbeddedLoad1920": CaptureEmbeddedLoad1920(); break;
                 case "CloseDisabledRollbackSaveLoad": CloseDisabledRollbackSaveLoad(); break;
                 case "VerifyDisabledRollbackAfterSaveLoad": VerifyDisabledRollbackAfterSaveLoad(); break;
                 case "OpenRollbackEnabled": OpenRollbackEnabled(); break;
@@ -749,6 +795,13 @@ public static class PlayerUiGraphicalE2ERunner
         if (SceneManager.GetActiveScene().name != SaveManager.GameplaySceneName || dialogue == null || !dialogue.IsRuntimeReady)
         {
             Retry("Gameplay dialogue runtime is not ready.");
+            return;
+        }
+
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            ConfigureGameViewResolution(QaResolution);
+            Retry("Game View did not return to 1920x1080 before gameplay proof.");
             return;
         }
 
@@ -1423,9 +1476,156 @@ public static class PlayerUiGraphicalE2ERunner
         Button save = view != null ? view.GetButton(VNGameMenuAction.Save) : null;
         Require(save != null && save.interactable, "Save route is unavailable for disabled Rollback return proof.");
         save.onClick.Invoke();
-        SessionState.SetString(StageKey, "CloseDisabledRollbackSaveLoad");
+        SessionState.SetString(StageKey, "CaptureEmbeddedSave1920");
         ResetCounter();
         SetDelay(0.2d);
+    }
+
+    private static void WaitGameMenuGameplay()
+    {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        if (SceneManager.GetActiveScene().name != SaveManager.GameplaySceneName || dialogue == null || !dialogue.IsRuntimeReady)
+        {
+            Retry("Gameplay dialogue runtime is not ready for focused Game Menu proof.");
+            return;
+        }
+
+        ConfigureGameViewResolution(QaResolution);
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not switch to 1920x1080 for focused Game Menu proof.");
+            return;
+        }
+
+        SaveManager saves = SaveManager.Instance;
+        Require(saves != null, "Gameplay SaveManager is missing for focused Game Menu proof.");
+        saves.ConfigureSaveDirectoryForTests(SessionState.GetString(DirectoryKey, string.Empty));
+        SettingsManager.Instance?.SetAutoSave(false);
+        SessionState.SetString(StageKey, "PrepareGameMenuConfirmation");
+        ResetCounter();
+        SetDelay(0.2d);
+    }
+
+    private static void PrepareGameMenuConfirmation()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Require(dialogue.OpenGameMenu(), "Game Menu did not open for local confirmation proof.");
+        VNGameMenuView view = dialogue.GameMenuController.View;
+        view.GetButton(VNGameMenuAction.Quit).onClick.Invoke();
+        Require(dialogue.GameMenuController.IsLocalConfirmationOpen,
+            "Game Menu local confirmation did not open.");
+        Capture("game_menu_confirmation_1920x1080.png", "PrepareGameMenuConfirmation1280");
+    }
+
+    private static void PrepareGameMenuConfirmation1280()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        SessionState.SetString(StageKey, "CaptureGameMenuConfirmation1280");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void CaptureGameMenuConfirmation1280()
+    {
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for Game Menu confirmation proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Require(dialogue.GameMenuController != null && dialogue.GameMenuController.IsLocalConfirmationOpen,
+            "Game Menu local confirmation was not retained at 1280x720.");
+        Capture("game_menu_confirmation_1280x720.png", "CloseGameMenuConfirmation");
+    }
+
+    private static void CloseGameMenuConfirmation()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.GameMenuController.TryHandleEscape();
+        dialogue.GameMenuController.TryHandleEscape();
+        ConfigureGameViewResolution(QaResolution);
+        SessionState.SetString(StageKey, "PrepareRollbackDisabled");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void CaptureEmbeddedSave1920()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        ManualSaveLoadPanel panel = dialogue.manualSaveLoadPanel;
+        if (view == null || panel == null || !panel.IsOpen || !panel.IsSaveMode || !view.IsSaveLoadContentVisible)
+        {
+            Retry("Embedded Save section did not open for 1920x1080 proof.");
+            return;
+        }
+
+        Capture("game_menu_embedded_save_1920x1080.png", "PrepareEmbeddedSave1280");
+    }
+
+    private static void PrepareEmbeddedSave1280()
+    {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        SessionState.SetString(StageKey, "CaptureEmbeddedSave1280");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void CaptureEmbeddedSave1280()
+    {
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for embedded Save proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Require(view != null && view.IsSaveLoadContentVisible && dialogue.manualSaveLoadPanel != null
+            && dialogue.manualSaveLoadPanel.IsOpen && dialogue.manualSaveLoadPanel.IsSaveMode,
+            "Embedded Save section was not retained at 1280x720.");
+        Capture("game_menu_embedded_save_1280x720.png", "PrepareEmbeddedLoad1920");
+    }
+
+    private static void PrepareEmbeddedLoad1920()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        SessionState.SetString(StageKey, "OpenEmbeddedLoad");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void OpenEmbeddedLoad()
+    {
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 for embedded Load proof.");
+            return;
+        }
+
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Button load = view != null ? view.GetButton(VNGameMenuAction.Load) : null;
+        Require(load != null && load.interactable, "Load route is unavailable for embedded Load proof.");
+        load.onClick.Invoke();
+        SessionState.SetString(StageKey, "CaptureEmbeddedLoad1920");
+        ResetCounter();
+        SetDelay(0.2d);
+    }
+
+    private static void CaptureEmbeddedLoad1920()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        ManualSaveLoadPanel panel = dialogue.manualSaveLoadPanel;
+        if (view == null || panel == null || !panel.IsOpen || panel.IsSaveMode || !view.IsSaveLoadContentVisible)
+        {
+            Retry("Embedded Load section did not open for 1920x1080 proof.");
+            return;
+        }
+
+        Capture("game_menu_embedded_load_1920x1080.png", "CloseDisabledRollbackSaveLoad");
     }
 
     private static void CloseDisabledRollbackSaveLoad()
@@ -1981,7 +2181,10 @@ public static class PlayerUiGraphicalE2ERunner
     {
         Require(string.IsNullOrEmpty(SessionState.GetString(ErrorsKey, string.Empty)), "Unity Console contained errors:\n" + SessionState.GetString(ErrorsKey, string.Empty));
         Require(RestorePlayerPrefsSnapshot(), "PlayerPrefs snapshot could not be restored.");
-        WriteResult("PASS", "all required PlayerUi screenshots captured, including 1280x720 Preferences; playerPrefsRestored=true");
+        string details = SessionState.GetBool(FocusedGameMenuKey, false)
+            ? "focused Game Menu screenshots captured at 1920x1080 and 1280x720; playerPrefsRestored=true"
+            : "all required PlayerUi screenshots captured, including 1280x720 Preferences; playerPrefsRestored=true";
+        WriteResult("PASS", details);
         DestroyRuntimeFixtures();
         CleanupTestDirectory();
         SessionState.SetString(StageKey, "ExitSuccess");

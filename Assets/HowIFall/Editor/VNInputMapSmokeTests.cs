@@ -24,7 +24,9 @@ public static class VNInputMapSmokeTests
         RequireBinding(VNInputAction.OpenLoad, "F9", "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c");
         RequireBinding(VNInputAction.ShowBacklog, "B", "\u0418\u0441\u0442\u043e\u0440\u0438\u044f");
         RequireBinding(VNInputAction.ToggleInterfaceVisibility, "H", "\u0421\u043a\u0440\u044b\u0442\u044c / \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441");
-        RequireBinding(VNInputAction.CloseOrCancel, "Esc", "\u0418\u0433\u0440\u043e\u0432\u043e\u0435 \u043c\u0435\u043d\u044e / \u043d\u0430\u0437\u0430\u0434");
+        RequireBinding(VNInputAction.CloseOrCancel, "Esc / \u041f\u041a\u041c", "\u0418\u0433\u0440\u043e\u0432\u043e\u0435 \u043c\u0435\u043d\u044e / \u043d\u0430\u0437\u0430\u0434");
+        RequireBinding(VNInputAction.ReadingBack, "\u041a\u043e\u043b\u0435\u0441\u043e \u0432\u0432\u0435\u0440\u0445", "\u041d\u0430\u0437\u0430\u0434 \u043f\u043e \u0442\u0435\u043a\u0441\u0442\u0443");
+        RequireBinding(VNInputAction.ReadingForward, "\u041a\u043e\u043b\u0435\u0441\u043e \u0432\u043d\u0438\u0437", "\u0412\u043f\u0435\u0440\u0451\u0434 \u043f\u043e \u0442\u0435\u043a\u0441\u0442\u0443");
 
         string helpText = VNInputMap.BuildHelpText();
         foreach (VNInputBinding binding in VNInputMap.AllBindings.Where(binding => binding.ShowInHelp))

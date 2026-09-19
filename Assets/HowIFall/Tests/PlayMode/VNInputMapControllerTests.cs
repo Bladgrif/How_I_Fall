@@ -26,5 +26,43 @@ namespace HowIFall.PlayModeTests
                 VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel, keyboard, null),
                 Is.True);
         }
+
+        [Test]
+        public void CloseOrCancel_RecognizesVirtualRightMouseButton()
+        {
+            Mouse mouse = InputSystem.AddDevice<Mouse>();
+            Press(mouse.rightButton);
+
+            Assert.That(
+                VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel, null, null, mouse),
+                Is.True);
+        }
+
+        [TestCase(120f, VNInputAction.ReadingBack)]
+        [TestCase(-120f, VNInputAction.ReadingForward)]
+        public void ReadingNavigation_RecognizesVirtualMouseWheel(float scrollY, VNInputAction expectedAction)
+        {
+            Mouse mouse = InputSystem.AddDevice<Mouse>();
+            Set(mouse.scroll, new UnityEngine.Vector2(0f, scrollY));
+
+            Assert.That(VNInputMap.WasPressedThisFrame(expectedAction, null, null, mouse), Is.True);
+            Assert.That(
+                VNInputMap.WasPressedThisFrame(
+                    expectedAction == VNInputAction.ReadingBack ? VNInputAction.ReadingForward : VNInputAction.ReadingBack,
+                    null,
+                    null,
+                    mouse),
+                Is.False);
+        }
+
+        [Test]
+        public void ReadingNavigation_MapsScrollMagnitudeToOneActionState()
+        {
+            Mouse mouse = InputSystem.AddDevice<Mouse>();
+            Set(mouse.scroll, new UnityEngine.Vector2(0f, 960f));
+
+            Assert.That(VNInputMap.WasPressedThisFrame(VNInputAction.ReadingBack, null, null, mouse), Is.True);
+            Assert.That(VNInputMap.WasPressedThisFrame(VNInputAction.ReadingForward, null, null, mouse), Is.False);
+        }
     }
 }

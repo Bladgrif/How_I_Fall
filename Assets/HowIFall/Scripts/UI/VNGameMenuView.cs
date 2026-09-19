@@ -23,7 +23,7 @@ public enum VNGameMenuAction
 public sealed class VNGameMenuView : MonoBehaviour
 {
     private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.54f);
-    private static readonly Color LeftWashColor = new Color(0.008f, 0.024f, 0.050f, 0.86f);
+    private static readonly Color SideWashColor = new Color(0.008f, 0.024f, 0.050f, 0.86f);
     private static readonly Color NavigationColor = new Color(0.018f, 0.050f, 0.082f, 0.90f);
     private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
 
@@ -206,12 +206,12 @@ public sealed class VNGameMenuView : MonoBehaviour
         dim.color = OverlayColor;
         dim.raycastTarget = true;
 
-        GameObject leftWash = CreateSurface(root.transform, "Right Background Wash", LeftWashColor);
-        RectTransform leftWashRect = leftWash.GetComponent<RectTransform>();
-        leftWashRect.anchorMin = new Vector2(0.72f, 0f);
-        leftWashRect.anchorMax = Vector2.one;
-        leftWashRect.offsetMin = Vector2.zero;
-        leftWashRect.offsetMax = Vector2.zero;
+        GameObject sideWash = CreateSurface(root.transform, "Left Background Wash", SideWashColor);
+        RectTransform sideWashRect = sideWash.GetComponent<RectTransform>();
+        sideWashRect.anchorMin = Vector2.zero;
+        sideWashRect.anchorMax = new Vector2(0.28f, 1f);
+        sideWashRect.offsetMin = Vector2.zero;
+        sideWashRect.offsetMax = Vector2.zero;
 
         GameObject window = CreateUiObject(root.transform, "Game Menu Window");
         RectTransform windowRect = window.GetComponent<RectTransform>();
@@ -231,8 +231,8 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         GameObject host = CreateUiObject(window, "Save Load Content Host");
         saveLoadContentHost = host.GetComponent<RectTransform>();
-        saveLoadContentHost.anchorMin = new Vector2(0f, 0.02f);
-        saveLoadContentHost.anchorMax = new Vector2(0.70f, 0.98f);
+        saveLoadContentHost.anchorMin = new Vector2(0.30f, 0.02f);
+        saveLoadContentHost.anchorMax = new Vector2(1f, 0.98f);
         saveLoadContentHost.offsetMin = Vector2.zero;
         saveLoadContentHost.offsetMax = Vector2.zero;
         host.AddComponent<RectMask2D>();
@@ -243,8 +243,8 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         GameObject header = CreateSurface(window, "Header", new Color(0.018f, 0.040f, 0.078f, 0.94f));
         RectTransform rect = header.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0.73f, 0.84f);
-        rect.anchorMax = Vector2.one;
+        rect.anchorMin = new Vector2(0f, 0.84f);
+        rect.anchorMax = new Vector2(0.27f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
@@ -264,8 +264,8 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         GameObject navigation = CreateSurface(window, "Navigation", NavigationColor);
         RectTransform rect = navigation.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0.73f, 0.05f);
-        rect.anchorMax = new Vector2(1f, 0.83f);
+        rect.anchorMin = new Vector2(0f, 0.05f);
+        rect.anchorMax = new Vector2(0.27f, 0.83f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
         Outline outline = navigation.AddComponent<Outline>();
@@ -292,11 +292,11 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Load, "Загрузить");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Preferences, "Настройки");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.History, "История");
-        CreateActionButton(primaryActions.transform, VNGameMenuAction.Rollback, "Откат");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Characters, "Персонажи");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.MainMenu, "Главное меню");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.EndReplay, "Завершить повтор");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Quit, "Выйти");
+        CreateActionButton(primaryActions.transform, VNGameMenuAction.Rollback, "Назад");
 
         GameObject returnArea = CreateUiObject(navigation.transform, "Return Area");
         RectTransform returnAreaRect = returnArea.GetComponent<RectTransform>();
@@ -312,7 +312,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         separatorRect.pivot = new Vector2(0.5f, 1f);
         separatorRect.sizeDelta = new Vector2(0f, 2f);
 
-        CreateActionButton(returnArea.transform, VNGameMenuAction.Return, "Вернуться");
+        CreateActionButton(returnArea.transform, VNGameMenuAction.Return, "Вернуться в игру");
         RectTransform returnRect = buttons[VNGameMenuAction.Return].GetComponent<RectTransform>();
         returnRect.anchorMin = new Vector2(0f, 0f);
         returnRect.anchorMax = new Vector2(1f, 0.72f);

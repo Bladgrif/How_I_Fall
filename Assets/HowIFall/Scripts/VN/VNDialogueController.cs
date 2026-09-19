@@ -433,6 +433,21 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
+        if (!SceneFlowManager.IsReplayModeActive)
+        {
+            if (VNInputMap.WasPressedThisFrame(VNInputAction.ReadingBack))
+            {
+                TryHandleReadingNavigation(VNInputAction.ReadingBack);
+                return;
+            }
+
+            if (VNInputMap.WasPressedThisFrame(VNInputAction.ReadingForward))
+            {
+                TryHandleReadingNavigation(VNInputAction.ReadingForward);
+                return;
+            }
+        }
+
         if (VNInputMap.WasPressedThisFrame(VNInputAction.ToggleSkip))
         {
             ToggleSkip();
@@ -463,6 +478,28 @@ public class VNDialogueController : MonoBehaviour
             ShowBacklog();
         }
 
+    }
+
+    private bool TryHandleReadingNavigation(VNInputAction action)
+    {
+        if (SceneFlowManager.IsReplayModeActive)
+        {
+            return false;
+        }
+
+        if (action == VNInputAction.ReadingBack)
+        {
+            TryRollback();
+            return true;
+        }
+
+        if (action == VNInputAction.ReadingForward)
+        {
+            AdvanceDialogue();
+            return true;
+        }
+
+        return false;
     }
 
     private bool IsHandlingPreferencesDropdownCancel()
