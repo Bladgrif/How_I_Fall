@@ -424,12 +424,15 @@ public sealed class VNQuickMenu : MonoBehaviour
     private static ColorBlock CreateButtonColors(bool active = false)
     {
         // State tints stay neutral so the plate color is owned by the target graphic
-        // instead of being multiplied twice into an unpredictable shade.
+        // instead of being multiplied twice into an unpredictable shade. Hover and
+        // keyboard selection raise the plate alpha well above the resting 0.46 so
+        // the pointer/focus state is clearly visible, yet remain below the teal
+        // ACTIVE mode presentation of Auto/Skip.
         ColorBlock colors = ColorBlock.defaultColorBlock;
         colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1.16f, 1.18f, 1.22f, 1f);
-        colors.pressedColor = new Color(1.28f, 1.30f, 1.34f, 1f);
-        colors.selectedColor = Color.white;
+        colors.highlightedColor = new Color(1.28f, 1.40f, 1.55f, 1.65f);
+        colors.pressedColor = new Color(1.42f, 1.56f, 1.72f, 1.80f);
+        colors.selectedColor = new Color(1.12f, 1.22f, 1.36f, 1.45f);
         colors.disabledColor = new Color(0.64f, 0.66f, 0.70f, 0.72f);
         colors.colorMultiplier = 1f;
         return colors;

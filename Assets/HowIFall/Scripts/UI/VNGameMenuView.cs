@@ -26,8 +26,11 @@ public sealed class VNGameMenuView : MonoBehaviour
     private static readonly Color SideWashColor = new Color(0.008f, 0.024f, 0.050f, 0.86f);
     private static readonly Color NavigationColor = new Color(0.018f, 0.050f, 0.082f, 0.90f);
     private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
+    private static readonly Color EnabledLabelColor = Color.white;
+    private static readonly Color DisabledLabelColor = new Color(0.55f, 0.60f, 0.68f, 0.38f);
 
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
+    private readonly Dictionary<VNGameMenuAction, TextMeshProUGUI> labels = new Dictionary<VNGameMenuAction, TextMeshProUGUI>();
     private readonly Dictionary<VNGameMenuAction, GameObject> activeMarkers = new Dictionary<VNGameMenuAction, GameObject>();
     private readonly Dictionary<VNGameMenuAction, GameObject> focusMarkers = new Dictionary<VNGameMenuAction, GameObject>();
     private GameObject root;
@@ -70,6 +73,11 @@ public sealed class VNGameMenuView : MonoBehaviour
     public Button GetButton(VNGameMenuAction action)
     {
         return buttons.TryGetValue(action, out Button button) ? button : null;
+    }
+
+    public TextMeshProUGUI GetActionLabel(VNGameMenuAction action)
+    {
+        return labels.TryGetValue(action, out TextMeshProUGUI label) ? label : null;
     }
 
     public bool IsActionVisible(VNGameMenuAction action)
@@ -117,6 +125,28 @@ public sealed class VNGameMenuView : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Keeps unavailable actions obviously muted: the Button ColorBlock dims only
+    /// the plate, so the label itself must also step down in contrast while no
+    /// active or focus state may present an enabled-looking action.
+    /// </summary>
+    public void RefreshEnabledPresentation()
+    {
+        foreach (KeyValuePair<VNGameMenuAction, Button> pair in buttons)
+        {
+            if (!labels.TryGetValue(pair.Key, out TextMeshProUGUI label) || label == null)
+            {
+                continue;
+            }
+
+            Color target = pair.Value != null && pair.Value.interactable ? EnabledLabelColor : DisabledLabelColor;
+            if (label.color != target)
+            {
+                label.color = target;
+            }
+        }
+    }
+
     public void SetSaveLoadSection(
         VNGameMenuAction? activeAction,
         bool confirmationOpen = false,
@@ -138,6 +168,8 @@ public sealed class VNGameMenuView : MonoBehaviour
 
             pair.Value.interactable = !hasSection || (!confirmationOpen && !operationInProgress);
         }
+
+        RefreshEnabledPresentation();
     }
 
     public void ShowConfirmation(string message)
@@ -169,6 +201,7 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         if (root != null && root.activeSelf)
         {
+            RefreshEnabledPresentation();
             RefreshFocusMarkers();
         }
     }
@@ -183,6 +216,7 @@ public sealed class VNGameMenuView : MonoBehaviour
             bool focused = root != null
                 && root.activeSelf
                 && button != null
+                && button.interactable
                 && button.gameObject.activeInHierarchy
                 && selected == button.gameObject;
             if (pair.Value != null && pair.Value.activeSelf != focused)
@@ -296,7 +330,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(primaryActions.transform, VNGameMenuAction.MainMenu, "Главное меню");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.EndReplay, "Завершить повтор");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Quit, "Выйти");
-        CreateActionButton(primaryActions.transform, VNGameMenuAction.Rollback, "Назад");
+        CreateActionButton(primaryActions.transform, VNGameMenuAction.Rollback, "Назад по истории");
 
         GameObject returnArea = CreateUiObject(navigation.transform, "Return Area");
         RectTransform returnAreaRect = returnArea.GetComponent<RectTransform>();
@@ -390,6 +424,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         AddFocusMarkerEvents(buttonObject);
 
         buttons[action] = button;
+        labels[action] = text;
         activeMarkers[action] = activeMarker;
     }
 

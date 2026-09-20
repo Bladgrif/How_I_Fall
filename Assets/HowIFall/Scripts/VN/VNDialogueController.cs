@@ -104,6 +104,13 @@ public class VNDialogueController : MonoBehaviour
     private Coroutine relationshipCueCoroutine;
     private GameObject relationshipCueRoot;
     private CanvasGroup relationshipCueCanvasGroup;
+    /// <summary>
+    /// Player-facing relationship cue rendering is deliberately suppressed for the
+    /// demo UI shell: the small glyph read as a stray artifact, so choices keep
+    /// applying their relationship deltas without presenting it. Flip this flag
+    /// back to true for the future Story/UI pass; backend semantics are untouched.
+    /// </summary>
+    internal static bool RelationshipCuePresentationEnabled = false;
     private string currentFullText = string.Empty;
     private bool isTyping;
     private bool quickSaveInProgress;
@@ -1791,7 +1798,10 @@ public class VNDialogueController : MonoBehaviour
         pendingNextScene = choice.nextScene != null ? choice.nextScene : sceneData.defaultNextScene;
         gameState.pendingNextSceneId = pendingNextScene != null ? pendingNextScene.sceneId : string.Empty;
         ShowFinalLine(choice.resultText);
-        ShowRelationshipCue(RelationshipFeedback.GetCueKind(choice));
+        if (RelationshipCuePresentationEnabled)
+        {
+            ShowRelationshipCue(RelationshipFeedback.GetCueKind(choice));
+        }
 
         if (skipEnabled && ShouldResumeSkipAfterChoice())
         {

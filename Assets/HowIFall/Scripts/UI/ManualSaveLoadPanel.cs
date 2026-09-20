@@ -1140,7 +1140,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
             return;
         }
 
-        selectedSlotTitle.text = slot != null && slot.IsOccupied ? "Сохранение недоступно" : "Свободный момент истории";
+        selectedSlotTitle.text = slot != null && slot.IsOccupied ? "Сохранение недоступно" : "Слот свободен";
         selectedSlotMetadata.text = $"{family}  ·  СЛОТ {slotIndex:00}";
     }
 

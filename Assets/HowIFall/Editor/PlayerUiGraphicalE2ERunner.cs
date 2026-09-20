@@ -1018,9 +1018,12 @@ public static class PlayerUiGraphicalE2ERunner
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
         dialogue.choiceMashaButton.onClick.Invoke();
-        Require(dialogue.IsRelationshipCueVisible, "Positive relationship cue did not become visible after the configured choice.");
+        // Demo shell contract: the relationship glyph is suppressed while backend
+        // deltas still apply. Proof must show the frame right after the choice
+        // without any stale cue marker.
+        Require(!dialogue.IsRelationshipCueVisible, "Suppressed relationship cue must not become visible after the configured choice.");
         Require(dialogue.notificationPanel == null || !dialogue.notificationPanel.activeSelf, "Relationship feedback must not reuse the text toast.");
-        Capture("gameplay_relationship_cue_positive_1920x1080.png", "CaptureNegativeRelationshipCue");
+        Capture("gameplay_after_choice_no_relationship_glyph_1920x1080.png", "CaptureNegativeRelationshipCue");
     }
 
     private static void CaptureNegativeRelationshipCue()
@@ -1028,7 +1031,7 @@ public static class PlayerUiGraphicalE2ERunner
         VNDialogueController dialogue = RequireGameplayDialogue();
         if (dialogue.IsRelationshipCueVisible)
         {
-            Retry("Positive relationship cue is still visible before negative cue proof.");
+            Retry("Relationship cue marker is still visible before negative choice proof.");
             return;
         }
 
@@ -1039,8 +1042,8 @@ public static class PlayerUiGraphicalE2ERunner
         });
         InvokePrivate(dialogue, "ShowChoices", false);
         dialogue.choiceArtemButton.onClick.Invoke();
-        Require(dialogue.IsRelationshipCueVisible, "Negative relationship cue did not become visible after the configured choice.");
-        Capture("gameplay_relationship_cue_negative_1920x1080.png", "CaptureMixedRelationshipCue");
+        Require(!dialogue.IsRelationshipCueVisible, "Suppressed relationship cue must not become visible after the negative choice.");
+        Capture("gameplay_after_negative_choice_no_relationship_glyph_1920x1080.png", "CaptureMixedRelationshipCue");
     }
 
     private static void CaptureMixedRelationshipCue()
@@ -1048,7 +1051,7 @@ public static class PlayerUiGraphicalE2ERunner
         VNDialogueController dialogue = RequireGameplayDialogue();
         if (dialogue.IsRelationshipCueVisible)
         {
-            Retry("Negative relationship cue is still visible before mixed cue proof.");
+            Retry("Relationship cue marker is still visible before mixed choice proof.");
             return;
         }
 
@@ -1058,8 +1061,8 @@ public static class PlayerUiGraphicalE2ERunner
         });
         InvokePrivate(dialogue, "ShowChoices", false);
         dialogue.choiceMashaButton.onClick.Invoke();
-        Require(dialogue.IsRelationshipCueVisible, "Mixed relationship cue did not become visible.");
-        Capture("gameplay_relationship_cue_mixed_1920x1080.png", "CaptureReadingAfterCue");
+        Require(!dialogue.IsRelationshipCueVisible, "Suppressed relationship cue must not become visible after the mixed choice.");
+        Capture("gameplay_after_mixed_choice_no_relationship_glyph_1920x1080.png", "CaptureReadingAfterCue");
     }
 
     private static void CaptureReadingAfterCue()
@@ -1191,6 +1194,18 @@ public static class PlayerUiGraphicalE2ERunner
         Require(quickMenu != null && quickMenu.historyButton != null && quickMenu.historyButton.gameObject.activeSelf,
             "Quick Menu History action is unavailable for the hover proof.");
         quickMenu.historyButton.OnPointerEnter(new PointerEventData(EventSystem.current));
+        // The ColorTint fade needs real time to settle; capturing in the same frame
+        // would prove the resting plate instead of the steady-state hover.
+        SessionState.SetString(StageKey, "CaptureQuickMenuHoverSettled");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void CaptureQuickMenuHoverSettled()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.historyButton != null, "Quick Menu vanished before the settled hover proof.");
         Capture("gameplay_quick_menu_hover_1920x1080.png", "CaptureQuickMenuHoverExit");
     }
 

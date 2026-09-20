@@ -50,6 +50,7 @@ public static class VNQuickMenuSmokeTests
         Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.RequestQuickLoad)) != null, "Quick Load must use the VN controller entry point.");
         Require(typeof(ManualSaveLoadPanel).GetMethod(nameof(ManualSaveLoadPanel.RequestQuickLoad)) != null, "Quick Load must use the existing ManualSaveLoadPanel pipeline.");
         VerifyBottomCenterStripPresentation(menu);
+        VerifyHoverContrast(menu);
         VerifyCenteredStripDialogueClearance();
         VerifyLogicalCanvasResolutionContract();
         VerifyPreferencesModalVisibilityOwnership();
@@ -64,6 +65,19 @@ public static class VNQuickMenuSmokeTests
             "Quick Menu must be anchored to the horizontal bottom-center axis.");
         Require(Mathf.Approximately(rootRect.anchoredPosition.y, 22f),
             "Quick Menu must keep its compact bottom offset below the reading field.");
+    }
+
+    private static void VerifyHoverContrast(VNQuickMenu menu)
+    {
+        ColorBlock colors = menu.historyButton.colors;
+        Require(colors.normalColor == Color.white,
+            "Quick Menu state tints must stay neutral so the plate owns the color.");
+        Require(colors.highlightedColor.a >= 1.5f,
+            "Quick Menu hover must raise the resting plate alpha (0.46) clearly above rest while staying below the ACTIVE plate.");
+        Require(colors.selectedColor.a >= 1.3f && colors.selectedColor.a < colors.highlightedColor.a,
+            "Quick Menu keyboard selection must stay visible but not stronger than hover.");
+        Require(colors.pressedColor.a > colors.highlightedColor.a,
+            "Quick Menu pressed feedback must stay stronger than hover.");
     }
 
     private static void VerifyCenteredStripDialogueClearance()

@@ -17,7 +17,9 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     private static readonly Color EmptySaveColor = new Color(0.052f, 0.063f, 0.082f, 0.82f);
     private static readonly Color EmptyLoadColor = new Color(0.042f, 0.049f, 0.062f, 0.72f);
     private static readonly Color HoverColor = new Color(0.072f, 0.1f, 0.142f, 0.98f);
+    private static readonly Color FocusColor = new Color(0.085f, 0.135f, 0.20f, 0.98f);
     private static readonly Color InvalidColor = new Color(0.09f, 0.05f, 0.065f, 0.9f);
+    private static readonly Color FocusOutlineColor = new Color(0.45f, 0.74f, 0.96f, 0.95f);
 
     public Button button;
     public RectTransform cardRect;
@@ -245,13 +247,15 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
 
         if (backgroundImage != null)
         {
-            backgroundImage.color = Color.Lerp(restingColor, HoverColor, emphasisAmount);
+            // Keyboard focus gets its own stronger plate so the selected card is
+            // unmistakable next to the lower info panel while staying quiet.
+            backgroundImage.color = Color.Lerp(restingColor, focusAmount > 0f ? FocusColor : HoverColor, emphasisAmount);
         }
 
         if (hoverAccentImage != null)
         {
             Color accent = hoverAccentImage.color;
-            accent.a = Mathf.Max(hoverAmount * 0.09f, focusAmount * 0.18f);
+            accent.a = Mathf.Max(hoverAmount * 0.09f, focusAmount * 0.30f);
             hoverAccentImage.color = accent;
         }
 
@@ -263,7 +267,10 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
                     ? new Color(0.48f, 0.18f, 0.23f, 0.42f)
                     : new Color(0.18f, 0.25f, 0.32f, interactive ? 0.34f : 0.23f);
             Color hoverOutline = new Color(0.33f, 0.58f, 0.79f, 0.74f);
-            cardOutline.effectColor = Color.Lerp(restingOutline, hoverOutline, emphasisAmount);
+            cardOutline.effectColor = Color.Lerp(restingOutline, focusAmount > 0f ? FocusOutlineColor : hoverOutline, emphasisAmount);
+            // A focus border must survive bright preview art: two offset pixels
+            // instead of the thin one-pixel resting/hover frame.
+            cardOutline.effectDistance = focusAmount > 0f ? new Vector2(2f, -2f) : new Vector2(1f, -1f);
         }
 
         if (previewFrameImage != null)
