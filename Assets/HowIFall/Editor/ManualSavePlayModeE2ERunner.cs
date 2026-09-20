@@ -33,6 +33,7 @@ public static class ManualSavePlayModeE2ERunner
     private const string DeleteConfirmationProofFileName = "gameplay_delete_confirmation_1920x1080.png";
     private const string DeleteConfirmationCompactProofFileName = "gameplay_delete_confirmation_1280x720.png";
     private const string InvalidSaveProofFileName = "gameplay_invalid_save_slot_1920x1080.png";
+    private const string EmptySlotFocusProofFileName = "save_load_empty_slot_focus_1920x1080.png";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
     private static readonly Vector2Int CompactQaResolution = new Vector2Int(1280, 720);
 
@@ -127,6 +128,12 @@ public static class ManualSavePlayModeE2ERunner
                 break;
             case "WaitUiScreenshot":
                 WaitUiScreenshot();
+                break;
+            case "CaptureEmptySlotFocus":
+                CaptureEmptySlotFocus();
+                break;
+            case "WaitEmptySlotFocusScreenshot":
+                WaitEmptySlotFocusScreenshot();
                 break;
             case "CaptureCompactUiResolution":
                 CaptureCompactUiResolution();
@@ -408,6 +415,12 @@ public static class ManualSavePlayModeE2ERunner
         Require(quickMenu != null && !quickMenu.IsEffectivelyVisible,
             "Quick Menu remains visible while Save/Load owns the modal surface.");
         VerifyPanelLayout(panel, resolution);
+        ManualSaveSlotView focusedCard = panel.slotViews[0];
+        Require(focusedCard.HasEventSystemFocus, "Save grid lost its deterministic selected card before capture.");
+        Require(focusedCard.cardOutline != null
+            && focusedCard.cardOutline.effectDistance == new Vector2(2f, -2f)
+            && focusedCard.cardOutline.effectColor.a >= 0.9f,
+            "Focused save card must present the stronger two-pixel focus border.");
         Canvas.ForceUpdateCanvases();
 
         string path = GetUiScreenshotPath(resolution);
@@ -439,6 +452,35 @@ public static class ManualSavePlayModeE2ERunner
 
         VerifyImageDimensions(path, resolution.x, resolution.y, "UI screenshot");
         Pass($"Save UI layout and screenshot {resolution.x}x{resolution.y}");
+
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureEmptySlotFocus");
+        SetDelay(0.2d);
+    }
+
+    private static void CaptureEmptySlotFocus()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen && panel.IsSaveMode, "Save panel closed before empty slot focus proof.");
+        ManualSaveSlotView empty = panel.slotViews[1];
+        Require(empty.button.interactable, "Empty slot is not interactive in Save mode.");
+        EventSystem.current.SetSelectedGameObject(empty.button.gameObject);
+        Require(empty.HasEventSystemFocus, "Empty slot did not take keyboard focus.");
+        Require(panel.slotViews[0].cardOutline.effectDistance == new Vector2(1f, -1f),
+            "Previously focused card retained the focus border.");
+        Require(empty.cardOutline.effectDistance == new Vector2(2f, -2f) && empty.cardOutline.effectColor.a >= 0.9f,
+            "Focused empty card lost the focus border.");
+        TextMeshProUGUI summaryTitle = panel.windowRect.Find("Selected Story Moment/Moment Title")
+            .GetComponent<TextMeshProUGUI>();
+        Require(summaryTitle != null && summaryTitle.text == "Слот свободен",
+            $"Empty slot summary must read 'Слот свободен'; actual '{summaryTitle?.text}'.");
+        CaptureProofScreenshot(EmptySlotFocusProofFileName, "WaitEmptySlotFocusScreenshot");
+    }
+
+    private static void WaitEmptySlotFocusScreenshot()
+    {
+        if (!WaitForProofScreenshot(EmptySlotFocusProofFileName, "Empty slot focus screenshot")) return;
+        Pass("Empty slot focus presentation and wording");
 
         ConfigureGameViewResolution(CompactQaResolution);
         SessionState.SetInt(CounterKey, 0);

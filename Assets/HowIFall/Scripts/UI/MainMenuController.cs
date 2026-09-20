@@ -883,6 +883,7 @@ public sealed class MainMenuController : MonoBehaviour
 
         MainMenuButtonHoverEffect hoverEffect = button.GetComponent<MainMenuButtonHoverEffect>()
             ?? button.gameObject.AddComponent<MainMenuButtonHoverEffect>();
+        hoverEffect.highlightImage = button.targetGraphic as Image ?? button.GetComponent<Image>();
         hoverEffect.useRedFocusText = destructive;
         hoverEffect.suppressFocusAccent = destructive;
         hoverEffect.Configure(destructive

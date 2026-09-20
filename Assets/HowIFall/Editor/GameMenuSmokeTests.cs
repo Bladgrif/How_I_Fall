@@ -205,8 +205,8 @@ public static class GameMenuSmokeTests
             Require(view.ConfirmationYesButton.targetGraphic is Image yesImage
                 && view.ConfirmationNoButton.targetGraphic is Image noImage
                 && yesImage.color.a <= 0.01f
-                && noImage.color.a <= 0.01f,
-                "Confirmation actions must keep the low-chrome transparent presentation.");
+                && noImage.color.a > 0.05f,
+                "Confirmation default focus must present the safe Cancel plate while the destructive action stays low-chrome.");
             MainMenuButtonHoverEffect yesEffect = view.ConfirmationYesButton.GetComponent<MainMenuButtonHoverEffect>();
             MainMenuButtonHoverEffect noEffect = view.ConfirmationNoButton.GetComponent<MainMenuButtonHoverEffect>();
             Require(yesEffect != null && noEffect != null
@@ -216,9 +216,16 @@ public static class GameMenuSmokeTests
             yesEffect.OnPointerEnter(new PointerEventData(eventSystem));
             Require(yesEffect.IsInteractionVisible && !noEffect.IsInteractionVisible,
                 "Mouse hover left two confirmation actions active.");
+            Require(((Image)view.ConfirmationYesButton.targetGraphic).color.a > 0.05f,
+                "Hovered destructive confirmation must carry its selection on the button plate.");
+            Require(!yesEffect.IsFocusAccentVisible && !noEffect.IsFocusAccentVisible,
+                "Confirmation focus must not present a detached accent bar between the actions.");
             eventSystem.SetSelectedGameObject(view.ConfirmationNoButton.gameObject);
             Require(!yesEffect.IsInteractionVisible && noEffect.IsInteractionVisible,
                 "Safe keyboard focus did not clear the destructive hover state.");
+            Require(((Image)view.ConfirmationYesButton.targetGraphic).color.a <= 0.01f
+                && ((Image)view.ConfirmationNoButton.targetGraphic).color.a > 0.05f,
+                "Exactly the selected confirmation action may present its plate.");
 
             RectTransform confirmationWindow = view.transform.Find("Game Menu Confirmation/Confirmation Window") as RectTransform;
             Require(confirmationWindow != null, "Game Menu confirmation window is missing.");
@@ -261,7 +268,7 @@ public static class GameMenuSmokeTests
             AssertLabel(view, VNGameMenuAction.Save, "Сохранить");
             AssertLabel(view, VNGameMenuAction.Load, "Загрузить");
             AssertLabel(view, VNGameMenuAction.Preferences, "Настройки");
-            AssertLabel(view, VNGameMenuAction.Rollback, "Назад");
+            AssertLabel(view, VNGameMenuAction.Rollback, "Назад по истории");
             AssertLabel(view, VNGameMenuAction.MainMenu, "Главное меню");
             AssertLabel(view, VNGameMenuAction.Quit, "Выйти");
             AssertLabel(view, VNGameMenuAction.Return, "Вернуться в игру");
@@ -321,9 +328,16 @@ public static class GameMenuSmokeTests
             Button rollback = view.GetButton(VNGameMenuAction.Rollback);
             Require(rollback != null, "Rollback action must be part of the Game Menu action set.");
             rollback.interactable = false;
+            view.RefreshEnabledPresentation();
             Require(!rollback.interactable && rollback.colors.disabledColor != rollback.colors.normalColor,
                 "Unavailable Rollback must use the existing distinct disabled Button state.");
+            TextMeshProUGUI rollbackLabel = view.GetActionLabel(VNGameMenuAction.Rollback);
+            Require(rollbackLabel != null && rollbackLabel.color.a < 0.5f,
+                "Unavailable Rollback label must be clearly dimmed while disabled.");
             rollback.interactable = true;
+            view.RefreshEnabledPresentation();
+            Require(rollbackLabel.color.a > 0.9f,
+                "Available Rollback must read as an enabled action.");
             view.SetSaveLoadSection(VNGameMenuAction.Save);
             Require(view.IsSaveLoadContentVisible && view.IsActionActive(VNGameMenuAction.Save) && !view.IsActionActive(VNGameMenuAction.Load),
                 "Save section did not expose the shared content area and active navigation state.");

@@ -183,7 +183,9 @@ public class RollbackBackendPlayModeTests
         context.Controller.AdvanceDialogue();
         Assert.That(context.Controller.choicePanel.activeSelf, Is.True);
         InvokePrivate(context.Controller, "Choose", 0);
-        Assert.That(context.Controller.IsRelationshipCueVisible, Is.True);
+        // Demo UI shell contract: relationship deltas apply, but the player-facing
+        // cue glyph is suppressed (VNDialogueController.RelationshipCuePresentationEnabled).
+        Assert.That(context.Controller.IsRelationshipCueVisible, Is.False);
         AssertAllNumericState(context.GameState, 11, 22, 33, 44, 55, 66, 77, 88, 99);
 
         Assert.That(context.Controller.TryRollback(out string error), Is.True, error);
@@ -193,7 +195,7 @@ public class RollbackBackendPlayModeTests
         Assert.That(context.GameState.choiceResultActive, Is.False);
         Assert.That(context.GameState.pendingNextSceneId, Is.Empty);
         Assert.That(context.Controller.choicePanel.activeSelf, Is.True);
-        Assert.That(context.Controller.IsRelationshipCueVisible, Is.False);
+        Assert.That(context.Controller.IsRelationshipCueVisible, Is.False, "Rollback must leave no stale cue behind.");
         AssertBacklog(context.Controller, "Choose");
 
         InvokePrivate(context.Controller, "Choose", 1);
