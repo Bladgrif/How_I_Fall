@@ -107,6 +107,10 @@ public class SettingsPanelController : MonoBehaviour, IPreferencesView
     void IPreferencesView.SetVisible(bool visible)
     {
         SetHiddenObjectsActive(!visible);
+        // Gameplay contexts have no Main Menu, so this is a no-op there; in the Main
+        // Menu it keeps the navigation typography from competing with Preferences.
+        MainMenuController mainMenu = FindFirstObjectByType<MainMenuController>();
+        mainMenu?.SetPlayerFacingRowsActive(!visible);
         if (root != null)
         {
             root.SetActive(false);
@@ -116,7 +120,7 @@ public class SettingsPanelController : MonoBehaviour, IPreferencesView
         sharedView?.SetVisible(visible);
         if (!visible && sharedViewWasVisible)
         {
-            FindFirstObjectByType<MainMenuController>()?.FocusSettingsAction();
+            mainMenu?.FocusSettingsAction();
         }
 
         sharedViewWasVisible = visible;

@@ -672,6 +672,36 @@ public sealed class MainMenuController : MonoBehaviour
         FocusButton(FindPersistentButton(this, nameof(OpenSettings)));
     }
 
+    /// <summary>
+    /// Toggles the five player-facing navigation rows while the translucent Preferences
+    /// surface is open, so its typography cannot collide with the menu text underneath.
+    /// Rows — not buttons — are toggled, which keeps each button's interactable and
+    /// enabled state intact across the Preferences round-trip.
+    /// </summary>
+    public void SetPlayerFacingRowsActive(bool active)
+    {
+        if (playerFacingActionButtons.Count == 0)
+        {
+            return;
+        }
+
+        Transform firstRow = playerFacingActionButtons[0] != null ? playerFacingActionButtons[0].transform.parent : null;
+        Transform menuContent = firstRow != null ? firstRow.parent : null;
+        if (menuContent == null)
+        {
+            return;
+        }
+
+        foreach (Button button in playerFacingActionButtons)
+        {
+            Transform row = button != null ? button.transform.parent : null;
+            if (row != null && row.parent == menuContent)
+            {
+                row.gameObject.SetActive(active);
+            }
+        }
+    }
+
     /// <summary>Handles only Main Menu-owned modal cancellation. Child screens keep their own Back/Esc ownership.</summary>
     public bool TryHandleCloseOrCancel()
     {
