@@ -38,8 +38,11 @@ namespace HowIFall.PlayModeTests
                 Is.True);
         }
 
-        [TestCase(120f, VNInputAction.ReadingBack)]
-        [TestCase(-120f, VNInputAction.ReadingForward)]
+        // Physical wheel forward / away from the player produces positive scrollY
+        // in the Unity InputSystem wheel convention and must read as ReadingForward;
+        // physical wheel backward / toward the player reads as ReadingBack.
+        [TestCase(120f, VNInputAction.ReadingForward)]
+        [TestCase(-120f, VNInputAction.ReadingBack)]
         public void ReadingNavigation_RecognizesVirtualMouseWheel(float scrollY, VNInputAction expectedAction)
         {
             Mouse mouse = InputSystem.AddDevice<Mouse>();
@@ -61,8 +64,8 @@ namespace HowIFall.PlayModeTests
             Mouse mouse = InputSystem.AddDevice<Mouse>();
             Set(mouse.scroll, new UnityEngine.Vector2(0f, 960f));
 
-            Assert.That(VNInputMap.WasPressedThisFrame(VNInputAction.ReadingBack, null, null, mouse), Is.True);
-            Assert.That(VNInputMap.WasPressedThisFrame(VNInputAction.ReadingForward, null, null, mouse), Is.False);
+            Assert.That(VNInputMap.WasPressedThisFrame(VNInputAction.ReadingForward, null, null, mouse), Is.True);
+            Assert.That(VNInputMap.WasPressedThisFrame(VNInputAction.ReadingBack, null, null, mouse), Is.False);
         }
     }
 }

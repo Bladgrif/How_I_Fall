@@ -48,8 +48,8 @@ public static class VNInputMap
         new(VNInputAction.ShowBacklog, "\u0418\u0441\u0442\u043e\u0440\u0438\u044f", "B", true),
         new(VNInputAction.ToggleInterfaceVisibility, "\u0421\u043a\u0440\u044b\u0442\u044c / \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441", "H", true),
         new(VNInputAction.CloseOrCancel, "\u0418\u0433\u0440\u043e\u0432\u043e\u0435 \u043c\u0435\u043d\u044e / \u043d\u0430\u0437\u0430\u0434", "Esc / \u041f\u041a\u041c", true),
-        new(VNInputAction.ReadingBack, "\u041d\u0430\u0437\u0430\u0434 \u043f\u043e \u0442\u0435\u043a\u0441\u0442\u0443", "\u041a\u043e\u043b\u0435\u0441\u043e \u0432\u0432\u0435\u0440\u0445", true),
-        new(VNInputAction.ReadingForward, "\u0412\u043f\u0435\u0440\u0451\u0434 \u043f\u043e \u0442\u0435\u043a\u0441\u0442\u0443", "\u041a\u043e\u043b\u0435\u0441\u043e \u0432\u043d\u0438\u0437", true),
+        new(VNInputAction.ReadingBack, "\u041d\u0430\u0437\u0430\u0434 \u043f\u043e \u0442\u0435\u043a\u0441\u0442\u0443", "\u041a\u043e\u043b\u0435\u0441\u043e \u0432\u043d\u0438\u0437", true),
+        new(VNInputAction.ReadingForward, "\u0412\u043f\u0435\u0440\u0451\u0434 \u043f\u043e \u0442\u0435\u043a\u0441\u0442\u0443", "\u041a\u043e\u043b\u0435\u0441\u043e \u0432\u0432\u0435\u0440\u0445", true),
         new(VNInputAction.ToggleDebugStatsView, "Toggle debug stats view", "F2", false),
         new(VNInputAction.ToggleDebugStatsPanel, "Toggle debug stats panel", "F3", false)
     };
@@ -83,12 +83,12 @@ public static class VNInputMap
             }
 
             float scrollY = mouse.scroll.ReadValue().y;
-            if (action == VNInputAction.ReadingBack && scrollY > 0f)
+            if (action == VNInputAction.ReadingForward && scrollY > 0f)
             {
                 return true;
             }
 
-            if (action == VNInputAction.ReadingForward && scrollY < 0f)
+            if (action == VNInputAction.ReadingBack && scrollY < 0f)
             {
                 return true;
             }
