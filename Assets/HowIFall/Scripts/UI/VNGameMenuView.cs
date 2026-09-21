@@ -29,6 +29,15 @@ public sealed class VNGameMenuView : MonoBehaviour
     private static readonly Color EnabledLabelColor = Color.white;
     private static readonly Color DisabledLabelColor = new Color(0.55f, 0.60f, 0.68f, 0.38f);
 
+    // Outer containment contract: the left background wash and the left menu
+    // column (Header + Navigation) must terminate at the same root-space x, so
+    // all three derive from this one calculation instead of parallel constants.
+    private const float WindowAnchorLeft = 0.045f;
+    private const float WindowAnchorRight = 0.955f;
+    private const float MenuColumnWindowFraction = 0.27f;
+    private static readonly float MenuColumnRootRight = WindowAnchorLeft
+        + (WindowAnchorRight - WindowAnchorLeft) * MenuColumnWindowFraction;
+
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
     private readonly Dictionary<VNGameMenuAction, TextMeshProUGUI> labels = new Dictionary<VNGameMenuAction, TextMeshProUGUI>();
     private readonly Dictionary<VNGameMenuAction, GameObject> activeMarkers = new Dictionary<VNGameMenuAction, GameObject>();
@@ -242,14 +251,14 @@ public sealed class VNGameMenuView : MonoBehaviour
         GameObject sideWash = CreateSurface(root.transform, "Left Background Wash", SideWashColor);
         RectTransform sideWashRect = sideWash.GetComponent<RectTransform>();
         sideWashRect.anchorMin = Vector2.zero;
-        sideWashRect.anchorMax = new Vector2(0.28f, 1f);
+        sideWashRect.anchorMax = new Vector2(MenuColumnRootRight, 1f);
         sideWashRect.offsetMin = Vector2.zero;
         sideWashRect.offsetMax = Vector2.zero;
 
         GameObject window = CreateUiObject(root.transform, "Game Menu Window");
         RectTransform windowRect = window.GetComponent<RectTransform>();
-        windowRect.anchorMin = new Vector2(0.045f, 0.05f);
-        windowRect.anchorMax = new Vector2(0.955f, 0.95f);
+        windowRect.anchorMin = new Vector2(WindowAnchorLeft, 0.05f);
+        windowRect.anchorMax = new Vector2(WindowAnchorRight, 0.95f);
         windowRect.offsetMin = Vector2.zero;
         windowRect.offsetMax = Vector2.zero;
 
@@ -277,7 +286,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         GameObject header = CreateSurface(window, "Header", new Color(0.018f, 0.040f, 0.078f, 0.94f));
         RectTransform rect = header.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0f, 0.84f);
-        rect.anchorMax = new Vector2(0.27f, 1f);
+        rect.anchorMax = new Vector2(MenuColumnWindowFraction, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
@@ -298,7 +307,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         GameObject navigation = CreateSurface(window, "Navigation", NavigationColor);
         RectTransform rect = navigation.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0f, 0.05f);
-        rect.anchorMax = new Vector2(0.27f, 0.83f);
+        rect.anchorMax = new Vector2(MenuColumnWindowFraction, 0.83f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
         Outline outline = navigation.AddComponent<Outline>();

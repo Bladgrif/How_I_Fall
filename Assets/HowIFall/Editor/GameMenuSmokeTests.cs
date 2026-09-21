@@ -394,6 +394,9 @@ public static class GameMenuSmokeTests
             RectTransform window = view.transform.Find("Game Menu Window") as RectTransform;
             RectTransform navigation = window != null ? window.Find("Navigation") as RectTransform : null;
             Require(window != null && navigation != null, "Game Menu navigation geometry is missing for containment validation.");
+            RectTransform leftWash = view.transform.Find("Left Background Wash") as RectTransform;
+            RectTransform header = window.Find("Header") as RectTransform;
+            Require(leftWash != null && header != null, "Game Menu wash/header geometry is missing for containment validation.");
 
             foreach (Vector2 resolution in resolutions)
             {
@@ -402,6 +405,28 @@ public static class GameMenuSmokeTests
                 RectTransform space = view.transform as RectTransform;
                 Rect navigationBounds = GetRectInSpace(space, navigation);
                 Require(IsFinitePositive(navigationBounds), $"{resolution}: navigation bounds are invalid.");
+
+                // Outer containment contract proven on actual world corners: the
+                // wash, Header and Navigation must share one root-space right edge
+                // (no overhang, and aligned — not merely somewhere inside).
+                Rect washBounds = GetRectInSpace(space, leftWash);
+                Rect headerBounds = GetRectInSpace(space, header);
+                Require(IsFinitePositive(washBounds) && IsFinitePositive(headerBounds),
+                    $"{resolution}: wash/header bounds are invalid.");
+                Require(headerBounds.xMax <= washBounds.xMax + 0.75f,
+                    $"{resolution}: header right edge exceeds the wash right edge by {headerBounds.xMax - washBounds.xMax:0.##}px.");
+                Require(navigationBounds.xMax <= washBounds.xMax + 0.75f,
+                    $"{resolution}: navigation right edge exceeds the wash right edge by {navigationBounds.xMax - washBounds.xMax:0.##}px.");
+                Require(Mathf.Abs(headerBounds.xMax - washBounds.xMax) <= 1.5f,
+                    $"{resolution}: header right edge is not aligned with the wash right edge (delta {headerBounds.xMax - washBounds.xMax:0.###}px).");
+                Require(Mathf.Abs(navigationBounds.xMax - washBounds.xMax) <= 1.5f,
+                    $"{resolution}: navigation right edge is not aligned with the wash right edge (delta {navigationBounds.xMax - washBounds.xMax:0.###}px).");
+
+                Rect saveLoadHostBounds = GetRectInSpace(space, view.SaveLoadContentHost);
+                Require(IsFinitePositive(saveLoadHostBounds), $"{resolution}: Save/Load host bounds are invalid.");
+                Require(saveLoadHostBounds.xMin >= navigationBounds.xMax - 0.75f && !Overlaps(navigationBounds, saveLoadHostBounds),
+                    $"{resolution}: Save/Load content host overlaps the left menu column.");
+
                 foreach (VNGameMenuAction action in Enum.GetValues(typeof(VNGameMenuAction)).Cast<VNGameMenuAction>())
                 {
                     Button button = view.GetButton(action);
