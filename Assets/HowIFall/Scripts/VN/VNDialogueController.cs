@@ -29,7 +29,9 @@ public class VNDialogueController : MonoBehaviour
     private static readonly Color HistoryLatestBodyColor = new Color(0.96f, 0.98f, 1f, 1f);
     private static readonly Color HistoryBodyColor = new Color(0.91f, 0.93f, 0.96f, 0.91f);
     private const float ChoiceRowMinimumHeight = 60f;
-    private const float ChoiceRowMaximumHeight = 108f;
+    // Four wrapped lines at the 24 px choice font need ~135 px including margins;
+    // the old 108 px clamp let long text ride the card edges.
+    private const float ChoiceRowMaximumHeight = 144f;
     private const float ChoiceRowSpacing = 10f;
     private const float ChoicePanelVerticalPadding = 28f;
     private const float ChoicePanelHeaderHeight = 58f;
@@ -2584,7 +2586,7 @@ public class VNDialogueController : MonoBehaviour
             if (label != null)
             {
                 label.alignment = TextAlignmentOptions.MidlineLeft;
-                label.margin = new Vector4(34f, 10f, 34f, 10f);
+                label.margin = new Vector4(34f, 12f, 34f, 12f);
                 label.enableWordWrapping = true;
                 label.overflowMode = TextOverflowModes.Overflow;
                 label.fontSize = Mathf.Max(label.fontSize, 20f);

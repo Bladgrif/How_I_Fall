@@ -262,11 +262,11 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         titleRect.offsetMin = new Vector2(28f, 0f); titleRect.offsetMax = new Vector2(-28f, -16f);
         selectedSlotTitle.color = new Color(0.93f, 0.97f, 1f, 1f);
 
-        selectedSlotMetadata = CreateSummaryText(summary.transform, "Moment Metadata", 17f, FontStyles.Normal);
+        selectedSlotMetadata = CreateSummaryText(summary.transform, "Moment Metadata", 19f, FontStyles.Normal);
         RectTransform metadataRect = selectedSlotMetadata.rectTransform;
         metadataRect.anchorMin = Vector2.zero; metadataRect.anchorMax = new Vector2(1f, 0.46f);
         metadataRect.offsetMin = new Vector2(28f, 12f); metadataRect.offsetMax = new Vector2(-28f, 0f);
-        selectedSlotMetadata.color = new Color(0.58f, 0.72f, 0.84f, 1f);
+        selectedSlotMetadata.color = new Color(0.63f, 0.76f, 0.87f, 1f);
         summary.transform.SetAsLastSibling();
         if (confirmationRoot != null) confirmationRoot.transform.SetAsLastSibling();
     }
@@ -1297,6 +1297,14 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = new Vector2(x, y);
         rect.sizeDelta = new Vector2(width, 38f);
+
+        // The numeric family/page entries are the smallest text on the screen; keep
+        // them a step above the slot metadata so 1280x720 pagination stays legible.
+        TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.fontSize = Mathf.Max(label.fontSize, 21f);
+        }
     }
 
     private static string GetUnavailableSlotMessage(SaveSlotInfo slot)
@@ -1663,7 +1671,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         {
             label.color = active
                 ? new Color(0.9f, 0.97f, 1f, 1f)
-                : new Color(0.52f, 0.62f, 0.73f, 0.9f);
+                : new Color(0.56f, 0.66f, 0.77f, 0.94f);
             label.fontStyle = active ? FontStyles.Bold : FontStyles.Normal;
         }
 

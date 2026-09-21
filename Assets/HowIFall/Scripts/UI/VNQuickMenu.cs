@@ -160,7 +160,7 @@ public sealed class VNQuickMenu : MonoBehaviour
             rootRect.anchorMin = rootRect.anchorMax = new Vector2(0.5f, 0f);
             rootRect.pivot = new Vector2(0.5f, 0f);
             rootRect.anchoredPosition = new Vector2(0f, 22f);
-            rootRect.sizeDelta = new Vector2(430f, 32f);
+            rootRect.sizeDelta = new Vector2(450f, 36f);
         }
         HorizontalLayoutGroup rootLayout = root != null ? root.GetComponent<HorizontalLayoutGroup>() : null;
         if (rootLayout != null)
@@ -463,13 +463,15 @@ public sealed class VNQuickMenu : MonoBehaviour
         TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
         if (label != null)
         {
-            label.fontSize = 13f;
+            // 15 px keeps the strip readable at the 1280x720 scale (13 px fell under
+            // a 9 physical px glyph) while staying compact at 1920x1080.
+            label.fontSize = 15f;
             label.fontStyle = FontStyles.Normal;
             label.color = IdleLabelColor;
             RectTransform rect = button.transform as RectTransform;
             if (rect != null)
             {
-                float width = Mathf.Clamp(label.GetPreferredValues(label.text).x + 22f, 68f, 112f);
+                float width = Mathf.Clamp(label.GetPreferredValues(label.text).x + 24f, 70f, 120f);
                 rect.sizeDelta = new Vector2(width, rect.sizeDelta.y);
             }
         }
