@@ -935,7 +935,7 @@ public static class PlayerUiGraphicalE2ERunner
             new DialogueChoice { text = "Продолжить проверку с коротким вариантом.", trustMashaDelta = 1 },
             new DialogueChoice { text = "Открыть историю после проверки фокуса." },
             new DialogueChoice { text = "Оставить режим чтения без изменения состояния." },
-            new DialogueChoice { text = "Выбрать длинный вариант, который корректно переносится на две строки и не перекрывает диалоговую поверхность или быстрые действия.", trustMashaDelta = 7 }
+            new DialogueChoice { text = "Выбрать длинный вариант, который переносится ровно на четыре строки, сохраняет равные отступы и не перекрывает чтение.", trustMashaDelta = 7 }
         });
         InvokePrivate(dialogue, "ShowChoices", false);
         Require(dialogue.GetUsableChoiceButtonCapacity() >= 4, "Choice UI did not create the fourth runtime slot.");
@@ -964,7 +964,7 @@ public static class PlayerUiGraphicalE2ERunner
             new DialogueChoice { text = "Продолжить проверку с коротким вариантом.", trustMashaDelta = 1 },
             new DialogueChoice { text = "Открыть историю после проверки фокуса." },
             new DialogueChoice { text = "Оставить режим чтения без изменения состояния." },
-            new DialogueChoice { text = "Выбрать длинный вариант, который корректно переносится на две строки и не перекрывает диалоговую поверхность или быстрые действия." }
+            new DialogueChoice { text = "Выбрать длинный вариант, который переносится ровно на четыре строки, сохраняет равные отступы и не перекрывает чтение." }
         });
         InvokePrivate(dialogue, "ShowChoices", false);
         ConfigureGameViewResolution(ResponsiveQaResolution);

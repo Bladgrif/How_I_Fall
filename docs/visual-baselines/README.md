@@ -29,8 +29,9 @@
 - `preferences_sound_dirty.png` — категория Звук: лёгкие sliders, читаемые значения, строка фокуса с контекстной подсказкой, неприменённое изменение и доступный Apply.
 - `preferences_dropdown_1280.png` — dropdown при 1280×720: controls, contextual hint и footer остаются читаемыми и не перекрываются.
 - `preferences_windowed_dropdown.png` — dropdown разрешения в режиме «Окно» на 1920×1080 desktop: показываются только значения, которые помещаются на рабочий стол (1280×720, 1600×900); черновик видимо нормализован в 1600×900 до Apply, без обрезания пунктов.
+- `preferences_applied_disabled.png` — то же окно после Apply: кнопка «Применить» disabled и её подпись явно приглушена (тёмный серо-синий оттенок вместо почти белого enabled-текста), при этом enabled/dirty-состояние остаётся ярко-белым.
 
-Main Menu и Preferences-набор обновлён по полному PlayerUi graphical E2E от 2026-09-20: 69 свежих снимков, `playerPrefsRestored=true`; набор включает исправление иерархии — при открытии Preferences из Main Menu пять строк действий меню скрываются и возвращаются при закрытии, фон и полупрозрачность не изменились. Дополнительные состояния Text, after Apply, slider focus и gameplay parity остаются в ignored QAArtifacts. Это REVIEW CANDIDATE, не субъективное visual approval.
+Main Menu и Preferences-набор обновлён по полному PlayerUi graphical E2E от 2026-09-20: 69 свежих снимков, `playerPrefsRestored=true`; набор включает исправление иерархии — при открытии Preferences из Main Menu пять строк действий меню скрываются и возвращаются при закрытии, фон и полупрозрачность не изменились. Дополнительные состояния Text, after Apply, slider focus и gameplay parity остаются в ignored QAArtifacts. Это REVIEW CANDIDATE, не субъективное visual approval. Micro-polish pass 2026-09-21: `preferences_sound_dirty.png` переснят, добавлен `preferences_applied_disabled.png` (disabled-подпись Apply приглушена явно, layout и логика dirty/applied не менялись).
 
 ## Сохранение и загрузка
 
@@ -44,6 +45,8 @@ Main Menu и Preferences-набор обновлён по полному PlayerU
 - `save_load_slot_types.png` — занятый invalid-slot визуально отличим от пустого empty-slot; тост «Сохранение недоступно» больше не перекрывает полосу навигации.
 - `save_load_manual_page_2.png` — Load, страница 2 при 1280×720: сводка показывает глобальный СЛОТ 07, полоса без обрезок и перекрытий.
 - `save_load_save_1280.png` — Save при 1280×720: полоса `1..10` и сетка 3×2 без перекрытий.
+- `save_load_filled_slot.png` — Save с заполненным слотом 1 при 1920×1080: номер слота, дата и нижняя metadata-строка заметно читаемее, дата чуть контрастнее прежнего серого; grid-геометрия и число карточек не менялись.
+- `save_load_filled_slot_1280.png` — то же состояние при 1280×720: pagination, дата карточки и metadata остаются читаемыми без увеличения экрана или сетки.
 
 Save/Load-набор обновлён после unified strip graphical E2E от 2026-09-18 (SaveBackendV2 + ManualSave + PlayerUi). Это REVIEW CANDIDATE, не субъективное visual approval.
 
@@ -60,7 +63,8 @@ Save/Load-набор обновлён после unified strip graphical E2E о�
 - `reading_dialogue_125.png` — длинный диалог при поддерживаемом масштабе текста 125%: все строки внутри поля, без обрезания текста и перекрытия Quick Menu.
 - `reading_named_speaker_1280.png` — имя говорящего типографически связано с репликой без отдельной плашки и остаётся читаемым при 1280×720.
 - `reading_choice_two.png` — состояние с 2 вариантами и детерминированным первым фокусом клавиатуры/контроллера.
-- `reading_choice_four_long.png` — 4 видимых варианта и длинный переносимый вариант без ellipsis, перекрытий и потери текста; responsive-проверка 1280×720 остаётся в graphical E2E proof.
+- `reading_choice_four_long.png` — 4 видимых варианта и длинный переносимый вариант ровно на четыре строки с равными вертикальными отступами карточки, без ellipsis, перекрытий и потери текста.
+- `reading_choice_four_long_1280.png` — те же четыре варианта при 1280×720: длинная карточка сохраняет вертикальный воздух и остаётся внутри экрана, не пересекая диалог и Quick Menu.
 - `reading_choice_hover.png` — наведение мышью переносит фокус выбора без второго одновременно выбранного состояния.
 - `reading_relationship_cue_positive.png` — невербальный индикатор положительного последствия.
 - `reading_relationship_cue_negative.png` — невербальный индикатор отрицательного последствия.
@@ -69,9 +73,10 @@ Save/Load-набор обновлён после unified strip graphical E2E о�
 - `reading_backlog.png` — полноразмерная История с визуально разделёнными репликами, акцентом актуального блока и читаемым скроллом.
 - `reading_backlog_1280.png` — адаптивная История без наложения заголовка, текста, скролла и кнопки закрытия.
 - `reading_auto_active.png` — заметное, но спокойное активное состояние Auto с акцентной подписью.
+- `reading_quick_menu_hover.png` — hover на «История»: плашка заметно светлее обычного состояния, но слабее teal ACTIVE Auto/Skip (контракт hover < ACTIVE).
 - `reading_skip_active.png` — заметное, но спокойное активное состояние Skip с акцентной подписью.
 - `reading_quick_save_feedback.png` — краткий отклик быстрого сохранения поверх обычной поверхности чтения.
 
-Reading-набор обновлён по полному PlayerUi graphical E2E от 2026-09-18: поле чтения центрировано по горизонтали как композиция (текст внутри остаётся выровнен влево), мягкий scrim стал горизонтально симметричным с чуть более тёмной полезной серединой против яркой сцены, Quick Menu переехало в компактный нижне-центральный ряд, а тень/обводка текста и типографическая привязка имени сохранены. Действия Quick Menu и Choice UI не менялись. Дополнительные состояния 125%-диалога и choices при 1280×720 остаются в ignored QAArtifacts. Это REVIEW CANDIDATE, не субъективное visual approval.
+Reading-набор обновлён по полному PlayerUi graphical E2E от 2026-09-18: поле чтения центрировано по горизонтали как композиция (текст внутри остаётся выровнен влево), мягкий scrim стал горизонтально симметричным с чуть более тёмной полезной серединой против яркой сцены, Quick Menu переехало в компактный нижне-центральный ряд, а тень/обводка текста и типографическая привязка имени сохранены. Действия Quick Menu и Choice UI не менялись. Дополнительные состояния 125%-диалога и choices при 1280×720 остаются в ignored QAArtifacts. Это REVIEW CANDIDATE, не субъективное visual approval. Micro-polish pass 2026-09-21: `reading_standard.png`, `reading_auto_active.png` пересняты (подписи Quick Menu укрупнены умеренно, strip остался компактным), добавлены `reading_quick_menu_hover.png` и `reading_choice_four_long_1280.png`, `reading_choice_four_long.png` переснят с четырёхстрочным вариантом и увеличенным вертикальным паддингом карточки.
 
 Core UI baseline-набор обновлён после двух визуальных итераций Main Menu, Preferences и Save/Load и финальных проходов `PlayerUi`, `ManualSave` и `SaveBackendV2` от 2026-09-15. Choices не перерабатывались: benchmark не дал наблюдаемой поверхности выбора, поэтому сохранены существующие HIF-контракты и baseline-состояния.

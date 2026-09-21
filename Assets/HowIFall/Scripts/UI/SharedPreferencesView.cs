@@ -38,6 +38,9 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     private static readonly Color AccentColor = new Color(0.42f, 0.78f, 0.96f, 1f);
     private static readonly Color PrimaryText = new Color(0.97f, 0.98f, 1f, 1f);
     private static readonly Color SecondaryText = new Color(0.74f, 0.80f, 0.88f, 1f);
+    // SecondaryText dimmed through the footer ColorTint disabled multiplier: the label
+    // itself sits outside the Button transition, so it needs its own disabled shade.
+    private static readonly Color DisabledFooterText = new Color(0.33f, 0.38f, 0.47f, 0.62f);
 
     private readonly Dictionary<string, Slider> sliders = new Dictionary<string, Slider>();
     private readonly Dictionary<string, TextMeshProUGUI> sliderValues = new Dictionary<string, TextMeshProUGUI>();
@@ -60,6 +63,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     private bool isBound;
     private Image focusedRow;
     private TextMeshProUGUI contextualHintText;
+    private TextMeshProUGUI applyLabel;
 
     public string ContextId { get; private set; }
     public static IReadOnlyList<string> VisibleControlIds => ControlIds;
@@ -180,6 +184,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         bool applyWasSelected = EventSystem.current != null
             && EventSystem.current.currentSelectedGameObject == buttons["apply"].gameObject;
         buttons["apply"].interactable = controller != null && controller.IsDirty;
+        RefreshApplyPresentation();
         if (!buttons["apply"].interactable && applyWasSelected) Focus(buttons["back"]);
         SetDropdown(ScreenModeId, settings.screenMode);
         RefreshResolutionOptions(settings);
@@ -274,6 +279,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         RegisterHint(FooterButton(footer.transform, "reset", "СБРОСИТЬ", new Vector2(0f, 0.5f), new Vector2(56f, 0f)), "Вернуть значения черновика к рекомендуемым по умолчанию.");
         RegisterHint(FooterButton(footer.transform, "back", "НАЗАД", new Vector2(1f, 0.5f), new Vector2(-260f, 0f)), "Закрыть настройки без применения изменений черновика.");
         RegisterHint(FooterButton(footer.transform, "apply", "ПРИМЕНИТЬ", new Vector2(1f, 0.5f), new Vector2(-56f, 0f)), "Сохранить изменения черновика и оставить настройки открытыми.");
+        applyLabel = buttons["apply"].GetComponentInChildren<TextMeshProUGUI>(true);
     }
 
     private void CreateContent(Transform window)
@@ -423,6 +429,16 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         if (focusedRow != null) focusedRow.color = RowColor;
         focusedRow = row;
         if (focusedRow != null) focusedRow.color = FocusedRowColor;
+    }
+
+    private void RefreshApplyPresentation()
+    {
+        // The ColorTint transition only reaches the plate; without an explicit label
+        // tint a disabled Apply kept its near-white enabled text.
+        if (applyLabel != null)
+        {
+            applyLabel.color = buttons["apply"].interactable ? PrimaryText : DisabledFooterText;
+        }
     }
 
     private static Image FindRowImage(Transform control)

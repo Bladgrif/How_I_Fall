@@ -70,12 +70,15 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
         if (slotNumberText != null)
         {
             slotNumberText.rectTransform.anchoredPosition = new Vector2(76f, 18f);
-            slotNumberText.fontSize = 14f;
+            slotNumberText.fontSize = 17f;
         }
         if (dateText != null)
         {
             dateText.rectTransform.anchoredPosition = new Vector2(-130f, 18f);
-            dateText.fontSize = 14f;
+            dateText.fontSize = 17f;
+            // A slightly stronger tone than the resting prefab grey: the date is the
+            // smallest card text and loses the most at the 1280x720 scale.
+            dateText.color = new Color(0.60f, 0.70f, 0.80f, 0.95f);
         }
         if (emptyText != null) emptyText.fontSize = 20f;
     }

@@ -1,7 +1,8 @@
 {
   "name": "HowIFall.EditModeTests",
   "references": [
-    "HowIFall.Runtime"
+    "HowIFall.Runtime",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"
