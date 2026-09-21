@@ -28,13 +28,20 @@ public static class VNQuickMenuSmokeTests
         Require(menu.saveButton != null && menu.quickSaveButton != null && menu.quickLoadButton != null && menu.loadButton != null, "Quick Menu save references are required.");
         Require(menu.settingsButton != null && menu.mainMenuButton != null, "Quick Menu Settings and Menu references are required.");
         menu.ApplyPlayerFacingPresentation();
-        Button[] expectedOrder = { menu.historyButton, menu.skipButton, menu.autoButton, menu.quickSaveButton };
+        Require(menu.rollbackButton != null && menu.rollbackButton.transform.parent == menu.root.transform,
+            "Quick Menu must own the runtime rollback button as a strip member.");
+        TextMeshProUGUI rollbackLabel = menu.rollbackButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        Require(rollbackLabel != null && rollbackLabel.text == "Назад",
+            "Quick Menu rollback action must keep the compact 'Назад' label.");
+        Require(menu.rollbackButton.gameObject.activeSelf,
+            "Quick Menu rollback action must be visible in ordinary reading.");
+        Button[] expectedOrder = { menu.rollbackButton, menu.historyButton, menu.skipButton, menu.autoButton, menu.quickSaveButton };
         Button[] actualOrder = menu.root.GetComponentsInChildren<Button>(true)
             .Where(button => button.transform.parent == menu.root.transform && button.gameObject.activeSelf)
             .OrderBy(button => button.transform.GetSiblingIndex())
             .ToArray();
         Require(actualOrder.SequenceEqual(expectedOrder),
-            "Quick Menu normal order must be History / Skip / Auto / Quick Save.");
+            "Quick Menu normal order must be Rollback / History / Skip / Auto / Quick Save.");
         Require(!menu.saveButton.gameObject.activeSelf && !menu.quickLoadButton.gameObject.activeSelf
             && !menu.loadButton.gameObject.activeSelf && !menu.settingsButton.gameObject.activeSelf
             && !menu.mainMenuButton.gameObject.activeSelf,
@@ -49,6 +56,11 @@ public static class VNQuickMenuSmokeTests
             "Quick Save must retain the existing VN controller entry point.");
         Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.RequestQuickLoad)) != null, "Quick Load must use the VN controller entry point.");
         Require(typeof(ManualSaveLoadPanel).GetMethod(nameof(ManualSaveLoadPanel.RequestQuickLoad)) != null, "Quick Load must use the existing ManualSaveLoadPanel pipeline.");
+        Require(menu.root.transform as RectTransform != null
+            && (menu.root.transform as RectTransform).sizeDelta.x >= 450f,
+            "Quick Menu strip must stay a compact single centered row after adding the rollback action.");
+        Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.TryRollback), new Type[0]) != null,
+            "Quick Menu rollback must route through the existing TryRollback contract shared with the mouse wheel.");
         VerifyBottomCenterStripPresentation(menu);
         VerifyHoverContrast(menu);
         VerifyCenteredStripDialogueClearance();

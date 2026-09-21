@@ -23,6 +23,7 @@ public static class GameMenuSmokeTests
     {
         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         VerifyActionSetsAndResponsiveStructure();
+        VerifyNavigationContainment();
         VerifyResponsiveEmbeddedSaveLoadLayout();
         VerifyConfirmationPresentationContract();
         VerifyEscapeBlockingAndQuickMenuOwnership();
@@ -263,17 +264,20 @@ public static class GameMenuSmokeTests
             AssertVisibleActions(view, new[]
             {
                 VNGameMenuAction.Save, VNGameMenuAction.Load, VNGameMenuAction.Preferences,
-                VNGameMenuAction.Rollback, VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Return
+                VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Return
             });
             AssertLabel(view, VNGameMenuAction.Save, "Сохранить");
             AssertLabel(view, VNGameMenuAction.Load, "Загрузить");
             AssertLabel(view, VNGameMenuAction.Preferences, "Настройки");
-            AssertLabel(view, VNGameMenuAction.Rollback, "Назад по истории");
             AssertLabel(view, VNGameMenuAction.MainMenu, "Главное меню");
             AssertLabel(view, VNGameMenuAction.Quit, "Выйти");
             AssertLabel(view, VNGameMenuAction.Return, "Вернуться в игру");
             Require(!view.IsActionVisible(VNGameMenuAction.History), "History leaked into the normal Game Menu.");
             Require(!view.IsActionVisible(VNGameMenuAction.Characters), "Characters leaked into the normal Game Menu.");
+            Require(view.GetButton(VNGameMenuAction.Rollback) == null && !view.IsActionVisible(VNGameMenuAction.Rollback),
+                "Rollback must not be part of the Game Menu; it lives in the Quick Menu and the mouse wheel.");
+            Require(view.GetComponentsInChildren<TextMeshProUGUI>(true).All(text => text.text != "Назад по истории"),
+                "Game Menu retained the removed rollback action label.");
 
             view.SetReplayMode(true);
             AssertVisibleActions(view, new[]
@@ -316,8 +320,6 @@ public static class GameMenuSmokeTests
                 "Game Menu retained placeholder navigation copy.");
             Require(view.GetButton(VNGameMenuAction.Return).transform.IsChildOf(returnArea),
                 "Return must remain visually separated in the bottom navigation area.");
-            Require(view.GetButton(VNGameMenuAction.Rollback).transform.GetSiblingIndex() == primaryActions.childCount - 1,
-                "Rollback must be the last primary Game Menu action.");
             Require(returnArea.anchorMax.y < primaryActions.anchorMin.y,
                 "Return area overlaps the primary navigation block.");
             Require(view.GetButton(VNGameMenuAction.Save).colors.highlightedColor
@@ -325,19 +327,19 @@ public static class GameMenuSmokeTests
                 "Game Menu hover feedback is not visually distinct.");
 
             view.SetReplayMode(false);
-            Button rollback = view.GetButton(VNGameMenuAction.Rollback);
-            Require(rollback != null, "Rollback action must be part of the Game Menu action set.");
-            rollback.interactable = false;
+            Button quit = view.GetButton(VNGameMenuAction.Quit);
+            Require(quit != null, "Quit action must be part of the Game Menu action set.");
+            quit.interactable = false;
             view.RefreshEnabledPresentation();
-            Require(!rollback.interactable && rollback.colors.disabledColor != rollback.colors.normalColor,
-                "Unavailable Rollback must use the existing distinct disabled Button state.");
-            TextMeshProUGUI rollbackLabel = view.GetActionLabel(VNGameMenuAction.Rollback);
-            Require(rollbackLabel != null && rollbackLabel.color.a < 0.5f,
-                "Unavailable Rollback label must be clearly dimmed while disabled.");
-            rollback.interactable = true;
+            Require(!quit.interactable && quit.colors.disabledColor != quit.colors.normalColor,
+                "Unavailable Game Menu actions must use the existing distinct disabled Button state.");
+            TextMeshProUGUI quitLabel = view.GetActionLabel(VNGameMenuAction.Quit);
+            Require(quitLabel != null && quitLabel.color.a < 0.5f,
+                "Unavailable Game Menu action labels must be clearly dimmed while disabled.");
+            quit.interactable = true;
             view.RefreshEnabledPresentation();
-            Require(rollbackLabel.color.a > 0.9f,
-                "Available Rollback must read as an enabled action.");
+            Require(quitLabel.color.a > 0.9f,
+                "Available Game Menu actions must read as enabled.");
             view.SetSaveLoadSection(VNGameMenuAction.Save);
             Require(view.IsSaveLoadContentVisible && view.IsActionActive(VNGameMenuAction.Save) && !view.IsActionActive(VNGameMenuAction.Load),
                 "Save section did not expose the shared content area and active navigation state.");
@@ -361,6 +363,63 @@ public static class GameMenuSmokeTests
                 && !view.IsActionActive(VNGameMenuAction.Save)
                 && view.GetButton(VNGameMenuAction.Preferences).interactable,
                 "Closing Save/Load did not restore ordinary Game Menu navigation.");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(canvasObject);
+        }
+    }
+
+    private static void VerifyNavigationContainment()
+    {
+        Vector2[] resolutions =
+        {
+            new Vector2(1280f, 720f),
+            new Vector2(1920f, 1080f),
+            new Vector2(2560f, 1440f),
+            new Vector2(3840f, 2160f)
+        };
+        GameObject canvasObject = new GameObject("Game Menu Containment Canvas", typeof(RectTransform), typeof(Canvas));
+        try
+        {
+            Canvas canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            RectTransform canvasRect = canvasObject.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = resolutions[0];
+            VNGameMenuView view = VNGameMenuView.Create(canvasObject.transform);
+            Require(view != null, "Containment view could not be created.");
+            view.SetReplayMode(false);
+            view.SetVisible(true);
+
+            RectTransform window = view.transform.Find("Game Menu Window") as RectTransform;
+            RectTransform navigation = window != null ? window.Find("Navigation") as RectTransform : null;
+            Require(window != null && navigation != null, "Game Menu navigation geometry is missing for containment validation.");
+
+            foreach (Vector2 resolution in resolutions)
+            {
+                canvasRect.sizeDelta = resolution;
+                Canvas.ForceUpdateCanvases();
+                RectTransform space = view.transform as RectTransform;
+                Rect navigationBounds = GetRectInSpace(space, navigation);
+                Require(IsFinitePositive(navigationBounds), $"{resolution}: navigation bounds are invalid.");
+                foreach (VNGameMenuAction action in Enum.GetValues(typeof(VNGameMenuAction)).Cast<VNGameMenuAction>())
+                {
+                    Button button = view.GetButton(action);
+                    if (button == null || !button.gameObject.activeInHierarchy)
+                    {
+                        continue;
+                    }
+
+                    Rect buttonBounds = GetRectInSpace(space, button.transform as RectTransform);
+                    Require(IsFinitePositive(buttonBounds), $"{resolution}: action '{action}' has invalid geometry.");
+                    Require(Contains(navigationBounds, buttonBounds),
+                        $"{resolution}: action '{action}' is not fully inside the navigation panel.");
+                    Require(buttonBounds.xMin >= navigationBounds.xMin + 22f && buttonBounds.xMax <= navigationBounds.xMax - 22f,
+                        $"{resolution}: action '{action}' touches the navigation side edges; plates must stay clearly inset.");
+                    Require(buttonBounds.yMin >= navigationBounds.yMin + 14f && buttonBounds.yMax <= navigationBounds.yMax - 14f,
+                        $"{resolution}: action '{action}' touches the navigation top/bottom edges.");
+                }
+            }
         }
         finally
         {

@@ -580,8 +580,8 @@ namespace HowIFall.PlayModeTests
                 .ToArray();
             Assert.That(visibleButtons, Is.EqualTo(new[]
             {
-                quickMenu.historyButton, quickMenu.skipButton, quickMenu.autoButton, quickMenu.quickSaveButton
-            }), "Ordinary reading must expose only History / Skip / Auto / Quick Save in Quick Menu order.");
+                quickMenu.rollbackButton, quickMenu.historyButton, quickMenu.skipButton, quickMenu.autoButton, quickMenu.quickSaveButton
+            }), "Ordinary reading must expose Rollback / History / Skip / Auto / Quick Save in Quick Menu order.");
             Assert.That(quickMenu.saveButton.gameObject.activeSelf, Is.False);
             Assert.That(quickMenu.quickLoadButton.gameObject.activeSelf, Is.False);
             Assert.That(quickMenu.loadButton.gameObject.activeSelf, Is.False);

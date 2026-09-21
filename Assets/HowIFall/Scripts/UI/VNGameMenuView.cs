@@ -98,7 +98,6 @@ public sealed class VNGameMenuView : MonoBehaviour
         SetActionVisible(VNGameMenuAction.Save, !replay);
         SetActionVisible(VNGameMenuAction.Load, !replay);
         SetActionVisible(VNGameMenuAction.History, replay);
-        SetActionVisible(VNGameMenuAction.Rollback, !replay);
         SetActionVisible(VNGameMenuAction.Characters, false);
         SetActionVisible(VNGameMenuAction.MainMenu, !replay);
         SetActionVisible(VNGameMenuAction.EndReplay, replay);
@@ -310,8 +309,10 @@ public sealed class VNGameMenuView : MonoBehaviour
         RectTransform primaryRect = primaryActions.GetComponent<RectTransform>();
         primaryRect.anchorMin = new Vector2(0f, 0.22f);
         primaryRect.anchorMax = Vector2.one;
-        primaryRect.offsetMin = new Vector2(20f, 18f);
-        primaryRect.offsetMax = new Vector2(-20f, -20f);
+        // 28px side insets keep the plates, divider and return row visibly inside
+        // the navigation panel at both QA resolutions instead of touching its edges.
+        primaryRect.offsetMin = new Vector2(28f, 20f);
+        primaryRect.offsetMax = new Vector2(-28f, -24f);
 
         VerticalLayoutGroup layout = primaryActions.AddComponent<VerticalLayoutGroup>();
         layout.padding = new RectOffset(0, 0, 0, 0);
@@ -330,14 +331,13 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(primaryActions.transform, VNGameMenuAction.MainMenu, "Главное меню");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.EndReplay, "Завершить повтор");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Quit, "Выйти");
-        CreateActionButton(primaryActions.transform, VNGameMenuAction.Rollback, "Назад по истории");
 
         GameObject returnArea = CreateUiObject(navigation.transform, "Return Area");
         RectTransform returnAreaRect = returnArea.GetComponent<RectTransform>();
         returnAreaRect.anchorMin = Vector2.zero;
         returnAreaRect.anchorMax = new Vector2(1f, 0.19f);
-        returnAreaRect.offsetMin = new Vector2(20f, 18f);
-        returnAreaRect.offsetMax = new Vector2(-20f, -8f);
+        returnAreaRect.offsetMin = new Vector2(28f, 20f);
+        returnAreaRect.offsetMax = new Vector2(-28f, -12f);
 
         GameObject separator = CreateSurface(returnArea.transform, "Separator", new Color(0.30f, 0.58f, 0.80f, 0.62f));
         RectTransform separatorRect = separator.GetComponent<RectTransform>();

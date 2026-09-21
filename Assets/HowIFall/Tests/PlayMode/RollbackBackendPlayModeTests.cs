@@ -207,20 +207,19 @@ public class RollbackBackendPlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator GameMenuRollbackRoute_ClosesShellAndRestoresReadingAndChoiceFocus()
+    public IEnumerator QuickMenuRollbackRoute_RestoresReadingAndChoiceFocus()
     {
         GameObject eventSystemObject = new GameObject("Rollback Route EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         createdObjects.Add(eventSystemObject);
 
         TestContext linear = CreateContext(CreateLinearScene("menu-linear", "A", "B"));
+        VNQuickMenu linearQuickMenu = CreateQuickMenuHarness(linear.Controller);
         yield return null;
         CompleteCurrentLine(linear.Controller);
         AdvanceAndComplete(linear.Controller);
-        Assert.That(linear.Controller.OpenGameMenu(), Is.True);
-        VNGameMenuView linearView = linear.Controller.GameMenuController.View;
-        Assert.That(linearView.IsActionVisible(VNGameMenuAction.Rollback), Is.True);
-        Assert.That(linearView.GetButton(VNGameMenuAction.Rollback).interactable, Is.True);
-        linearView.GetButton(VNGameMenuAction.Rollback).onClick.Invoke();
+        Assert.That(linearQuickMenu.rollbackButton.gameObject.activeSelf, Is.True,
+            "Quick Menu rollback action must be visible while reading.");
+        linearQuickMenu.rollbackButton.onClick.Invoke();
         Assert.That(linear.Controller.IsGameMenuOpen, Is.False);
         Assert.That(linear.Controller.dialogueUiRoot.activeInHierarchy, Is.True);
         Assert.That(linear.GameState.currentLineId, Is.EqualTo("line-0"));
@@ -233,15 +232,13 @@ public class RollbackBackendPlayModeTests
         DialogueSceneData choiceScene = CreateLinearScene("menu-choice", "Choose");
         choiceScene.choices = new List<DialogueChoice> { CreateChoice("A", "Result A", target, 0, 0, 0, 0, 0, 0, 1, 0, 0) };
         TestContext choice = CreateContext(choiceScene, target);
+        VNQuickMenu choiceQuickMenu = CreateQuickMenuHarness(choice.Controller);
         yield return null;
         CompleteCurrentLine(choice.Controller);
         choice.Controller.AdvanceDialogue();
         choice.Controller.choiceMashaButton.onClick.Invoke();
         Assert.That(choice.GameState.trustMasha, Is.EqualTo(1));
-        Assert.That(choice.Controller.OpenGameMenu(), Is.True);
-        VNGameMenuView choiceView = choice.Controller.GameMenuController.View;
-        Assert.That(choiceView.GetButton(VNGameMenuAction.Rollback).interactable, Is.True);
-        choiceView.GetButton(VNGameMenuAction.Rollback).onClick.Invoke();
+        choiceQuickMenu.rollbackButton.onClick.Invoke();
         Assert.That(choice.Controller.IsGameMenuOpen, Is.False);
         Assert.That(choice.Controller.choicePanel.activeInHierarchy, Is.True);
         Assert.That(choice.GameState.trustMasha, Is.Zero);
@@ -250,49 +247,40 @@ public class RollbackBackendPlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator GameMenuSaveLoadReturn_PreservesRollbackSessionAvailability()
+    public IEnumerator GameMenuHasNoRollbackAction_AndQuickRollbackRequiresCheckpoint()
     {
-        GameObject eventSystemObject = new GameObject("SaveLoad Return EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+        GameObject eventSystemObject = new GameObject("Rollback Availability EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         createdObjects.Add(eventSystemObject);
 
         TestContext unavailable = CreateContext(CreateLinearScene("menu-unavailable", "A"));
+        VNQuickMenu unavailableQuickMenu = CreateQuickMenuHarness(unavailable.Controller);
         yield return null;
         CompleteCurrentLine(unavailable.Controller);
         Assert.That(unavailable.Controller.OpenGameMenu(), Is.True);
         VNGameMenuView unavailableView = unavailable.Controller.GameMenuController.View;
-        Button unavailableRollback = unavailableView.GetButton(VNGameMenuAction.Rollback);
-        Assert.That(unavailableRollback.interactable, Is.False);
-        string unavailableLine = unavailable.GameState.currentLineId;
-        SimulateSaveLoadReturn(unavailable.Controller, unavailableView);
-        Assert.That(unavailableRollback.interactable, Is.False, "Save/Load return must retain disabled session Rollback.");
-        Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(unavailableView.GetButton(VNGameMenuAction.Return).gameObject),
-            "Save/Load return must restore default Return focus.");
-        Assert.That(unavailableView.VisibleFocusMarkerCount, Is.EqualTo(1),
-            "Save/Load return must show exactly one focus marker.");
-        unavailableRollback.onClick.Invoke();
-        Assert.That(unavailable.Controller.IsGameMenuOpen, Is.True, "Disabled Rollback must not close the Game Menu.");
-        Assert.That(unavailable.GameState.currentLineId, Is.EqualTo(unavailableLine), "Disabled Rollback must not mutate dialogue state.");
-
+        Assert.That(unavailableView.GetButton(VNGameMenuAction.Rollback), Is.Null,
+            "The Game Menu must not build a rollback action anymore.");
+        Assert.That(unavailableView.IsActionVisible(VNGameMenuAction.Rollback), Is.False,
+            "The Game Menu must not expose a rollback action anymore.");
         unavailable.Controller.GameMenuController.Close();
+        string unavailableLine = unavailable.GameState.currentLineId;
+        unavailableQuickMenu.rollbackButton.onClick.Invoke();
+        Assert.That(unavailable.Controller.IsGameMenuOpen, Is.False,
+            "A checkpointless Quick Menu rollback must not open the Game Menu.");
+        Assert.That(unavailable.GameState.currentLineId, Is.EqualTo(unavailableLine),
+            "Rollback without a checkpoint must not mutate dialogue state.");
+
         DestroyExistingSingletons();
         yield return null;
 
         TestContext available = CreateContext(CreateLinearScene("menu-available", "A", "B"));
+        VNQuickMenu availableQuickMenu = CreateQuickMenuHarness(available.Controller);
         yield return null;
         CompleteCurrentLine(available.Controller);
         AdvanceAndComplete(available.Controller);
-        Assert.That(available.Controller.OpenGameMenu(), Is.True);
-        VNGameMenuView availableView = available.Controller.GameMenuController.View;
-        Button availableRollback = availableView.GetButton(VNGameMenuAction.Rollback);
-        Assert.That(availableRollback.interactable, Is.True);
-        SimulateSaveLoadReturn(available.Controller, availableView);
-        Assert.That(availableRollback.interactable, Is.True, "Save/Load return must retain enabled session Rollback.");
-        Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(availableView.GetButton(VNGameMenuAction.Return).gameObject),
-            "Save/Load return must restore default Return focus.");
-        Assert.That(availableView.VisibleFocusMarkerCount, Is.EqualTo(1),
-            "Save/Load return must show exactly one focus marker.");
-        availableRollback.onClick.Invoke();
+        availableQuickMenu.rollbackButton.onClick.Invoke();
         Assert.That(available.Controller.IsGameMenuOpen, Is.False);
+        Assert.That(available.Controller.dialogueUiRoot.activeInHierarchy, Is.True);
         Assert.That(available.GameState.currentLineId, Is.EqualTo("line-0"));
     }
 
@@ -726,13 +714,17 @@ public class RollbackBackendPlayModeTests
         Assert.That(state.leraInterest, Is.EqualTo(leraInterest));
     }
 
-    private static void SimulateSaveLoadReturn(VNDialogueController controller, VNGameMenuView view)
+    private VNQuickMenu CreateQuickMenuHarness(VNDialogueController dialogue)
     {
-        view.SetSaveLoadSection(VNGameMenuAction.Save);
-        FieldInfo contextField = typeof(VNGameMenuController).GetField("childContext", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.That(contextField, Is.Not.Null);
-        contextField.SetValue(controller.GameMenuController, System.Enum.Parse(contextField.FieldType, "SaveLoad"));
-        InvokePrivate(controller.GameMenuController, "CloseSaveLoadSection");
+        GameObject owner = new GameObject("QuickMenuHarness", typeof(RectTransform));
+        GameObject root = new GameObject("QuickMenuHarnessRoot", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        root.transform.SetParent(owner.transform, false);
+        createdObjects.Add(owner);
+        VNQuickMenu menu = owner.AddComponent<VNQuickMenu>();
+        menu.dialogueController = dialogue;
+        menu.root = root;
+        menu.ApplyPlayerFacingPresentation();
+        return menu;
     }
 
     private static object InvokePrivate(object target, string methodName, params object[] arguments)
