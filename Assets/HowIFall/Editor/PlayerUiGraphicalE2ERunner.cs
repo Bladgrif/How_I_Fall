@@ -233,6 +233,7 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareDetailedBacklog": PrepareDetailedBacklog(); break;
                 case "CloseDetailedBacklog": CloseDetailedBacklog(); break;
                 case "CaptureQuickMenuHover": CaptureQuickMenuHover(); break;
+                case "CaptureQuickMenuHoverSettled": CaptureQuickMenuHoverSettled(); break;
                 case "CaptureQuickMenuHoverExit": CaptureQuickMenuHoverExit(); break;
                 case "CaptureResponsiveBacklog": CaptureResponsiveBacklog(); break;
                 case "RestoreQaAfterResponsiveBacklog": RestoreQaAfterResponsiveBacklog(); break;
@@ -252,18 +253,21 @@ public static class PlayerUiGraphicalE2ERunner
                 case "WaitGameplayPreferences": WaitGameplayPreferences(); break;
                 case "PrepareResponsivePreferences": PrepareResponsivePreferences(); break;
                 case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
-                case "PrepareRollbackDisabled": PrepareRollbackDisabled(); break;
-                case "OpenDisabledRollbackSaveLoad": OpenDisabledRollbackSaveLoad(); break;
+                case "PrepareGameMenuRootProof": PrepareGameMenuRootProof(); break;
+                case "CaptureGameMenuRoot1280": CaptureGameMenuRoot1280(); break;
+                case "OpenGameMenuSaveLoad": OpenGameMenuSaveLoad(); break;
                 case "CaptureEmbeddedSave1920": CaptureEmbeddedSave1920(); break;
                 case "PrepareEmbeddedSave1280": PrepareEmbeddedSave1280(); break;
                 case "CaptureEmbeddedSave1280": CaptureEmbeddedSave1280(); break;
                 case "PrepareEmbeddedLoad1920": PrepareEmbeddedLoad1920(); break;
                 case "OpenEmbeddedLoad": OpenEmbeddedLoad(); break;
                 case "CaptureEmbeddedLoad1920": CaptureEmbeddedLoad1920(); break;
-                case "CloseDisabledRollbackSaveLoad": CloseDisabledRollbackSaveLoad(); break;
-                case "VerifyDisabledRollbackAfterSaveLoad": VerifyDisabledRollbackAfterSaveLoad(); break;
-                case "OpenRollbackEnabled": OpenRollbackEnabled(); break;
-                case "CaptureRollbackEnabled1280": CaptureRollbackEnabled1280(); break;
+                case "CloseGameMenuSaveLoad": CloseGameMenuSaveLoad(); break;
+                case "VerifyReturnFocusAfterSaveLoad": VerifyReturnFocusAfterSaveLoad(); break;
+                case "PrepareQuickRollbackReading": PrepareQuickRollbackReading(); break;
+                case "CaptureQuickRollback1280": CaptureQuickRollback1280(); break;
+                case "HoverQuickRollback": HoverQuickRollback(); break;
+                case "CaptureQuickRollbackHover": CaptureQuickRollbackHover(); break;
                 case "RollbackToReading": RollbackToReading(); break;
                 case "PrepareRollbackChoice": PrepareRollbackChoice(); break;
                 case "WaitRollbackChoiceMenu": WaitRollbackChoiceMenu(); break;
@@ -1451,21 +1455,21 @@ public static class PlayerUiGraphicalE2ERunner
             Retry("Game View did not switch to 1280x720 for Preferences responsive proof.");
             return;
         }
-        Capture("gameplay_preferences_1280x720.png", "PrepareRollbackDisabled");
+        Capture("gameplay_preferences_1280x720.png", "PrepareGameMenuRootProof");
     }
 
-    private static void PrepareRollbackDisabled()
+    private static void PrepareGameMenuRootProof()
     {
         ConfigureGameViewResolution(QaResolution);
         VNDialogueController dialogue = RequireGameplayDialogue();
         dialogue.HideSettings();
         if (dialogue.GameMenuController != null && dialogue.GameMenuController.IsOpen)
         {
-            Require(dialogue.GameMenuController.Close(), "Existing Game Menu session did not close before Rollback proof.");
+            Require(dialogue.GameMenuController.Close(), "Existing Game Menu session did not close before the root proof.");
         }
         if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
         {
-            Retry("Game View did not return to 1920x1080 for Rollback proof.");
+            Retry("Game View did not return to 1920x1080 for the Game Menu root proof.");
             return;
         }
 
@@ -1476,20 +1480,47 @@ public static class PlayerUiGraphicalE2ERunner
             new DialogueLine { lineId = "rollback_b", speaker = "Рассказчик", text = "Точка B для проверки отката." }
         }, new List<DialogueChoice>());
         dialogue.ClearRollbackHistory();
-        Require(dialogue.OpenGameMenu(), "Game Menu did not open for unavailable Rollback proof.");
+        Require(dialogue.OpenGameMenu(), "Game Menu did not open for the cleaned root proof.");
         VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
-        Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
-        Require(rollback != null && view.IsActionVisible(VNGameMenuAction.Rollback) && !rollback.interactable,
-            "Rollback must be visible but disabled without a previous checkpoint.");
-        Capture("game_menu_rollback_disabled_1920x1080.png", "OpenDisabledRollbackSaveLoad");
+        Require(view != null && view.GetButton(VNGameMenuAction.Rollback) == null && !view.IsActionVisible(VNGameMenuAction.Rollback),
+            "Game Menu must not expose a Rollback action; rollback lives in the Quick Menu and the mouse wheel.");
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
+        Require(quickMenu != null && quickMenu.rollbackButton != null && quickMenu.rollbackButton.gameObject.activeSelf,
+            "Quick Menu rollback action must exist alongside the Game Menu.");
+        TextMeshProUGUI rollbackLabel = quickMenu.rollbackButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        Require(rollbackLabel != null && rollbackLabel.text == "Назад",
+            "Quick Menu rollback action must keep the compact 'Назад' label.");
+        Capture("game_menu_root_1920x1080.png", "CaptureGameMenuRoot1280");
     }
 
-    private static void OpenDisabledRollbackSaveLoad()
+    private static void CaptureGameMenuRoot1280()
     {
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for the Game Menu root proof.");
+            return;
+        }
+
         VNDialogueController dialogue = RequireGameplayDialogue();
         VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
+        Require(view != null && view.IsVisible && !view.IsActionVisible(VNGameMenuAction.Rollback),
+            "Game Menu root did not retain the cleaned navigation at 1280x720.");
+        Capture("game_menu_root_1280x720.png", "OpenGameMenuSaveLoad");
+    }
+
+    private static void OpenGameMenuSaveLoad()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 for the Game Menu Save/Load proof.");
+            return;
+        }
+        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
         Button save = view != null ? view.GetButton(VNGameMenuAction.Save) : null;
-        Require(save != null && save.interactable, "Save route is unavailable for disabled Rollback return proof.");
+        Require(save != null && save.interactable, "Save route is unavailable for the Game Menu Save/Load proof.");
         save.onClick.Invoke();
         SessionState.SetString(StageKey, "CaptureEmbeddedSave1920");
         ResetCounter();
@@ -1560,7 +1591,7 @@ public static class PlayerUiGraphicalE2ERunner
         dialogue.GameMenuController.TryHandleEscape();
         dialogue.GameMenuController.TryHandleEscape();
         ConfigureGameViewResolution(QaResolution);
-        SessionState.SetString(StageKey, "PrepareRollbackDisabled");
+        SessionState.SetString(StageKey, "PrepareGameMenuRootProof");
         ResetCounter();
         SetDelay(0.3d);
     }
@@ -1640,26 +1671,26 @@ public static class PlayerUiGraphicalE2ERunner
             return;
         }
 
-        Capture("game_menu_embedded_load_1920x1080.png", "CloseDisabledRollbackSaveLoad");
+        Capture("game_menu_embedded_load_1920x1080.png", "CloseGameMenuSaveLoad");
     }
 
-    private static void CloseDisabledRollbackSaveLoad()
+    private static void CloseGameMenuSaveLoad()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
         ManualSaveLoadPanel panel = dialogue.manualSaveLoadPanel;
         if (panel == null || !panel.IsOpen)
         {
-            Retry("Embedded Save section did not open for disabled Rollback return proof.");
+            Retry("Embedded Save section did not open for the Game Menu return proof.");
             return;
         }
 
         panel.Close();
-        SessionState.SetString(StageKey, "VerifyDisabledRollbackAfterSaveLoad");
+        SessionState.SetString(StageKey, "VerifyReturnFocusAfterSaveLoad");
         ResetCounter();
         SetDelay(0.2d);
     }
 
-    private static void VerifyDisabledRollbackAfterSaveLoad()
+    private static void VerifyReturnFocusAfterSaveLoad()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
         VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
@@ -1669,21 +1700,20 @@ public static class PlayerUiGraphicalE2ERunner
             return;
         }
 
-        Button rollback = view.GetButton(VNGameMenuAction.Rollback);
-        Require(rollback != null && !rollback.interactable && !view.IsActionActive(VNGameMenuAction.Rollback),
-            "Disabled Rollback became enabled or retained a stale active marker after Save/Load return.");
+        Require(view.GetButton(VNGameMenuAction.Rollback) == null && !view.IsActionVisible(VNGameMenuAction.Rollback),
+            "Game Menu retained a rollback action after Save/Load return.");
         EventSystem eventSystem = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
         Require(eventSystem != null && eventSystem.currentSelectedGameObject == view.GetButton(VNGameMenuAction.Return).gameObject,
             "Game Menu did not restore default Return focus after Save/Load return.");
         Require(view.VisibleFocusMarkerCount == 1,
             "Game Menu must show exactly one focus marker after Save/Load return.");
-        Capture("game_menu_rollback_disabled_after_save_load_1920x1080.png", "OpenRollbackEnabled");
+        Capture("game_menu_return_focus_after_save_load_1920x1080.png", "PrepareQuickRollbackReading");
     }
 
-    private static void OpenRollbackEnabled()
+    private static void PrepareQuickRollbackReading()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
-        Require(dialogue.GameMenuController.Close(), "Game Menu did not close before creating the second Rollback checkpoint.");
+        Require(dialogue.GameMenuController.Close(), "Game Menu did not close before the Quick Menu rollback proof.");
         LoadRuntimeFixture(dialogue, new List<DialogueLine>
         {
             new DialogueLine { lineId = "rollback_a", speaker = "Рассказчик", text = "Точка A для проверки отката." },
@@ -1693,28 +1723,56 @@ public static class PlayerUiGraphicalE2ERunner
         dialogue.AdvanceDialogue();
         CompleteTyping(dialogue);
         VerifyRollbackPreflight(dialogue, "enabled reading fixture");
-        Require(dialogue.OpenGameMenu(), "Game Menu did not open for available Rollback proof.");
-        VNGameMenuView view = dialogue.GameMenuController.View;
-        Button rollback = view.GetButton(VNGameMenuAction.Rollback);
-        Require(rollback != null && rollback.interactable && IsFocusMarkerVisible(view, VNGameMenuAction.Return),
-            "Available Rollback must retain normal Game Menu focus presentation.");
-        Capture("game_menu_rollback_enabled_1920x1080.png", "CaptureRollbackEnabled1280");
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.rollbackButton != null
+            && quickMenu.rollbackButton.gameObject.activeInHierarchy && quickMenu.rollbackButton.interactable,
+            "Quick Menu rollback action is unavailable for the enabled rollback proof.");
+        Capture("gameplay_quick_menu_rollback_1920x1080.png", "CaptureQuickRollback1280");
     }
 
-    private static void CaptureRollbackEnabled1280()
+    private static void CaptureQuickRollback1280()
     {
         ConfigureGameViewResolution(ResponsiveQaResolution);
         if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
         {
-            Retry("Game View did not switch to 1280x720 for available Rollback proof.");
+            Retry("Game View did not switch to 1280x720 for the Quick Menu rollback proof.");
             return;
         }
 
         VNDialogueController dialogue = RequireGameplayDialogue();
-        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
-        Require(view != null && view.GetButton(VNGameMenuAction.Rollback).interactable,
-            "Available Rollback disappeared during 1280x720 proof.");
-        Capture("game_menu_rollback_enabled_1280x720.png", "RollbackToReading");
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.rollbackButton != null && quickMenu.rollbackButton.gameObject.activeInHierarchy,
+            "Quick Menu rollback action disappeared during the 1280x720 proof.");
+        Capture("gameplay_quick_menu_rollback_1280x720.png", "HoverQuickRollback");
+    }
+
+    private static void HoverQuickRollback()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not return to 1920x1080 before the Quick Menu rollback hover proof.");
+            return;
+        }
+
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.rollbackButton != null && quickMenu.rollbackButton.interactable,
+            "Rollback action is unavailable before the hover proof.");
+        quickMenu.rollbackButton.OnPointerEnter(new PointerEventData(EventSystem.current));
+        // The ColorTint fade needs real time to settle; capturing in the same frame
+        // would prove the resting plate instead of the steady-state hover.
+        SessionState.SetString(StageKey, "CaptureQuickRollbackHover");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void CaptureQuickRollbackHover()
+    {
+        RequireGameplayDialogue();
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.rollbackButton != null, "Quick Menu vanished before the settled rollback hover proof.");
+        Capture("gameplay_quick_menu_rollback_hover_1920x1080.png", "RollbackToReading");
     }
 
     private static void RollbackToReading()
@@ -1723,16 +1781,17 @@ public static class PlayerUiGraphicalE2ERunner
         VNDialogueController dialogue = RequireGameplayDialogue();
         if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
         {
-            Retry("Game View did not return to 1920x1080 before Rollback action.");
+            Retry("Game View did not return to 1920x1080 before the Quick Menu rollback action.");
             return;
         }
 
-        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
-        Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
-        Require(rollback != null && rollback.interactable, "Rollback action is unavailable before activation.");
-        rollback.onClick.Invoke();
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.rollbackButton != null && quickMenu.rollbackButton.interactable,
+            "Rollback action is unavailable before activation.");
+        quickMenu.rollbackButton.OnPointerExit(new PointerEventData(EventSystem.current));
+        quickMenu.rollbackButton.onClick.Invoke();
         Require(!dialogue.IsGameMenuOpen && dialogue.dialogueUiRoot.activeInHierarchy && GameState.EnsureInstance().currentLineId == "rollback_a",
-            $"Successful Rollback did not restore the reading shell without a stale Game Menu overlay. menu={dialogue.IsGameMenuOpen}, shell={dialogue.dialogueUiRoot.activeInHierarchy}, line={GameState.EnsureInstance().currentLineId}, text={dialogue.dialogueText.text}");
+            $"Successful Quick Menu rollback did not restore the reading shell without a stale Game Menu overlay. menu={dialogue.IsGameMenuOpen}, shell={dialogue.dialogueUiRoot.activeInHierarchy}, line={GameState.EnsureInstance().currentLineId}, text={dialogue.dialogueText.text}");
         Capture("gameplay_reading_after_rollback_1920x1080.png", "PrepareRollbackChoice");
     }
 
@@ -1760,27 +1819,30 @@ public static class PlayerUiGraphicalE2ERunner
     private static void WaitRollbackChoiceMenu()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
-        if (!dialogue.CanOpenGameMenu || !dialogue.CanRollback)
+        if (!dialogue.CanRollback)
         {
-            Retry($"Choice rollback route is not ready. canOpen={dialogue.CanOpenGameMenu}, canRollback={dialogue.CanRollback}, cue={dialogue.IsRelationshipCueVisible}.");
+            Retry($"Choice rollback route is not ready. canRollback={dialogue.CanRollback}, cue={dialogue.IsRelationshipCueVisible}.");
             return;
         }
 
-        Require(dialogue.OpenGameMenu(), "Choice result rejected the ready Game Menu Rollback route.");
-        Capture("game_menu_rollback_choice_enabled_1920x1080.png", "RollbackToChoice");
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
+        Require(quickMenu != null && quickMenu.rollbackButton != null
+            && quickMenu.rollbackButton.gameObject.activeSelf && quickMenu.rollbackButton.interactable,
+            "Quick Menu rollback action must stay available for the answered-choice rollback.");
+        Capture("gameplay_quick_menu_rollback_choice_ready_1920x1080.png", "RollbackToChoice");
     }
 
     private static void RollbackToChoice()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
-        VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
-        Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
-        Require(rollback != null && rollback.interactable, "Rollback is unavailable for the pre-choice checkpoint.");
-        rollback.onClick.Invoke();
+        VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>();
+        Require(quickMenu != null && quickMenu.rollbackButton != null && quickMenu.rollbackButton.interactable,
+            "Rollback is unavailable for the pre-choice checkpoint.");
+        quickMenu.rollbackButton.onClick.Invoke();
         Require(!dialogue.IsGameMenuOpen && dialogue.choicePanel.activeInHierarchy
             && GameState.EnsureInstance().trustMasha == SessionState.GetInt(RollbackChoiceTrustKey, 0)
             && EventSystem.current != null && EventSystem.current.currentSelectedGameObject == dialogue.choiceMashaButton.gameObject,
-            "Rollback did not restore the pre-choice UI and its deterministic first focus.");
+            "Quick Menu rollback did not restore the pre-choice UI and its deterministic first focus.");
         Capture("gameplay_choice_after_rollback_1920x1080.png", "Complete");
     }
 
@@ -1860,8 +1922,8 @@ public static class PlayerUiGraphicalE2ERunner
             .OrderBy(button => button.transform.GetSiblingIndex())
             .ToArray();
         Require(visibleButtons.SequenceEqual(new[]
-            { quickMenu.historyButton, quickMenu.skipButton, quickMenu.autoButton, quickMenu.quickSaveButton }),
-            "Ordinary Quick Menu must show only History / Skip / Auto / Quick Save.");
+            { quickMenu.rollbackButton, quickMenu.historyButton, quickMenu.skipButton, quickMenu.autoButton, quickMenu.quickSaveButton }),
+            "Ordinary Quick Menu must show Rollback / History / Skip / Auto / Quick Save.");
         Require(!quickMenu.saveButton.gameObject.activeSelf && !quickMenu.quickLoadButton.gameObject.activeSelf
             && !quickMenu.loadButton.gameObject.activeSelf && !quickMenu.settingsButton.gameObject.activeSelf
             && !quickMenu.mainMenuButton.gameObject.activeSelf,

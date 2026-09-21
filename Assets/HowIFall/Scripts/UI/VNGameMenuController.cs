@@ -27,7 +27,6 @@ public sealed class VNGameMenuController : MonoBehaviour
     private readonly VNGameMenuSaveLoadAdapter saveLoadAdapter = new VNGameMenuSaveLoadAdapter();
     private ChildContext childContext;
     private LocalConfirmationAction localConfirmationAction;
-    private bool rollbackAvailableForSession;
 
     public bool IsOpen { get; private set; }
     public bool IsPresentationVisible => IsOpen && view != null && view.IsVisible;
@@ -71,15 +70,11 @@ public sealed class VNGameMenuController : MonoBehaviour
             return false;
         }
 
-        // CanRollback intentionally rejects an open Game Menu and captures a runtime snapshot.
-        // Capture it once before the menu owns the dialogue shell.
-        rollbackAvailableForSession = dialogueController.CanRollback;
         IsOpen = true;
         childContext = ChildContext.None;
         localConfirmationAction = LocalConfirmationAction.None;
         dialogueController.TrySuppressDialogueShell(this);
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
-        ApplySessionActionAvailability();
         view.GetButton(VNGameMenuAction.Save).interactable = dialogueController.CanSave;
         view.GetButton(VNGameMenuAction.Load).interactable = dialogueController.CanLoad;
         view.SetVisible(true);
@@ -98,7 +93,6 @@ public sealed class VNGameMenuController : MonoBehaviour
         view?.SetVisible(false);
         (EventSystem.current ?? FindFirstObjectByType<EventSystem>())?.SetSelectedGameObject(null);
         localConfirmationAction = LocalConfirmationAction.None;
-        rollbackAvailableForSession = false;
         IsOpen = false;
         dialogueController?.ReleaseDialogueShellSuppression(this);
         dialogueController?.OnGameMenuClosed();
@@ -150,7 +144,6 @@ public sealed class VNGameMenuController : MonoBehaviour
         Bind(VNGameMenuAction.Load, OpenLoad);
         Bind(VNGameMenuAction.Preferences, OpenPreferences);
         Bind(VNGameMenuAction.History, OpenHistory);
-        Bind(VNGameMenuAction.Rollback, Rollback);
         Bind(VNGameMenuAction.Characters, OpenCharacters);
         Bind(VNGameMenuAction.MainMenu, OpenMainMenuConfirmation);
         Bind(VNGameMenuAction.EndReplay, ConfirmEndReplay);
@@ -224,26 +217,6 @@ public sealed class VNGameMenuController : MonoBehaviour
         if (dialogueController.backlogPanel == null || !dialogueController.backlogPanel.activeSelf)
         {
             RestoreFromChild(ChildContext.History);
-        }
-    }
-
-    private void Rollback()
-    {
-        if (!IsPresentationVisible || childContext != ChildContext.None || !rollbackAvailableForSession
-            || SceneFlowManager.IsReplayModeActive)
-        {
-            return;
-        }
-
-        if (!Close())
-        {
-            return;
-        }
-
-        if (dialogueController != null && !dialogueController.TryRollback(out string failureReason))
-        {
-            Debug.LogWarning("[GAME MENU] Rollback failed after closing the menu: " + failureReason, dialogueController);
-            Open();
         }
     }
 
@@ -344,7 +317,6 @@ public sealed class VNGameMenuController : MonoBehaviour
         saveLoadAdapter.Unmount();
         childContext = ChildContext.None;
         view?.SetSaveLoadSection(null);
-        ApplySessionActionAvailability();
         // Embedded panel deactivation clears EventSystem selection; every other
         // child return restores default focus, so Save/Load must match.
         view?.FocusDefaultAction();
@@ -460,17 +432,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         }
 
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
-        ApplySessionActionAvailability();
         view.SetVisible(true);
-    }
-
-    private void ApplySessionActionAvailability()
-    {
-        Button rollback = view != null ? view.GetButton(VNGameMenuAction.Rollback) : null;
-        if (rollback != null)
-        {
-            rollback.interactable = rollbackAvailableForSession && !SceneFlowManager.IsReplayModeActive;
-        }
     }
 
     private void OnDestroy()

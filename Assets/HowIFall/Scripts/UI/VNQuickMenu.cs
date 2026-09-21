@@ -7,6 +7,7 @@ public sealed class VNQuickMenu : MonoBehaviour
 {
     public VNDialogueController dialogueController;
     public GameObject root;
+    public Button rollbackButton;
     public Button historyButton;
     public Button skipButton;
     public Button autoButton;
@@ -19,6 +20,8 @@ public sealed class VNQuickMenu : MonoBehaviour
     public Button mainMenuButton;
 
     private const float MinimumDialogueSpacing = 12f;
+    private const float RollbackStripMinWidth = 450f;
+    private const string RollbackButtonLabel = "Назад";
     private static readonly Color NormalColor = new Color(0.02f, 0.045f, 0.07f, 0.46f);
     private static readonly Color ActiveColor = new Color(0.055f, 0.20f, 0.28f, 0.80f);
     private static readonly Color IdleLabelColor = new Color(0.94f, 0.96f, 0.98f, 0.92f);
@@ -137,6 +140,8 @@ public sealed class VNQuickMenu : MonoBehaviour
     public void ApplyPlayerFacingPresentation()
     {
         EnsureCharacterHubLauncher();
+        EnsureRollbackButton();
+        SetButtonVisible(rollbackButton, !SceneFlowManager.IsReplayModeActive);
         SetButtonVisible(charactersButton, false);
         SetButtonVisible(saveButton, false);
         SetButtonVisible(quickSaveButton, true);
@@ -147,6 +152,7 @@ public sealed class VNQuickMenu : MonoBehaviour
 
         Button[] ordered =
         {
+            rollbackButton,
             historyButton,
             skipButton,
             autoButton,
@@ -177,6 +183,105 @@ public sealed class VNQuickMenu : MonoBehaviour
                 button.transform.SetSiblingIndex(index);
             }
         }
+
+        // Width follows the label-driven buttons so the fifth (rollback) action
+        // keeps the strip a single compact centered row instead of overflowing it.
+        if (rootRect != null)
+        {
+            rootRect.sizeDelta = new Vector2(
+                Mathf.Max(RollbackStripMinWidth, MeasureStripWidth(ordered, rootLayout)), 36f);
+        }
+    }
+
+    /// <summary>
+    /// Builds the "Назад" rollback action as a runtime strip member so the scene
+    /// stays untouched. Rollback intentionally lives here and on the mouse wheel
+    /// only; the side Game Menu exposes system actions exclusively.
+    /// </summary>
+    public bool EnsureRollbackButton()
+    {
+        if (rollbackButton != null)
+        {
+            return false;
+        }
+
+        if (root == null)
+        {
+            return false;
+        }
+
+        GameObject buttonObject = new GameObject(
+            "Rollback Button",
+            typeof(RectTransform),
+            typeof(Image),
+            typeof(Button),
+            typeof(Outline));
+        buttonObject.layer = root.layer;
+        buttonObject.transform.SetParent(root.transform, false);
+        // Birth geometry matches the strip height: layout passes do not run while the
+        // editor is idle, and the strip's bounds measurement includes child rects.
+        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+        buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
+        buttonRect.pivot = new Vector2(0.5f, 0.5f);
+        buttonRect.sizeDelta = new Vector2(70f, 36f);
+        Image image = buttonObject.GetComponent<Image>();
+        image.raycastTarget = true;
+        rollbackButton = buttonObject.GetComponent<Button>();
+        rollbackButton.targetGraphic = image;
+        rollbackButton.colors = CreateButtonColors();
+        Outline outline = buttonObject.GetComponent<Outline>();
+        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.16f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        GameObject labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        labelObject.layer = buttonObject.layer;
+        labelObject.transform.SetParent(buttonObject.transform, false);
+        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+        TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.font = TMP_Settings.defaultFontAsset;
+        label.text = RollbackButtonLabel;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        rollbackButton.onClick.AddListener(RollbackOnce);
+        return true;
+    }
+
+    private void RollbackOnce()
+    {
+        // TryRollback owns the full availability gate (replay, specials, choices,
+        // modals), so the wheel and this button share one contract.
+        dialogueController?.TryRollback();
+    }
+
+    private static float MeasureStripWidth(Button[] ordered, HorizontalLayoutGroup layout)
+    {
+        float total = 0f;
+        int visibleCount = 0;
+        foreach (Button button in ordered)
+        {
+            if (button == null || !button.gameObject.activeSelf)
+            {
+                continue;
+            }
+
+            if (button.transform is RectTransform buttonRect)
+            {
+                total += buttonRect.sizeDelta.x;
+            }
+
+            visibleCount++;
+        }
+
+        if (visibleCount > 1 && layout != null)
+        {
+            total += layout.spacing * (visibleCount - 1);
+        }
+
+        return total;
     }
 
     private void Update()
@@ -273,6 +378,7 @@ public sealed class VNQuickMenu : MonoBehaviour
     public void RefreshReplayPresentation()
     {
         bool replay = SceneFlowManager.IsReplayModeActive;
+        SetButtonVisible(rollbackButton, !replay);
         SetButtonVisible(saveButton, false);
         SetButtonVisible(quickSaveButton, !replay);
         SetButtonVisible(quickLoadButton, false);
