@@ -21,11 +21,25 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private const float MinimumDialogueSpacing = 12f;
     private const float RollbackStripMinWidth = 450f;
+    private const float SeparatorWidth = 2.5f;
+    private const float SeparatorHeight = 14f;
+    private const float StripBandOverhang = 40f;
+    private const float StripBandHeight = 72f;
     private const string RollbackButtonLabel = "Назад";
-    private static readonly Color NormalColor = new Color(0.02f, 0.045f, 0.07f, 0.46f);
-    private static readonly Color ActiveColor = new Color(0.055f, 0.20f, 0.28f, 0.80f);
+    // UI Target v1 reading language: quiet flat labels over one shared soft band,
+    // thin cyan separators, and a cyan underline as the interaction accent.
+    private static readonly Color PlateColor = new Color(0.02f, 0.045f, 0.07f, 0f);
+    private static readonly Color UnderlineBaseColor = new Color(0.008f, 0.851f, 0.976f, 0.55f);
+    private static readonly Color ActiveUnderlineColor = new Color(0.02f, 0.78f, 0.94f, 1f);
+    private static readonly Color SeparatorColor = new Color(0.008f, 0.851f, 0.976f, 0.5f);
+    private static readonly Color BandColor = new Color(0.006f, 0.008f, 0.012f, 1f);
     private static readonly Color IdleLabelColor = new Color(0.94f, 0.96f, 0.98f, 0.92f);
     private static readonly Color ActiveLabelColor = new Color(0.78f, 0.92f, 1f, 1f);
+
+    private Texture2D stripBandTexture;
+    private Sprite stripBandSprite;
+    private Button[] stripOrder;
+    private Image[] stripSeparators;
 
     private bool hiddenBySpecialMode;
     private bool hiddenByPlayer;
@@ -68,6 +82,7 @@ public sealed class VNQuickMenu : MonoBehaviour
     private void OnDestroy()
     {
         SettingsManager.QuickMenuVisibilityChanged -= RefreshEffectiveVisibility;
+        DestroyStripBandResources();
     }
 
     /// <summary>Compatibility entry retained for existing editor callers.</summary>
@@ -141,6 +156,7 @@ public sealed class VNQuickMenu : MonoBehaviour
     {
         EnsureCharacterHubLauncher();
         EnsureRollbackButton();
+        EnsureStripChrome();
         SetButtonVisible(rollbackButton, !SceneFlowManager.IsReplayModeActive);
         SetButtonVisible(charactersButton, false);
         SetButtonVisible(saveButton, false);
@@ -158,6 +174,7 @@ public sealed class VNQuickMenu : MonoBehaviour
             autoButton,
             quickSaveButton
         };
+        stripOrder = ordered;
         RectTransform rootRect = root != null ? root.transform as RectTransform : null;
         if (rootRect != null)
         {
@@ -178,11 +195,8 @@ public sealed class VNQuickMenu : MonoBehaviour
         {
             Button button = ordered[index];
             ApplyButtonPresentation(button);
-            if (button != null && root != null && button.transform.parent == root.transform)
-            {
-                button.transform.SetSiblingIndex(index);
-            }
         }
+        OrderStripChildren(ordered);
 
         // Width follows the label-driven buttons so the fifth (rollback) action
         // keeps the strip a single compact centered row instead of overflowing it.
@@ -190,6 +204,185 @@ public sealed class VNQuickMenu : MonoBehaviour
         {
             rootRect.sizeDelta = new Vector2(
                 Mathf.Max(RollbackStripMinWidth, MeasureStripWidth(ordered, rootLayout)), 36f);
+        }
+    }
+
+    /// <summary>
+    /// Builds the shared soft band and the thin cyan separators once. They are runtime
+    /// children born with final geometry: the scene keeps its serialized strip untouched.
+    /// </summary>
+    private void EnsureStripChrome()
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        if (stripSeparators == null)
+        {
+            stripSeparators = new Image[4];
+            for (int index = 0; index < stripSeparators.Length; index++)
+            {
+                stripSeparators[index] = CreateStripSeparator(index);
+            }
+        }
+
+        if (root.transform.Find("Strip Band") == null)
+        {
+            GameObject band = new GameObject(
+                "Strip Band",
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(LayoutElement));
+            band.layer = root.layer;
+            band.transform.SetParent(root.transform, false);
+            RectTransform bandRect = band.GetComponent<RectTransform>();
+            bandRect.anchorMin = new Vector2(0f, 0.5f);
+            bandRect.anchorMax = new Vector2(1f, 0.5f);
+            bandRect.pivot = new Vector2(0.5f, 0.5f);
+            bandRect.sizeDelta = new Vector2(StripBandOverhang, StripBandHeight);
+            Image bandImage = band.GetComponent<Image>();
+            bandImage.sprite = GetOrCreateStripBandSprite();
+            bandImage.color = BandColor;
+            bandImage.raycastTarget = false;
+            // The band is chrome behind the whole strip, not a strip member.
+            band.GetComponent<LayoutElement>().ignoreLayout = true;
+            band.transform.SetAsFirstSibling();
+        }
+    }
+
+    private Image CreateStripSeparator(int index)
+    {
+        GameObject separator = new GameObject(
+            "Strip Separator " + index,
+            typeof(RectTransform),
+            typeof(Image),
+            typeof(LayoutElement));
+        separator.layer = root.layer;
+        separator.transform.SetParent(root.transform, false);
+        RectTransform rect = separator.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(SeparatorWidth, SeparatorHeight);
+        Image image = separator.GetComponent<Image>();
+        image.color = SeparatorColor;
+        image.raycastTarget = false;
+        // Child height control would stretch the bar to the full strip height; the
+        // explicit element keeps the accent thin while the strip stays one row.
+        LayoutElement element = separator.GetComponent<LayoutElement>();
+        element.preferredHeight = SeparatorHeight;
+        return image;
+    }
+
+    /// <summary>Keeps the separator between two actions only while both actions are visible.</summary>
+    private void RefreshStripSeparators()
+    {
+        if (stripSeparators == null || stripOrder == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < stripSeparators.Length; index++)
+        {
+            bool visible = index + 1 < stripOrder.Length
+                && stripOrder[index] != null && stripOrder[index].gameObject.activeSelf
+                && stripOrder[index + 1] != null && stripOrder[index + 1].gameObject.activeSelf;
+            if (stripSeparators[index] != null
+                && stripSeparators[index].gameObject.activeSelf != visible)
+            {
+                stripSeparators[index].gameObject.SetActive(visible);
+            }
+        }
+    }
+
+    private void OrderStripChildren(Button[] ordered)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Transform band = root.transform.Find("Strip Band");
+        int slot = 0;
+        if (band != null)
+        {
+            band.SetSiblingIndex(slot++);
+        }
+
+        for (int index = 0; index < ordered.Length; index++)
+        {
+            if (ordered[index] != null)
+            {
+                ordered[index].transform.SetSiblingIndex(slot++);
+            }
+
+            if (index < ordered.Length - 1 && stripSeparators != null && stripSeparators[index] != null)
+            {
+                stripSeparators[index].transform.SetSiblingIndex(slot++);
+            }
+        }
+
+        RefreshStripSeparators();
+    }
+
+    private Sprite GetOrCreateStripBandSprite()
+    {
+        if (stripBandSprite != null)
+        {
+            return stripBandSprite;
+        }
+
+        const int width = 64;
+        const int height = 8;
+        stripBandTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime Quick Menu Strip Band",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[width * height];
+        for (int y = 0; y < height; y++)
+        {
+            float normalizedY = y / (height - 1f);
+            float vertical = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.28f, normalizedY))
+                * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 1f, normalizedY)));
+            for (int x = 0; x < width; x++)
+            {
+                float normalizedX = x / (width - 1f);
+                float horizontal = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.18f, normalizedX))
+                    * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.82f, 1f, normalizedX)));
+                pixels[y * width + x] = new Color(1f, 1f, 1f, 0.30f * horizontal * vertical);
+            }
+        }
+
+        stripBandTexture.SetPixels(pixels);
+        stripBandTexture.Apply(false, true);
+        stripBandSprite = Sprite.Create(
+            stripBandTexture,
+            new Rect(0f, 0f, width, height),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect);
+        stripBandSprite.name = "Runtime Quick Menu Strip Band Sprite";
+        stripBandSprite.hideFlags = HideFlags.HideAndDontSave;
+        return stripBandSprite;
+    }
+
+    private void DestroyStripBandResources()
+    {
+        if (stripBandSprite != null)
+        {
+            if (Application.isPlaying) Destroy(stripBandSprite);
+            else DestroyImmediate(stripBandSprite);
+            stripBandSprite = null;
+        }
+
+        if (stripBandTexture != null)
+        {
+            if (Application.isPlaying) Destroy(stripBandTexture);
+            else DestroyImmediate(stripBandTexture);
+            stripBandTexture = null;
         }
     }
 
@@ -278,7 +471,9 @@ public sealed class VNQuickMenu : MonoBehaviour
 
         if (visibleCount > 1 && layout != null)
         {
-            total += layout.spacing * (visibleCount - 1);
+            // Every pair of adjacent visible actions is separated by one thin cyan
+            // divider with spacing on both sides.
+            total += (visibleCount - 1) * (layout.spacing * 2f + SeparatorWidth);
         }
 
         return total;
@@ -385,6 +580,7 @@ public sealed class VNQuickMenu : MonoBehaviour
         SetButtonVisible(loadButton, false);
         SetButtonVisible(settingsButton, false);
         SetButtonVisible(mainMenuButton, false);
+        RefreshStripSeparators();
         RefreshCharacterHubLauncherVisibility();
     }
 
@@ -488,25 +684,24 @@ public sealed class VNQuickMenu : MonoBehaviour
 
         initialized = true;
         previousState = active;
-        ColorBlock colors = CreateButtonColors(active);
-        button.colors = colors;
+        button.colors = CreateButtonColors();
         if (button.targetGraphic is Image image)
         {
-            image.color = active ? ActiveColor : NormalColor;
+            image.color = UnderlineBaseColor;
+        }
+
+        // ACTIVE keeps a persistent, brighter underline beside the hover-driven one so
+        // the mode stays clearly stronger than any transient pointer/focus state.
+        Transform activeMark = button.transform.Find("Active Underline");
+        if (activeMark != null)
+        {
+            activeMark.gameObject.SetActive(active);
         }
 
         TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
         if (label != null)
         {
             label.color = active ? ActiveLabelColor : IdleLabelColor;
-        }
-
-        Outline outline = button.GetComponent<Outline>();
-        if (outline != null)
-        {
-            outline.effectColor = active
-                ? new Color(0.40f, 0.82f, 1f, 0.72f)
-                : new Color(0.46f, 0.60f, 0.76f, 0.16f);
         }
     }
 
@@ -529,14 +724,13 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private static ColorBlock CreateButtonColors(bool active = false)
     {
-        // State tints stay neutral so the plate color is owned by the target graphic
-        // instead of being multiplied twice into an unpredictable shade. Hover and
-        // keyboard selection raise the plate alpha well above the resting 0.46 so
-        // the pointer/focus state is clearly visible, yet remain below the teal
-        // ACTIVE mode presentation of Auto/Skip.
+        // State tints stay neutral so the underline graphic owns the color instead of
+        // being multiplied twice into an unpredictable shade. The resting transition
+        // hides the underline completely; hover, keyboard selection and pressed reveal
+        // it in a strict ladder that stays below the persistent ACTIVE underline.
         ColorBlock colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1.28f, 1.40f, 1.55f, 1.65f);
+        colors.normalColor = new Color(1f, 1f, 1f, 0f);
+        colors.highlightedColor = new Color(1.28f, 1.40f, 1.55f, 1.60f);
         colors.pressedColor = new Color(1.42f, 1.56f, 1.72f, 1.80f);
         colors.selectedColor = new Color(1.12f, 1.22f, 1.36f, 1.45f);
         colors.disabledColor = new Color(0.64f, 0.66f, 0.70f, 0.72f);
@@ -552,34 +746,83 @@ public sealed class VNQuickMenu : MonoBehaviour
         }
 
         button.colors = CreateButtonColors();
-        if (button.targetGraphic == null && button.TryGetComponent(out Image image))
+        // The button's own Image only serves as the pointer hit area in the flat
+        // strip; the interaction color lives on the runtime underline child.
+        if (button.TryGetComponent(out Image plate))
         {
-            button.targetGraphic = image;
-        }
-
-        if (button.targetGraphic is Image targetImage)
-        {
-            targetImage.color = NormalColor;
+            plate.color = PlateColor;
         }
 
         Outline outline = button.GetComponent<Outline>() ?? button.gameObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0.16f);
+        // Flat target language: the per-item plate and its outline stay fully
+        // transparent; the plate only keeps serving as the pointer hit area.
+        outline.effectColor = new Color(0.46f, 0.60f, 0.76f, 0f);
         outline.effectDistance = new Vector2(1f, -1f);
 
         TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
         if (label != null)
         {
-            // 15 px keeps the strip readable at the 1280x720 scale (13 px fell under
-            // a 9 physical px glyph) while staying compact at 1920x1080.
-            label.fontSize = 15f;
+            // 17 px keeps the flat labels readable without the old chip background at
+            // the 1280x720 scale while the strip stays one compact centered row.
+            label.fontSize = 17f;
             label.fontStyle = FontStyles.Normal;
             label.color = IdleLabelColor;
             RectTransform rect = button.transform as RectTransform;
             if (rect != null)
             {
-                float width = Mathf.Clamp(label.GetPreferredValues(label.text).x + 24f, 70f, 120f);
+                float width = Mathf.Clamp(label.GetPreferredValues(label.text).x + 24f, 70f, 130f);
                 rect.sizeDelta = new Vector2(width, rect.sizeDelta.y);
+                EnsureUnderline(button, rect);
             }
+        }
+    }
+
+    /// <summary>
+    /// Gives the button its cyan interaction underline: a hover-driven bar (the button
+    /// target graphic, revealed by the ColorBlock ladder) and the stronger persistent
+    /// ACTIVE bar for Auto/Skip. Both are runtime children with final geometry.
+    /// </summary>
+    private static void EnsureUnderline(Button button, RectTransform buttonRect)
+    {
+        const float underlineHeight = 3f;
+        const float underlineOffset = 3f;
+        float width = Mathf.Max(24f, buttonRect.sizeDelta.x - 16f);
+
+        Transform existing = button.transform.Find("Underline");
+        if (existing == null)
+        {
+            GameObject underlineObject = new GameObject("Underline", typeof(RectTransform), typeof(Image));
+            underlineObject.layer = button.gameObject.layer;
+            underlineObject.transform.SetParent(button.transform, false);
+            Image created = underlineObject.GetComponent<Image>();
+            created.raycastTarget = false;
+            button.targetGraphic = created;
+            existing = underlineObject.transform;
+        }
+
+        Image underline = existing.GetComponent<Image>();
+        underline.color = UnderlineBaseColor;
+
+        RectTransform underlineRect = existing as RectTransform;
+        underlineRect.anchorMin = underlineRect.anchorMax = new Vector2(0.5f, 0f);
+        underlineRect.pivot = new Vector2(0.5f, 0.5f);
+        underlineRect.anchoredPosition = new Vector2(0f, underlineOffset);
+        underlineRect.sizeDelta = new Vector2(width, underlineHeight);
+
+        if (button.transform.Find("Active Underline") == null)
+        {
+            GameObject activeObject = new GameObject("Active Underline", typeof(RectTransform), typeof(Image));
+            activeObject.layer = button.gameObject.layer;
+            activeObject.transform.SetParent(button.transform, false);
+            Image activeUnderline = activeObject.GetComponent<Image>();
+            activeUnderline.color = ActiveUnderlineColor;
+            activeUnderline.raycastTarget = false;
+            activeObject.SetActive(false);
+            RectTransform activeRect = activeObject.GetComponent<RectTransform>();
+            activeRect.anchorMin = activeRect.anchorMax = new Vector2(0.5f, 0f);
+            activeRect.pivot = new Vector2(0.5f, 0.5f);
+            activeRect.anchoredPosition = new Vector2(0f, underlineOffset);
+            activeRect.sizeDelta = new Vector2(width, underlineHeight);
         }
     }
 }

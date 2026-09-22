@@ -62,6 +62,7 @@ public static class VNQuickMenuSmokeTests
         Require(typeof(VNDialogueController).GetMethod(nameof(VNDialogueController.TryRollback), new Type[0]) != null,
             "Quick Menu rollback must route through the existing TryRollback contract shared with the mouse wheel.");
         VerifyBottomCenterStripPresentation(menu);
+        VerifyFlatStripLanguage(menu);
         VerifyHoverContrast(menu);
         VerifyCenteredStripDialogueClearance();
         VerifyLogicalCanvasResolutionContract();
@@ -79,17 +80,54 @@ public static class VNQuickMenuSmokeTests
             "Quick Menu must keep its compact bottom offset below the reading field.");
     }
 
+    private static void VerifyFlatStripLanguage(VNQuickMenu menu)
+    {
+        // UI Target v1 reading language: flat labels over one shared soft band with
+        // thin cyan separators instead of per-item chip plates.
+        Button[] stripButtons = { menu.rollbackButton, menu.historyButton, menu.skipButton, menu.autoButton, menu.quickSaveButton };
+        foreach (Button button in stripButtons)
+        {
+            Require(button != null, "Flat strip verification requires every strip action.");
+            Image plate = button.GetComponent<Image>();
+            Require(plate != null && Mathf.Approximately(plate.color.a, 0f),
+                "Strip actions must not render per-item chip plates; the plate stays only as the hit area.");
+            Transform underline = button.transform.Find("Underline");
+            Require(underline != null, "Every strip action must own its cyan interaction underline.");
+            Require(button.targetGraphic == underline.GetComponent<Image>(),
+                "The underline must be the button target graphic so the ColorBlock ladder drives hover and focus.");
+            Require(button.transform.Find("Active Underline") != null,
+                "Auto and Skip need the persistent ACTIVE underline element.");
+        }
+
+        Transform band = menu.root.transform.Find("Strip Band");
+        Require(band != null, "The strip must keep one shared soft band behind all actions.");
+        LayoutElement bandElement = band.GetComponent<LayoutElement>();
+        Require(bandElement != null && bandElement.ignoreLayout,
+            "The shared band must be excluded from the strip layout flow.");
+        Require((menu.root.transform as RectTransform).Find("Strip Separator 0") != null
+            && (menu.root.transform as RectTransform).Find("Strip Separator 3") != null,
+            "The strip must keep thin cyan separators between adjacent actions.");
+        Require(menu.rollbackButton.GetComponentInChildren<TextMeshProUGUI>(true).fontSize >= 16f,
+            "Flat strip labels must stay readable without the old chip background.");
+    }
+
     private static void VerifyHoverContrast(VNQuickMenu menu)
     {
         ColorBlock colors = menu.historyButton.colors;
-        Require(colors.normalColor == Color.white,
-            "Quick Menu state tints must stay neutral so the plate owns the color.");
+        Require(Mathf.Approximately(colors.normalColor.a, 0f),
+            "The resting state must keep the flat underline hidden (no visible chrome at rest).");
         Require(colors.highlightedColor.a >= 1.5f,
-            "Quick Menu hover must raise the resting plate alpha (0.46) clearly above rest while staying below the ACTIVE plate.");
+            "Quick Menu hover must reveal the resting underline alpha (0.55) clearly while staying below the ACTIVE underline.");
         Require(colors.selectedColor.a >= 1.3f && colors.selectedColor.a < colors.highlightedColor.a,
             "Quick Menu keyboard selection must stay visible but not stronger than hover.");
         Require(colors.pressedColor.a > colors.highlightedColor.a,
             "Quick Menu pressed feedback must stay stronger than hover.");
+        Image underline = menu.historyButton.transform.Find("Underline").GetComponent<Image>();
+        Require(Mathf.Approximately(underline.color.a, 0.55f) && underline.color.b > 0.9f && underline.color.r < 0.1f,
+            "The hover underline must be a cyan accent revealed from a calm resting base.");
+        GameObject activeMark = menu.autoButton.transform.Find("Active Underline").gameObject;
+        Require(!activeMark.activeSelf,
+            "The persistent ACTIVE underline must stay hidden while the mode is off.");
     }
 
     private static void VerifyCenteredStripDialogueClearance()
