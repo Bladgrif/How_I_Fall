@@ -11,6 +11,8 @@ public sealed class MainMenuController : MonoBehaviour
     private const float NotificationDurationSeconds = 2f;
     private const string NavigationPanelName = "Main Menu Navigation Panel";
     private const string WashSpriteName = "HIF Navy Wash Runtime";
+    private const string TaglineName = "Main Menu Tagline";
+    private const string TaglineDashName = "Main Menu Tagline Dash";
     private static readonly string[] TargetActionRoutes =
     {
         nameof(ContinueFromLatestSave),
@@ -50,6 +52,8 @@ public sealed class MainMenuController : MonoBehaviour
     private Coroutine notificationCoroutine;
     private readonly List<Button> playerFacingActionButtons = new List<Button>();
     private Button modalFocusRestoreButton;
+    private TextMeshProUGUI targetTagline;
+    private Image targetTaglineDash;
 
     public TextMeshProUGUI HelpText => helpText;
     public GameObject GalleryPanel => galleryPanel;
@@ -376,7 +380,6 @@ public sealed class MainMenuController : MonoBehaviour
             navFont = navLabel.font;
         }
 
-        const string TaglineName = "Main Menu Tagline";
         TextMeshProUGUI tagline = menuContent.Find(TaglineName) != null
             ? menuContent.Find(TaglineName).GetComponent<TextMeshProUGUI>()
             : null;
@@ -406,12 +409,11 @@ public sealed class MainMenuController : MonoBehaviour
         taglineRect.anchoredPosition = new Vector2(2f, -342f);
         taglineRect.sizeDelta = new Vector2(440f, 56f);
 
-        const string DashName = "Main Menu Tagline Dash";
-        Transform existingDash = menuContent.Find(DashName);
+        Transform existingDash = menuContent.Find(TaglineDashName);
         Image dash = existingDash != null ? existingDash.GetComponent<Image>() : null;
         if (dash == null)
         {
-            GameObject dashObject = new GameObject(DashName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            GameObject dashObject = new GameObject(TaglineDashName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             dash = dashObject.GetComponent<Image>();
             dash.transform.SetParent(menuContent, false);
         }
@@ -425,6 +427,9 @@ public sealed class MainMenuController : MonoBehaviour
         dashRect.pivot = new Vector2(0f, 0.5f);
         dashRect.anchoredPosition = new Vector2(0f, -274f);
         dashRect.sizeDelta = new Vector2(60f, 5f);
+
+        targetTagline = tagline;
+        targetTaglineDash = dash;
     }
 
     private static void RemoveObsoleteRuntimePresentation()
@@ -804,9 +809,10 @@ public sealed class MainMenuController : MonoBehaviour
     }
 
     /// <summary>
-    /// Toggles the five player-facing navigation rows while the translucent Preferences
-    /// surface is open, so its typography cannot collide with the menu text underneath.
-    /// Rows — not buttons — are toggled, which keeps each button's interactable and
+    /// Toggles the five player-facing navigation rows and the UI Target v1
+    /// tagline block while the translucent Preferences surface is open, so no
+    /// Main Menu typography can collide with the surface's own text. Rows — not
+    /// buttons — are toggled, which keeps each button's interactable and
     /// enabled state intact across the Preferences round-trip.
     /// </summary>
     public void SetPlayerFacingRowsActive(bool active)
@@ -831,6 +837,19 @@ public sealed class MainMenuController : MonoBehaviour
                 row.gameObject.SetActive(active);
             }
         }
+
+        if (targetTagline == null && menuContent.Find(TaglineName) != null)
+        {
+            targetTagline = menuContent.Find(TaglineName).GetComponent<TextMeshProUGUI>();
+        }
+
+        if (targetTaglineDash == null && menuContent.Find(TaglineDashName) != null)
+        {
+            targetTaglineDash = menuContent.Find(TaglineDashName).GetComponent<Image>();
+        }
+
+        targetTagline?.gameObject.SetActive(active);
+        targetTaglineDash?.gameObject.SetActive(active);
     }
 
     /// <summary>Handles only Main Menu-owned modal cancellation. Child screens keep their own Back/Esc ownership.</summary>
