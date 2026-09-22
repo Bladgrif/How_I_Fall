@@ -19,29 +19,39 @@ public enum VNGameMenuAction
     Return
 }
 
-/// <summary>Runtime-built, scene-local presentation for the gameplay navigation menu.</summary>
+/// <summary>Runtime-built, scene-local presentation for the gameplay navigation menu (UI Target v1 left glass panel).</summary>
 public sealed class VNGameMenuView : MonoBehaviour
 {
-    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.54f);
-    private static readonly Color SideWashColor = new Color(0.008f, 0.024f, 0.050f, 0.86f);
-    private static readonly Color NavigationColor = new Color(0.018f, 0.050f, 0.082f, 0.90f);
+    // Art-first modal: the scene stays visible behind a light scrim; modal
+    // contrast comes from the panel itself, input blocking from the raycast.
+    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.20f);
     private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
-    private static readonly Color EnabledLabelColor = Color.white;
+    // Approved interaction language: selection/focus is cyan, never red.
+    private static readonly Color FocusAccentColor = new Color(0.008f, 0.851f, 0.976f, 1f);
+    private static readonly Color TaglineDashColor = new Color(0.03f, 0.88f, 0.96f, 0.95f);
+    private static readonly Color TaglineTextColor = new Color(0.53f, 0.65f, 0.73f, 0.78f);
+    private static readonly Color ChevronColor = new Color(0.62f, 0.76f, 0.88f, 0.85f);
+    private static readonly Color EnabledLabelColor = new Color(0.94f, 0.96f, 1f, 1f);
     private static readonly Color DisabledLabelColor = new Color(0.55f, 0.60f, 0.68f, 0.38f);
+    private static readonly Color RowPlateColor = new Color(0.55f, 0.70f, 0.90f, 0.05f);
+    private static readonly Color ReturnPlateColor = new Color(0.55f, 0.70f, 0.90f, 0.07f);
 
-    // Outer containment contract: the left background wash and the left menu
-    // column (Header + Navigation) must terminate at the same root-space x, so
-    // all three derive from this one calculation instead of parallel constants.
-    private const float WindowAnchorLeft = 0.045f;
-    private const float WindowAnchorRight = 0.955f;
-    private const float MenuColumnWindowFraction = 0.27f;
-    private static readonly float MenuColumnRootRight = WindowAnchorLeft
-        + (WindowAnchorRight - WindowAnchorLeft) * MenuColumnWindowFraction;
+    // UI Target v1: one cohesive full-height left glass panel whose right edge
+    // is the single outer containment edge for Header, Navigation and Footer.
+    private const float PanelWidthFraction = 0.258f;
+    // Row column insets as panel-width fractions keep the deep typographic
+    // left edge and >=22px side insets from 1280x720 up.
+    private const float ColumnLeftFraction = 0.197f;
+    private const float ColumnRightInsetFraction = 0.075f;
+    private const float RowHeight = 62f;
+    private const float RowSpacing = 6f;
+    private const string TaglineText = "SAME HALLS\nDIFFERENT YOU";
 
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
     private readonly Dictionary<VNGameMenuAction, TextMeshProUGUI> labels = new Dictionary<VNGameMenuAction, TextMeshProUGUI>();
     private readonly Dictionary<VNGameMenuAction, GameObject> activeMarkers = new Dictionary<VNGameMenuAction, GameObject>();
     private readonly Dictionary<VNGameMenuAction, GameObject> focusMarkers = new Dictionary<VNGameMenuAction, GameObject>();
+    private readonly Dictionary<VNGameMenuAction, CanvasGroup> chevronGroups = new Dictionary<VNGameMenuAction, CanvasGroup>();
     private GameObject root;
     private RectTransform saveLoadContentHost;
     private GameObject confirmationRoot;
@@ -142,15 +152,19 @@ public sealed class VNGameMenuView : MonoBehaviour
     {
         foreach (KeyValuePair<VNGameMenuAction, Button> pair in buttons)
         {
-            if (!labels.TryGetValue(pair.Key, out TextMeshProUGUI label) || label == null)
+            bool interactable = pair.Value != null && pair.Value.interactable;
+            if (labels.TryGetValue(pair.Key, out TextMeshProUGUI label) && label != null)
             {
-                continue;
+                Color target = interactable ? EnabledLabelColor : DisabledLabelColor;
+                if (label.color != target)
+                {
+                    label.color = target;
+                }
             }
 
-            Color target = pair.Value != null && pair.Value.interactable ? EnabledLabelColor : DisabledLabelColor;
-            if (label.color != target)
+            if (chevronGroups.TryGetValue(pair.Key, out CanvasGroup chevron) && chevron != null)
             {
-                label.color = target;
+                chevron.alpha = interactable ? 1f : 0.35f;
             }
         }
     }
@@ -248,33 +262,30 @@ public sealed class VNGameMenuView : MonoBehaviour
         dim.color = OverlayColor;
         dim.raycastTarget = true;
 
-        GameObject sideWash = CreateSurface(root.transform, "Left Background Wash", SideWashColor);
-        RectTransform sideWashRect = sideWash.GetComponent<RectTransform>();
-        sideWashRect.anchorMin = Vector2.zero;
-        sideWashRect.anchorMax = new Vector2(MenuColumnRootRight, 1f);
-        sideWashRect.offsetMin = Vector2.zero;
-        sideWashRect.offsetMax = Vector2.zero;
-
         GameObject window = CreateUiObject(root.transform, "Game Menu Window");
         RectTransform windowRect = window.GetComponent<RectTransform>();
-        windowRect.anchorMin = new Vector2(WindowAnchorLeft, 0.05f);
-        windowRect.anchorMax = new Vector2(WindowAnchorRight, 0.95f);
+        windowRect.anchorMin = Vector2.zero;
+        windowRect.anchorMax = new Vector2(PanelWidthFraction, 1f);
         windowRect.offsetMin = Vector2.zero;
         windowRect.offsetMax = Vector2.zero;
+        Image panel = window.AddComponent<Image>();
+        panel.sprite = CreateNavyPanelSprite();
+        panel.raycastTarget = true;
 
         CreateHeader(window.transform);
         CreateNavigation(window.transform);
-        CreateSaveLoadContentHost(window.transform);
+        CreateFooter(window.transform);
+        CreateSaveLoadContentHost(root.transform);
         CreateConfirmation(root.transform);
         root.SetActive(false);
     }
 
-    private void CreateSaveLoadContentHost(Transform window)
+    private void CreateSaveLoadContentHost(Transform root)
     {
-        GameObject host = CreateUiObject(window, "Save Load Content Host");
+        GameObject host = CreateUiObject(root, "Save Load Content Host");
         saveLoadContentHost = host.GetComponent<RectTransform>();
-        saveLoadContentHost.anchorMin = new Vector2(0.30f, 0.02f);
-        saveLoadContentHost.anchorMax = new Vector2(1f, 0.98f);
+        saveLoadContentHost.anchorMin = new Vector2(0.295f, 0.055f);
+        saveLoadContentHost.anchorMax = new Vector2(0.955f, 0.945f);
         saveLoadContentHost.offsetMin = Vector2.zero;
         saveLoadContentHost.offsetMax = Vector2.zero;
         host.AddComponent<RectMask2D>();
@@ -283,49 +294,66 @@ public sealed class VNGameMenuView : MonoBehaviour
 
     private void CreateHeader(Transform window)
     {
-        GameObject header = CreateSurface(window, "Header", new Color(0.018f, 0.040f, 0.078f, 0.94f));
+        GameObject header = CreateUiObject(window, "Header");
         RectTransform rect = header.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0f, 0.84f);
-        rect.anchorMax = new Vector2(MenuColumnWindowFraction, 1f);
-        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchorMin = new Vector2(0f, 0.63f);
+        rect.anchorMax = Vector2.one;
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
 
-        TextMeshProUGUI title = CreateText(header.transform, "Title", "МЕНЮ", 38f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, Color.white);
-        Stretch(title.rectTransform, 24f, 24f, 0f, 0f);
+        // The authored logo sprite is Main-Menu-scene-bound, so the panel opens
+        // with the typographic brand block instead of reproducing the target's
+        // generated logo artwork (TECH DEMO ONLY / NOT CANON per the target doc).
+        TextMeshProUGUI wordmark = CreateText(header.transform, "Wordmark", "HOW I\nFALL", 50f, FontStyles.Bold | FontStyles.Italic, TextAlignmentOptions.TopLeft, EnabledLabelColor);
+        wordmark.characterSpacing = 4f;
+        wordmark.lineSpacing = 62f;
+        AnchorTopLeft(wordmark.rectTransform, 0.20f, -40f, new Vector2(360f, 150f));
 
-        GameObject accent = CreateSurface(header.transform, "Accent", AccentColor);
-        RectTransform accentRect = accent.GetComponent<RectTransform>();
-        accentRect.anchorMin = Vector2.zero;
-        accentRect.anchorMax = new Vector2(1f, 0f);
-        accentRect.pivot = new Vector2(0.5f, 0f);
-        accentRect.sizeDelta = new Vector2(0f, 3f);
+        CreateTaglineBlock(header.transform, 0.20f, -296f, -312f, 17f);
+    }
+
+    private void CreateFooter(Transform window)
+    {
+        GameObject footer = CreateUiObject(window, "Footer");
+        RectTransform rect = footer.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 0.015f);
+        rect.anchorMax = new Vector2(1f, 0.10f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        CreateTaglineBlock(footer.transform, ColumnLeftFraction, -6f, -22f, 16f);
+    }
+
+    private static void CreateTaglineBlock(Transform parent, float xFraction, float dashTop, float textTop, float fontSize)
+    {
+        GameObject dash = CreateSurface(parent, "Tagline Dash", TaglineDashColor);
+        dash.GetComponent<Image>().raycastTarget = false;
+        AnchorTopLeft(dash.GetComponent<RectTransform>(), xFraction, dashTop, new Vector2(46f, 4f));
+
+        TextMeshProUGUI tagline = CreateText(parent, "Tagline", TaglineText, fontSize, FontStyles.Normal, TextAlignmentOptions.TopLeft, TaglineTextColor);
+        tagline.characterSpacing = 22f;
+        tagline.lineSpacing = 113f;
+        AnchorTopLeft(tagline.rectTransform, xFraction, textTop, new Vector2(340f, 60f));
     }
 
     private void CreateNavigation(Transform window)
     {
-        GameObject navigation = CreateSurface(window, "Navigation", NavigationColor);
+        GameObject navigation = CreateUiObject(window, "Navigation");
         RectTransform rect = navigation.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(0f, 0.05f);
-        rect.anchorMax = new Vector2(MenuColumnWindowFraction, 0.83f);
+        rect.anchorMin = new Vector2(0f, 0.045f);
+        rect.anchorMax = new Vector2(1f, 0.63f);
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
-        Outline outline = navigation.AddComponent<Outline>();
-        outline.effectColor = new Color(0.45f, 0.66f, 0.80f, 0.18f);
-        outline.effectDistance = new Vector2(1f, -1f);
 
         GameObject primaryActions = CreateUiObject(navigation.transform, "Primary Actions");
         RectTransform primaryRect = primaryActions.GetComponent<RectTransform>();
-        primaryRect.anchorMin = new Vector2(0f, 0.22f);
-        primaryRect.anchorMax = Vector2.one;
-        // 28px side insets keep the plates, divider and return row visibly inside
-        // the navigation panel at both QA resolutions instead of touching its edges.
-        primaryRect.offsetMin = new Vector2(28f, 20f);
-        primaryRect.offsetMax = new Vector2(-28f, -24f);
+        primaryRect.anchorMin = new Vector2(ColumnLeftFraction, 0.335f);
+        primaryRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 1f);
+        primaryRect.offsetMin = Vector2.zero;
+        primaryRect.offsetMax = new Vector2(0f, -16f);
 
         VerticalLayoutGroup layout = primaryActions.AddComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(0, 0, 0, 0);
-        layout.spacing = 8f;
+        layout.spacing = RowSpacing;
         layout.childAlignment = TextAnchor.UpperCenter;
         layout.childControlWidth = true;
         layout.childControlHeight = true;
@@ -343,12 +371,13 @@ public sealed class VNGameMenuView : MonoBehaviour
 
         GameObject returnArea = CreateUiObject(navigation.transform, "Return Area");
         RectTransform returnAreaRect = returnArea.GetComponent<RectTransform>();
-        returnAreaRect.anchorMin = Vector2.zero;
-        returnAreaRect.anchorMax = new Vector2(1f, 0.19f);
-        returnAreaRect.offsetMin = new Vector2(28f, 20f);
-        returnAreaRect.offsetMax = new Vector2(-28f, -12f);
+        returnAreaRect.anchorMin = new Vector2(ColumnLeftFraction, 0.145f);
+        returnAreaRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 0.31f);
+        returnAreaRect.offsetMin = new Vector2(0f, 4f);
+        returnAreaRect.offsetMax = new Vector2(0f, -6f);
 
-        GameObject separator = CreateSurface(returnArea.transform, "Separator", new Color(0.30f, 0.58f, 0.80f, 0.62f));
+        GameObject separator = CreateSurface(returnArea.transform, "Separator", new Color(0.30f, 0.58f, 0.80f, 0.45f));
+        separator.GetComponent<Image>().raycastTarget = false;
         RectTransform separatorRect = separator.GetComponent<RectTransform>();
         separatorRect.anchorMin = new Vector2(0f, 1f);
         separatorRect.anchorMax = Vector2.one;
@@ -356,11 +385,27 @@ public sealed class VNGameMenuView : MonoBehaviour
         separatorRect.sizeDelta = new Vector2(0f, 2f);
 
         CreateActionButton(returnArea.transform, VNGameMenuAction.Return, "Вернуться в игру");
-        RectTransform returnRect = buttons[VNGameMenuAction.Return].GetComponent<RectTransform>();
+        Button returnButton = buttons[VNGameMenuAction.Return];
+        returnButton.GetComponent<Image>().color = ReturnPlateColor;
+        RectTransform returnRect = returnButton.GetComponent<RectTransform>();
         returnRect.anchorMin = new Vector2(0f, 0f);
-        returnRect.anchorMax = new Vector2(1f, 0.72f);
+        returnRect.anchorMax = new Vector2(1f, 0.66f);
         returnRect.offsetMin = Vector2.zero;
         returnRect.offsetMax = Vector2.zero;
+
+        labels[VNGameMenuAction.Return].fontSize = 21f;
+        Stretch(labels[VNGameMenuAction.Return].rectTransform, 46f, 12f, 0f, 0f);
+
+        GameObject playIcon = CreateUiObject(returnButton.transform, "Play Icon");
+        Image playIconImage = playIcon.AddComponent<Image>();
+        playIconImage.sprite = CreatePlayIconSprite();
+        playIconImage.color = new Color(0.56f, 0.76f, 0.96f, 0.95f);
+        playIconImage.raycastTarget = false;
+        RectTransform playIconRect = playIcon.GetComponent<RectTransform>();
+        playIconRect.anchorMin = playIconRect.anchorMax = new Vector2(0f, 0.5f);
+        playIconRect.pivot = new Vector2(0f, 0.5f);
+        playIconRect.anchoredPosition = new Vector2(16f, 0f);
+        playIconRect.sizeDelta = new Vector2(15f, 15f);
     }
 
     private void CreateConfirmation(Transform parent)
@@ -401,20 +446,19 @@ public sealed class VNGameMenuView : MonoBehaviour
 
     private void CreateActionButton(Transform parent, VNGameMenuAction action, string label)
     {
-        GameObject buttonObject = CreateSurface(parent, action + " Button", new Color(0.035f, 0.085f, 0.12f, 0.42f));
+        GameObject buttonObject = CreateSurface(parent, action + " Button", RowPlateColor);
         LayoutElement layout = buttonObject.AddComponent<LayoutElement>();
-        layout.preferredHeight = 54f;
+        layout.preferredHeight = RowHeight;
         layout.minHeight = 42f;
         Button button = buttonObject.AddComponent<Button>();
         button.targetGraphic = buttonObject.GetComponent<Image>();
         button.colors = CreateButtonColors();
-        Outline outline = buttonObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.34f, 0.55f, 0.68f, 0.12f);
-        outline.effectDistance = new Vector2(1f, -1f);
 
-        TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 22f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, Color.white);
-        Stretch(text.rectTransform, 18f, 18f, 0f, 0f);
+        TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 23f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, EnabledLabelColor);
+        Stretch(text.rectTransform, 30f, 44f, 0f, 0f);
+
         GameObject activeMarker = CreateSurface(buttonObject.transform, "Active Marker", AccentColor);
+        activeMarker.GetComponent<Image>().raycastTarget = false;
         RectTransform markerRect = activeMarker.GetComponent<RectTransform>();
         markerRect.anchorMin = Vector2.zero;
         markerRect.anchorMax = new Vector2(0f, 1f);
@@ -422,19 +466,49 @@ public sealed class VNGameMenuView : MonoBehaviour
         markerRect.sizeDelta = new Vector2(5f, 0f);
         activeMarker.SetActive(false);
 
-        GameObject focusMarker = CreateSurface(buttonObject.transform, "Focus Marker", new Color(0.84f, 0.18f, 0.22f, 1f));
+        GameObject focusMarker = CreateSurface(buttonObject.transform, "Focus Marker", FocusAccentColor);
+        focusMarker.GetComponent<Image>().raycastTarget = false;
         RectTransform focusMarkerRect = focusMarker.GetComponent<RectTransform>();
-        focusMarkerRect.anchorMin = new Vector2(1f, 0f);
-        focusMarkerRect.anchorMax = Vector2.one;
-        focusMarkerRect.pivot = new Vector2(1f, 0.5f);
-        focusMarkerRect.sizeDelta = new Vector2(5f, 0f);
+        focusMarkerRect.anchorMin = Vector2.zero;
+        focusMarkerRect.anchorMax = new Vector2(0f, 1f);
+        focusMarkerRect.pivot = new Vector2(0f, 0.5f);
+        focusMarkerRect.sizeDelta = new Vector2(6f, 0f);
         focusMarker.SetActive(false);
         focusMarkers[action] = focusMarker;
         AddFocusMarkerEvents(buttonObject);
 
+        chevronGroups[action] = CreateChevron(buttonObject.transform);
+
         buttons[action] = button;
         labels[action] = text;
         activeMarkers[action] = activeMarker;
+    }
+
+    private static CanvasGroup CreateChevron(Transform buttonTransform)
+    {
+        GameObject chevron = CreateUiObject(buttonTransform, "Chevron");
+        RectTransform chevronRect = chevron.GetComponent<RectTransform>();
+        chevronRect.anchorMin = chevronRect.anchorMax = new Vector2(1f, 0.5f);
+        chevronRect.pivot = new Vector2(1f, 0.5f);
+        chevronRect.anchoredPosition = new Vector2(-18f, 0f);
+        chevronRect.sizeDelta = new Vector2(9f, 14f);
+        CreateChevronStroke(chevron.transform, 1f);
+        CreateChevronStroke(chevron.transform, -1f);
+        return chevron.AddComponent<CanvasGroup>();
+    }
+
+    private static void CreateChevronStroke(Transform parent, float sign)
+    {
+        GameObject stroke = CreateUiObject(parent, "Stroke");
+        Image image = stroke.AddComponent<Image>();
+        image.color = ChevronColor;
+        image.raycastTarget = false;
+        RectTransform rect = stroke.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(2.5f, 8.5f);
+        rect.anchoredPosition = new Vector2(-1.75f, sign * 2.9f);
+        rect.localRotation = Quaternion.Euler(0f, 0f, sign * 45f);
     }
 
     private void AddFocusMarkerEvents(GameObject buttonObject)
@@ -529,15 +603,94 @@ public sealed class VNGameMenuView : MonoBehaviour
         return text;
     }
 
+    private static void AnchorTopLeft(RectTransform rect, float xFraction, float topOffset, Vector2 size)
+    {
+        rect.anchorMin = rect.anchorMax = new Vector2(xFraction, 1f);
+        rect.pivot = new Vector2(0f, 1f);
+        rect.anchoredPosition = new Vector2(0f, topOffset);
+        rect.sizeDelta = size;
+    }
+
+    private static Texture2D navyPanelTexture;
+
+    /// <summary>
+    /// UI Target v1 glass column ramp, built once: deep navy #0A1626 with a
+    /// gentle left-to-right alpha falloff (0.94 → 0.78) so the panel reads as
+    /// translucent glass while keeping its column readable over bright art.
+    /// </summary>
+    private static Sprite CreateNavyPanelSprite()
+    {
+        if (navyPanelTexture == null)
+        {
+            const int width = 256;
+            const int height = 4;
+            navyPanelTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
+            navyPanelTexture.wrapMode = TextureWrapMode.Clamp;
+            Color32[] pixels = new Color32[width * height];
+            for (int x = 0; x < width; x++)
+            {
+                float t = x / (width - 1f);
+                byte alpha = (byte)Mathf.RoundToInt(Mathf.Lerp(247f, 230f, t));
+                for (int y = 0; y < height; y++)
+                {
+                    // The texture is created in linear space, so the intended
+                    // sRGB navy #0A1626 (10, 22, 38) is pre-converted with an
+                    // inverse-gamma pow(2.2); storing the sRGB bytes directly
+                    // would render as a washed-out light slate blue.
+                    pixels[y * width + x] = new Color32(0, 3, 8, alpha);
+                }
+            }
+
+            navyPanelTexture.SetPixels32(pixels);
+            navyPanelTexture.Apply(false, true);
+        }
+
+        Sprite sprite = Sprite.Create(navyPanelTexture, new Rect(0f, 0f, 256f, 4f), new Vector2(0.5f, 0.5f), 100f);
+        sprite.name = "HIF Navy Panel Runtime";
+        return sprite;
+    }
+
+    private static Texture2D playIconTexture;
+
+    /// <summary>Right-pointing triangle for the integrated Return action, built once at runtime.</summary>
+    private static Sprite CreatePlayIconSprite()
+    {
+        if (playIconTexture == null)
+        {
+            const int size = 24;
+            playIconTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true);
+            Color32[] pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float halfHeight = (x - 4f) * (9f / 16f);
+                    bool inside = x >= 4 && x <= 20 && Mathf.Abs(y - 11.5f) <= halfHeight + 0.5f;
+                    pixels[y * size + x] = inside ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
+                }
+            }
+
+            playIconTexture.SetPixels32(pixels);
+            playIconTexture.Apply(false, true);
+        }
+
+        Sprite sprite = Sprite.Create(playIconTexture, new Rect(0f, 0f, 24f, 24f), new Vector2(0.5f, 0.5f), 100f);
+        sprite.name = "HIF Play Icon Runtime";
+        return sprite;
+    }
+
     private static ColorBlock CreateButtonColors()
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
         colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(0.80f, 0.91f, 1f, 1f);
-        colors.pressedColor = new Color(0.52f, 0.72f, 0.88f, 1f);
-        colors.selectedColor = new Color(0.72f, 0.86f, 0.98f, 1f);
-        colors.disabledColor = new Color(0.45f, 0.48f, 0.52f, 0.72f);
+        // Multipliers above 1 let a quiet translucent plate brighten into a
+        // clearly visible hover/focus plate while staying calm at rest.
+        colors.highlightedColor = new Color(1.6f, 1.8f, 2.1f, 2.2f);
+        colors.pressedColor = new Color(1.2f, 1.35f, 1.55f, 1.9f);
+        colors.selectedColor = new Color(1.5f, 1.7f, 2.0f, 2.2f);
+        colors.disabledColor = new Color(0.45f, 0.50f, 0.60f, 1.0f);
         colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
         return colors;
     }
 
