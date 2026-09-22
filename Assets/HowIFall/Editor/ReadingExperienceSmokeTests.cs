@@ -356,6 +356,8 @@ public static class ReadingExperienceSmokeTests
             Require(nameBackground.sprite == null, "Speaker plate must drop the baked decorative sprite.");
             Require(Mathf.Approximately(nameBackground.color.a, 0f), "Speaker label must not retain a detached background plate.");
             Require(speaker.GetComponent<Shadow>() != null, "Speaker label must keep a contrast shadow over scene art.");
+            Require(speaker.color.b > 0.95f && speaker.color.g > 0.85f && speaker.color.r < 0.5f,
+                "Speaker label must use the clear cyan accent from the approved reading target.");
 
             InvokePrivate(controller, "ApplyNameBoxWidth", "TECH DEMO — Голос проверки");
             float plateWidth = nameRect.sizeDelta.x;
@@ -363,6 +365,16 @@ public static class ReadingExperienceSmokeTests
             Require(nameRect.anchoredPosition.x >= 0f
                 && nameRect.anchoredPosition.x + nameRect.rect.width <= boxRect.rect.width + 0.01f,
                 "Named speaker must stay attached and contained inside the centered reading field.");
+            Require(Mathf.Approximately(nameRect.anchoredPosition.x, 90f),
+                "Speaker namepost must sit flush with the dialogue column's left edge.");
+
+            Transform accentDash = nameOwner.transform.Find("Speaker Accent");
+            Require(accentDash != null, "Speaker namepost must keep the cyan dash accent under the name.");
+            Image accentImage = accentDash.GetComponent<Image>();
+            Require(accentImage.color.b > 0.9f && accentImage.color.r < 0.1f && accentImage.color.a > 0.8f,
+                "The speaker dash must be a solid cyan accent bar.");
+            Require(nameOwner.transform.Find("Speaker Accent Tail") != null,
+                "The speaker dash must keep its faint fading tail toward the dialogue column.");
         }
         finally
         {

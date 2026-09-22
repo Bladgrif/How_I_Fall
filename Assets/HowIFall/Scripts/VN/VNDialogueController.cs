@@ -3114,7 +3114,9 @@ public class VNDialogueController : MonoBehaviour
             if (nameRect != null)
             {
                 nameRect.sizeDelta = new Vector2(500f, 48f);
-                nameRect.anchoredPosition = new Vector2(22f, 12f);
+                // The speaker sits flush with the dialogue column's left edge so the
+                // name, its cyan dash and the line read as one anchored namepost.
+                nameRect.anchoredPosition = new Vector2(90f, 12f);
             }
 
             Image nameBackground = nameBox.GetComponent<Image>();
@@ -3125,6 +3127,8 @@ public class VNDialogueController : MonoBehaviour
                 nameBackground.sprite = null;
                 nameBackground.color = Color.clear;
             }
+
+            EnsureSpeakerAccent();
         }
 
         if (speakerText != null)
@@ -3133,7 +3137,7 @@ public class VNDialogueController : MonoBehaviour
             speakerText.enableAutoSizing = true;
             speakerText.fontSizeMin = 18f;
             speakerText.fontSizeMax = 26f;
-            speakerText.color = new Color(0.74f, 0.90f, 1f, 1f);
+            speakerText.color = new Color(0.36f, 0.92f, 1f, 1f);
             speakerText.alignment = TextAlignmentOptions.Left;
             ConfigureReadingTextShadow(speakerText, new Vector2(2f, -2f), 0.92f);
         }
@@ -3143,7 +3147,7 @@ public class VNDialogueController : MonoBehaviour
             : null;
         if (advanceIndicator != null)
         {
-            advanceIndicator.color = new Color(0.60f, 0.82f, 0.96f, 0.85f);
+            advanceIndicator.color = new Color(0.10f, 0.83f, 0.95f, 0.95f);
         }
 
         ApplyChoicePresentation();
@@ -3158,6 +3162,7 @@ public class VNDialogueController : MonoBehaviour
     private const float ReadingShellBreathing = 18f;
     private const float ReadingScrimEdgeAlpha = 0.24f;
     private const float ReadingScrimCenterAlpha = 0.40f;
+    private const string SpeakerAccentName = "Speaker Accent";
 
     /// <summary>
     /// Sizes the reading shell to the rendered line so short replies stop reserving a
@@ -3207,6 +3212,43 @@ public class VNDialogueController : MonoBehaviour
         size.x = Mathf.Clamp(preferredWidth + 24f, 150f, 500f);
         size.y = 48f;
         nameRect.sizeDelta = size;
+    }
+
+    /// <summary>
+    /// Builds the small cyan dash under the speaker name once. It is a runtime child of
+    /// the name box with final geometry, so it inherits the name visibility contract
+    /// (narration and no-speaker states keep it hidden) without touching the scene.
+    /// </summary>
+    private void EnsureSpeakerAccent()
+    {
+        if (nameBox == null || nameBox.transform.Find(SpeakerAccentName) != null)
+        {
+            return;
+        }
+
+        GameObject dash = new GameObject(SpeakerAccentName, typeof(RectTransform), typeof(Image));
+        dash.layer = nameBox.layer;
+        dash.transform.SetParent(nameBox.transform, false);
+        Image dashImage = dash.GetComponent<Image>();
+        dashImage.color = new Color(0.008f, 0.851f, 0.976f, 0.95f);
+        dashImage.raycastTarget = false;
+        RectTransform dashRect = dash.GetComponent<RectTransform>();
+        dashRect.anchorMin = dashRect.anchorMax = new Vector2(0f, 0f);
+        dashRect.pivot = new Vector2(0f, 0.5f);
+        dashRect.anchoredPosition = new Vector2(10f, 5f);
+        dashRect.sizeDelta = new Vector2(48f, 3.5f);
+
+        GameObject tail = new GameObject(SpeakerAccentName + " Tail", typeof(RectTransform), typeof(Image));
+        tail.layer = nameBox.layer;
+        tail.transform.SetParent(nameBox.transform, false);
+        Image tailImage = tail.GetComponent<Image>();
+        tailImage.color = new Color(0.008f, 0.851f, 0.976f, 0.26f);
+        tailImage.raycastTarget = false;
+        RectTransform tailRect = tail.GetComponent<RectTransform>();
+        tailRect.anchorMin = tailRect.anchorMax = new Vector2(0f, 0f);
+        tailRect.pivot = new Vector2(0f, 0.5f);
+        tailRect.anchoredPosition = new Vector2(60f, 5f);
+        tailRect.sizeDelta = new Vector2(44f, 3.5f);
     }
 
     private Sprite GetOrCreateReadingScrimSprite()
