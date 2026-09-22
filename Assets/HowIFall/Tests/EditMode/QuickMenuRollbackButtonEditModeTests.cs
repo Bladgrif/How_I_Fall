@@ -36,8 +36,11 @@ public class QuickMenuRollbackButtonEditModeTests
             TextMeshProUGUI label = menu.rollbackButton.GetComponentInChildren<TextMeshProUGUI>(true);
             Assert.That(label, Is.Not.Null, "Rollback button must expose a TMP label.");
             Assert.That(label.text, Is.EqualTo("Назад"), "Rollback action must keep the compact player-facing label.");
-            Assert.That(menu.rollbackButton.transform.GetSiblingIndex(), Is.EqualTo(0),
-                "Rollback must sit first in the reading-action strip.");
+            // The shared chrome band (not an action) may precede the strip; among the
+            // reading actions rollback itself stays first.
+            Transform band = root.transform.Find("Strip Band");
+            Assert.That(menu.rollbackButton.transform.GetSiblingIndex(), Is.EqualTo(band != null ? 1 : 0),
+                "Rollback must sit first in the reading-action strip; only the shared band may precede it.");
 
             Button[] visibleButtons = root.GetComponentsInChildren<Button>(true)
                 .Where(button => button.transform.parent == root.transform && button.gameObject.activeSelf)
