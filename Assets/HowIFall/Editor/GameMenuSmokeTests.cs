@@ -257,8 +257,8 @@ public static class GameMenuSmokeTests
             Require(view.GetComponentsInChildren<Canvas>(true).Length == 0, "Game Menu must reuse the VN Canvas instead of creating another Canvas.");
             Require(view.GetComponent<Image>() != null && view.GetComponent<Image>().raycastTarget,
                 "Full-screen Game Menu root must block clicks to dialogue, choices, and Quick Menu underneath.");
-            Require(view.GetComponent<Image>().color.a >= 0.50f && view.GetComponent<Image>().color.a <= 0.60f,
-                "Game Menu dim layer must preserve the approved visible-scene context without losing modal contrast.");
+            Require(view.GetComponent<Image>().color.a >= 0.12f && view.GetComponent<Image>().color.a <= 0.32f,
+                "Game Menu scrim must keep the scene visible behind the art-first panel without losing modal input blocking.");
 
             view.SetReplayMode(false);
             AssertVisibleActions(view, new[]
@@ -294,30 +294,35 @@ public static class GameMenuSmokeTests
                 "Replay leaked campaign-only navigation actions.");
 
             RectTransform window = view.transform.Find("Game Menu Window") as RectTransform;
+            RectTransform header = window != null ? window.Find("Header") as RectTransform : null;
             RectTransform navigation = window != null ? window.Find("Navigation") as RectTransform : null;
             RectTransform primaryActions = navigation != null ? navigation.Find("Primary Actions") as RectTransform : null;
             RectTransform returnArea = navigation != null ? navigation.Find("Return Area") as RectTransform : null;
-            Require(window != null && navigation != null && primaryActions != null && returnArea != null,
-                "Responsive compact Game Menu navigation structure is missing.");
-            Require(window.anchorMin.x > 0f && window.anchorMax.x < 1f && window.anchorMin.y > 0f && window.anchorMax.y < 1f,
-                "Game Menu window must use proportional safe margins.");
-            float navigationWidth = navigation.anchorMax.x - navigation.anchorMin.x;
-            Require(navigationWidth >= 0.25f && navigationWidth <= 0.30f,
-                $"Game Menu navigation width must remain compact (25-30%); actual={navigationWidth:0.00}.");
+            Require(window != null && header != null && navigation != null && primaryActions != null && returnArea != null,
+                "UI Target v1 Game Menu panel structure is missing.");
+            // UI Target v1: one cohesive full-height left glass panel instead of a floating window shell.
+            Require(window.anchorMin.x == 0f && window.anchorMin.y == 0f && window.anchorMax.y == 1f,
+                "Game Menu panel must span the full viewport height from the left edge.");
+            float panelWidth = window.anchorMax.x - window.anchorMin.x;
+            Require(panelWidth >= 0.23f && panelWidth <= 0.28f,
+                $"Game Menu panel width must remain a compact left column (23-28%); actual={panelWidth:0.00}.");
+            Require(header.anchorMax.y == 1f && navigation.anchorMin.y > 0f && navigation.anchorMax.y <= header.anchorMin.y + 0.0001f,
+                "Header must own the panel top with Navigation directly beneath it.");
+            Require(navigation.anchorMin.x == 0f && navigation.anchorMax.x == 1f,
+                "Navigation must fill the panel width.");
             Require(primaryActions.GetComponent<VerticalLayoutGroup>() != null,
                 "Game Menu navigation must use deterministic layout instead of pixel-coordinate button placement.");
             Require(window.Find("Context Area") == null,
                 "Game Menu retained the decorative empty Context Area placeholder.");
-            RectTransform saveLoadHost = view.SaveLoadContentHost;
-            Require(saveLoadHost != null && !view.IsSaveLoadContentVisible,
-                "Save/Load content host must exist but remain hidden until a section is opened.");
-            Require(navigation.anchorMin.x == 0f && navigation.anchorMax.x <= 0.30f,
-                "Game Menu navigation must occupy the left side.");
-            Require(saveLoadHost.anchorMin.x > navigation.anchorMax.x && saveLoadHost.anchorMax.x == 1f,
-                "Save/Load content host must occupy the right scene-side region without overlapping left navigation.");
             Require(view.GetComponentsInChildren<TextMeshProUGUI>(true).All(text => text.text != "НАВИГАЦИЯ"
                 && text.text != "Выберите раздел. Esc возвращает к игре."),
                 "Game Menu retained placeholder navigation copy.");
+            RectTransform saveLoadHost = view.SaveLoadContentHost;
+            Require(saveLoadHost != null && !view.IsSaveLoadContentVisible,
+                "Save/Load content host must exist but remain hidden until a section is opened.");
+            Require(saveLoadHost.anchorMin.x > window.anchorMax.x && saveLoadHost.anchorMax.x < 1f
+                && saveLoadHost.anchorMin.y > 0f && saveLoadHost.anchorMax.y < 1f,
+                "Save/Load content host must occupy the scene side right of the left panel.");
             Require(view.GetButton(VNGameMenuAction.Return).transform.IsChildOf(returnArea),
                 "Return must remain visually separated in the bottom navigation area.");
             Require(returnArea.anchorMax.y < primaryActions.anchorMin.y,
@@ -325,6 +330,11 @@ public static class GameMenuSmokeTests
             Require(view.GetButton(VNGameMenuAction.Save).colors.highlightedColor
                 != view.GetButton(VNGameMenuAction.Save).colors.normalColor,
                 "Game Menu hover feedback is not visually distinct.");
+            Transform returnFocusMarker = view.GetButton(VNGameMenuAction.Return).transform.Find("Focus Marker");
+            Require(returnFocusMarker != null && returnFocusMarker.GetComponent<Image>() != null
+                && returnFocusMarker.GetComponent<Image>().color.r < 0.4f
+                && returnFocusMarker.GetComponent<Image>().color.b > 0.6f,
+                "Game Menu focus marker must use the approved cyan/blue interaction language, never red.");
 
             view.SetReplayMode(false);
             Button quit = view.GetButton(VNGameMenuAction.Quit);
@@ -393,10 +403,9 @@ public static class GameMenuSmokeTests
 
             RectTransform window = view.transform.Find("Game Menu Window") as RectTransform;
             RectTransform navigation = window != null ? window.Find("Navigation") as RectTransform : null;
-            Require(window != null && navigation != null, "Game Menu navigation geometry is missing for containment validation.");
-            RectTransform leftWash = view.transform.Find("Left Background Wash") as RectTransform;
+            Require(window != null && navigation != null, "Game Menu panel geometry is missing for containment validation.");
             RectTransform header = window.Find("Header") as RectTransform;
-            Require(leftWash != null && header != null, "Game Menu wash/header geometry is missing for containment validation.");
+            Require(header != null, "Game Menu header geometry is missing for containment validation.");
 
             foreach (Vector2 resolution in resolutions)
             {
@@ -406,21 +415,25 @@ public static class GameMenuSmokeTests
                 Rect navigationBounds = GetRectInSpace(space, navigation);
                 Require(IsFinitePositive(navigationBounds), $"{resolution}: navigation bounds are invalid.");
 
-                // Outer containment contract proven on actual world corners: the
-                // wash, Header and Navigation must share one root-space right edge
-                // (no overhang, and aligned — not merely somewhere inside).
-                Rect washBounds = GetRectInSpace(space, leftWash);
+                // UI Target v1 outer containment contract proven on actual world
+                // corners: the panel spans the full viewport height and is the
+                // single outer edge — Header and Navigation must share its
+                // right edge (no overhang, and aligned — not merely inside).
+                Rect spaceBounds = GetRectInSpace(space, space);
+                Rect windowBounds = GetRectInSpace(space, window);
                 Rect headerBounds = GetRectInSpace(space, header);
-                Require(IsFinitePositive(washBounds) && IsFinitePositive(headerBounds),
-                    $"{resolution}: wash/header bounds are invalid.");
-                Require(headerBounds.xMax <= washBounds.xMax + 0.75f,
-                    $"{resolution}: header right edge exceeds the wash right edge by {headerBounds.xMax - washBounds.xMax:0.##}px.");
-                Require(navigationBounds.xMax <= washBounds.xMax + 0.75f,
-                    $"{resolution}: navigation right edge exceeds the wash right edge by {navigationBounds.xMax - washBounds.xMax:0.##}px.");
-                Require(Mathf.Abs(headerBounds.xMax - washBounds.xMax) <= 1.5f,
-                    $"{resolution}: header right edge is not aligned with the wash right edge (delta {headerBounds.xMax - washBounds.xMax:0.###}px).");
-                Require(Mathf.Abs(navigationBounds.xMax - washBounds.xMax) <= 1.5f,
-                    $"{resolution}: navigation right edge is not aligned with the wash right edge (delta {navigationBounds.xMax - washBounds.xMax:0.###}px).");
+                Require(IsFinitePositive(spaceBounds) && IsFinitePositive(windowBounds) && IsFinitePositive(headerBounds),
+                    $"{resolution}: panel/header bounds are invalid.");
+                Require(windowBounds.yMin <= spaceBounds.yMin + 0.75f && windowBounds.yMax >= spaceBounds.yMax - 0.75f,
+                    $"{resolution}: the glass panel must span the full viewport height.");
+                Require(headerBounds.xMax <= windowBounds.xMax + 0.75f,
+                    $"{resolution}: header right edge exceeds the panel right edge by {headerBounds.xMax - windowBounds.xMax:0.##}px.");
+                Require(navigationBounds.xMax <= windowBounds.xMax + 0.75f,
+                    $"{resolution}: navigation right edge exceeds the panel right edge by {navigationBounds.xMax - windowBounds.xMax:0.##}px.");
+                Require(Mathf.Abs(headerBounds.xMax - windowBounds.xMax) <= 1.5f,
+                    $"{resolution}: header right edge is not aligned with the panel right edge (delta {headerBounds.xMax - windowBounds.xMax:0.###}px).");
+                Require(Mathf.Abs(navigationBounds.xMax - windowBounds.xMax) <= 1.5f,
+                    $"{resolution}: navigation right edge is not aligned with the panel right edge (delta {navigationBounds.xMax - windowBounds.xMax:0.###}px).");
 
                 Rect saveLoadHostBounds = GetRectInSpace(space, view.SaveLoadContentHost);
                 Require(IsFinitePositive(saveLoadHostBounds), $"{resolution}: Save/Load host bounds are invalid.");
