@@ -10,6 +10,9 @@ public sealed class MainMenuController : MonoBehaviour
 {
     private const float NotificationDurationSeconds = 2f;
     private const string NavigationPanelName = "Main Menu Navigation Panel";
+    private const string WashSpriteName = "HIF Navy Wash Runtime";
+    private const string TaglineName = "Main Menu Tagline";
+    private const string TaglineDashName = "Main Menu Tagline Dash";
     private static readonly string[] TargetActionRoutes =
     {
         nameof(ContinueFromLatestSave),
@@ -49,6 +52,8 @@ public sealed class MainMenuController : MonoBehaviour
     private Coroutine notificationCoroutine;
     private readonly List<Button> playerFacingActionButtons = new List<Button>();
     private Button modalFocusRestoreButton;
+    private TextMeshProUGUI targetTagline;
+    private Image targetTaglineDash;
 
     public TextMeshProUGUI HelpText => helpText;
     public GameObject GalleryPanel => galleryPanel;
@@ -132,6 +137,7 @@ public sealed class MainMenuController : MonoBehaviour
         {
             return false;
         }
+        ApplyTargetV1Tagline(orderedRows[0]);
 
         RemoveObsoleteRuntimePresentation();
         ApplyActionPresentation(continueButton != null && continueButton.interactable);
@@ -143,10 +149,12 @@ public sealed class MainMenuController : MonoBehaviour
     private void ApplyMainNavigationLayout(Transform[] orderedRows)
     {
         // Treat navigation as large title typography laid over the illustration,
-        // rather than a stack of conventional Unity buttons. The asymmetrical
-        // left composition preserves the authored focal point and leaves the
-        // bright centre/right of the scene deliberately quiet.
-        float[] verticalPositions = { 154f, 64f, -26f, -116f, -230f };
+        // rather than a stack of conventional Unity buttons. The approved
+        // UI Target v1 composition keeps one tight left-aligned column with a
+        // uniform vertical rhythm and leaves the bright centre/right quiet.
+        // anchoredPosition lives in Menu Content space; the authored
+        // MainMenuRoot adds a +140 canvas X offset on top of these values.
+        float[] verticalPositions = { 162f, 78f, -6f, -90f, -174f };
         for (int index = 0; index < orderedRows.Length; index++)
         {
             RectTransform row = orderedRows[index] as RectTransform;
@@ -157,8 +165,8 @@ public sealed class MainMenuController : MonoBehaviour
 
             row.anchorMin = row.anchorMax = new Vector2(0f, 0.5f);
             row.pivot = new Vector2(0f, 0.5f);
-            row.anchoredPosition = new Vector2(196f, verticalPositions[index]);
-            row.sizeDelta = new Vector2(500f, 72f);
+            row.anchoredPosition = new Vector2(-39f, verticalPositions[index]);
+            row.sizeDelta = new Vector2(380f, 76f);
 
             RectTransform buttonRect = playerFacingActionButtons[index].transform as RectTransform;
             if (buttonRect != null)
@@ -211,11 +219,27 @@ public sealed class MainMenuController : MonoBehaviour
         authoredImage.raycastTarget = false;
 
         Transform gradient = canvas.transform.Find("Left Gradient Overlay");
-        if (gradient != null && gradient.TryGetComponent(out Image gradientImage) && gradientImage.sprite != null)
+        if (gradient != null && gradient.TryGetComponent(out Image gradientImage))
         {
             gradient.gameObject.SetActive(true);
-            gradientImage.color = new Color(1f, 1f, 1f, 0.88f);
             gradientImage.raycastTarget = false;
+            // UI Target v1: the nav-side wash reads as deep navy glass and keeps
+            // the left column readable over the bright daytime art. The authored
+            // gradient texture peaks at only ~0.56 alpha, which is far too faint
+            // against this art, so the overlay receives a runtime navy ramp with
+            // the approved depth baked into its alpha channel.
+            gradientImage.color = Color.white;
+            gradientImage.type = Image.Type.Simple;
+            if (gradientImage.sprite == null || gradientImage.sprite.name != WashSpriteName)
+            {
+                gradientImage.sprite = CreateNavyWashSprite();
+            }
+
+            RectTransform gradientRect = gradient as RectTransform;
+            if (gradientRect != null)
+            {
+                gradientRect.sizeDelta = new Vector2(880f, gradientRect.sizeDelta.y);
+            }
         }
 
         return true;
@@ -240,8 +264,8 @@ public sealed class MainMenuController : MonoBehaviour
         panel.SetAsFirstSibling();
         panel.anchorMin = panel.anchorMax = new Vector2(0f, 0.5f);
         panel.pivot = new Vector2(0f, 0.5f);
-        panel.anchoredPosition = new Vector2(166f, -30f);
-        panel.sizeDelta = new Vector2(560f, 560f);
+        panel.anchoredPosition = new Vector2(-49f, -6f);
+        panel.sizeDelta = new Vector2(440f, 452f);
 
         Image panelImage = panel.GetComponent<Image>();
         panelImage.sprite = null;
@@ -254,6 +278,41 @@ public sealed class MainMenuController : MonoBehaviour
 
         Shadow shadow = panel.GetComponent<Shadow>();
         shadow.enabled = false;
+    }
+
+    private static Texture2D navyWashTexture;
+
+    /// <summary>
+    /// Builds the UI Target v1 nav-side wash ramp once: deep navy (#0C1422) with
+    /// an ease-out alpha channel peaking at ~0.86 at the left edge and reaching
+    /// zero before the horizontal middle of the screen.
+    /// </summary>
+    private static Sprite CreateNavyWashSprite()
+    {
+        if (navyWashTexture == null)
+        {
+            const int width = 256;
+            const int height = 4;
+            navyWashTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
+            navyWashTexture.wrapMode = TextureWrapMode.Clamp;
+            Color32[] pixels = new Color32[width * height];
+            for (int x = 0; x < width; x++)
+            {
+                float t = x / (width - 1f);
+                byte alpha = (byte)Mathf.RoundToInt(219f * Mathf.Pow(1f - t, 1.6f));
+                for (int y = 0; y < height; y++)
+                {
+                    pixels[y * width + x] = new Color32(12, 20, 34, alpha);
+                }
+            }
+
+            navyWashTexture.SetPixels32(pixels);
+            navyWashTexture.Apply(false, true);
+        }
+
+        Sprite sprite = Sprite.Create(navyWashTexture, new Rect(0f, 0f, 256f, 4f), new Vector2(0.5f, 0.5f), 100f);
+        sprite.name = WashSpriteName;
+        return sprite;
     }
 
     private void ApplyActionPresentation(bool hasCompatibleSave)
@@ -285,15 +344,92 @@ public sealed class MainMenuController : MonoBehaviour
 
         logo.gameObject.SetActive(true);
         RectTransform logoRect = logo as RectTransform;
+        // UI Target v1: the visible logo strokes must land in the top-left corner
+        // (strokes bbox ≈ 98..488 x 54..388 at 1920x1080). The authored sprite
+        // carries wide transparent margins (texture aspect ≈ 2.04 vs ~1.17 for
+        // the strokes), so the rect is kept proportional to the authored
+        // 620x304 frame, scaled ~1.2x, and positioned by its centre.
         logoRect.anchorMin = logoRect.anchorMax = new Vector2(0f, 1f);
         logoRect.pivot = new Vector2(0f, 1f);
-        logoRect.anchoredPosition = new Vector2(108f, -34f);
-        logoRect.sizeDelta = new Vector2(620f, 304f);
+        logoRect.anchoredPosition = new Vector2(-79f, -38.5f);
+        logoRect.sizeDelta = new Vector2(744f, 365f);
         logoRect.localRotation = Quaternion.identity;
         logoImage.color = Color.white;
         logoImage.preserveAspect = true;
         logoImage.raycastTarget = false;
         return true;
+    }
+
+    private void ApplyTargetV1Tagline(Transform firstRow)
+    {
+        // UI Target v1 closes the left composition with a letter-spaced tagline
+        // under the navigation column. Runtime-built with final geometry so no
+        // layout pass is required before bounds-dependent checks.
+        Transform menuContent = firstRow != null ? firstRow.parent : null;
+        if (menuContent == null)
+        {
+            return;
+        }
+
+        TMPro.TMP_FontAsset navFont = null;
+        TextMeshProUGUI navLabel = playerFacingActionButtons.Count > 0 && playerFacingActionButtons[0] != null
+            ? playerFacingActionButtons[0].GetComponentInChildren<TextMeshProUGUI>(true)
+            : null;
+        if (navLabel != null)
+        {
+            navFont = navLabel.font;
+        }
+
+        TextMeshProUGUI tagline = menuContent.Find(TaglineName) != null
+            ? menuContent.Find(TaglineName).GetComponent<TextMeshProUGUI>()
+            : null;
+        if (tagline == null)
+        {
+            GameObject textObject = new GameObject(TaglineName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            tagline = textObject.GetComponent<TextMeshProUGUI>();
+            tagline.transform.SetParent(menuContent, false);
+        }
+
+        tagline.text = "SAME HALLS\nDIFFERENT YOU";
+        if (navFont != null)
+        {
+            tagline.font = navFont;
+        }
+
+        tagline.fontSize = 19f;
+        tagline.enableAutoSizing = false;
+        tagline.alignment = TextAlignmentOptions.Left;
+        tagline.characterSpacing = 26f;
+        tagline.lineSpacing = 113f;
+        tagline.color = new Color(0.53f, 0.65f, 0.73f, 0.78f);
+        tagline.raycastTarget = false;
+        RectTransform taglineRect = tagline.rectTransform;
+        taglineRect.anchorMin = taglineRect.anchorMax = new Vector2(0f, 0.5f);
+        taglineRect.pivot = new Vector2(0f, 0.5f);
+        taglineRect.anchoredPosition = new Vector2(2f, -342f);
+        taglineRect.sizeDelta = new Vector2(440f, 56f);
+
+        Transform existingDash = menuContent.Find(TaglineDashName);
+        Image dash = existingDash != null ? existingDash.GetComponent<Image>() : null;
+        if (dash == null)
+        {
+            GameObject dashObject = new GameObject(TaglineDashName, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            dash = dashObject.GetComponent<Image>();
+            dash.transform.SetParent(menuContent, false);
+        }
+
+        dash.sprite = null;
+        dash.type = Image.Type.Simple;
+        dash.color = new Color(0.03f, 0.88f, 0.96f, 0.95f);
+        dash.raycastTarget = false;
+        RectTransform dashRect = dash.rectTransform;
+        dashRect.anchorMin = dashRect.anchorMax = new Vector2(0f, 0.5f);
+        dashRect.pivot = new Vector2(0f, 0.5f);
+        dashRect.anchoredPosition = new Vector2(0f, -274f);
+        dashRect.sizeDelta = new Vector2(60f, 5f);
+
+        targetTagline = tagline;
+        targetTaglineDash = dash;
     }
 
     private static void RemoveObsoleteRuntimePresentation()
@@ -673,9 +809,10 @@ public sealed class MainMenuController : MonoBehaviour
     }
 
     /// <summary>
-    /// Toggles the five player-facing navigation rows while the translucent Preferences
-    /// surface is open, so its typography cannot collide with the menu text underneath.
-    /// Rows — not buttons — are toggled, which keeps each button's interactable and
+    /// Toggles the five player-facing navigation rows and the UI Target v1
+    /// tagline block while the translucent Preferences surface is open, so no
+    /// Main Menu typography can collide with the surface's own text. Rows — not
+    /// buttons — are toggled, which keeps each button's interactable and
     /// enabled state intact across the Preferences round-trip.
     /// </summary>
     public void SetPlayerFacingRowsActive(bool active)
@@ -700,6 +837,19 @@ public sealed class MainMenuController : MonoBehaviour
                 row.gameObject.SetActive(active);
             }
         }
+
+        if (targetTagline == null && menuContent.Find(TaglineName) != null)
+        {
+            targetTagline = menuContent.Find(TaglineName).GetComponent<TextMeshProUGUI>();
+        }
+
+        if (targetTaglineDash == null && menuContent.Find(TaglineDashName) != null)
+        {
+            targetTaglineDash = menuContent.Find(TaglineDashName).GetComponent<Image>();
+        }
+
+        targetTagline?.gameObject.SetActive(active);
+        targetTaglineDash?.gameObject.SetActive(active);
     }
 
     /// <summary>Handles only Main Menu-owned modal cancellation. Child screens keep their own Back/Esc ownership.</summary>
@@ -789,10 +939,10 @@ public sealed class MainMenuController : MonoBehaviour
         ApplyMainMenuButtonTypography(button);
         button.transition = Selectable.Transition.None;
 
-        if (button.transform is RectTransform buttonRect)
-        {
-            buttonRect.sizeDelta = new Vector2(164f, 46f);
-        }
+        // Buttons stretch edge-to-edge inside their navigation row (stretch
+        // anchors with zero offsets are applied in ApplyMainNavigationLayout).
+        // A non-zero sizeDelta on a stretched RectTransform would expand the
+        // button plate past the row and shift the label, so none is set here.
 
         Outline outline = button.GetComponent<Outline>();
         if (outline != null)
@@ -814,7 +964,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (tmpLabel != null)
         {
             tmpLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            tmpLabel.fontSize = 44f;
+            tmpLabel.fontSize = 42f;
             tmpLabel.fontStyle = FontStyles.Normal;
             tmpLabel.characterSpacing = 1.5f;
             Shadow textShadow = tmpLabel.GetComponent<Shadow>() ?? tmpLabel.gameObject.AddComponent<Shadow>();
@@ -829,7 +979,7 @@ public sealed class MainMenuController : MonoBehaviour
         if (label != null)
         {
             label.alignment = TextAnchor.MiddleLeft;
-            label.fontSize = 44;
+            label.fontSize = 42;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
             ApplyLabelPadding(label.rectTransform);
@@ -845,7 +995,7 @@ public sealed class MainMenuController : MonoBehaviour
 
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(32f, 0f);
+        labelRect.offsetMin = new Vector2(41f, 0f);
         labelRect.offsetMax = new Vector2(-18f, 0f);
     }
 

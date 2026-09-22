@@ -92,14 +92,14 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (focusAccent != null && accentNeedsInitialization)
         {
             RectTransform accentRect = focusAccent.rectTransform;
-            // The marker belongs to the text row, not to its lower edge. Keeping
-            // its pivot in the vertical centre prevents the accent from reading
-            // as visibly lower than the label on Main Menu actions.
+            // UI Target v1 interaction language: a bright cyan bar as tall as the
+            // action row, sitting just left of the label. The pivot stays in the
+            // vertical centre so the accent never reads as lower than the label.
             accentRect.anchorMin = new Vector2(0f, 0.5f);
             accentRect.anchorMax = new Vector2(0f, 0.5f);
             accentRect.pivot = new Vector2(0f, 0.5f);
-            accentRect.anchoredPosition = new Vector2(2f, 0f);
-            accentRect.sizeDelta = new Vector2(4f, 50f);
+            accentRect.anchoredPosition = new Vector2(5f, 0f);
+            accentRect.sizeDelta = new Vector2(7f, 76f);
             focusAccent.raycastTarget = false;
         }
     }
@@ -264,12 +264,19 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         if (mainMenuActions != null)
         {
-            Apply(new Color(0.18f, 0.38f, 0.54f, 0.045f), new Color(0.88f, 0.96f, 1f, 1f));
+            // UI Target v1: hover/focus activates a deep blue-glass plate behind
+            // the row instead of a nearly invisible tint.
+            Apply(TargetV1SelectedPlate(0.48f), new Color(0.88f, 0.96f, 1f, 1f));
             return;
         }
         // Modal confirmations carry selection on the button plate itself: one
         // visible selected state, no detached accent bar that reads as a divider.
         Apply(ModalSelectedBackground(), RoleHoverText());
+    }
+
+    private static Color TargetV1SelectedPlate(float alpha)
+    {
+        return new Color(0.10f, 0.42f, 0.60f, alpha);
     }
 
     private Color ModalSelectedBackground()
@@ -281,7 +288,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private void ApplyPressedState()
     {
-        Apply(mainMenuActions != null ? new Color(0.18f, 0.38f, 0.54f, 0.10f) : RolePressedBackground(), Color.white);
+        Apply(mainMenuActions != null ? TargetV1SelectedPlate(0.58f) : RolePressedBackground(), Color.white);
     }
 
     private void ApplyDisabledState()
@@ -323,7 +330,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             // The accent bar is a root Main Menu navigation anchor only. Modal
             // buttons express focus through their plate, so the bar can never
             // float between confirmation actions as a perceived separator.
-            focusAccent.color = new Color(0.44f, 0.78f, 1f, 0.96f);
+            focusAccent.color = new Color(0.01f, 0.85f, 0.98f, 0.98f);
             focusAccent.gameObject.SetActive(mainMenuActions != null
                 && !suppressFocusAccent
                 && (isPointerInside || isSelected));

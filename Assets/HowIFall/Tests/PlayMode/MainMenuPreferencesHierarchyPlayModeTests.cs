@@ -52,9 +52,13 @@ namespace HowIFall.PlayModeTests
             MainMenuController menu = Object.FindFirstObjectByType<MainMenuController>();
             Button[] actions = menu.PlayerFacingActionButtons.ToArray();
             GameObject[] rows = actions.Select(button => button.transform.parent.gameObject).ToArray();
+            (GameObject tagline, GameObject dash) = FindTargetV1TaglineBlock(rows[0].transform.parent);
 
             Assert.That(actions.Length, Is.EqualTo(5), "Main Menu must present the five player-facing actions.");
             Assert.That(rows.All(row => row.activeSelf), Is.True, "All five action rows must be visible before Preferences.");
+            Assert.That(tagline != null && dash != null, Is.True, "The target v1 tagline block must exist in the Main Menu scene.");
+            Assert.That(tagline.activeSelf && dash.activeSelf, Is.True,
+                "Tagline and dash must be visible before Preferences, next to the action rows.");
             Assert.That(actions[0].interactable, Is.False, "Continue must start disabled on the empty save directory.");
 
             menu.OpenSettings();
@@ -63,6 +67,8 @@ namespace HowIFall.PlayModeTests
             SharedPreferencesView view = FindSharedView();
             Assert.That(view, Is.Not.Null, "Preferences view must exist in the Main Menu scene.");
             Assert.That(rows.All(row => !row.activeSelf), Is.True, "Opening Preferences must hide all five action rows.");
+            Assert.That(!tagline.activeSelf && !dash.activeSelf, Is.True,
+                "Opening Preferences must hide the tagline and dash so no Main Menu typography ghosts through the surface.");
             Assert.That(actions.All(button => !button.isActiveAndEnabled), Is.True, "Hidden rows must deactivate their buttons.");
             Assert.That(view.IsVisible, Is.True, "Preferences must remain visible and functional over the Main Menu.");
 
@@ -85,12 +91,16 @@ namespace HowIFall.PlayModeTests
             Assert.That(view.IsVisible, Is.True, "Apply must keep Preferences open.");
             Assert.That(view.GetButton("apply").interactable, Is.False, "Clean Apply must disable the Apply button.");
             Assert.That(rows.All(row => !row.activeSelf), Is.True, "Action rows must stay hidden while Preferences remains open after Apply.");
+            Assert.That(!tagline.activeSelf && !dash.activeSelf, Is.True,
+                "Tagline and dash must stay hidden while Preferences remains open after Apply.");
 
             view.GetButton("back").onClick.Invoke();
             yield return null;
 
             Assert.That(view.IsVisible, Is.False, "Back must close Preferences.");
             Assert.That(rows.All(row => row.activeSelf), Is.True, "Closing Preferences must restore all five action rows.");
+            Assert.That(tagline.activeSelf && dash.activeSelf, Is.True,
+                "Closing Preferences must restore the tagline and dash together with the rows.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(actions[3].gameObject),
                 "Closing Preferences must restore Settings focus through the existing contract.");
             Assert.That(actions[0].interactable, Is.False, "Continue disabled state must survive the Preferences round-trip.");
@@ -102,6 +112,7 @@ namespace HowIFall.PlayModeTests
             MainMenuController menu = Object.FindFirstObjectByType<MainMenuController>();
             Button[] actions = menu.PlayerFacingActionButtons.ToArray();
             GameObject[] rows = actions.Select(button => button.transform.parent.gameObject).ToArray();
+            (GameObject tagline, GameObject dash) = FindTargetV1TaglineBlock(rows[0].transform.parent);
             float committedMasterVolume = SettingsManager.Instance.settings.masterVolume;
             bool originalContinueState = actions[0].interactable;
 
@@ -131,17 +142,22 @@ namespace HowIFall.PlayModeTests
                 Assert.That(rows.All(row => row.activeSelf), Is.True, "Close must restore the rows.");
                 Assert.That(actions[0].interactable, Is.True, "Continue enabled state must survive the Preferences round-trip.");
 
-                // Repeated open/close cycles must not lose or duplicate rows.
+                // Repeated open/close cycles must not lose or duplicate rows,
+                // and the tagline block must track the same lifecycle.
                 for (int cycle = 0; cycle < 3; cycle++)
                 {
                     menu.OpenSettings();
                     yield return null;
                     Assert.That(FindSharedView().IsVisible, Is.True, "Preferences must reopen on cycle " + cycle + ".");
                     Assert.That(rows.All(row => !row.activeSelf), Is.True, "Rows must be hidden on every open, cycle " + cycle + ".");
+                    Assert.That(!tagline.activeSelf && !dash.activeSelf, Is.True,
+                        "Tagline and dash must be hidden on every open, cycle " + cycle + ".");
 
                     FindSharedView().GetButton("back").onClick.Invoke();
                     yield return null;
                     Assert.That(rows.All(row => row.activeSelf), Is.True, "Rows must be restored on every close, cycle " + cycle + ".");
+                    Assert.That(tagline.activeSelf && dash.activeSelf, Is.True,
+                        "Tagline and dash must be restored on every close, cycle " + cycle + ".");
                     Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(actions[3].gameObject),
                         "Settings focus must be restored on every close, cycle " + cycle + ".");
                 }
@@ -174,6 +190,13 @@ namespace HowIFall.PlayModeTests
         private static SharedPreferencesView FindSharedView()
         {
             return Object.FindFirstObjectByType<SharedPreferencesView>();
+        }
+
+        private static (GameObject tagline, GameObject dash) FindTargetV1TaglineBlock(Transform menuContent)
+        {
+            Transform tagline = menuContent != null ? menuContent.Find("Main Menu Tagline") : null;
+            Transform dash = menuContent != null ? menuContent.Find("Main Menu Tagline Dash") : null;
+            return (tagline != null ? tagline.gameObject : null, dash != null ? dash.gameObject : null);
         }
     }
 }
