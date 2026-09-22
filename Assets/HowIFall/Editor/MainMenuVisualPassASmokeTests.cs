@@ -31,6 +31,7 @@ public static class MainMenuVisualPassASmokeTests
         VerifyNavigationLayout(controller);
         VerifyNavigationPanel(controller);
         VerifySimpleButtonPresentation(controller);
+        VerifyTargetV1Presentation(controller);
         VerifyModalBoundsAndAboutWrapping(controller);
         VerifyLegacyPromptIsNotPlayerFacing();
         VerifyBackgroundMotionIsDisabled();
@@ -123,16 +124,17 @@ public static class MainMenuVisualPassASmokeTests
             }
         }
 
-        Require(gaps.All(gap => gap >= 16f && gap <= 20f) || gaps[3] > gaps[2],
-            "Main Menu actions must use a readable typography-led rhythm with Quit visibly separated.");
-        Require(gaps.Take(3).All(gap => gap >= 16f && gap <= 20f),
-            "The first four Main Menu actions must use consistent spacious typography-led spacing.");
-        Require(gaps[3] > gaps[2], "Quit must be visually separated from the main action group.");
+        Require(gaps.All(gap => gap >= 4f && gap <= 14f),
+            "Main Menu actions must keep the approved target v1 tight typography rhythm without overlap.");
+        Require(Mathf.Abs(gaps[3] - gaps[0]) <= 2f,
+            "Target v1 uses one uniform vertical rhythm; Quit must not be extra separated.");
 
         foreach (RectTransform row in rows)
         {
-            float left = row.anchoredPosition.x;
-            float right = row.anchoredPosition.x + row.sizeDelta.x;
+            // anchoredPosition lives in Menu Content space; the authored
+            // MainMenuRoot contributes a +140 canvas X offset at 1920x1080.
+            float left = row.anchoredPosition.x + 140f;
+            float right = left + row.sizeDelta.x;
             Require(left >= 48f && right <= TargetResolution.x - 48f,
                 "Main Menu navigation exceeds the 1920x1080 horizontal safe area.");
         }
@@ -179,7 +181,9 @@ public static class MainMenuVisualPassASmokeTests
                 "Enabled hover must expose the restrained focus accent without enabling it for disabled Continue.");
             Require(button.interactable ? effect.CurrentLabelColor != normal : effect.CurrentLabelColor == normal,
                 "Only enabled actions may brighten on hover.");
-            Require(((Image)button.targetGraphic).color.a <= 0.06f, "Hover must remain subtle.");
+            float hoverAlpha = ((Image)button.targetGraphic).color.a;
+            Require(hoverAlpha >= 0.25f && hoverAlpha <= 0.55f,
+                "Hover must expose the target v1 translucent glass plate without becoming a heavy panel.");
             effect.OnPointerExit(null);
             Require(effect.CurrentLabelColor == normal && !effect.IsInteractionVisible,
                 "Pointer exit must clear hover even with retained EventSystem selection.");
@@ -213,15 +217,85 @@ public static class MainMenuVisualPassASmokeTests
         RectTransform[] rows = controller.PlayerFacingActionButtons
             .Select(button => button.transform.parent as RectTransform)
             .ToArray();
-        Require(rows.All(row => row.anchoredPosition.x >= 190f && row.anchoredPosition.x <= 210f),
-            "Main Menu actions must stay in the left visual column.");
-        Require(rows.All(row => row.sizeDelta.x >= 490f && row.sizeDelta.x <= 510f
-                && row.sizeDelta.y >= 70f && row.sizeDelta.y <= 74f),
-            "Main Menu actions must use the approved large typography-led 1920x1080 geometry.");
+        Require(rows.All(row => row.anchoredPosition.x >= -45f && row.anchoredPosition.x <= -33f),
+            "Main Menu actions must stay in the target v1 left visual column.");
+        Require(rows.All(row => row.sizeDelta.x >= 372f && row.sizeDelta.x <= 388f
+                && row.sizeDelta.y >= 74f && row.sizeDelta.y <= 78f),
+            "Main Menu actions must use the approved target v1 1920x1080 row geometry.");
 
         CanvasScaler scaler = UnityEngine.Object.FindFirstObjectByType<CanvasScaler>(FindObjectsInactive.Include);
         Require(scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize,
             "Main Menu panel must scale with the screen.");
+    }
+
+    private static void VerifyTargetV1Presentation(MainMenuController controller)
+    {
+        // Nav-side navy wash (UI Target v1): authored gradient overlay stays the
+        // visual source, widened and strengthened to cover the left composition.
+        Canvas canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+        Require(canvas != null, "Main Menu Canvas is missing for the target v1 presentation check.");
+        Image gradient = canvas.transform.Find("Left Gradient Overlay")?.GetComponent<Image>();
+        Require(gradient != null && gradient.gameObject.activeSelf, "Target v1 requires the left navy wash overlay.");
+        RectTransform gradientRect = gradient.rectTransform;
+        Require(gradientRect.sizeDelta.x >= 860f && gradientRect.sizeDelta.x <= 900f,
+            "Target v1 wash must fade out near the middle of the left half, not the full width.");
+        Require(gradient.color.a >= 0.95f, "Target v1 wash must keep its full authored depth.");
+
+        // Tagline closes the left composition under the navigation column.
+        Transform firstRow = controller.PlayerFacingActionButtons[0].transform.parent;
+        Transform menuContent = firstRow.parent;
+        TextMeshProUGUI tagline = menuContent != null && menuContent.Find("Main Menu Tagline") != null
+            ? menuContent.Find("Main Menu Tagline").GetComponent<TextMeshProUGUI>()
+            : null;
+        Require(tagline != null, "Target v1 left composition must include the runtime tagline.");
+        Require(tagline.text.Replace("\r\n", "\n") == "SAME HALLS\nDIFFERENT YOU",
+            "Tagline copy must match the approved target v1 composition.");
+        Require(!tagline.raycastTarget && tagline.fontSize <= 24f,
+            "Tagline must be non-interactive supporting typography.");
+        Image dash = menuContent.Find("Main Menu Tagline Dash") != null
+            ? menuContent.Find("Main Menu Tagline Dash").GetComponent<Image>()
+            : null;
+        Require(dash != null && !dash.raycastTarget, "Tagline dash accent is missing.");
+        Require(dash.rectTransform.sizeDelta.x >= 54f && dash.rectTransform.sizeDelta.x <= 66f
+            && dash.color.b >= 0.8f && dash.color.g >= 0.7f && dash.color.r <= 0.2f,
+            "Tagline dash must be the target v1 cyan accent bar.");
+        RectTransform taglineRect = tagline.rectTransform;
+        foreach (Button button in controller.PlayerFacingActionButtons)
+        {
+            Require(!RectsOverlap(taglineRect, button.transform.parent as RectTransform),
+                "Tagline must not overlap a navigation row.");
+            Require(!RectsOverlap(dash.rectTransform, button.transform.parent as RectTransform),
+                "Tagline dash must not overlap a navigation row.");
+        }
+
+        // Interaction language: bright cyan full-height accent bar on hover/focus.
+        foreach (Button button in controller.PlayerFacingActionButtons)
+        {
+            MainMenuButtonHoverEffect effect = button.GetComponent<MainMenuButtonHoverEffect>();
+            Require(effect != null, "Main Menu action lost its hover effect for the target v1 check.");
+            effect.OnPointerEnter(null);
+            if (button.interactable)
+            {
+                Require(effect.FocusAccentSize == new Vector2(7f, 76f),
+                    "Focus accent must use the target v1 full-height cyan bar geometry.");
+                Require(effect.FocusAccentColor.b >= 0.9f && effect.FocusAccentColor.g >= 0.75f
+                    && effect.FocusAccentColor.r <= 0.2f,
+                    "Focus accent must be the bright target v1 cyan, never red.");
+            }
+            effect.OnPointerExit(null);
+            effect.OnDeselect(null);
+        }
+
+        // Title block: the authored sprite carries transparent margins, so the
+        // runtime rect is proportional to the authored frame; its centre puts
+        // the visible strokes in the top-left corner (≈ 98..488 x 54..388).
+        RectTransform logo = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(rect => rect.gameObject.name == "Game Logo");
+        Require(logo != null, "Game Logo is missing for the target v1 check.");
+        Require(Mathf.Abs(logo.anchoredPosition.x + 79f) <= 2f && Mathf.Abs(logo.anchoredPosition.y + 38.5f) <= 2f,
+            "Target v1 places the visible logo strokes in the top-left corner of the composition.");
+        Require(Mathf.Abs(logo.sizeDelta.y - 365f) <= 2f,
+            "Target v1 logo keeps the approved title-block scale.");
     }
 
     private static void VerifyModalBoundsAndAboutWrapping(MainMenuController controller)

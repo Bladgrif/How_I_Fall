@@ -37,7 +37,8 @@ namespace HowIFall.PlayModeTests
                 Assert.That(system.currentSelectedGameObject, Is.EqualTo(actions[1].gameObject));
                 Assert.That(effects.Count(e => e.IsInteractionVisible), Is.EqualTo(1));
                 Assert.That(effects[1].CurrentLabelColor, Is.Not.EqualTo(normal));
-                Assert.That(((Image)actions[1].targetGraphic).color.a, Is.InRange(0.01f, 0.06f));
+                Assert.That(((Image)actions[1].targetGraphic).color.a, Is.InRange(0.25f, 0.55f),
+                    "Hover must show the target v1 translucent glass plate.");
                 ExecuteEvents.Execute(actions[1].gameObject, new PointerEventData(system), ExecuteEvents.pointerDownHandler);
                 ExecuteEvents.Execute(actions[1].gameObject, new PointerEventData(system), ExecuteEvents.pointerUpHandler);
                 ExecuteEvents.Execute(actions[1].gameObject, new PointerEventData(system), ExecuteEvents.pointerExitHandler);
