@@ -17,11 +17,19 @@ Repository contracts важнее предположений, памяти и в
 
 До independent implementation определи и проверь accepted base SHA текущей задачи. Если заданный expected base больше не совпадает, остановись до редактирования и сообщи actual SHA. Не reset/clean/overwrite dirty, divergent или содержащий unrelated user changes checkout: при авторизованной implementation и доступной среде работай в clean disposable worktree от verified accepted base, сохраняя пользовательские изменения.
 
-## Старт и компактное состояние
+## Finish line и автономность
 
-Перед правками коротко зафиксируй reproduced problems, protected behavior, 3–5 objective acceptance criteria и subjective вопросы, не блокирующие automated pass.
+Перед правками коротко зафиксируй goal, reproduced problems/material deltas, protected behavior и 3–5 objective acceptance criteria.
 
-В длинном проходе поддерживай один mutable task-state:
+После этого действуй автономно внутри bounded scope: сам выбери нужные source spans, минимальную implementation и соразмерную validation. Не запрашивай подтверждение каждого безопасного/reversible шага и не останавливайся на плане, если implementation разрешена и blocker отсутствует.
+
+Settled repository/roadmap decisions — constraints. Не переоткрывай их без нового reproduced defect, contradiction source of truth или явного user request.
+
+Не добавляй в prompt/план пустые усилители вроде `think carefully` или `be extremely thorough`; глубина задаётся model/reasoning и acceptance criteria.
+
+## Компактное состояние
+
+Для длинного прохода поддерживай один mutable task-state:
 
 ```text
 Goal:
@@ -38,23 +46,25 @@ Next action:
 Budget remaining:
 ```
 
-Обновляй поля вместо растущего дневника; evidence храни компактно как проверку, результат и artifact path. После production change используй свежий test/runtime/screenshot result. Git/runtime/test evidence выше памяти агента. Это execution discipline, а не обещание стереть history или новая production memory system; task-state не коммить без отдельной причины.
+Обновляй поля вместо растущего дневника; evidence храни компактно как проверку, результат и artifact path. После production change используй свежий test/runtime/screenshot result. Git/runtime/test evidence выше памяти агента. Task-state не коммить без отдельной причины.
 
 ## Context и baseline
 
-Сначала прочитай `AGENTS.md`, только relevant product/research contracts, ближайшие production files и tests, relevant baseline и существующий graphical E2E/launcher. Для больших файлов сначала search и точные spans; расширяй pack только после доказанной зависимости.
+Сначала прочитай `AGENTS.md`, только relevant product/research contracts, ближайшие production files/tests, relevant baseline и существующий graphical E2E/launcher. Для больших файлов сначала search и точные spans; расширяй pack только после доказанной зависимости.
 
 До visual change переиспользуй существующий graphical E2E/launcher и, если инфраструктура позволяет, получи current screenshot. Не создавай второй graphical QA framework. Свежий точный baseline не нужно перезапускать только ради формальности.
 
 ## Реализация и доказательство
 
-Сделай минимальный diff. После каждой существенной итерации:
+Сделай минимальный diff. После существенной итерации используй проверки, соразмерные изменению:
 
 1. compile/import preflight;
 2. самый узкий meaningful regression test;
 3. relevant smoke/regression;
 4. для player-facing поверхности — `$hif-visual-qa` через существующий graphical E2E;
 5. inspect fresh screenshots изменённых состояний.
+
+Расширяй suite только при failure, новом риске или unresolved concern.
 
 Проверяй clipping/overlap, visibility, control geometry, hover/focus/pressed/disabled и stale state, anchors/layout, missing assets и visual weight. Для изменённого поведения добавляй разумное regression coverage по `AGENTS.md`; не добавляй зеркальный тест для low-impact reversible visual change, если существующий smoke/graphical proof уже ловит defect.
 
@@ -66,19 +76,18 @@ Budget remaining:
 
 После значимого successful visual pass обнови небольшой relevant набор `docs/visual-baselines/`, но не весь `QAArtifacts`.
 
-## Routing и экономия
+## Routing и delegation
 
-Если среда реально поддерживает delegation/model routing:
+Среду и модель выбирает reviewer по `docs/product/agent_orchestration.md`.
 
-- Luna — tiny fixes, docs, deterministic tests/config/boilerplate;
-- Terra — normal Unity/C#/UI implementation;
-- Sol — сложный root cause, architecture или interdependent state;
-- Astra — редкий дорогой autonomous visual/product judgement;
-- дешёвый worker — только bulk overview/deterministic extraction либо boilerplate с точной spec и существующим HIF reference.
+- **GLM-5.3-Flash** — default Z-Code/J-Code worker для routine Unity/C#/UI, visual polish, QA и correction loops.
+- **GPT-6 Luna** — Codex high-volume workhorse для focused bounded implementation, tests/docs и independent second pass.
+- **GLM-5.3 / GPT-6 Sol** — escalation для реально сложного reasoning, lifecycle/state или high regression-risk.
+- **GPT-6 Astra** — hardest/high-risk end-to-end work, не default visual-polish coder.
 
-Не поручай worker root-cause judgement, architecture, Save compatibility, player-facing product decision, reviewer verdict или exact editing без прочитанных source spans. Worker output — предложение, не proof. Не давай агентам конкурирующе редактировать одну поверхность. Если реального routing нет, не имитируй delegation: держи context узким.
+Если нужен multi-agent harness, предпочитай J-Code только при 2+ genuinely independent workstreams, отдельном read-only review или полезном parallel production/tests/QA investigation. Обычно 2–3 агента и один coordinator.
 
-Для Astra: если bounded intent уже ясен, действуй без лишнего уточнения безопасными/reversible шагами; не расходуй дорогой context на повторный большой обзор или необоснованное тестирование. User task задаёт цель, но `AGENTS.md` и repository safety contracts обязательны. При настоящем blocker назови точное правило.
+Не давай нескольким агентам конкурирующе редактировать одну поверхность, scene/prefab или serialized asset. Worker output — proposal/evidence, не reviewer proof. Если реального routing/delegation нет, не имитируй его.
 
 ## Review и отчёт
 
@@ -86,4 +95,4 @@ Budget remaining:
 
 ChatGPT reviewer отдельно владеет GitHub diff/scope review, mandatory CI, visual evidence review, Drive roadmap/capability sync и verdict `DONE`/`NEEDS CORRECTION`.
 
-Коротко верни: base SHA, surface/problems, прочитанный context, реальную delegation, changed files, checks/graphical E2E/screenshots, iterations, baselines, `NOT RUN`, remaining gaps, commit/push/CI и `REVIEW CANDIDATE` либо `BLOCKED`.
+Коротко верни: base SHA, surface/problems, changed files, реально запущенные checks/graphical E2E/screenshots, iterations, baselines, `NOT RUN`, remaining gaps, commit/push/CI и `REVIEW CANDIDATE` либо `BLOCKED`.
