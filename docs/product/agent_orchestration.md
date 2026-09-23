@@ -171,10 +171,33 @@ Task-specific protections важнее длинного пересказа об�
 
 ## 9. Git/worktree safety
 
-При mismatch expected base остановись до editing. Если primary checkout dirty,
-divergent или содержит unrelated work, используй clean disposable worktree от
-verified base. Не reset/clean/overwrite user changes, не force-push и не
-используй `git add .`. Stage только task files.
+### Постоянная локальная схема
+
+Default workflow — **две постоянные папки**, а не новый worktree на каждый pass:
+
+- `master` — чистый exact `origin/master`, reference/recovery checkout;
+- `develop` — единственная обычная рабочая Unity-папка с прогретой `Library`.
+
+`develop` — имя папки, не постоянная git-ветка. Для каждой bounded задачи в
+этой папке создавай отдельную task branch от свежего `origin/master`. После
+review + merge синхронизируй `develop` с новым master и используй ту же папку
+для следующей задачи. Это сохраняет Unity Library/cache и не плодит копии
+проекта.
+
+Не создавай disposable worktree по умолчанию. Он нужен только как исключение,
+если постоянный `develop` реально заблокирован unrelated/uncommitted work,
+другой активной задачей или требует изоляции для рискованного эксперимента.
+После завершения такой временный worktree удаляется, если в нём нет
+незапушенных изменений.
+
+Dirty другой checkout сам по себе не причина создавать свежую Unity Library.
+Не трать время на полный cold import, если можно безопасно работать в чистом
+warm `develop`.
+
+При mismatch expected base остановись до editing. Если `develop` dirty перед
+новой задачей, сначала определи происхождение изменений и сохрани их; не
+reset/clean/overwrite user changes. Не force-push и не используй `git add .`.
+Stage только task files.
 
 ## 10. Validation
 
