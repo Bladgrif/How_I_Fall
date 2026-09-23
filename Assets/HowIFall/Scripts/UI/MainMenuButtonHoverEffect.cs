@@ -38,7 +38,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     private Outline outline;
     private Graphic labelGraphic;
     private Image focusAccent;
-    private Image focusGlow;
+    private Image selectionGlow;
     private bool isPointerInside;
     private bool isSelected;
     private MainMenuButtonVisualRole role;
@@ -52,8 +52,8 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     public Color FocusAccentColor => focusAccent != null ? focusAccent.color : Color.clear;
     public Vector2 FocusAccentSize => focusAccent != null ? focusAccent.rectTransform.sizeDelta : Vector2.zero;
     public Vector2 FocusAccentAnchoredPosition => focusAccent != null ? focusAccent.rectTransform.anchoredPosition : Vector2.zero;
-    public bool IsFocusGlowVisible => focusGlow != null && focusGlow.gameObject.activeSelf;
-    public Color FocusGlowColor => focusGlow != null ? focusGlow.color : Color.clear;
+    public bool IsSelectionGlowVisible => selectionGlow != null && selectionGlow.gameObject.activeSelf;
+    public Vector2 SelectionGlowSizeDelta => selectionGlow != null ? selectionGlow.rectTransform.sizeDelta : Vector2.zero;
 
     private void Awake()
     {
@@ -109,40 +109,6 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             accentRect.sizeDelta = new Vector2(7f, 76f);
             focusAccent.raycastTarget = false;
         }
-
-        if (focusAccent != null)
-        {
-            EnsureFocusGlow();
-        }
-    }
-
-    private void EnsureFocusGlow()
-    {
-        // Neon emission: a soft cyan halo parented to the accent bar, so the
-        // glow always shares the bar's exact enable state and can never float
-        // alone over a normal or disabled row.
-        Transform existingGlow = focusAccent.transform.Find("Focus Accent Glow");
-        if (existingGlow != null)
-        {
-            focusGlow = existingGlow.GetComponent<Image>();
-            return;
-        }
-
-        GameObject glow = new GameObject("Focus Accent Glow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        glow.transform.SetParent(focusAccent.transform, false);
-        focusGlow = glow.GetComponent<Image>();
-        focusGlow.sprite = CreateFocusGlowSprite();
-        focusGlow.type = Image.Type.Simple;
-        focusGlow.color = new Color(0.01f, 0.85f, 0.98f, 0.42f);
-        focusGlow.raycastTarget = false;
-        RectTransform glowRect = focusGlow.rectTransform;
-        glowRect.anchorMin = glowRect.anchorMax = new Vector2(0.5f, 0.5f);
-        glowRect.pivot = new Vector2(0.5f, 0.5f);
-        glowRect.anchoredPosition = Vector2.zero;
-        // Taller than the 76px row by design: the halo bleeds a few pixels past
-        // the row into the 8px rhythm gap, which is what makes the bar read as
-        // emitted light instead of a flat UI rectangle.
-        glowRect.sizeDelta = new Vector2(30f, 92f);
     }
 
     private void OnEnable()
@@ -174,10 +140,51 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             highlightImage.type = Image.Type.Simple;
         }
 
+        EnsureSelectionGlow();
+
         // Root navigation gets one small, stable HIF-colour anchor. This is
         // intentionally not a panel, particle system, or copied reference look.
         suppressFocusAccent = false;
         RefreshState();
+    }
+
+    private void EnsureSelectionGlow()
+    {
+        // The glow belongs to the highlighted ROW as a whole: a full-width plate
+        // slightly taller than the row with a soft vertical falloff, rendered
+        // beneath the crisp ramp. It must never sit outside the row's horizontal
+        // bounds — a detached slab left of the row reads as a stray bar, not as
+        // emitted light.
+        if (selectionGlow != null) return;
+        Transform row = transform.parent;
+        if (row == null) return;
+
+        Transform existingGlow = row.Find("Selection Glow");
+        if (existingGlow != null)
+        {
+            selectionGlow = existingGlow.GetComponent<Image>();
+            return;
+        }
+
+        GameObject glow = new GameObject("Selection Glow", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        glow.transform.SetParent(row, false);
+        // First sibling of the row: behind the button's own ramp plate, so the
+        // overlap intensifies the plate instead of tinting the label.
+        glow.transform.SetSiblingIndex(0);
+        selectionGlow = glow.GetComponent<Image>();
+        selectionGlow.sprite = CreateSelectionGlowSprite();
+        selectionGlow.type = Image.Type.Simple;
+        selectionGlow.color = new Color(1f, 1f, 1f, 0.35f);
+        selectionGlow.raycastTarget = false;
+        RectTransform glowRect = selectionGlow.rectTransform;
+        glowRect.anchorMin = new Vector2(0f, 0.5f);
+        glowRect.anchorMax = new Vector2(1f, 0.5f);
+        glowRect.pivot = new Vector2(0.5f, 0.5f);
+        // Exactly the row width; 10px taller than the 76px row, so the halo
+        // rises and falls ~5px past the row edges into the rhythm gap.
+        glowRect.offsetMin = new Vector2(0f, -48f);
+        glowRect.offsetMax = new Vector2(0f, 48f);
+        selectionGlow.gameObject.SetActive(false);
     }
 
     public void ConfigureExclusiveActions(IReadOnlyList<Button> actions)
@@ -384,40 +391,45 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         return sprite;
     }
 
-    private static Texture2D focusGlowTexture;
-    private const string FocusGlowSpriteName = "HIF Focus Glow Runtime";
+    private static Texture2D selectionGlowTexture;
+    private const string SelectionGlowSpriteName = "HIF Selection Glow Runtime";
 
     /// <summary>
-    /// Soft horizontal falloff for the neon halo around the focus accent bar:
-    /// white luminance only, so the Image tint stays the single source of the
-    /// cyan hue (matching the accent bar's own color), and the alpha curve
-    /// decays fast enough to read as emitted light rather than a second plate.
+    /// Soft glow plate behind the selected row: the same left-weighted horizontal
+    /// fade as the ramp, multiplied by a vertical falloff so the highlight softly
+    /// emits a little above and below the row instead of ending in hard edges.
+    /// Built in linear space like the ramp, one step brighter than the plate's
+    /// base teal so the overlap deepens the luminance without shifting hue.
     /// </summary>
-    internal static Sprite CreateFocusGlowSprite()
+    internal static Sprite CreateSelectionGlowSprite()
     {
-        if (focusGlowTexture == null)
+        if (selectionGlowTexture == null)
         {
-            const int width = 64;
-            const int height = 4;
-            focusGlowTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
-            focusGlowTexture.wrapMode = TextureWrapMode.Clamp;
+            const int width = 256;
+            const int height = 64;
+            selectionGlowTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
+            selectionGlowTexture.wrapMode = TextureWrapMode.Clamp;
             Color32[] pixels = new Color32[width * height];
+            Color32 glowTeal = new Color32(4, 70, 120, 255);
             for (int x = 0; x < width; x++)
             {
                 float t = x / (width - 1f);
-                byte alpha = (byte)Mathf.RoundToInt(255f * Mathf.Pow(1f - t, 1.6f));
+                float horizontal = 1f - t;
                 for (int y = 0; y < height; y++)
                 {
-                    pixels[y * width + x] = new Color32(255, 255, 255, alpha);
+                    float v = Mathf.Abs(2f * y / (height - 1f) - 1f);
+                    float vertical = 1f - v * v * v;
+                    byte alpha = (byte)Mathf.RoundToInt(255f * horizontal * vertical);
+                    pixels[y * width + x] = new Color32(glowTeal.r, glowTeal.g, glowTeal.b, alpha);
                 }
             }
 
-            focusGlowTexture.SetPixels32(pixels);
-            focusGlowTexture.Apply(false, true);
+            selectionGlowTexture.SetPixels32(pixels);
+            selectionGlowTexture.Apply(false, true);
         }
 
-        Sprite sprite = Sprite.Create(focusGlowTexture, new Rect(0f, 0f, 64f, 4f), new Vector2(0.5f, 0.5f), 100f);
-        sprite.name = FocusGlowSpriteName;
+        Sprite sprite = Sprite.Create(selectionGlowTexture, new Rect(0f, 0f, 256f, 64f), new Vector2(0.5f, 0.5f), 100f);
+        sprite.name = SelectionGlowSpriteName;
         return sprite;
     }
 
@@ -447,9 +459,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             focusAccent.gameObject.SetActive(false);
         }
 
-        if (focusGlow != null)
+        if (selectionGlow != null)
         {
-            focusGlow.gameObject.SetActive(false);
+            selectionGlow.gameObject.SetActive(false);
         }
     }
 
@@ -478,14 +490,16 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             // buttons express focus through their plate, so the bar can never
             // float between confirmation actions as a perceived separator.
             focusAccent.color = new Color(0.01f, 0.85f, 0.98f, 0.98f);
-            bool accentVisible = mainMenuActions != null
+            focusAccent.gameObject.SetActive(mainMenuActions != null
                 && !suppressFocusAccent
-                && (isPointerInside || isSelected);
-            focusAccent.gameObject.SetActive(accentVisible);
-            if (focusGlow != null)
-            {
-                focusGlow.gameObject.SetActive(accentVisible);
-            }
+                && (isPointerInside || isSelected));
+        }
+
+        if (selectionGlow != null)
+        {
+            // The taller glow plate shares the row's exact active state, so it
+            // can never linger on a normal or disabled row.
+            selectionGlow.gameObject.SetActive(isPointerInside || isSelected);
         }
     }
 
