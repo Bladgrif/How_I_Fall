@@ -119,6 +119,20 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     public void ConfigureMainMenuActions(IReadOnlyList<Button> actions)
     {
         mainMenuActions = actions;
+        if (highlightImage == null && button != null)
+        {
+            highlightImage = button.targetGraphic as Image ?? GetComponent<Image>();
+        }
+
+        if (highlightImage != null)
+        {
+            // UI Target v1: the selected row's plate is a left-weighted luminous
+            // ramp that evaporates toward the right, never a flat rectangle with
+            // a hard end edge. The tint stays white so the sprite carries the hue.
+            highlightImage.sprite = CreateNavSelectionRampSprite();
+            highlightImage.type = Image.Type.Simple;
+        }
+
         // Root navigation gets one small, stable HIF-colour anchor. This is
         // intentionally not a panel, particle system, or copied reference look.
         suppressFocusAccent = false;
@@ -264,9 +278,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         if (mainMenuActions != null)
         {
-            // UI Target v1: hover/focus activates a deep blue-glass plate behind
-            // the row instead of a nearly invisible tint.
-            Apply(TargetV1SelectedPlate(0.48f), new Color(0.88f, 0.96f, 1f, 1f));
+            // UI Target v1: hover/focus activates the left-weighted teal ramp
+            // behind the row; the sprite carries the falloff, the tint the depth.
+            Apply(TargetV1SelectedPlate(0.52f), new Color(0.88f, 0.96f, 1f, 1f));
             return;
         }
         // Modal confirmations carry selection on the button plate itself: one
@@ -276,7 +290,48 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private static Color TargetV1SelectedPlate(float alpha)
     {
-        return new Color(0.10f, 0.42f, 0.60f, alpha);
+        // The ramp sprite owns the teal-blue luminance, so the tint stays white;
+        // alpha remains the single depth control for hover/pressed.
+        return new Color(1f, 1f, 1f, alpha);
+    }
+
+    private static Texture2D navSelectionRampTexture;
+    private const string NavSelectionRampSpriteName = "HIF Nav Selection Ramp Runtime";
+
+    /// <summary>
+    /// UI Target v1 selected-row ramp, built once: teal-blue luminance that is
+    /// strongest at the row's left edge and fades linearly to transparent at the
+    /// right edge, so the highlight has no hard rectangular end. The texture is
+    /// created in linear space, so the intended sRGB teal #1C789E (28, 120, 158)
+    /// is pre-converted with an inverse-gamma pow(2.2); storing the sRGB bytes
+    /// directly would render as a washed-out pastel blue.
+    /// </summary>
+    internal static Sprite CreateNavSelectionRampSprite()
+    {
+        if (navSelectionRampTexture == null)
+        {
+            const int width = 256;
+            const int height = 4;
+            navSelectionRampTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
+            navSelectionRampTexture.wrapMode = TextureWrapMode.Clamp;
+            Color32[] pixels = new Color32[width * height];
+            for (int x = 0; x < width; x++)
+            {
+                float t = x / (width - 1f);
+                byte alpha = (byte)Mathf.RoundToInt(255f * (1f - t));
+                for (int y = 0; y < height; y++)
+                {
+                    pixels[y * width + x] = new Color32(2, 49, 89, alpha);
+                }
+            }
+
+            navSelectionRampTexture.SetPixels32(pixels);
+            navSelectionRampTexture.Apply(false, true);
+        }
+
+        Sprite sprite = Sprite.Create(navSelectionRampTexture, new Rect(0f, 0f, 256f, 4f), new Vector2(0.5f, 0.5f), 100f);
+        sprite.name = NavSelectionRampSpriteName;
+        return sprite;
     }
 
     private Color ModalSelectedBackground()
