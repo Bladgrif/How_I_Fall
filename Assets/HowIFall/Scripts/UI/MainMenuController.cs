@@ -238,7 +238,7 @@ public sealed class MainMenuController : MonoBehaviour
             RectTransform gradientRect = gradient as RectTransform;
             if (gradientRect != null)
             {
-                gradientRect.sizeDelta = new Vector2(880f, gradientRect.sizeDelta.y);
+                gradientRect.sizeDelta = new Vector2(1040f, gradientRect.sizeDelta.y);
             }
         }
 
@@ -283,9 +283,9 @@ public sealed class MainMenuController : MonoBehaviour
     private static Texture2D navyWashTexture;
 
     /// <summary>
-    /// Builds the UI Target v1 nav-side wash ramp once: deep navy (#0C1422) with
-    /// an ease-out alpha channel peaking at ~0.86 at the left edge and reaching
-    /// zero before the horizontal middle of the screen.
+    /// Builds the UI Target v1 nav-side wash ramp once: deep navy that displays
+    /// as #101A28 with an ease-out alpha channel peaking at ~0.94 at the left
+    /// edge and reaching zero near 54% of the screen width.
     /// </summary>
     private static Sprite CreateNavyWashSprite()
     {
@@ -299,10 +299,14 @@ public sealed class MainMenuController : MonoBehaviour
             for (int x = 0; x < width; x++)
             {
                 float t = x / (width - 1f);
-                byte alpha = (byte)Mathf.RoundToInt(219f * Mathf.Pow(1f - t, 1.6f));
+                byte alpha = (byte)Mathf.RoundToInt(240f * Mathf.Pow(1f - t, 1.5f));
                 for (int y = 0; y < height; y++)
                 {
-                    pixels[y * width + x] = new Color32(12, 20, 34, alpha);
+                    // The texture is created in linear space, so the intended
+                    // sRGB navy #101A28 (16, 26, 40) is pre-converted with an
+                    // inverse-gamma pow(2.2); storing the sRGB bytes directly
+                    // would render as a washed-out light slate blue.
+                    pixels[y * width + x] = new Color32(1, 2, 4, alpha);
                 }
             }
 

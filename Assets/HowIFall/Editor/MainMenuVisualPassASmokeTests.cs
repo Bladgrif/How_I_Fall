@@ -145,8 +145,10 @@ public static class MainMenuVisualPassASmokeTests
         foreach (Button button in controller.PlayerFacingActionButtons)
         {
             Image image = button.targetGraphic as Image;
-            Require(image != null && image.sprite == null && image.type == Image.Type.Simple,
+            Require(image != null && image.type == Image.Type.Simple,
                 "Main Menu actions must not replace the authored menu art with decorative button sprites.");
+            Require(image.sprite == null || image.sprite.name == "HIF Nav Selection Ramp Runtime",
+                "Main Menu actions may only carry the target v1 left-weighted selection ramp sprite.");
             Require(image.color.a <= 0.01f,
                 "Main Menu normal navigation must not use permanent filled button rectangles.");
         }
@@ -237,8 +239,8 @@ public static class MainMenuVisualPassASmokeTests
         Image gradient = canvas.transform.Find("Left Gradient Overlay")?.GetComponent<Image>();
         Require(gradient != null && gradient.gameObject.activeSelf, "Target v1 requires the left navy wash overlay.");
         RectTransform gradientRect = gradient.rectTransform;
-        Require(gradientRect.sizeDelta.x >= 860f && gradientRect.sizeDelta.x <= 900f,
-            "Target v1 wash must fade out near the middle of the left half, not the full width.");
+        Require(gradientRect.sizeDelta.x >= 1000f && gradientRect.sizeDelta.x <= 1080f,
+            "Target v1 wash must fade out near 54% of the screen width, not the full width.");
         Require(gradient.color.a >= 0.95f, "Target v1 wash must keep its full authored depth.");
 
         // Tagline closes the left composition under the navigation column.
@@ -276,6 +278,9 @@ public static class MainMenuVisualPassASmokeTests
             effect.OnPointerEnter(null);
             if (button.interactable)
             {
+                Image plate = button.targetGraphic as Image;
+                Require(plate != null && plate.sprite != null && plate.sprite.name == "HIF Nav Selection Ramp Runtime",
+                    "Selected plate must use the target v1 left-weighted ramp sprite, not a flat rectangle.");
                 Require(effect.FocusAccentSize == new Vector2(7f, 76f),
                     "Focus accent must use the target v1 full-height cyan bar geometry.");
                 Require(effect.FocusAccentColor.b >= 0.9f && effect.FocusAccentColor.g >= 0.75f
