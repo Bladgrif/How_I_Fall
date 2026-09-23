@@ -88,7 +88,7 @@ public static class MainMenuVisualPassASmokeTests
             MainMenuButtonHoverEffect disabledContinue = GetHoverEffect(continueButton);
             disabledContinue.OnSelect(null);
             Require(disabledContinue.CurrentLabelColor.a >= 0.75f && !disabledContinue.IsFocusAccentVisible
-                    && !disabledContinue.IsFocusGlowVisible,
+                    && !disabledContinue.IsSelectionGlowVisible,
                 "Disabled Continue must remain readable and must not present a misleading focus marker or glow.");
         }
         finally
@@ -289,10 +289,13 @@ public static class MainMenuVisualPassASmokeTests
                 Require(effect.FocusAccentColor.b >= 0.9f && effect.FocusAccentColor.g >= 0.75f
                     && effect.FocusAccentColor.r <= 0.2f,
                     "Focus accent must be the bright target v1 cyan, never red.");
-                Require(effect.IsFocusGlowVisible
-                    && effect.FocusGlowColor.b >= 0.9f && effect.FocusGlowColor.g >= 0.75f
-                    && effect.FocusGlowColor.r <= 0.2f,
-                    "Selected row must expose the neon cyan glow halo while the accent bar is active.");
+                Require(effect.IsSelectionGlowVisible,
+                    "Selected row must expose the soft selection glow plate while active.");
+                // Stretch anchors with zero horizontal offsets: the glow spans
+                // exactly the row width (no left protrusion) and is ~10px taller
+                // than the 76px row, so the halo softly exceeds it vertically.
+                Require(effect.SelectionGlowSizeDelta == new Vector2(0f, 96f),
+                    "Selection glow must be row-width and only slightly taller than the row.");
             }
             effect.OnPointerExit(null);
             effect.OnDeselect(null);
