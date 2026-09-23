@@ -87,8 +87,9 @@ public static class MainMenuVisualPassASmokeTests
                 "New Game must become the primary CTA when Continue is unavailable.");
             MainMenuButtonHoverEffect disabledContinue = GetHoverEffect(continueButton);
             disabledContinue.OnSelect(null);
-            Require(disabledContinue.CurrentLabelColor.a >= 0.75f && !disabledContinue.IsFocusAccentVisible,
-                "Disabled Continue must remain readable and must not present a misleading focus marker.");
+            Require(disabledContinue.CurrentLabelColor.a >= 0.75f && !disabledContinue.IsFocusAccentVisible
+                    && !disabledContinue.IsFocusGlowVisible,
+                "Disabled Continue must remain readable and must not present a misleading focus marker or glow.");
         }
         finally
         {
@@ -283,9 +284,15 @@ public static class MainMenuVisualPassASmokeTests
                     "Selected plate must use the target v1 left-weighted ramp sprite, not a flat rectangle.");
                 Require(effect.FocusAccentSize == new Vector2(7f, 76f),
                     "Focus accent must use the target v1 full-height cyan bar geometry.");
+                Require(effect.FocusAccentAnchoredPosition == Vector2.zero,
+                    "Focus accent bar must sit flush with the highlighted row's left edge, without a wash gap before it.");
                 Require(effect.FocusAccentColor.b >= 0.9f && effect.FocusAccentColor.g >= 0.75f
                     && effect.FocusAccentColor.r <= 0.2f,
                     "Focus accent must be the bright target v1 cyan, never red.");
+                Require(effect.IsFocusGlowVisible
+                    && effect.FocusGlowColor.b >= 0.9f && effect.FocusGlowColor.g >= 0.75f
+                    && effect.FocusGlowColor.r <= 0.2f,
+                    "Selected row must expose the neon cyan glow halo while the accent bar is active.");
             }
             effect.OnPointerExit(null);
             effect.OnDeselect(null);
