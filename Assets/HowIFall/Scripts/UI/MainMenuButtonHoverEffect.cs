@@ -53,6 +53,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     public Vector2 FocusAccentSize => focusAccent != null ? focusAccent.rectTransform.sizeDelta : Vector2.zero;
     public Vector2 FocusAccentAnchoredPosition => focusAccent != null ? focusAccent.rectTransform.anchoredPosition : Vector2.zero;
     public bool IsSelectionGlowVisible => selectionGlow != null && selectionGlow.gameObject.activeSelf;
+    public Color SelectionGlowColor => selectionGlow != null ? selectionGlow.color : Color.clear;
     public Vector2 SelectionGlowSizeDelta => selectionGlow != null ? selectionGlow.rectTransform.sizeDelta : Vector2.zero;
 
     private void Awake()
@@ -174,16 +175,16 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         selectionGlow = glow.GetComponent<Image>();
         selectionGlow.sprite = CreateSelectionGlowSprite();
         selectionGlow.type = Image.Type.Simple;
-        selectionGlow.color = new Color(1f, 1f, 1f, 0.35f);
+        selectionGlow.color = new Color(1f, 1f, 1f, 0.20f);
         selectionGlow.raycastTarget = false;
         RectTransform glowRect = selectionGlow.rectTransform;
         glowRect.anchorMin = new Vector2(0f, 0.5f);
         glowRect.anchorMax = new Vector2(1f, 0.5f);
         glowRect.pivot = new Vector2(0.5f, 0.5f);
-        // Exactly the row width; 10px taller than the 76px row, so the halo
-        // rises and falls ~5px past the row edges into the rhythm gap.
-        glowRect.offsetMin = new Vector2(0f, -48f);
-        glowRect.offsetMax = new Vector2(0f, 48f);
+        // Exactly the row width; the restrained halo extends only ~6px beyond
+        // the visually slimmer plate, without making a detached edge.
+        glowRect.offsetMin = new Vector2(0f, -44f);
+        glowRect.offsetMax = new Vector2(0f, 44f);
         selectionGlow.gameObject.SetActive(false);
     }
 
@@ -361,7 +362,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (navSelectionRampTexture == null)
         {
             const int width = 256;
-            const int height = 4;
+            const int height = 32;
             navSelectionRampTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
             navSelectionRampTexture.wrapMode = TextureWrapMode.Clamp;
             Color32[] pixels = new Color32[width * height];
@@ -375,9 +376,12 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
                 byte alpha = (byte)Mathf.RoundToInt(255f * (1f - t));
                 float coreBlend = Mathf.Clamp01(1f - t / 0.12f);
                 Color ramp = Color.Lerp(baseTeal, hotCore, coreBlend);
-                ramp.a = alpha / 255f;
                 for (int y = 0; y < height; y++)
                 {
+                    // Feather only the outer ~7px of the 76px row. The button,
+                    // label, and cyan focus bar keep their approved geometry.
+                    float edge = Mathf.Min(y, height - 1 - y) / 3f;
+                    ramp.a = alpha / 255f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(edge));
                     pixels[y * width + x] = ramp;
                 }
             }
@@ -386,7 +390,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             navSelectionRampTexture.Apply(false, true);
         }
 
-        Sprite sprite = Sprite.Create(navSelectionRampTexture, new Rect(0f, 0f, 256f, 4f), new Vector2(0.5f, 0.5f), 100f);
+        Sprite sprite = Sprite.Create(navSelectionRampTexture, new Rect(0f, 0f, 256f, 32f), new Vector2(0.5f, 0.5f), 100f);
         sprite.name = NavSelectionRampSpriteName;
         return sprite;
     }
@@ -418,7 +422,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
                 for (int y = 0; y < height; y++)
                 {
                     float v = Mathf.Abs(2f * y / (height - 1f) - 1f);
-                    float vertical = 1f - v * v * v;
+                    float vertical = 1f - v * v;
                     byte alpha = (byte)Mathf.RoundToInt(255f * horizontal * vertical);
                     pixels[y * width + x] = new Color32(glowTeal.r, glowTeal.g, glowTeal.b, alpha);
                 }
