@@ -20,33 +20,43 @@
 
 **Источник утверждает:** качество агента зависит от выбора context, tools, state, routing и feedback loop, а не только от модели.
 
-**HIF выводит:** сначала нужен небольшой relevant context pack (до 10 файлов), затем расширение по доказанной dependency; budget и stop conditions задаются заранее.
+**HIF выводит:** сначала нужен небольшой relevant context pack, затем расширение по доказанной dependency; budget и stop conditions задаются заранее.
 
 **HIF не принимает:** обязательную новую planner/critic architecture, полный repository context на каждом шаге или метрики эффективности без локального evidence.
 
 ## Spotify Portal `shunt` — дешёвое delegation
 
-Источник: [Spotify Portal AI plugins](https://github.com/spotify/portal-ai-plugins), [`shunt` README](https://github.com/spotify/portal-ai-plugins/tree/main/plugins/shunt). Это официальный публичный Spotify repository; в README `shunt` описан для Claude Code, HIF от него не зависит.
+Источник: [Spotify Portal AI plugins](https://github.com/spotify/portal-ai-plugins), [`shunt` README](https://github.com/spotify/portal-ai-plugins/tree/main/plugins/shunt). Это официальный публичный Spotify repository; HIF от него не зависит.
 
 **Источник измерил:** на 162K-line Java monorepo bulk-read savings 82% для одного файла, 94% для source+test и 94% для cross-service; заявленный mean — 90%. Эти числа относятся к конкретным I/O-heavy experiments, не к любой coding task.
 
-**HIF выводит:** при реально доступном routing дешёвому worker можно дать deterministic overview или boilerplate с точной spec и reference; перед editing/debugging implementer читает точные source spans; worker output не является proof.
+**HIF выводит:** при реально доступном routing дешёвому worker можно дать deterministic overview или boilerplate с точной spec/reference; перед editing/debugging implementer читает точные source spans; worker output не является proof.
 
 **HIF не принимает:** Portal/AiKA dependency, универсальную гарантию «90% savings» или передачу worker'у root-cause, Save compatibility и product judgement.
 
-## OpenAI — official GPT-6 Astra guidance
+## OpenAI — official GPT-6 model guidance
 
 Источник: [OpenAI latest model guide](https://developers.openai.com/api/docs/guides/latest-model). Это official guidance, а не HIF quality benchmark.
 
-**Источник указывает:** инициативность, instruction priority, delegation policy и test breadth стоит задавать явно; длительные задачи требуют ясных stop conditions.
+**Источник указывает:** GPT-6 model family выбирается по требуемому reasoning, latency и cost; Luna позиционируется как efficient/high-volume модель, Sol — для demanding coding/agentic work, Astra — для hardest end-to-end work. Guidance отдельно подчёркивает initiative/follow-through, чувствительность к instructions в skills/AGENTS, явную delegation policy и соразмерную задаче testing breadth. Reasoning effort остаётся реальным model control.
 
-**HIF выводит:** при ясной bounded задаче агент действует без лишнего уточнения безопасными/reversible шагами, не перечитывает большой corpus и не расширяет testing без нового change/failure/risk. Routing: Luna — tiny mechanical work, Terra — ordinary Unity/UI, Sol — сложный diagnosis/state, Astra — редкий дорогой visual/product pass.
+**HIF выводит:** bounded task должен иметь ясную цель/finish line и protected contracts, после чего агент действует автономно внутри scope, не спрашивая подтверждение каждого safe/reversible шага. Prompt не дублирует выбранный reasoning пустыми усилителями. Testing расширяется только при новом change/failure/risk. В Codex Luna считается high-volume workhorse для focused bounded задач; Sol/Astra — escalation по complexity/risk, а не по размеру prompt.
 
-**HIF не принимает:** обещание, что конкретный runtime умеет delegation или что Astra должна доминировать обычные passes. При отсутствии реальных subagents routing не имитируется.
+**HIF не принимает:** предположение, что API pricing/позиционирование напрямую равно subscription allowance, обещание наличия delegation в любой среде или автоматическую эскалацию на Astra/Sol для обычной implementation.
+
+## Anthropic — Opus 5.5 prompting guidance
+
+Источник: пользователь предоставил официальный guide URL `https://claude.dev/blog/getting-the-most-out-of-opus-5-5/` и его ключевые рекомендации. Reviewer tooling не смогло независимо загрузить страницу, поэтому здесь фиксируются только пункты из предоставленного материала, без расширения внешними предположениями.
+
+**Предоставленный источник рекомендует:** меньше process micromanagement, ясную цель и finish line/definition of done, subagents для действительно больших/разделимых задач и отдельный checklist/task state для длинной работы; не засорять prompt бессодержательными «думай тщательно».
+
+**HIF выводит:** сохранять жёсткий bounded scope, но давать агенту автономию внутри него; для длинного pass допустим один mutable checklist; subagents использовать только когда harness и независимость workstreams реально оправдывают overhead.
+
+**HIF не принимает:** обязательный swarm для каждой задачи, бесконечный autonomous run или отказ от HIF review/CI gates.
 
 ## SKILL.state — structured execution state
 
-Источник: [SKILL.state: Scalable Long-Horizon Agent Skills](https://arxiv.org/abs/2608.26263), Badhe, Tiwari, Chung (Google LLC / Purdue University). Это research paper, не гарантия поведения Codex runtime.
+Источник: [SKILL.state: Scalable Long-Horizon Agent Skills](https://arxiv.org/abs/2608.26263), Badhe, Tiwari, Chung (Google LLC / Purdue University). Это research paper, не гарантия поведения coding-agent runtime.
 
 **Источник сообщил:** в своём experiment при horizon `T=200` `SKILL.state` достиг `0.94` accuracy при примерно 122,384 cumulative tokens, против `0.84` и примерно 6,175,509 tokens у summary-memory baseline — около 50× разницы именно в этом experiment.
 
