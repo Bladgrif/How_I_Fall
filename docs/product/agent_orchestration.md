@@ -2,175 +2,217 @@
 
 ## Назначение
 
-Этот документ — компактная policy для reviewer/ChatGPT: как выбирать и
-brief-ить coding agents для How I Fall. Репозиторий — durable source of truth,
-а не память чата. Детали исполнения уже принадлежат relevant skills, особенно
-`$hif-polish-loop` и `$hif-visual-qa`; здесь они не дублируются.
+Этот документ — компактная policy для reviewer/ChatGPT: как выбирать среду,
+модель и brief coding-agent для How I Fall. Репозиторий — durable source of
+truth, а не память чата. Execution details принадлежат relevant skills,
+особенно `$hif-polish-loop` и `$hif-visual-qa`.
 
-## 1. Перед выдачей новой задачи
+## 1. Перед новой задачей
 
-Reviewer передаёт задачу только после короткой проверки:
+Reviewer:
+1. определяет актуальный `master` и accepted base SHA;
+2. читает только relevant repository docs/skills;
+3. при доступных tools сверяет Drive capability map/roadmap;
+4. при конфликте предпочитает repository и затем синхронизирует Drive;
+5. не открывает новый pass, пока предыдущий review candidate не принят,
+   исправлен или явно закрыт.
 
-1. определить актуальный repository state, `master` и accepted base SHA;
-2. прочитать relevant repository docs и skills;
-3. если reviewer tools доступны, сверить Drive capability map и roadmap;
-4. при конфликте предпочесть repository, затем передать reviewer'у задачу
-   синхронизации Drive;
-5. проверить, что нет нерешённого review candidate, который должен быть
-   принят или исправлен первым.
+Уже принятые repository/roadmap решения — constraints, не тема повторного
+обсуждения. Переоткрывай их только при новом reproduced defect, contradiction
+source of truth или явном запросе пользователя.
 
-Следующую работу нельзя выбирать только по памяти текущего чата. Если
-implementation agent не имеет доступа к Drive, это нормально: Drive sync,
-roadmap comparison и reviewer verdict принадлежат reviewer.
+## 2. Базовый стиль задачи
 
-## 2. Выбор типа работы
+Используй **bounded scope + autonomous execution**.
 
-Используй самый простой подход, достаточный для риска задачи:
+Task brief должен задавать:
+- цель;
+- objective finish line / acceptance criteria;
+- protected contracts;
+- allowed/forbidden scope;
+- relevant files/docs;
+- required validation;
+- git/report expectations.
 
-- **Normal bounded fix** — маленький известный баг, docs-only, deterministic
-  regression или механическая правка без feedback loop.
+После этого агент сам выбирает разумный путь exploration → implementation →
+validation. Не микроменеджерь порядок шагов без причины и не требуй approval
+на каждый безопасный/reversible action.
+
+Если implementation разрешена и blocker отсутствует, агент не должен
+останавливаться на плане. Вопрос пользователю нужен только когда недостающая
+информация реально может изменить результат, затронуть protected contract или
+расширить scope.
+
+Не добавляй бессодержательные фразы вроде `think carefully`,
+`be extremely thorough` или `take your time`. Глубина задаётся model/reasoning
+и concrete acceptance criteria.
+
+## 3. Тип работы
+
+- **Normal bounded pass** — известный fix, обычная Unity/C#/UI implementation,
+  tests/docs/configs, CI/log investigation.
 - **`$hif-polish-loop`** — одна player-facing поверхность с несколькими
-  связанными visual/UX дефектами, где полезны baseline, screenshots и bounded
-  correction loop. Соблюдай лимиты самого skill.
+  связанными visual/UX дельтами и screenshot feedback loop.
 - **Research-first** — существенное новое UI/product/functionality решение,
-  неопределённая interaction model или решение, которому нужны references и
-  rationale. Сначала repository docs, затем сильные benchmark references,
-  task-specific examples и сравнение вариантов.
-- **Architecture/debugging pass** — трудный root cause, interdependent state,
-  безопасность или риск совместимости `SaveData`.
+  которому реально нужны references/rationale.
+- **Architecture/debugging pass** — трудная root cause, interdependent state,
+  SaveData/lifecycle/safety risk.
+- **Observation-first** — сначала воспроизвести или опровергнуть defect/delta;
+  допустимый итог `NO PRODUCTION CHANGE`.
 
-Не включай research или polish machinery для тривиальной правки. Не называй
-обычную проверку «research-first», если решение уже закреплено в repository.
+Не включай research/polish machinery ради мелкой deterministic правки.
 
-## 3. Выбор модели и reasoning
+## 4. Среда
 
-Выбирай самую дешёвую модель, которая разумно способна выполнить задачу:
+Среду и модель выбирай отдельно.
 
-- **Luna** — tiny fixes, docs, tests, configs и deterministic/mechanical work.
-- **Terra** — модель по умолчанию для обычной Unity/C#/UI implementation.
-- **Sol** — сложная архитектура, трудный root-cause debugging,
-  interdependent state и safety-sensitive работа.
-- **Astra** — редкое дорогое autonomous visual/product judgement; не default
-  coder и не модель для маленьких тестов/docs.
+### Z-Code
+Default GLM-среда для single-agent bounded implementation, routine Unity/C#/UI,
+fixes с ясным scope/root cause, tests/docs/validators, graphical E2E,
+screenshot QA, CI/log investigation и correction passes.
 
-Уровень reasoning:
+### J-Code
+Используй, когда multi-agent harness реально полезен:
+- 2+ независимых workstreams;
+- отдельный read-only reviewer;
+- параллельное исследование production/tests/QA;
+- длинное repo-wide investigation;
+- bounded swarm.
 
-- **Low** — deterministic/mechanical работа;
-- **Medium** — обычная implementation, UI и умеренная диагностика;
-- **High** — трудная архитектура/root cause при реальной неопределённости.
+Default: 2–3 агента, один coordinator отвечает за итоговый diff/tests/report.
+Не давай нескольким агентам одновременно редактировать одни scenes/prefabs/
+serialized assets. Не используй swarm для простой single-scope задачи.
 
-Не выбирай High по умолчанию. Не утверждай, что runtime умеет delegation или
-model routing, если это не подтверждено средой; при отсутствии routing не
-имитируй его.
+### Codex
+Используй для GPT-6 моделей, когда Codex harness удобнее или нужен независимый
+второй стек implementation/review.
 
-## 4. Текущая или новая сессия
+## 5. Модель и budget
 
-- **Текущая сессия** — продолжение той же bounded задачи, поверхности и
-  контекста, включая correction pass после evidence.
-- **Новая сессия** — независимая задача, другая система/поверхность или случай,
-  когда старый контекст уже создаёт шум.
+Главный принцип: **самая дешёвая модель, стабильно проходящая quality bar**.
 
-Не держи одну гигантскую сессию бесконечно. При смене scope сначала обнови
-task brief и accepted base.
+### GLM-5.3-Flash
+Default для HIF. Weekly allowance пользователя ориентировочно ~292M tokens.
+Подходит для repo exploration, routine Unity/C#/UI, больших, но ясных bounded
+passes, fixes, tests/docs/validators, graphical QA, CI/log investigation и
+correction cycles.
 
-## 5. Контекст и budget
+Default reasoning: Medium. Low — простая deterministic работа. High — если
+нужна дополнительная глубина. Перед эскалацией сначала рассмотри Flash + High.
 
-Prompt должен называть точные relevant files, systems и contracts. Не проси
-агента читать весь repository и не вставляй большие документы, если агент
-может открыть конкретные файлы сам. Для больших файлов сначала укажи поиск и
-targeted spans; расширяй context pack только по доказанной dependency.
+### GLM-5.3
+Weekly allowance ориентировочно ~97M tokens. Используй только когда Flash
+недостаточно надёжен: сложные interdependent systems, тяжёлый lifecycle/state
+debugging, ambiguous root cause, высокая цена ошибки или неудачная Flash
+попытка после уточнения scope.
 
-Для `$hif-polish-loop` действует его default: не более 10 genuinely relevant
-файлов в initial context pack и не более 3 implementation/visual итераций,
-если более строгий лимит не задан задачей.
+### GPT-6 Luna
+**Codex high-volume workhorse**, не только tiny fixes. Используй для focused,
+repeatable bounded work at scale: обычная Unity/C#/UI implementation,
+tests/docs/configs, correction passes и independent second implementation/check,
+когда Codex удобнее. Не эскалируй на Sol только из-за размера задачи.
 
-Дорогой context и модель резервируются для judgement. Bulk overview,
-boilerplate и механические проверки отдавай дешёвому worker'у только при
-реально доступном routing и точной спецификации. Worker output — предложение,
-не proof; root cause, Save compatibility, product decision и exact editing
-остаются у implementer/reviewer.
+### GPT-6 Sol
+Для demanding coding/agentic work: несколько связанных systems, сложный
+Unity lifecycle/state, Save/Load, нетривиальный debugging, высокая
+regression-risk.
 
-## 6. Контракт implementation prompt
+### GPT-6 Astra
+Для hardest end-to-end work: неясная root cause, несколько неудачных попыток,
+architecture/system reasoning, крупные interdependent изменения и высокая
+стоимость ошибки.
 
-Обычный paste-ready prompt должен содержать:
+Практический ориентир:
+`GLM-5.3-Flash / GPT-6 Luna → GLM-5.3 / GPT-6 Sol → GPT-6 Astra`
 
-- `Модель`, `Reasoning`, `Сессия`;
-- goal и ожидаемый accepted/base SHA, если он важен;
-- task scope и read-first files;
-- защищаемые contracts, включая сцены/prefabs/serialized refs и SaveData,
-  когда они релевантны;
-- разрешённые и запрещённые изменения;
-- objective acceptance criteria;
-- targeted tests, smoke и validation level;
-- graphical QA и screenshot inspection для player-facing работы;
-- git/commit/push policy;
-- короткий формат отчёта и stop conditions.
+Это не автоматическая лестница. Размер context, число файлов и длительность
+сами по себе не являются причиной эскалации.
 
-Ссылайся на `AGENTS.md` и relevant skill вместо копирования общих правил, но
-всегда формулируй task-specific protections и acceptance criteria.
+## 6. Reasoning
 
-## 7. Worktree и Git safety
+Project-facing уровни:
+- **Low** — deterministic/mechanical;
+- **Medium** — обычная implementation/UI;
+- **High** — сложный debugging/interdependent state;
+- **Max** — только когда High недостаточен и цена ошибки высока.
 
-Перед независимой implementation проверь expected accepted base. При mismatch
-остановись и сообщи actual SHA — не делай автоматический rebase на новый
-`master`.
+Не дублируй reasoning словесными усилителями внутри prompt. Для GPT-6 runtime
+может поддерживать дополнительные effort values, но project brief использует
+эти четыре уровня для стабильной маршрутизации.
 
-Если обычный checkout dirty, divergent или содержит unrelated work, используй
-clean disposable worktree от verified base. Не делай destructive reset/clean,
-не затирай пользовательские изменения, не используй `git add .` при чужом
-diff и не делай force-push. Stage только явно названные task files.
+## 7. Сессия и context
 
-## 8. Validation routing
+- текущая сессия — продолжение той же bounded implementation/correction;
+- новая — независимая задача, другая система или накопленный context создаёт шум.
 
-- чистая логика/state/save/choice — EditMode NUnit;
-- runtime/UI/lifecycle — PlayMode NUnit;
-- prefab/serialized/project integrity — существующие smoke/validators;
-- bug fix — regression, ловящий исходный defect;
-- docs-only — обычно Unity tests не нужны;
-- player-facing — существующий graphical E2E в реальном runtime,
-  screenshot inspection и при значимом visual pass небольшой curated baseline.
+Не проси читать весь repository. Называй relevant files/systems; большие файлы
+сначала search/targeted spans. Ссылайся на `AGENTS.md` и skill вместо
+копирования общих правил.
 
-Не запускай broad expensive suites без конкретной причины. После push
-обязательные GitHub checks остаются `Unity Test Framework` и `Unity smoke
-tests`; локальные проверки, graphical E2E, screenshots и CI сообщаются
-раздельно. Review candidate не является `DONE` до reviewer review и зелёного
-обязательного CI.
+Для длинного pass допустим один mutable task-state/checklist. Обновляй его,
+а не накапливай дневник. Не коммить task-state без отдельной причины.
 
-## 9. Бюджет и stop conditions
+## 8. Prompt contract
 
-Остановись, а не импровизируй, если:
+Paste-ready prompt обычно содержит:
+- **Среда / Модель / Reasoning / Сессия**;
+- goal и base SHA;
+- bounded scope;
+- relevant files/docs;
+- protected contracts;
+- allowed/forbidden changes;
+- objective finish line / acceptance criteria;
+- tests/validation и graphical QA;
+- commit/push/PR policy;
+- короткий report;
+- stop conditions.
 
-- expected base изменился;
-- отсутствует необходимое product decision;
-- требуемое изменение выходит за scope;
-- неожиданно требуется менять scene, prefab или SaveData contract;
-- infrastructure блокирует обязательное proof;
-- исчерпан согласованный iteration/context budget.
+Task-specific protections важнее длинного пересказа общих инструкций.
 
-После достижения objective acceptance не используй оставшийся бюджет «потому
-что он есть». Не перечитывай тот же corpus без нового риска или dependency.
+## 9. Git/worktree safety
 
-## 10. Граница implementer/reviewer
+При mismatch expected base остановись до editing. Если primary checkout dirty,
+divergent или содержит unrelated work, используй clean disposable worktree от
+verified base. Не reset/clean/overwrite user changes, не force-push и не
+используй `git add .`. Stage только task files.
 
-**Implementer** владеет scoped implementation, local tests, graphical proof,
-screenshot inspection и коротким отчётом со статусом `REVIEW CANDIDATE` или
-`BLOCKED`.
+## 10. Validation
 
-**Reviewer/ChatGPT** владеет реальным diff/scope review, mandatory CI,
-сравнением с repository и Drive roadmap/capability map, Drive 02/03 sync и
-вердиктом `DONE`/`NEEDS CORRECTION`, а также выбором следующей задачи.
+- logic/state/save/choice → EditMode;
+- runtime/UI/lifecycle → PlayMode;
+- prefab/serialized/project integrity → smoke/validators;
+- bug fix → regression исходного defect;
+- docs-only → обычно Unity tests не нужны;
+- player-facing → existing graphical E2E + screenshot inspection + небольшой
+  curated baseline при значимом visual pass.
 
-**User** нужен только для genuinely subjective aesthetic approval или другого
+Запускай проверки, соразмерные изменению. Расширяй suite только при failure,
+новом риске или unresolved concern. После push mandatory CI:
+`Unity Test Framework` + `Unity smoke tests`.
+
+## 11. Delegation
+
+Subagents — не default. Используй их только при реально независимых
+workstreams и подходящем harness, прежде всего J-Code. Coordinator задаёт
+границы, собирает evidence и отвечает за финальный diff. Worker output —
+proposal/evidence, не reviewer proof.
+
+Не поручай параллельно нескольким агентам редактировать одну serialized
+поверхность. Не используй delegation только потому, что задача «большая».
+
+## 12. Stop conditions и роли
+
+Остановись и сообщи blocker, если expected base изменился, отсутствует
+необходимое product decision, scope неожиданно требует scene/prefab/SaveData
+contract change или infrastructure блокирует обязательное proof.
+
+После достижения acceptance не трать остаток budget на дополнительный polish.
+
+**Implementer** владеет scoped implementation, local tests, graphical proof и
+коротким `REVIEW CANDIDATE`/`BLOCKED` report.
+
+**Reviewer/ChatGPT** владеет real diff/scope review, mandatory CI, repository +
+Drive comparison/sync, merge и verdict `DONE`/`NEEDS CORRECTION`.
+
+**User** нужен для genuinely subjective aesthetic approval или другого
 неавтоматизируемого решения вкуса.
-
-## 11. Короткие примеры маршрутизации
-
-- Известный двухстрочный баг: **Luna / Low / текущая сессия / normal bounded
-  fix**.
-- Обычная Unity UI feature в новом scope: **Terra / Medium / новая сессия**.
-- Одна UI-поверхность с несколькими visual defects: **Terra / Medium / текущая
-  или новая сессия по контексту + `$hif-polish-loop`**.
-- Сложная ошибка состояния и Save compatibility: **Sol / High**, только при
-  явно доказанной неопределённости и отдельном bounded scope.
-- Редкая автономная visual/product critique: **Astra**, bounded и дорогой
-  pass, не обычная implementation.
