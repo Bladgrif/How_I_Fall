@@ -104,9 +104,19 @@ public static class VNQuickMenuSmokeTests
         LayoutElement bandElement = band.GetComponent<LayoutElement>();
         Require(bandElement != null && bandElement.ignoreLayout,
             "The shared band must be excluded from the strip layout flow.");
-        Require((menu.root.transform as RectTransform).Find("Strip Separator 0") != null
-            && (menu.root.transform as RectTransform).Find("Strip Separator 3") != null,
-            "The strip must keep thin cyan separators between adjacent actions.");
+        for (int index = 0; index < 4; index++)
+        {
+            Transform separator = menu.root.transform.Find("Strip Separator " + index);
+            Require(separator != null, "The strip must keep a separator between every adjacent action.");
+            RectTransform rect = separator as RectTransform;
+            Image image = separator.GetComponent<Image>();
+            LayoutElement element = separator.GetComponent<LayoutElement>();
+            Require(rect != null && Mathf.Approximately(rect.sizeDelta.x, 3f)
+                && Mathf.Approximately(rect.sizeDelta.y, 14f)
+                && element != null && Mathf.Approximately(element.preferredHeight, 14f)
+                && image != null && image.color == new Color(0.008f, 0.851f, 0.976f, 0.5f),
+                "All strip separators must share the same pixel-aligned thickness, height and visual weight.");
+        }
         Require(menu.rollbackButton.GetComponentInChildren<TextMeshProUGUI>(true).fontSize >= 16f,
             "Flat strip labels must stay readable without the old chip background.");
     }

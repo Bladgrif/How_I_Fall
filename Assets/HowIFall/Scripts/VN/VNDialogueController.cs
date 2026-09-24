@@ -3160,8 +3160,9 @@ public class VNDialogueController : MonoBehaviour
     private const float ReadingShellTextInsetY = 70f;
     private const float ReadingShellMinHeight = 132f;
     private const float ReadingShellBreathing = 18f;
-    private const float ReadingScrimEdgeAlpha = 0.24f;
-    private const float ReadingScrimCenterAlpha = 0.40f;
+    private const float ReadingScrimEdgeAlpha = 0.15f;
+    private const float ReadingScrimCenterAlpha = 0.38f;
+    private const float ReadingScrimSideFade = 0.18f;
     private const string SpeakerAccentName = "Speaker Accent";
 
     /// <summary>
@@ -3294,17 +3295,18 @@ public class VNDialogueController : MonoBehaviour
     }
 
     /// <summary>
-    /// Borderless contrast field for the centered reading composition. Both horizontal
-    /// edges decay to full transparency while the useful center behind the dialogue keeps
-    /// a slightly stronger dark alpha, so bright art gains readability without a
+    /// Borderless contrast field for the centered reading composition. The alpha falls
+    /// off smoothly and symmetrically toward every edge — most of the field's weight is
+    /// shed well before the border — while the useful center behind the dialogue keeps a
+    /// slightly stronger dark alpha, so bright art gains readability without a
     /// rectangular card.
     /// </summary>
     internal static float ComputeReadingScrimAlpha(float normalizedX, float normalizedY)
     {
-        float vertical = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.10f, normalizedY))
+        float vertical = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.20f, normalizedY))
             * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 1f, normalizedY)));
-        float leftFade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.10f, normalizedX));
-        float rightFade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.90f, 1f, normalizedX));
+        float leftFade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, ReadingScrimSideFade, normalizedX));
+        float rightFade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1f - ReadingScrimSideFade, 1f, normalizedX));
         float centerWeight = Mathf.SmoothStep(0f, 1f, 1f - Mathf.Abs(normalizedX * 2f - 1f));
         float peak = Mathf.Lerp(ReadingScrimEdgeAlpha, ReadingScrimCenterAlpha, centerWeight);
         return leftFade * rightFade * vertical * peak;
