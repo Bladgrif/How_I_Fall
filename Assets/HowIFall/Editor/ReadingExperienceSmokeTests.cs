@@ -324,6 +324,10 @@ public static class ReadingExperienceSmokeTests
                 "Reading scrim must decay to full transparency at both horizontal edges instead of a card border.");
             Require(InvokeReadingScrimAlpha(0.5f, 0.5f) > InvokeReadingScrimAlpha(0.12f, 0.5f),
                 "Reading scrim must be strongest in the useful center behind the dialogue.");
+            Require(InvokeReadingScrimAlpha(0.06f, 0.5f) < 0.35f * InvokeReadingScrimAlpha(0.5f, 0.5f),
+                "Reading scrim must shed most of its weight before the field edges so the horizontal falloff reads soft, not rectangular.");
+            Require(InvokeReadingScrimAlpha(0.5f, 0.10f) < InvokeReadingScrimAlpha(0.5f, 0.30f),
+                "Reading scrim must fade in gradually toward the field's top edge instead of a hard panel line.");
             Shadow dialogueShadow = text.GetComponent<Shadow>();
             Require(dialogueShadow != null && dialogueShadow.effectColor.a >= 0.85f,
                 "Floating dialogue text must retain a local contrast shadow.");
