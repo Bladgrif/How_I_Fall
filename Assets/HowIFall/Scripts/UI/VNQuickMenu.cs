@@ -21,7 +21,8 @@ public sealed class VNQuickMenu : MonoBehaviour
 
     private const float MinimumDialogueSpacing = 12f;
     private const float RollbackStripMinWidth = 450f;
-    private const float SeparatorWidth = 2.5f;
+    // Three canvas units rasterize evenly at both 1920x1080 and 1280x720.
+    private const float SeparatorWidth = 3f;
     private const float SeparatorHeight = 14f;
     private const float StripBandOverhang = 40f;
     private const float StripBandHeight = 72f;
