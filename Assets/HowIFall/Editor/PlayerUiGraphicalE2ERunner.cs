@@ -254,6 +254,7 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PrepareResponsivePreferences": PrepareResponsivePreferences(); break;
                 case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
                 case "PrepareGameMenuRootProof": PrepareGameMenuRootProof(); break;
+                case "OpenGameMenuRootProof": OpenGameMenuRootProof(); break;
                 case "CaptureGameMenuRoot1280": CaptureGameMenuRoot1280(); break;
                 case "OpenGameMenuSaveLoad": OpenGameMenuSaveLoad(); break;
                 case "CaptureEmbeddedSave1920": CaptureEmbeddedSave1920(); break;
@@ -265,6 +266,7 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CloseGameMenuSaveLoad": CloseGameMenuSaveLoad(); break;
                 case "VerifyReturnFocusAfterSaveLoad": VerifyReturnFocusAfterSaveLoad(); break;
                 case "PrepareQuickRollbackReading": PrepareQuickRollbackReading(); break;
+                case "PrepareQuickRollbackFixture": PrepareQuickRollbackFixture(); break;
                 case "CaptureQuickRollback1280": CaptureQuickRollback1280(); break;
                 case "HoverQuickRollback": HoverQuickRollback(); break;
                 case "CaptureQuickRollbackHover": CaptureQuickRollbackHover(); break;
@@ -1296,7 +1298,8 @@ public static class PlayerUiGraphicalE2ERunner
         VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
         Require(view != null, "Gameplay menu view is missing.");
         VNQuickMenu quickMenu = UnityEngine.Object.FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include);
-        Require(!dialogue.dialogueUiRoot.activeSelf, "Game Menu did not suppress the dialogue shell.");
+        Require(dialogue.dialogueUiRoot.activeSelf && !dialogue.IsDialogueShellSuppressed,
+            "Root Game Menu did not preserve the ordinary Reading dialogue shell.");
         Require(quickMenu != null && !quickMenu.IsEffectivelyVisible, "Game Menu did not suppress the Quick Menu.");
         Require(!view.IsConfirmationVisible, "Game Menu root unexpectedly opened a confirmation.");
         Require(EventSystem.current != null
@@ -1474,12 +1477,21 @@ public static class PlayerUiGraphicalE2ERunner
         }
 
         dialogue.ClearRollbackHistory();
+        Sprite placeholderCharacter = AssetDatabase.LoadAssetAtPath<Sprite>(
+            "Assets/HowIFall/Art/Characters/Placeholders/placeholder_female_student_default.png");
+        Require(placeholderCharacter != null, "TECH DEMO character sprite is missing for Game Menu frame preservation proof.");
         LoadRuntimeFixture(dialogue, new List<DialogueLine>
         {
-            new DialogueLine { lineId = "rollback_a", speaker = "Рассказчик", text = "Точка A для проверки отката." },
-            new DialogueLine { lineId = "rollback_b", speaker = "Рассказчик", text = "Точка B для проверки отката." }
+            new DialogueLine { lineId = "rollback_a", speaker = "Тестовая студентка", text = "Точка A для проверки отката.", characterSprite = placeholderCharacter, characterPosition = CharacterPosition.Right },
+            new DialogueLine { lineId = "rollback_b", speaker = "Тестовая студентка", text = "Точка B для проверки отката.", characterSprite = placeholderCharacter, characterPosition = CharacterPosition.Right }
         }, new List<DialogueChoice>());
         dialogue.ClearRollbackHistory();
+        Capture("gameplay_before_game_menu_1920x1080.png", "OpenGameMenuRootProof");
+    }
+
+    private static void OpenGameMenuRootProof()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
         Require(dialogue.OpenGameMenu(), "Game Menu did not open for the cleaned root proof.");
         VNGameMenuView view = dialogue.GameMenuController != null ? dialogue.GameMenuController.View : null;
         Require(view != null && view.GetButton(VNGameMenuAction.Rollback) == null && !view.IsActionVisible(VNGameMenuAction.Rollback),
@@ -1714,6 +1726,14 @@ public static class PlayerUiGraphicalE2ERunner
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
         Require(dialogue.GameMenuController.Close(), "Game Menu did not close before the Quick Menu rollback proof.");
+        Require(dialogue.dialogueUiRoot.activeSelf && !dialogue.IsDialogueShellSuppressed,
+            "Closing Game Menu did not restore ordinary Reading.");
+        Capture("gameplay_after_game_menu_close_1920x1080.png", "PrepareQuickRollbackFixture");
+    }
+
+    private static void PrepareQuickRollbackFixture()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
         LoadRuntimeFixture(dialogue, new List<DialogueLine>
         {
             new DialogueLine { lineId = "rollback_a", speaker = "Рассказчик", text = "Точка A для проверки отката." },
