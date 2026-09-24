@@ -292,10 +292,10 @@ public static class MainMenuVisualPassASmokeTests
                 Require(effect.IsSelectionGlowVisible,
                     "Selected row must expose the soft selection glow plate while active.");
                 // Stretch anchors with zero horizontal offsets: the glow spans
-                // exactly the row width (no left protrusion) and is 12px taller
-                // than the 76px row, with a deliberately restrained opacity.
-                Require(effect.SelectionGlowSizeDelta == new Vector2(0f, 88f)
-                    && effect.SelectionGlowColor.a <= 0.20f,
+                // exactly the row width (no left protrusion) and is only 4px
+                // taller than the 76px row, with a deliberately faint opacity.
+                Require(effect.SelectionGlowSizeDelta == new Vector2(0f, 80f)
+                    && effect.SelectionGlowColor.a <= 0.06f,
                     "Selection glow must stay narrow and subdued.");
             }
             effect.OnPointerExit(null);

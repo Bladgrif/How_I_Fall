@@ -175,16 +175,15 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         selectionGlow = glow.GetComponent<Image>();
         selectionGlow.sprite = CreateSelectionGlowSprite();
         selectionGlow.type = Image.Type.Simple;
-        selectionGlow.color = new Color(1f, 1f, 1f, 0.20f);
+        selectionGlow.color = new Color(1f, 1f, 1f, 0.06f);
         selectionGlow.raycastTarget = false;
         RectTransform glowRect = selectionGlow.rectTransform;
         glowRect.anchorMin = new Vector2(0f, 0.5f);
         glowRect.anchorMax = new Vector2(1f, 0.5f);
         glowRect.pivot = new Vector2(0.5f, 0.5f);
-        // Exactly the row width; the restrained halo extends only ~6px beyond
-        // the visually slimmer plate, without making a detached edge.
-        glowRect.offsetMin = new Vector2(0f, -44f);
-        glowRect.offsetMax = new Vector2(0f, 44f);
+        // A minimal halo stays close to the plate, not a second soft row.
+        glowRect.offsetMin = new Vector2(0f, -40f);
+        glowRect.offsetMax = new Vector2(0f, 40f);
         selectionGlow.gameObject.SetActive(false);
     }
 
@@ -329,7 +328,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         {
             // UI Target v1: hover/focus activates the left-weighted teal ramp
             // behind the row; the sprite carries the falloff, the tint the depth.
-            Apply(TargetV1SelectedPlate(0.52f), new Color(0.88f, 0.96f, 1f, 1f));
+            Apply(TargetV1SelectedPlate(0.40f), new Color(0.88f, 0.96f, 1f, 1f));
             return;
         }
         // Modal confirmations carry selection on the button plate itself: one
@@ -349,10 +348,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     /// <summary>
     /// UI Target v1 selected-row ramp, built once: teal-blue luminance that is
-    /// strongest at the row's left edge and fades linearly to transparent at the
-    /// right edge, so the highlight has no hard rectangular end. The first ~12%
-    /// burns from a hot neon cyan into the base teal, giving the plate a
-    /// luminous leading edge next to the accent bar. The texture is created in
+    /// strongest at the row's left edge and eases to transparent at the
+    /// right edge, so the highlight has no hard rectangular end. A restrained
+    /// cyan lead near the accent bar fades into the base teal. The texture is created in
     /// linear space, so the intended sRGB teal #1C789E (28, 120, 158) is
     /// pre-converted with an inverse-gamma pow(2.2); storing the sRGB bytes
     /// directly would render as a washed-out pastel blue.
@@ -362,7 +360,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (navSelectionRampTexture == null)
         {
             const int width = 256;
-            const int height = 32;
+            const int height = 64;
             navSelectionRampTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
             navSelectionRampTexture.wrapMode = TextureWrapMode.Clamp;
             Color32[] pixels = new Color32[width * height];
@@ -373,16 +371,19 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             for (int x = 0; x < width; x++)
             {
                 float t = x / (width - 1f);
-                byte alpha = (byte)Mathf.RoundToInt(255f * (1f - t));
+                float horizontal = 1f - Mathf.SmoothStep(0f, 1f, t);
                 float coreBlend = Mathf.Clamp01(1f - t / 0.12f);
-                Color ramp = Color.Lerp(baseTeal, hotCore, coreBlend);
+                Color ramp = Color.Lerp(baseTeal, hotCore, coreBlend * 0.25f);
                 for (int y = 0; y < height; y++)
                 {
-                    // Feather only the outer ~7px of the 76px row. The button,
-                    // label, and cyan focus bar keep their approved geometry.
-                    float edge = Mathf.Min(y, height - 1 - y) / 3f;
-                    ramp.a = alpha / 255f * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(edge));
-                    pixels[y * width + x] = ramp;
+                    // Fine cyan hairlines make the top/bottom plate edges read
+                    // cleanly; their rightward fade shares the body's smooth tail.
+                    bool rim = y == 0 || y == height - 1;
+                    float edge = Mathf.Min(y, height - 1 - y);
+                    Color pixel = rim ? Color.Lerp(ramp, hotCore, 0.35f) : ramp;
+                    pixel.a = rim ? horizontal
+                        : horizontal * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(edge));
+                    pixels[y * width + x] = pixel;
                 }
             }
 
@@ -390,7 +391,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             navSelectionRampTexture.Apply(false, true);
         }
 
-        Sprite sprite = Sprite.Create(navSelectionRampTexture, new Rect(0f, 0f, 256f, 32f), new Vector2(0.5f, 0.5f), 100f);
+        Sprite sprite = Sprite.Create(navSelectionRampTexture, new Rect(0f, 0f, 256f, 64f), new Vector2(0.5f, 0.5f), 100f);
         sprite.name = NavSelectionRampSpriteName;
         return sprite;
     }
@@ -418,7 +419,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             for (int x = 0; x < width; x++)
             {
                 float t = x / (width - 1f);
-                float horizontal = 1f - t;
+                float horizontal = 1f - Mathf.SmoothStep(0f, 1f, t);
                 for (int y = 0; y < height; y++)
                 {
                     float v = Mathf.Abs(2f * y / (height - 1f) - 1f);
