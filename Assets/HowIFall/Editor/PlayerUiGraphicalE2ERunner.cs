@@ -255,6 +255,7 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
                 case "PrepareGameMenuRootProof": PrepareGameMenuRootProof(); break;
                 case "OpenGameMenuRootProof": OpenGameMenuRootProof(); break;
+                case "CaptureFocusedGameMenuAlternateFocus": CaptureFocusedGameMenuAlternateFocus(); break;
                 case "CaptureGameMenuRoot1280": CaptureGameMenuRoot1280(); break;
                 case "OpenGameMenuSaveLoad": OpenGameMenuSaveLoad(); break;
                 case "CaptureEmbeddedSave1920": CaptureEmbeddedSave1920(); break;
@@ -1502,11 +1503,24 @@ public static class PlayerUiGraphicalE2ERunner
         TextMeshProUGUI rollbackLabel = quickMenu.rollbackButton.GetComponentInChildren<TextMeshProUGUI>(true);
         Require(rollbackLabel != null && rollbackLabel.text == "Назад",
             "Quick Menu rollback action must keep the compact 'Назад' label.");
-        Capture("game_menu_root_1920x1080.png", "CaptureGameMenuRoot1280");
+        Capture("game_menu_root_1920x1080.png", "CaptureFocusedGameMenuAlternateFocus");
+    }
+
+    private static void CaptureFocusedGameMenuAlternateFocus()
+    {
+        VNGameMenuView view = RequireGameplayDialogue().GameMenuController.View;
+        Button save = view.GetButton(VNGameMenuAction.Save);
+        Require(save != null && save.interactable, "Save action is unavailable for alternate focus proof.");
+        save.Select();
+        view.RefreshFocusMarkers();
+        Require(IsFocusMarkerVisible(view, VNGameMenuAction.Save) && view.VisibleFocusMarkerCount == 1,
+            "Game Menu alternate focus did not select only Save.");
+        Capture("game_menu_alternate_focus_1920x1080.png", "CaptureGameMenuRoot1280");
     }
 
     private static void CaptureGameMenuRoot1280()
     {
+        RequireGameplayDialogue().GameMenuController.View.FocusDefaultAction();
         ConfigureGameViewResolution(ResponsiveQaResolution);
         if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
         {

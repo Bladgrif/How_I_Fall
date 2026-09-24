@@ -312,6 +312,15 @@ public static class GameMenuSmokeTests
                 "Navigation must fill the panel width.");
             Require(primaryActions.GetComponent<VerticalLayoutGroup>() != null,
                 "Game Menu navigation must use deterministic layout instead of pixel-coordinate button placement.");
+            RawImage wordmark = header.Find("Wordmark")?.GetComponent<RawImage>();
+            Require(wordmark != null && wordmark.texture != null,
+                "Game Menu must show the approved HIF brush wordmark in runtime.");
+            Button saveButton = view.GetButton(VNGameMenuAction.Save);
+            Require(saveButton != null && saveButton.colors.normalColor.a == 0f
+                && saveButton.transform.Find("Focus Plate")?.GetComponent<Image>()?.sprite != null,
+                "Ordinary Game Menu rows must be quiet at rest and keep a gradient focus plate.");
+            Require(view.GetButton(VNGameMenuAction.Return).GetComponent<Outline>() != null,
+                "Return action must keep the restrained target-like outline.");
             Require(window.Find("Context Area") == null,
                 "Game Menu retained the decorative empty Context Area placeholder.");
             Require(view.GetComponentsInChildren<TextMeshProUGUI>(true).All(text => text.text != "НАВИГАЦИЯ"
@@ -452,8 +461,10 @@ public static class GameMenuSmokeTests
                     Require(IsFinitePositive(buttonBounds), $"{resolution}: action '{action}' has invalid geometry.");
                     Require(Contains(navigationBounds, buttonBounds),
                         $"{resolution}: action '{action}' is not fully inside the navigation panel.");
-                    Require(buttonBounds.xMin >= navigationBounds.xMin + 22f && buttonBounds.xMax <= navigationBounds.xMax - 22f,
-                        $"{resolution}: action '{action}' touches the navigation side edges; plates must stay clearly inset.");
+                    float targetRightInset = Mathf.Max(14f, resolution.x * 0.011f);
+                    Require(buttonBounds.xMin >= navigationBounds.xMin + 22f
+                        && buttonBounds.xMax <= navigationBounds.xMax - targetRightInset,
+                        $"{resolution}: action '{action}' touches the target navigation side edges.");
                     Require(buttonBounds.yMin >= navigationBounds.yMin + 14f && buttonBounds.yMax <= navigationBounds.yMax - 14f,
                         $"{resolution}: action '{action}' touches the navigation top/bottom edges.");
                 }

@@ -33,24 +33,24 @@ public sealed class VNGameMenuView : MonoBehaviour
     private static readonly Color ChevronColor = new Color(0.62f, 0.76f, 0.88f, 0.85f);
     private static readonly Color EnabledLabelColor = new Color(0.94f, 0.96f, 1f, 1f);
     private static readonly Color DisabledLabelColor = new Color(0.55f, 0.60f, 0.68f, 0.38f);
-    private static readonly Color RowPlateColor = new Color(0.55f, 0.70f, 0.90f, 0.05f);
-    private static readonly Color ReturnPlateColor = new Color(0.55f, 0.70f, 0.90f, 0.07f);
+    private static readonly Color RowPlateColor = new Color(0.12f, 0.35f, 0.53f, 1f);
+    private static readonly Color ReturnPlateColor = new Color(0.16f, 0.35f, 0.50f, 0.10f);
 
     // UI Target v1: one cohesive full-height left glass panel whose right edge
     // is the single outer containment edge for Header, Navigation and Footer.
-    private const float PanelWidthFraction = 0.258f;
-    // Row column insets as panel-width fractions keep the deep typographic
-    // left edge and >=22px side insets from 1280x720 up.
+    private const float PanelWidthFraction = 0.252f;
+    // Asymmetric target column: deep typographic left edge, subtle right edge.
     private const float ColumnLeftFraction = 0.197f;
-    private const float ColumnRightInsetFraction = 0.075f;
+    private const float ColumnRightInsetFraction = 0.045f;
     private const float RowHeight = 62f;
-    private const float RowSpacing = 6f;
+    private const float RowSpacing = 4f;
     private const string TaglineText = "SAME HALLS\nDIFFERENT YOU";
 
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
     private readonly Dictionary<VNGameMenuAction, TextMeshProUGUI> labels = new Dictionary<VNGameMenuAction, TextMeshProUGUI>();
     private readonly Dictionary<VNGameMenuAction, GameObject> activeMarkers = new Dictionary<VNGameMenuAction, GameObject>();
     private readonly Dictionary<VNGameMenuAction, GameObject> focusMarkers = new Dictionary<VNGameMenuAction, GameObject>();
+    private readonly Dictionary<VNGameMenuAction, GameObject> focusPlates = new Dictionary<VNGameMenuAction, GameObject>();
     private readonly Dictionary<VNGameMenuAction, CanvasGroup> chevronGroups = new Dictionary<VNGameMenuAction, CanvasGroup>();
     private GameObject root;
     private RectTransform saveLoadContentHost;
@@ -245,6 +245,10 @@ public sealed class VNGameMenuView : MonoBehaviour
             {
                 pair.Value.SetActive(focused);
             }
+            if (focusPlates.TryGetValue(pair.Key, out GameObject plate) && plate != null && plate.activeSelf != focused)
+            {
+                plate.SetActive(focused);
+            }
         }
     }
 
@@ -301,15 +305,23 @@ public sealed class VNGameMenuView : MonoBehaviour
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
 
-        // The authored logo sprite is Main-Menu-scene-bound, so the panel opens
-        // with the typographic brand block instead of reproducing the target's
-        // generated logo artwork (TECH DEMO ONLY / NOT CANON per the target doc).
-        TextMeshProUGUI wordmark = CreateText(header.transform, "Wordmark", "HOW I\nFALL", 50f, FontStyles.Bold | FontStyles.Italic, TextAlignmentOptions.TopLeft, EnabledLabelColor);
-        wordmark.characterSpacing = 4f;
-        wordmark.lineSpacing = 62f;
-        AnchorTopLeft(wordmark.rectTransform, 0.20f, -40f, new Vector2(360f, 150f));
+        // Reuse the existing HIF brush logo. The Resources copy makes this
+        // scene-authored texture available to the runtime-built Game Menu.
+        Texture2D logoTexture = Resources.Load<Texture2D>("game_menu_logo_how_i_fall");
+        if (logoTexture != null)
+        {
+            GameObject logo = CreateUiObject(header.transform, "Wordmark");
+            RawImage logoImage = logo.AddComponent<RawImage>();
+            logoImage.texture = logoTexture;
+            logoImage.raycastTarget = false;
+            AnchorTopLeft(logo.GetComponent<RectTransform>(), 0f, -34f, new Vector2(520f, 260f));
+        }
+        else
+        {
+            Debug.LogError("[GAME MENU] Approved HIF logo texture is missing from Resources.");
+        }
 
-        CreateTaglineBlock(header.transform, 0.20f, -296f, -312f, 17f);
+        CreateTaglineBlock(header.transform, 0.20f, -310f, -326f, 17f);
     }
 
     private void CreateFooter(Transform window)
@@ -372,7 +384,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         GameObject returnArea = CreateUiObject(navigation.transform, "Return Area");
         RectTransform returnAreaRect = returnArea.GetComponent<RectTransform>();
         returnAreaRect.anchorMin = new Vector2(ColumnLeftFraction, 0.145f);
-        returnAreaRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 0.31f);
+        returnAreaRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 0.33f);
         returnAreaRect.offsetMin = new Vector2(0f, 4f);
         returnAreaRect.offsetMax = new Vector2(0f, -6f);
 
@@ -387,19 +399,28 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(returnArea.transform, VNGameMenuAction.Return, "Вернуться в игру");
         Button returnButton = buttons[VNGameMenuAction.Return];
         returnButton.GetComponent<Image>().color = ReturnPlateColor;
+        ColorBlock returnColors = returnButton.colors;
+        returnColors.normalColor = new Color(0.14f, 0.29f, 0.42f, 0.17f);
+        returnColors.highlightedColor = new Color(0.23f, 0.48f, 0.63f, 0.32f);
+        returnColors.selectedColor = new Color(0.19f, 0.38f, 0.52f, 0.26f);
+        returnButton.colors = returnColors;
+        Outline returnOutline = returnButton.gameObject.AddComponent<Outline>();
+        returnOutline.effectColor = new Color(0.25f, 0.57f, 0.76f, 0.85f);
+        returnOutline.effectDistance = new Vector2(1f, -1f);
+        returnOutline.useGraphicAlpha = false;
         RectTransform returnRect = returnButton.GetComponent<RectTransform>();
         returnRect.anchorMin = new Vector2(0f, 0f);
         returnRect.anchorMax = new Vector2(1f, 0.66f);
         returnRect.offsetMin = Vector2.zero;
         returnRect.offsetMax = Vector2.zero;
 
-        labels[VNGameMenuAction.Return].fontSize = 21f;
+        labels[VNGameMenuAction.Return].fontSize = 20f;
         Stretch(labels[VNGameMenuAction.Return].rectTransform, 46f, 12f, 0f, 0f);
 
         GameObject playIcon = CreateUiObject(returnButton.transform, "Play Icon");
         Image playIconImage = playIcon.AddComponent<Image>();
         playIconImage.sprite = CreatePlayIconSprite();
-        playIconImage.color = new Color(0.56f, 0.76f, 0.96f, 0.95f);
+        playIconImage.color = new Color(0.56f, 0.76f, 0.96f, 0.80f);
         playIconImage.raycastTarget = false;
         RectTransform playIconRect = playIcon.GetComponent<RectTransform>();
         playIconRect.anchorMin = playIconRect.anchorMax = new Vector2(0f, 0.5f);
@@ -454,6 +475,16 @@ public sealed class VNGameMenuView : MonoBehaviour
         button.targetGraphic = buttonObject.GetComponent<Image>();
         button.colors = CreateButtonColors();
 
+        GameObject focusPlate = CreateSurface(buttonObject.transform, "Focus Plate", Color.white);
+        Image focusPlateImage = focusPlate.GetComponent<Image>();
+        focusPlateImage.sprite = CreateFocusPlateSprite();
+        focusPlateImage.color = action == VNGameMenuAction.Return
+            ? new Color(0.21f, 0.54f, 0.72f, 0.28f)
+            : new Color(0.21f, 0.54f, 0.72f, 0.60f);
+        focusPlateImage.raycastTarget = false;
+        Stretch(focusPlate.GetComponent<RectTransform>());
+        focusPlate.SetActive(false);
+
         TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 23f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, EnabledLabelColor);
         Stretch(text.rectTransform, 30f, 44f, 0f, 0f);
 
@@ -475,6 +506,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         focusMarkerRect.sizeDelta = new Vector2(6f, 0f);
         focusMarker.SetActive(false);
         focusMarkers[action] = focusMarker;
+        focusPlates[action] = focusPlate;
         AddFocusMarkerEvents(buttonObject);
 
         chevronGroups[action] = CreateChevron(buttonObject.transform);
@@ -651,6 +683,29 @@ public sealed class VNGameMenuView : MonoBehaviour
     }
 
     private static Texture2D playIconTexture;
+    private static Texture2D focusPlateTexture;
+
+    private static Sprite CreateFocusPlateSprite()
+    {
+        if (focusPlateTexture == null)
+        {
+            const int width = 128;
+            focusPlateTexture = new Texture2D(width, 1, TextureFormat.RGBA32, false);
+            focusPlateTexture.wrapMode = TextureWrapMode.Clamp;
+            Color32[] pixels = new Color32[width];
+            for (int x = 0; x < width; x++)
+            {
+                float t = x / (width - 1f);
+                byte alpha = (byte)Mathf.RoundToInt(180f * Mathf.Pow(1f - t, 1.5f));
+                pixels[x] = new Color32(255, 255, 255, alpha);
+            }
+
+            focusPlateTexture.SetPixels32(pixels);
+            focusPlateTexture.Apply(false, true);
+        }
+
+        return Sprite.Create(focusPlateTexture, new Rect(0f, 0f, 128f, 1f), new Vector2(0.5f, 0.5f), 100f);
+    }
 
     /// <summary>Right-pointing triangle for the integrated Return action, built once at runtime.</summary>
     private static Sprite CreatePlayIconSprite()
@@ -664,7 +719,7 @@ public sealed class VNGameMenuView : MonoBehaviour
             {
                 for (int x = 0; x < size; x++)
                 {
-                    float halfHeight = (x - 4f) * (9f / 16f);
+                    float halfHeight = (20f - x) * (9f / 16f);
                     bool inside = x >= 4 && x <= 20 && Mathf.Abs(y - 11.5f) <= halfHeight + 0.5f;
                     pixels[y * size + x] = inside ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
                 }
@@ -682,13 +737,11 @@ public sealed class VNGameMenuView : MonoBehaviour
     private static ColorBlock CreateButtonColors()
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = Color.white;
-        // Multipliers above 1 let a quiet translucent plate brighten into a
-        // clearly visible hover/focus plate while staying calm at rest.
-        colors.highlightedColor = new Color(1.6f, 1.8f, 2.1f, 2.2f);
-        colors.pressedColor = new Color(1.2f, 1.35f, 1.55f, 1.9f);
-        colors.selectedColor = new Color(1.5f, 1.7f, 2.0f, 2.2f);
-        colors.disabledColor = new Color(0.45f, 0.50f, 0.60f, 1.0f);
+        colors.normalColor = new Color(1f, 1f, 1f, 0f);
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.16f);
+        colors.pressedColor = new Color(1f, 1f, 1f, 0.24f);
+        colors.selectedColor = new Color(1f, 1f, 1f, 0.08f);
+        colors.disabledColor = new Color(0.6f, 0.6f, 0.6f, 0f);
         colors.colorMultiplier = 1f;
         colors.fadeDuration = 0.08f;
         return colors;
