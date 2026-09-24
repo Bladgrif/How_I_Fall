@@ -83,17 +83,21 @@ namespace HowIFall.PlayModeTests
 
             Assert.That(context.Controller.IsGameMenuOpen, Is.False);
             DialogueProbe probe = CaptureDialogueProbe(context);
+            Assert.That(context.Controller.dialogueUiRoot.activeSelf, Is.True);
 
             yield return ClickRightMouse();
 
             Assert.That(context.Controller.IsGameMenuOpen, Is.True, "First RMB must open the Game Menu.");
             AssertSingleOpenLevel(context, expectMenu: true);
+            Assert.That(context.Controller.dialogueUiRoot.activeSelf, Is.True, "Root Game Menu must preserve the Reading shell.");
+            Assert.That(context.Controller.IsDialogueShellSuppressed, Is.False);
             AssertDialogueUntouched(context, probe);
 
             yield return ClickRightMouse();
 
             Assert.That(context.Controller.IsGameMenuOpen, Is.False, "Second RMB must close the Game Menu.");
             AssertSingleOpenLevel(context, expectMenu: false);
+            Assert.That(context.Controller.dialogueUiRoot.activeSelf, Is.True);
             AssertDialogueUntouched(context, probe);
         }
 
@@ -167,6 +171,7 @@ namespace HowIFall.PlayModeTests
 
             Assert.That(context.Controller.IsGameMenuOpen, Is.True, "Game Menu must remain open after the panel closes.");
             Assert.That(context.Controller.GameMenuController.IsPresentationVisible, Is.True);
+            Assert.That(context.Controller.dialogueUiRoot.activeSelf, Is.True, "Closing embedded Save/Load must restore the Reading shell behind root Game Menu.");
             AssertDialogueUntouched(context, probe);
 
             yield return ClickRightMouse();
@@ -195,6 +200,7 @@ namespace HowIFall.PlayModeTests
             Assert.That(context.Controller.backlogPanel.activeSelf, Is.False, "RMB must close exactly History.");
             Assert.That(context.Controller.IsGameMenuOpen, Is.True, "Game Menu must remain open behind History.");
             Assert.That(context.Controller.GameMenuController.IsPresentationVisible, Is.True);
+            Assert.That(context.Controller.dialogueUiRoot.activeSelf, Is.True, "Closing History must restore the Reading shell behind root Game Menu.");
             AssertDialogueUntouched(context, probe);
 
             yield return ClickRightMouse();

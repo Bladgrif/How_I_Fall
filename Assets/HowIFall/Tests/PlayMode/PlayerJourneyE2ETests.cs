@@ -271,8 +271,15 @@ namespace HowIFall.PlayModeTests
             Assert.That(gameMenu.IsPresentationVisible, Is.True);
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Return).gameObject),
                 "Game Menu did not assign deterministic default focus.");
-            Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.False, "Game Menu did not hide the dialogue shell.");
+            Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.True, "Root Game Menu must preserve the Reading dialogue shell.");
+            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Root Game Menu must not own dialogue-shell suppression.");
             Assert.That(quickMenu.IsEffectivelyVisible, Is.False, "Game Menu did not block Quick Menu presentation.");
+            string dialogueBeforeMenuAdvance = dialogue.dialogueText.text;
+            dialogue.AdvanceDialogue();
+            yield return null;
+            Assert.That(GameState.Instance.currentSceneId, Is.EqualTo(stableSceneId));
+            Assert.That(GameState.Instance.currentLineIndex, Is.EqualTo(stableLineIndex), "Game Menu leaked a dialogue advance.");
+            Assert.That(dialogue.dialogueText.text, Is.EqualTo(dialogueBeforeMenuAdvance));
 
             Click(gameMenu.View.GetButton(VNGameMenuAction.Preferences), "Game Menu Preferences");
             yield return WaitForCondition(() => dialogue.IsPreferencesOpen, "Preferences did not open from Game Menu.");
@@ -284,6 +291,7 @@ namespace HowIFall.PlayModeTests
                 "Gameplay Preferences did not assign deterministic default focus.");
             Assert.That(dialogue.HandleEscapePressed(), Is.True, "Preferences Back/Esc was not handled.");
             yield return WaitForCondition(() => gameMenu.IsPresentationVisible, "Preferences Back did not restore Game Menu.");
+            Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.True, "Returning from Preferences must restore the Reading shell behind Game Menu.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Return).gameObject),
                 "Closing Gameplay Preferences did not restore a valid Game Menu focus target.");
 
@@ -293,6 +301,7 @@ namespace HowIFall.PlayModeTests
                 "Game Menu confirmation did not open.");
             Assert.That(dialogue.HandleEscapePressed(), Is.True, "Confirmation Cancel/Esc was not handled.");
             yield return WaitForCondition(() => gameMenu.IsPresentationVisible, "Confirmation Cancel did not restore Game Menu.");
+            Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.True, "Returning from confirmation must preserve the Reading shell.");
 
             Assert.That(dialogue.HandleEscapePressed(), Is.True, "Game Menu Back/Esc was not handled.");
             yield return WaitForCondition(() => !dialogue.IsGameMenuOpen, "Game Menu Back did not return to gameplay.");

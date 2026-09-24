@@ -24,7 +24,7 @@ public sealed class VNGameMenuView : MonoBehaviour
 {
     // Art-first modal: the scene stays visible behind a light scrim; modal
     // contrast comes from the panel itself, input blocking from the raycast.
-    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.20f);
+    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.30f);
     private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
     // Approved interaction language: selection/focus is cyan, never red.
     private static readonly Color FocusAccentColor = new Color(0.008f, 0.851f, 0.976f, 1f);
