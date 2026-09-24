@@ -474,15 +474,15 @@ public static class GameMenuSmokeTests
             Require(harness.Dialogue.HandleEscapePressed(), "Stable ordinary dialogue Escape was not handled.");
             Require(harness.Menu.IsOpen && harness.Menu.IsPresentationVisible, "Stable ordinary dialogue Escape did not open Game Menu.");
             Require(!harness.Dialogue.CanAdvanceDialogue, "Game Menu did not block dialogue advance.");
-            Require(harness.Dialogue.IsDialogueShellSuppressed && !harness.Dialogue.dialogueUiRoot.activeSelf,
-                "Game Menu left the ordinary dialogue shell visible beneath its presentation.");
+            Require(!harness.Dialogue.IsDialogueShellSuppressed && harness.Dialogue.dialogueUiRoot.activeSelf,
+                "Root Game Menu must preserve the ordinary dialogue shell beneath its presentation.");
             Require(GetPrivate<bool>(harness.QuickMenu, "hiddenByGameMenuModal"), "Game Menu did not acquire its Quick Menu blocker.");
             Require(!harness.QuickRoot.activeSelf, "Quick Menu remained visible under Game Menu.");
 
             Require(harness.Dialogue.HandleEscapePressed(), "Second Escape was not handled.");
             Require(!harness.Menu.IsOpen, "Second Escape did not close Game Menu.");
             Require(!harness.Dialogue.IsDialogueShellSuppressed && harness.Dialogue.dialogueUiRoot.activeSelf,
-                "Closing Game Menu did not restore the ordinary dialogue shell it suppressed.");
+                "Closing Game Menu did not leave the ordinary dialogue shell visible.");
             Require(GetPrivate<int>(harness.Dialogue, "currentLineIndex") == lineBefore, "Open/Return advanced the dialogue line.");
             Require(!GetPrivate<bool>(harness.QuickMenu, "hiddenByGameMenuModal"), "Closing Game Menu did not remove its own blocker.");
 

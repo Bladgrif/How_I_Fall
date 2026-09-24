@@ -73,7 +73,6 @@ public sealed class VNGameMenuController : MonoBehaviour
         IsOpen = true;
         childContext = ChildContext.None;
         localConfirmationAction = LocalConfirmationAction.None;
-        dialogueController.TrySuppressDialogueShell(this);
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
         view.GetButton(VNGameMenuAction.Save).interactable = dialogueController.CanSave;
         view.GetButton(VNGameMenuAction.Load).interactable = dialogueController.CanLoad;
@@ -316,6 +315,7 @@ public sealed class VNGameMenuController : MonoBehaviour
 
         saveLoadAdapter.Unmount();
         childContext = ChildContext.None;
+        dialogueController?.ReleaseDialogueShellSuppression(this);
         view?.SetSaveLoadSection(null);
         // Embedded panel deactivation clears EventSystem selection; every other
         // child return restores default focus, so Save/Load must match.
@@ -421,6 +421,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         }
 
         childContext = ChildContext.None;
+        dialogueController?.ReleaseDialogueShellSuppression(this);
         RestorePresentation();
     }
 
