@@ -76,6 +76,8 @@ public static class MainMenuVisualPassASmokeTests
                 "New Game must be secondary while Continue is available.");
             GetHoverEffect(continueButton).OnDeselect(null);
             GetHoverEffect(newGameButton).OnDeselect(null);
+            GetHoverEffect(continueButton).AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
+            GetHoverEffect(newGameButton).AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             Require(GetHoverEffect(continueButton).CurrentLabelColor == GetHoverEffect(newGameButton).CurrentLabelColor,
                 "Primary Continue must not be permanently brighter than other enabled actions.");
 
@@ -170,6 +172,7 @@ public static class MainMenuVisualPassASmokeTests
             MainMenuButtonHoverEffect effect = GetHoverEffect(button);
             effect.OnPointerExit(null);
             effect.OnDeselect(null);
+            effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             Color normal = effect.CurrentLabelColor;
             Require(!effect.IsFocusAccentVisible && !effect.IsInteractionVisible,
                 "Normal actions must not retain an interaction marker.");
@@ -180,6 +183,7 @@ public static class MainMenuVisualPassASmokeTests
                 normalEnabledColor = normal;
             }
             effect.OnPointerEnter(null);
+            effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             Require(button.interactable ? effect.IsFocusAccentVisible : !effect.IsFocusAccentVisible,
                 "Enabled hover must expose the restrained focus accent without enabling it for disabled Continue.");
             Require(button.interactable ? effect.CurrentLabelColor != normal : effect.CurrentLabelColor == normal,
@@ -188,9 +192,11 @@ public static class MainMenuVisualPassASmokeTests
             Require(hoverAlpha >= 0.25f && hoverAlpha <= 0.55f,
                 "Hover must expose the target v1 translucent glass plate without becoming a heavy panel.");
             effect.OnPointerExit(null);
+            effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             Require(effect.CurrentLabelColor == normal && !effect.IsInteractionVisible,
                 "Pointer exit must clear hover even with retained EventSystem selection.");
             effect.OnSelect(null);
+            effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             Require(button.interactable ? effect.IsFocusAccentVisible : !effect.IsFocusAccentVisible,
                 "Keyboard focus must expose the restrained accent only for enabled actions.");
             Require(button.interactable ? effect.IsInteractionVisible && effect.CurrentLabelColor != normal
@@ -199,6 +205,7 @@ public static class MainMenuVisualPassASmokeTests
             Require(controller.PlayerFacingActionButtons.Count(action => GetHoverEffect(action).IsInteractionVisible) <= 1,
                 "Only one Main Menu action may be visually active.");
             effect.OnDeselect(null);
+            effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
         }
     }
 
@@ -277,6 +284,7 @@ public static class MainMenuVisualPassASmokeTests
             MainMenuButtonHoverEffect effect = button.GetComponent<MainMenuButtonHoverEffect>();
             Require(effect != null, "Main Menu action lost its hover effect for the target v1 check.");
             effect.OnPointerEnter(null);
+            effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             if (button.interactable)
             {
                 Image plate = button.targetGraphic as Image;
@@ -300,6 +308,7 @@ public static class MainMenuVisualPassASmokeTests
             }
             effect.OnPointerExit(null);
             effect.OnDeselect(null);
+            effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
         }
 
         // Title block: the authored sprite carries transparent margins, so the
