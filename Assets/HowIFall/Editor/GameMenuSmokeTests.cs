@@ -257,20 +257,21 @@ public static class GameMenuSmokeTests
             Require(view.GetComponentsInChildren<Canvas>(true).Length == 0, "Game Menu must reuse the VN Canvas instead of creating another Canvas.");
             Require(view.GetComponent<Image>() != null && view.GetComponent<Image>().raycastTarget,
                 "Full-screen Game Menu root must block clicks to dialogue, choices, and Quick Menu underneath.");
-            Require(view.GetComponent<Image>().color.a >= 0.12f && view.GetComponent<Image>().color.a <= 0.32f,
-                "Game Menu scrim must keep the scene visible behind the art-first panel without losing modal input blocking.");
+            Require(view.GetComponent<Image>().color.a >= 0.36f && view.GetComponent<Image>().color.a <= 0.42f,
+                "Game Menu scrim must visibly pause Reading without blacking out the scene.");
 
             view.SetReplayMode(false);
             AssertVisibleActions(view, new[]
             {
                 VNGameMenuAction.Save, VNGameMenuAction.Load, VNGameMenuAction.Preferences,
-                VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Return
+                VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Back, VNGameMenuAction.Return
             });
             AssertLabel(view, VNGameMenuAction.Save, "Сохранить");
             AssertLabel(view, VNGameMenuAction.Load, "Загрузить");
             AssertLabel(view, VNGameMenuAction.Preferences, "Настройки");
             AssertLabel(view, VNGameMenuAction.MainMenu, "Главное меню");
             AssertLabel(view, VNGameMenuAction.Quit, "Выйти");
+            AssertLabel(view, VNGameMenuAction.Back, "Назад");
             AssertLabel(view, VNGameMenuAction.Return, "Вернуться в игру");
             Require(!view.IsActionVisible(VNGameMenuAction.History), "History leaked into the normal Game Menu.");
             Require(!view.IsActionVisible(VNGameMenuAction.Characters), "Characters leaked into the normal Game Menu.");
@@ -283,7 +284,7 @@ public static class GameMenuSmokeTests
             AssertVisibleActions(view, new[]
             {
                 VNGameMenuAction.Preferences, VNGameMenuAction.History,
-                VNGameMenuAction.EndReplay, VNGameMenuAction.Quit, VNGameMenuAction.Return
+                VNGameMenuAction.EndReplay, VNGameMenuAction.Quit, VNGameMenuAction.Back, VNGameMenuAction.Return
             });
             AssertLabel(view, VNGameMenuAction.EndReplay, "Завершить повтор");
             Require(!view.IsActionVisible(VNGameMenuAction.Save)
@@ -315,6 +316,8 @@ public static class GameMenuSmokeTests
             RawImage wordmark = header.Find("Wordmark")?.GetComponent<RawImage>();
             Require(wordmark != null && wordmark.texture != null,
                 "Game Menu must show the approved HIF brush wordmark in runtime.");
+            Require(wordmark.rectTransform.anchoredPosition.y <= -55f,
+                "Game Menu logo needs breathing room above the brush artwork.");
             Button saveButton = view.GetButton(VNGameMenuAction.Save);
             Require(saveButton != null && saveButton.colors.normalColor.a == 0f
                 && saveButton.transform.Find("Focus Plate")?.GetComponent<Image>()?.sprite != null,
@@ -367,6 +370,7 @@ public static class GameMenuSmokeTests
                 && view.GetButton(VNGameMenuAction.Preferences).interactable
                 && view.GetButton(VNGameMenuAction.MainMenu).interactable
                 && view.GetButton(VNGameMenuAction.Quit).interactable
+                && view.GetButton(VNGameMenuAction.Back).interactable
                 && view.GetButton(VNGameMenuAction.Return).interactable,
                 "Embedded Save/Load did not retain the persistent Game Menu navigation.");
             view.SetSaveLoadSection(VNGameMenuAction.Load, confirmationOpen: true);
@@ -375,6 +379,7 @@ public static class GameMenuSmokeTests
                 && !view.GetButton(VNGameMenuAction.Preferences).interactable
                 && !view.GetButton(VNGameMenuAction.MainMenu).interactable
                 && !view.GetButton(VNGameMenuAction.Quit).interactable
+                && !view.GetButton(VNGameMenuAction.Back).interactable
                 && !view.GetButton(VNGameMenuAction.Return).interactable,
                 "Nested confirmation did not block the underlying Game Menu navigation.");
             view.SetSaveLoadSection(null);
@@ -488,7 +493,19 @@ public static class GameMenuSmokeTests
             Require(!harness.Dialogue.IsDialogueShellSuppressed && harness.Dialogue.dialogueUiRoot.activeSelf,
                 "Root Game Menu must preserve the ordinary dialogue shell beneath its presentation.");
             Require(GetPrivate<bool>(harness.QuickMenu, "hiddenByGameMenuModal"), "Game Menu did not acquire its Quick Menu blocker.");
-            Require(!harness.QuickRoot.activeSelf, "Quick Menu remained visible under Game Menu.");
+            Require(harness.QuickRoot.activeInHierarchy && harness.QuickMenu.IsEffectivelyVisible,
+                "Quick Menu disappeared instead of remaining in the paused Reading frame.");
+            CanvasGroup quickInput = harness.QuickRoot.GetComponent<CanvasGroup>();
+            Require(quickInput != null && !quickInput.interactable && !quickInput.blocksRaycasts,
+                "Visible Quick Menu still accepts pointer or navigation input under Game Menu.");
+            EventSystem eventSystem = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+            Require(eventSystem != null && eventSystem.currentSelectedGameObject == harness.Menu.View.GetButton(VNGameMenuAction.Save).gameObject
+                && harness.Menu.View.VisibleFocusMarkerCount == 1,
+                "Root Game Menu must select only Save on opening.");
+            harness.QuickMenu.historyButton.Select();
+            Require(eventSystem.currentSelectedGameObject == harness.Menu.View.GetButton(VNGameMenuAction.Save).gameObject,
+                "Blocked Quick Menu stole EventSystem focus from Save.");
+            Require(!harness.Dialogue.CanOpenQuickMenu, "Quick Menu action routing remained open under Game Menu.");
 
             Require(harness.Dialogue.HandleEscapePressed(), "Second Escape was not handled.");
             Require(!harness.Menu.IsOpen, "Second Escape did not close Game Menu.");
@@ -496,6 +513,13 @@ public static class GameMenuSmokeTests
                 "Closing Game Menu did not leave the ordinary dialogue shell visible.");
             Require(GetPrivate<int>(harness.Dialogue, "currentLineIndex") == lineBefore, "Open/Return advanced the dialogue line.");
             Require(!GetPrivate<bool>(harness.QuickMenu, "hiddenByGameMenuModal"), "Closing Game Menu did not remove its own blocker.");
+            Require(harness.QuickRoot.activeInHierarchy && quickInput.interactable && quickInput.blocksRaycasts,
+                "Closing Game Menu did not restore Quick Menu interaction.");
+
+            Require(harness.Menu.Open(), "Game Menu did not reopen for Back-row proof.");
+            harness.Menu.View.GetButton(VNGameMenuAction.Back).onClick.Invoke();
+            Require(!harness.Menu.IsOpen && GetPrivate<int>(harness.Dialogue, "currentLineIndex") == lineBefore,
+                "Root Back row did not close one level without advancing Reading.");
 
             harness.QuickMenu.SetPlayerInterfaceHidden(true);
             Require(harness.Dialogue.HandleEscapePressed() && harness.Menu.IsOpen, "Game Menu did not reopen for blocker composition test.");
@@ -615,6 +639,7 @@ public static class GameMenuSmokeTests
                 VNGameMenuAction.Preferences,
                 VNGameMenuAction.MainMenu,
                 VNGameMenuAction.Quit,
+                VNGameMenuAction.Back,
                 VNGameMenuAction.Return
             };
             Require(embeddedNavigation.All(action => harness.Menu.View.GetButton(action).interactable),
@@ -662,10 +687,14 @@ public static class GameMenuSmokeTests
                 "Escape did not cancel Quit while retaining Game Menu.");
 
             harness.Menu.View.GetButton(VNGameMenuAction.Save).onClick.Invoke();
+            harness.Menu.View.GetButton(VNGameMenuAction.Back).onClick.Invoke();
+            Require(harness.Menu.IsOpen && !harness.Menu.View.IsSaveLoadContentVisible
+                && saveLoad.transform.parent == harness.Canvas.transform,
+                "Back from embedded Save/Load must return one level to root Game Menu.");
             harness.Menu.View.GetButton(VNGameMenuAction.Return).onClick.Invoke();
             Require(!harness.Menu.IsOpen && !harness.Menu.View.IsSaveLoadContentVisible
                 && saveLoad.transform.parent == harness.Canvas.transform,
-                "Return from embedded Save/Load did not close Game Menu and restore the standalone panel parent.");
+                "Return from root after Back did not close Game Menu cleanly.");
         }
         finally
         {
@@ -701,6 +730,8 @@ public static class GameMenuSmokeTests
     private static Harness CreateHarness(string name)
     {
         GameObject canvasObject = new GameObject(name + " Canvas", typeof(RectTransform), typeof(Canvas));
+        new GameObject(name + " EventSystem", typeof(EventSystem), typeof(StandaloneInputModule))
+            .transform.SetParent(canvasObject.transform, false);
         GameObject dialogueObject = new GameObject(name + " Dialogue", typeof(RectTransform));
         dialogueObject.transform.SetParent(canvasObject.transform, false);
         VNDialogueController dialogue = dialogueObject.AddComponent<VNDialogueController>();

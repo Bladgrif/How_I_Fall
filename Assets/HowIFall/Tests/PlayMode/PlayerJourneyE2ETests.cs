@@ -269,11 +269,15 @@ namespace HowIFall.PlayModeTests
             yield return WaitForCondition(() => dialogue.IsGameMenuOpen, "Game Menu did not open from ordinary gameplay Esc.");
             VNGameMenuController gameMenu = dialogue.GameMenuController;
             Assert.That(gameMenu.IsPresentationVisible, Is.True);
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Return).gameObject),
-                "Game Menu did not assign deterministic default focus.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Save).gameObject),
+                "Game Menu did not assign initial Save focus.");
             Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.True, "Root Game Menu must preserve the Reading dialogue shell.");
             Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Root Game Menu must not own dialogue-shell suppression.");
-            Assert.That(quickMenu.IsEffectivelyVisible, Is.False, "Game Menu did not block Quick Menu presentation.");
+            Assert.That(quickMenu.IsEffectivelyVisible && quickMenu.root.activeInHierarchy, Is.True,
+                "Game Menu hid Quick Menu instead of preserving the Reading frame.");
+            CanvasGroup quickInput = quickMenu.root.GetComponent<CanvasGroup>();
+            Assert.That(quickInput != null && !quickInput.interactable && !quickInput.blocksRaycasts, Is.True,
+                "Quick Menu remained interactive beneath Game Menu.");
             string dialogueBeforeMenuAdvance = dialogue.dialogueText.text;
             dialogue.AdvanceDialogue();
             yield return null;
@@ -307,6 +311,8 @@ namespace HowIFall.PlayModeTests
             yield return WaitForCondition(() => !dialogue.IsGameMenuOpen, "Game Menu Back did not return to gameplay.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.Null,
                 "Closing Game Menu left a stale selected object in the gameplay EventSystem.");
+            Assert.That(quickInput.interactable && quickInput.blocksRaycasts, Is.True,
+                "Closing Game Menu did not restore Quick Menu interaction.");
             AssertGameplayShell(dialogue, quickMenu);
 
             Click(quickMenu.historyButton, "Quick Menu History");

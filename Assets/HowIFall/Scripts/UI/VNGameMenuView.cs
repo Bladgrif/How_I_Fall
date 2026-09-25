@@ -16,15 +16,15 @@ public enum VNGameMenuAction
     MainMenu,
     EndReplay,
     Quit,
+    Back,
     Return
 }
 
 /// <summary>Runtime-built, scene-local presentation for the gameplay navigation menu (UI Target v1 left glass panel).</summary>
 public sealed class VNGameMenuView : MonoBehaviour
 {
-    // Art-first modal: the scene stays visible behind a light scrim; modal
-    // contrast comes from the panel itself, input blocking from the raycast.
-    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.30f);
+    // Keep the complete Reading frame recognizable while clearly pausing it.
+    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.38f);
     private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
     // Approved interaction language: selection/focus is cyan, never red.
     private static readonly Color FocusAccentColor = new Color(0.008f, 0.851f, 0.976f, 1f);
@@ -122,7 +122,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         SetActionVisible(VNGameMenuAction.EndReplay, replay);
     }
 
-    public void SetVisible(bool visible)
+    public void SetVisible(bool visible, VNGameMenuAction focusAction = VNGameMenuAction.Return)
     {
         if (root == null)
         {
@@ -133,7 +133,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         if (visible)
         {
             root.transform.SetAsLastSibling();
-            FocusDefaultAction();
+            FocusAction(focusAction);
             RefreshFocusMarkers();
         }
         else
@@ -209,7 +209,16 @@ public sealed class VNGameMenuView : MonoBehaviour
 
     public void FocusDefaultAction()
     {
-        Button fallback = GetButton(VNGameMenuAction.Return);
+        FocusAction(VNGameMenuAction.Return);
+    }
+
+    private void FocusAction(VNGameMenuAction action)
+    {
+        Button fallback = GetButton(action);
+        if (fallback == null || !fallback.isActiveAndEnabled || !fallback.interactable)
+        {
+            fallback = GetButton(VNGameMenuAction.Return);
+        }
         EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
         if (fallback != null && fallback.isActiveAndEnabled && fallback.interactable)
         {
@@ -314,7 +323,7 @@ public sealed class VNGameMenuView : MonoBehaviour
             RawImage logoImage = logo.AddComponent<RawImage>();
             logoImage.texture = logoTexture;
             logoImage.raycastTarget = false;
-            AnchorTopLeft(logo.GetComponent<RectTransform>(), 0f, -34f, new Vector2(520f, 260f));
+            AnchorTopLeft(logo.GetComponent<RectTransform>(), 0f, -62f, new Vector2(484f, 242f));
         }
         else
         {
@@ -359,7 +368,7 @@ public sealed class VNGameMenuView : MonoBehaviour
 
         GameObject primaryActions = CreateUiObject(navigation.transform, "Primary Actions");
         RectTransform primaryRect = primaryActions.GetComponent<RectTransform>();
-        primaryRect.anchorMin = new Vector2(ColumnLeftFraction, 0.335f);
+        primaryRect.anchorMin = new Vector2(ColumnLeftFraction, 0.315f);
         primaryRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 1f);
         primaryRect.offsetMin = Vector2.zero;
         primaryRect.offsetMax = new Vector2(0f, -16f);
@@ -380,11 +389,12 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(primaryActions.transform, VNGameMenuAction.MainMenu, "Главное меню");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.EndReplay, "Завершить повтор");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Quit, "Выйти");
+        CreateActionButton(primaryActions.transform, VNGameMenuAction.Back, "Назад");
 
         GameObject returnArea = CreateUiObject(navigation.transform, "Return Area");
         RectTransform returnAreaRect = returnArea.GetComponent<RectTransform>();
-        returnAreaRect.anchorMin = new Vector2(ColumnLeftFraction, 0.145f);
-        returnAreaRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 0.33f);
+        returnAreaRect.anchorMin = new Vector2(ColumnLeftFraction, 0.105f);
+        returnAreaRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 0.30f);
         returnAreaRect.offsetMin = new Vector2(0f, 4f);
         returnAreaRect.offsetMax = new Vector2(0f, -6f);
 
