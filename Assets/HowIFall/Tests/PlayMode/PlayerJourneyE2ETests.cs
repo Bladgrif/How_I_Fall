@@ -269,11 +269,37 @@ namespace HowIFall.PlayModeTests
             yield return WaitForCondition(() => dialogue.IsGameMenuOpen, "Game Menu did not open from ordinary gameplay Esc.");
             VNGameMenuController gameMenu = dialogue.GameMenuController;
             Assert.That(gameMenu.IsPresentationVisible, Is.True);
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Return).gameObject),
-                "Game Menu did not assign deterministic default focus.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Save).gameObject),
+                "Game Menu did not assign initial Save focus.");
+            Button quitAction = gameMenu.View.GetButton(VNGameMenuAction.Quit);
+            Button backAction = gameMenu.View.GetButton(VNGameMenuAction.Back);
+            Hover(quitAction, "Game Menu Quit");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(quitAction.gameObject));
+            gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
+            Assert.That(gameMenu.View.GetButton(VNGameMenuAction.Save).transform.Find("Focus Plate").gameObject.activeSelf, Is.False,
+                "Save kept its cyan plate after Quit pointer hover.");
+            Hover(backAction, "Game Menu Back");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(backAction.gameObject));
+            gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
+            Assert.That(gameMenu.View.VisibleFocusMarkerCount, Is.EqualTo(1));
+            Canvas.ForceUpdateCanvases();
+            Button keyboardNext = backAction.FindSelectableOnUp() as Button;
+            Assert.That(keyboardNext, Is.Not.Null, "Game Menu keyboard navigation has no row above Back.");
+            ExecuteEvents.Execute<IMoveHandler>(backAction.gameObject,
+                new AxisEventData(EventSystem.current) { moveDir = MoveDirection.Up, moveVector = Vector2.up },
+                ExecuteEvents.moveHandler);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(keyboardNext.gameObject),
+                "Keyboard navigation did not continue from the pointer-selected Back row.");
+            gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
+            Assert.That(gameMenu.View.VisibleFocusMarkerCount, Is.EqualTo(1),
+                "Keyboard navigation left a second mouse-owned focus marker.");
             Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.True, "Root Game Menu must preserve the Reading dialogue shell.");
             Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Root Game Menu must not own dialogue-shell suppression.");
-            Assert.That(quickMenu.IsEffectivelyVisible, Is.False, "Game Menu did not block Quick Menu presentation.");
+            Assert.That(quickMenu.IsEffectivelyVisible && quickMenu.root.activeInHierarchy, Is.True,
+                "Game Menu hid Quick Menu instead of preserving the Reading frame.");
+            CanvasGroup quickInput = quickMenu.root.GetComponent<CanvasGroup>();
+            Assert.That(quickInput != null && !quickInput.interactable && !quickInput.blocksRaycasts, Is.True,
+                "Quick Menu remained interactive beneath Game Menu.");
             string dialogueBeforeMenuAdvance = dialogue.dialogueText.text;
             dialogue.AdvanceDialogue();
             yield return null;
@@ -307,6 +333,8 @@ namespace HowIFall.PlayModeTests
             yield return WaitForCondition(() => !dialogue.IsGameMenuOpen, "Game Menu Back did not return to gameplay.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.Null,
                 "Closing Game Menu left a stale selected object in the gameplay EventSystem.");
+            Assert.That(quickInput.interactable && quickInput.blocksRaycasts, Is.True,
+                "Closing Game Menu did not restore Quick Menu interaction.");
             AssertGameplayShell(dialogue, quickMenu);
 
             Click(quickMenu.historyButton, "Quick Menu History");

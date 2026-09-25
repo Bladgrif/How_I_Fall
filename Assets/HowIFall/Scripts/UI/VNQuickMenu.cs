@@ -46,6 +46,7 @@ public sealed class VNQuickMenu : MonoBehaviour
     private bool hiddenByPlayer;
     private bool hiddenByPreferencesModal;
     private bool hiddenByGameMenuModal;
+    private CanvasGroup gameMenuInputBlocker;
     private bool hiddenBySaveLoadModal;
     private bool hiddenByBacklogModal;
     private bool effectiveVisible;
@@ -521,7 +522,6 @@ public sealed class VNQuickMenu : MonoBehaviour
             && !hiddenByPlayer
             && !hiddenBySpecialMode
             && !hiddenByPreferencesModal
-            && !hiddenByGameMenuModal
             && !hiddenBySaveLoadModal
             && !hiddenByBacklogModal;
         if (root != null && root.activeSelf != effectiveVisible)
@@ -543,10 +543,16 @@ public sealed class VNQuickMenu : MonoBehaviour
         RefreshEffectiveVisibility();
     }
 
-    /// <summary>Temporary Game Menu blocker. It never mutates the persistent preference or clean-view state.</summary>
+    /// <summary>Keep the Reading strip visible but inert beneath Game Menu.</summary>
     public void SetGameMenuModalHidden(bool hidden)
     {
         hiddenByGameMenuModal = hidden;
+        if (root != null)
+        {
+            gameMenuInputBlocker ??= root.AddComponent<CanvasGroup>();
+            gameMenuInputBlocker.interactable = !hidden;
+            gameMenuInputBlocker.blocksRaycasts = !hidden;
+        }
         RefreshEffectiveVisibility();
     }
 

@@ -16,15 +16,15 @@ public enum VNGameMenuAction
     MainMenu,
     EndReplay,
     Quit,
+    Back,
     Return
 }
 
 /// <summary>Runtime-built, scene-local presentation for the gameplay navigation menu (UI Target v1 left glass panel).</summary>
 public sealed class VNGameMenuView : MonoBehaviour
 {
-    // Art-first modal: the scene stays visible behind a light scrim; modal
-    // contrast comes from the panel itself, input blocking from the raycast.
-    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.30f);
+    // Keep the complete Reading frame recognizable while clearly pausing it.
+    private static readonly Color OverlayColor = new Color(0.005f, 0.012f, 0.025f, 0.38f);
     private static readonly Color AccentColor = new Color(0.30f, 0.58f, 0.80f, 1f);
     // Approved interaction language: selection/focus is cyan, never red.
     private static readonly Color FocusAccentColor = new Color(0.008f, 0.851f, 0.976f, 1f);
@@ -33,31 +33,47 @@ public sealed class VNGameMenuView : MonoBehaviour
     private static readonly Color ChevronColor = new Color(0.62f, 0.76f, 0.88f, 0.85f);
     private static readonly Color EnabledLabelColor = new Color(0.94f, 0.96f, 1f, 1f);
     private static readonly Color DisabledLabelColor = new Color(0.55f, 0.60f, 0.68f, 0.38f);
-    private static readonly Color RowPlateColor = new Color(0.55f, 0.70f, 0.90f, 0.05f);
-    private static readonly Color ReturnPlateColor = new Color(0.55f, 0.70f, 0.90f, 0.07f);
+    private static readonly Color RowPlateColor = new Color(0.12f, 0.35f, 0.53f, 1f);
+    private static readonly Color ReturnPlateColor = new Color(0.16f, 0.35f, 0.50f, 0.10f);
 
     // UI Target v1: one cohesive full-height left glass panel whose right edge
     // is the single outer containment edge for Header, Navigation and Footer.
-    private const float PanelWidthFraction = 0.258f;
-    // Row column insets as panel-width fractions keep the deep typographic
-    // left edge and >=22px side insets from 1280x720 up.
+    private const float PanelWidthFraction = 0.252f;
+    // Asymmetric target column: deep typographic left edge, subtle right edge.
     private const float ColumnLeftFraction = 0.197f;
-    private const float ColumnRightInsetFraction = 0.075f;
+    private const float ColumnRightInsetFraction = 0.045f;
     private const float RowHeight = 62f;
-    private const float RowSpacing = 6f;
+    private const float RowSpacing = 4f;
     private const string TaglineText = "SAME HALLS\nDIFFERENT YOU";
 
     private readonly Dictionary<VNGameMenuAction, Button> buttons = new Dictionary<VNGameMenuAction, Button>();
     private readonly Dictionary<VNGameMenuAction, TextMeshProUGUI> labels = new Dictionary<VNGameMenuAction, TextMeshProUGUI>();
     private readonly Dictionary<VNGameMenuAction, GameObject> activeMarkers = new Dictionary<VNGameMenuAction, GameObject>();
     private readonly Dictionary<VNGameMenuAction, GameObject> focusMarkers = new Dictionary<VNGameMenuAction, GameObject>();
+    private readonly Dictionary<VNGameMenuAction, GameObject> focusPlates = new Dictionary<VNGameMenuAction, GameObject>();
     private readonly Dictionary<VNGameMenuAction, CanvasGroup> chevronGroups = new Dictionary<VNGameMenuAction, CanvasGroup>();
+    private readonly Dictionary<VNGameMenuAction, FocusFadeState> focusFades = new Dictionary<VNGameMenuAction, FocusFadeState>();
     private GameObject root;
     private RectTransform saveLoadContentHost;
     private GameObject confirmationRoot;
     private TextMeshProUGUI confirmationText;
     private Button confirmationYesButton;
     private Button confirmationNoButton;
+    // Visible interaction highlight owner, deliberately separate from the
+    // EventSystem selection: pointer exit to empty space clears it while the
+    // logical selection may silently remain for deterministic Submit/navigation.
+    private VNGameMenuAction? visualFocusAction;
+
+    /// <summary>Restrained focus fade duration; short enough to feel instant, long enough to remove the hard SetActive snap.</summary>
+    public const float FocusFadeDuration = 0.12f;
+
+    private sealed class FocusFadeState
+    {
+        public CanvasGroup Marker;
+        public CanvasGroup Plate;
+        public float Alpha;
+        public float Target;
+    }
 
     public bool IsVisible => root != null && root.activeSelf;
     public bool IsConfirmationVisible => confirmationRoot != null && confirmationRoot.activeSelf;
@@ -122,7 +138,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         SetActionVisible(VNGameMenuAction.EndReplay, replay);
     }
 
-    public void SetVisible(bool visible)
+    public void SetVisible(bool visible, VNGameMenuAction focusAction = VNGameMenuAction.Return)
     {
         if (root == null)
         {
@@ -133,13 +149,13 @@ public sealed class VNGameMenuView : MonoBehaviour
         if (visible)
         {
             root.transform.SetAsLastSibling();
-            FocusDefaultAction();
+            FocusAction(focusAction);
             RefreshFocusMarkers();
         }
         else
         {
             HideConfirmation();
-            RefreshFocusMarkers();
+            SnapFocusVisualsHidden();
         }
     }
 
@@ -209,7 +225,16 @@ public sealed class VNGameMenuView : MonoBehaviour
 
     public void FocusDefaultAction()
     {
-        Button fallback = GetButton(VNGameMenuAction.Return);
+        FocusAction(VNGameMenuAction.Return);
+    }
+
+    private void FocusAction(VNGameMenuAction action)
+    {
+        Button fallback = GetButton(action);
+        if (fallback == null || !fallback.isActiveAndEnabled || !fallback.interactable)
+        {
+            fallback = GetButton(VNGameMenuAction.Return);
+        }
         EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
         if (fallback != null && fallback.isActiveAndEnabled && fallback.interactable)
         {
@@ -225,25 +250,122 @@ public sealed class VNGameMenuView : MonoBehaviour
         {
             RefreshEnabledPresentation();
             RefreshFocusMarkers();
+            AdvanceFocusFade(Time.unscaledDeltaTime);
         }
     }
 
-    /// <summary>Synchronizes the visual marker with the sole EventSystem selection.</summary>
+    /// <summary>
+    /// Synchronizes the visible interaction highlight with the view's own
+    /// visual-focus owner, which is deliberately NOT the raw EventSystem
+    /// selection: Main Menu parity requires pointer exit to empty space to
+    /// clear every root highlight while the logical selection may remain.
+    /// </summary>
     public void RefreshFocusMarkers()
     {
-        GameObject selected = (EventSystem.current ?? FindFirstObjectByType<EventSystem>())?.currentSelectedGameObject;
         foreach (KeyValuePair<VNGameMenuAction, GameObject> pair in focusMarkers)
         {
+            if (!focusFades.TryGetValue(pair.Key, out FocusFadeState fade))
+            {
+                continue;
+            }
+
             Button button = GetButton(pair.Key);
             bool focused = root != null
                 && root.activeSelf
+                && visualFocusAction == pair.Key
                 && button != null
                 && button.interactable
-                && button.gameObject.activeInHierarchy
-                && selected == button.gameObject;
-            if (pair.Value != null && pair.Value.activeSelf != focused)
+                && button.gameObject.activeInHierarchy;
+            fade.Target = focused ? 1f : 0f;
+            if (!focused)
             {
-                pair.Value.SetActive(focused);
+                continue;
+            }
+
+            // Activate immediately; the fade only carries the visible alpha,
+            // and a mid-fade re-hover resumes from its current alpha.
+            if (pair.Value != null && !pair.Value.activeSelf)
+            {
+                pair.Value.SetActive(true);
+            }
+
+            if (focusPlates.TryGetValue(pair.Key, out GameObject plate) && plate != null && !plate.activeSelf)
+            {
+                plate.SetActive(true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Advances the focus marker/plate fade by unscaled time, so a paused
+    /// Reading frame (Game Menu freezes the dialogue) can never freeze the
+    /// transition itself. Driven by Update in play mode; editor smoke and
+    /// graphical proofs call it directly to settle transitions deterministically.
+    /// Deactivation happens only after a fade-out reaches zero alpha.
+    /// </summary>
+    public void AdvanceFocusFade(float unscaledDeltaTime)
+    {
+        if (focusFades.Count == 0)
+        {
+            return;
+        }
+
+        float step = FocusFadeDuration > 0f ? unscaledDeltaTime / FocusFadeDuration : 1f;
+        foreach (FocusFadeState fade in focusFades.Values)
+        {
+            if (fade.Marker == null)
+            {
+                continue;
+            }
+
+            float alpha = Mathf.MoveTowards(fade.Alpha, fade.Target, step);
+            bool active = fade.Target > 0f || alpha > 0f;
+            if (alpha != fade.Alpha || fade.Marker.alpha != alpha)
+            {
+                fade.Alpha = alpha;
+                fade.Marker.alpha = alpha;
+                if (fade.Plate != null)
+                {
+                    fade.Plate.alpha = alpha;
+                }
+            }
+
+            if (fade.Marker.gameObject.activeSelf != active)
+            {
+                fade.Marker.gameObject.SetActive(active);
+            }
+
+            if (fade.Plate != null && fade.Plate.gameObject.activeSelf != active)
+            {
+                fade.Plate.gameObject.SetActive(active);
+            }
+        }
+    }
+
+    /// <summary>Hiding the menu must never leave a half-faded marker that would flash on the next open.</summary>
+    private void SnapFocusVisualsHidden()
+    {
+        visualFocusAction = null;
+        foreach (FocusFadeState fade in focusFades.Values)
+        {
+            fade.Alpha = 0f;
+            fade.Target = 0f;
+            if (fade.Marker != null)
+            {
+                fade.Marker.alpha = 0f;
+                if (fade.Marker.gameObject.activeSelf)
+                {
+                    fade.Marker.gameObject.SetActive(false);
+                }
+            }
+
+            if (fade.Plate != null)
+            {
+                fade.Plate.alpha = 0f;
+                if (fade.Plate.gameObject.activeSelf)
+                {
+                    fade.Plate.gameObject.SetActive(false);
+                }
             }
         }
     }
@@ -301,15 +423,23 @@ public sealed class VNGameMenuView : MonoBehaviour
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
 
-        // The authored logo sprite is Main-Menu-scene-bound, so the panel opens
-        // with the typographic brand block instead of reproducing the target's
-        // generated logo artwork (TECH DEMO ONLY / NOT CANON per the target doc).
-        TextMeshProUGUI wordmark = CreateText(header.transform, "Wordmark", "HOW I\nFALL", 50f, FontStyles.Bold | FontStyles.Italic, TextAlignmentOptions.TopLeft, EnabledLabelColor);
-        wordmark.characterSpacing = 4f;
-        wordmark.lineSpacing = 62f;
-        AnchorTopLeft(wordmark.rectTransform, 0.20f, -40f, new Vector2(360f, 150f));
+        // Reuse the existing HIF brush logo. The Resources copy makes this
+        // scene-authored texture available to the runtime-built Game Menu.
+        Texture2D logoTexture = Resources.Load<Texture2D>("game_menu_logo_how_i_fall");
+        if (logoTexture != null)
+        {
+            GameObject logo = CreateUiObject(header.transform, "Wordmark");
+            RawImage logoImage = logo.AddComponent<RawImage>();
+            logoImage.texture = logoTexture;
+            logoImage.raycastTarget = false;
+            AnchorTopLeft(logo.GetComponent<RectTransform>(), 0f, -62f, new Vector2(484f, 242f));
+        }
+        else
+        {
+            Debug.LogError("[GAME MENU] Approved HIF logo texture is missing from Resources.");
+        }
 
-        CreateTaglineBlock(header.transform, 0.20f, -296f, -312f, 17f);
+        CreateTaglineBlock(header.transform, 0.20f, -310f, -326f, 17f);
     }
 
     private void CreateFooter(Transform window)
@@ -347,7 +477,7 @@ public sealed class VNGameMenuView : MonoBehaviour
 
         GameObject primaryActions = CreateUiObject(navigation.transform, "Primary Actions");
         RectTransform primaryRect = primaryActions.GetComponent<RectTransform>();
-        primaryRect.anchorMin = new Vector2(ColumnLeftFraction, 0.335f);
+        primaryRect.anchorMin = new Vector2(ColumnLeftFraction, 0.315f);
         primaryRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 1f);
         primaryRect.offsetMin = Vector2.zero;
         primaryRect.offsetMax = new Vector2(0f, -16f);
@@ -368,11 +498,12 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(primaryActions.transform, VNGameMenuAction.MainMenu, "Главное меню");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.EndReplay, "Завершить повтор");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Quit, "Выйти");
+        CreateActionButton(primaryActions.transform, VNGameMenuAction.Back, "Назад");
 
         GameObject returnArea = CreateUiObject(navigation.transform, "Return Area");
         RectTransform returnAreaRect = returnArea.GetComponent<RectTransform>();
-        returnAreaRect.anchorMin = new Vector2(ColumnLeftFraction, 0.145f);
-        returnAreaRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 0.31f);
+        returnAreaRect.anchorMin = new Vector2(ColumnLeftFraction, 0.105f);
+        returnAreaRect.anchorMax = new Vector2(1f - ColumnRightInsetFraction, 0.30f);
         returnAreaRect.offsetMin = new Vector2(0f, 4f);
         returnAreaRect.offsetMax = new Vector2(0f, -6f);
 
@@ -387,19 +518,32 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(returnArea.transform, VNGameMenuAction.Return, "Вернуться в игру");
         Button returnButton = buttons[VNGameMenuAction.Return];
         returnButton.GetComponent<Image>().color = ReturnPlateColor;
+        ColorBlock returnColors = returnButton.colors;
+        returnColors.normalColor = new Color(0.14f, 0.29f, 0.42f, 0.17f);
+        returnColors.highlightedColor = new Color(0.23f, 0.48f, 0.63f, 0.32f);
+        // Selection must never present its own plate: after the pointer leaves
+        // a row the logical selection may remain, and a lingering selected
+        // tint would read as a stale highlight. Keyboard/controller focus is
+        // expressed solely by the fading Focus Marker/Focus Plate pair.
+        returnColors.selectedColor = returnColors.normalColor;
+        returnButton.colors = returnColors;
+        Outline returnOutline = returnButton.gameObject.AddComponent<Outline>();
+        returnOutline.effectColor = new Color(0.25f, 0.57f, 0.76f, 0.85f);
+        returnOutline.effectDistance = new Vector2(1f, -1f);
+        returnOutline.useGraphicAlpha = false;
         RectTransform returnRect = returnButton.GetComponent<RectTransform>();
         returnRect.anchorMin = new Vector2(0f, 0f);
         returnRect.anchorMax = new Vector2(1f, 0.66f);
         returnRect.offsetMin = Vector2.zero;
         returnRect.offsetMax = Vector2.zero;
 
-        labels[VNGameMenuAction.Return].fontSize = 21f;
+        labels[VNGameMenuAction.Return].fontSize = 20f;
         Stretch(labels[VNGameMenuAction.Return].rectTransform, 46f, 12f, 0f, 0f);
 
         GameObject playIcon = CreateUiObject(returnButton.transform, "Play Icon");
         Image playIconImage = playIcon.AddComponent<Image>();
         playIconImage.sprite = CreatePlayIconSprite();
-        playIconImage.color = new Color(0.56f, 0.76f, 0.96f, 0.95f);
+        playIconImage.color = new Color(0.56f, 0.76f, 0.96f, 0.80f);
         playIconImage.raycastTarget = false;
         RectTransform playIconRect = playIcon.GetComponent<RectTransform>();
         playIconRect.anchorMin = playIconRect.anchorMax = new Vector2(0f, 0.5f);
@@ -454,6 +598,20 @@ public sealed class VNGameMenuView : MonoBehaviour
         button.targetGraphic = buttonObject.GetComponent<Image>();
         button.colors = CreateButtonColors();
 
+        GameObject focusPlate = CreateSurface(buttonObject.transform, "Focus Plate", Color.white);
+        Image focusPlateImage = focusPlate.GetComponent<Image>();
+        focusPlateImage.sprite = CreateFocusPlateSprite();
+        focusPlateImage.color = action == VNGameMenuAction.Return
+            ? new Color(0.21f, 0.54f, 0.72f, 0.28f)
+            : new Color(0.21f, 0.54f, 0.72f, 0.60f);
+        focusPlateImage.raycastTarget = false;
+        Stretch(focusPlate.GetComponent<RectTransform>());
+        CanvasGroup plateGroup = focusPlate.AddComponent<CanvasGroup>();
+        plateGroup.alpha = 0f;
+        plateGroup.blocksRaycasts = false;
+        plateGroup.ignoreParentGroups = true;
+        focusPlate.SetActive(false);
+
         TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 23f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, EnabledLabelColor);
         Stretch(text.rectTransform, 30f, 44f, 0f, 0f);
 
@@ -473,9 +631,15 @@ public sealed class VNGameMenuView : MonoBehaviour
         focusMarkerRect.anchorMax = new Vector2(0f, 1f);
         focusMarkerRect.pivot = new Vector2(0f, 0.5f);
         focusMarkerRect.sizeDelta = new Vector2(6f, 0f);
+        CanvasGroup markerGroup = focusMarker.AddComponent<CanvasGroup>();
+        markerGroup.alpha = 0f;
+        markerGroup.blocksRaycasts = false;
+        markerGroup.ignoreParentGroups = true;
         focusMarker.SetActive(false);
         focusMarkers[action] = focusMarker;
-        AddFocusMarkerEvents(buttonObject);
+        focusPlates[action] = focusPlate;
+        focusFades[action] = new FocusFadeState { Marker = markerGroup, Plate = plateGroup, Alpha = 0f, Target = 0f };
+        AddFocusMarkerEvents(button, action);
 
         chevronGroups[action] = CreateChevron(buttonObject.transform);
 
@@ -511,18 +675,105 @@ public sealed class VNGameMenuView : MonoBehaviour
         rect.localRotation = Quaternion.Euler(0f, 0f, sign * 45f);
     }
 
-    private void AddFocusMarkerEvents(GameObject buttonObject)
+    private void AddFocusMarkerEvents(Button button, VNGameMenuAction action)
     {
-        EventTrigger trigger = buttonObject.AddComponent<EventTrigger>();
+        EventTrigger trigger = button.gameObject.AddComponent<EventTrigger>();
         trigger.triggers = new List<EventTrigger.Entry>();
-        AddFocusMarkerEvent(trigger, EventTriggerType.Select, RefreshFocusMarkers);
-        AddFocusMarkerEvent(trigger, EventTriggerType.Deselect, RefreshFocusMarkers);
+        // Keyboard/controller (or programmatic) selection owns the visible
+        // highlight directly, mirroring MainMenuButtonHoverEffect semantics.
+        AddFocusMarkerEvent(trigger, EventTriggerType.Select, () =>
+        {
+            visualFocusAction = action;
+            RefreshFocusMarkers();
+        });
+        AddFocusMarkerEvent(trigger, EventTriggerType.Deselect, () =>
+        {
+            // Selection left this row (another row, a child panel, the local
+            // confirmation): the root row loses its visible highlight even
+            // though some other object now owns the logical selection.
+            if (visualFocusAction == action)
+            {
+                visualFocusAction = null;
+            }
+
+            RefreshFocusMarkers();
+        });
+        AddFocusMarkerEvent(trigger, EventTriggerType.PointerEnter, () => HandleRootPointerOver(button, action));
+        AddFocusMarkerEvent(trigger, EventTriggerType.PointerExit, () =>
+        {
+            // Leaving all rows must clear the visible highlight while the
+            // EventSystem selection may silently remain so Submit and the next
+            // navigation step stay deterministic.
+            if (visualFocusAction == action)
+            {
+                visualFocusAction = null;
+            }
+
+            RefreshFocusMarkers();
+        });
+        AddFocusMarkerEvent(trigger, EventTriggerType.Move, () =>
+        {
+            // Navigation input fires here on the selected row; at a navigation
+            // edge no Select follows, so the selected row must re-assert the
+            // sole visible keyboard/controller highlight itself.
+            if (visualFocusAction == null)
+            {
+                visualFocusAction = action;
+                RefreshFocusMarkers();
+            }
+        });
+        // EventTrigger has no PointerMove entry, so a moving cursor re-asserts
+        // pointer ownership through the tiny relay component instead.
+        RootPointerMoveRelay relay = button.gameObject.AddComponent<RootPointerMoveRelay>();
+        relay.Owner = this;
+        relay.Row = button;
+        relay.Action = action;
+    }
+
+    private void HandleRootPointerOver(Button button, VNGameMenuAction action)
+    {
+        if (!IsVisible || IsConfirmationVisible || !button.isActiveAndEnabled || !button.interactable)
+        {
+            return;
+        }
+
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        eventSystem?.SetSelectedGameObject(button.gameObject);
+        visualFocusAction = action;
+        RefreshFocusMarkers();
+    }
+
+    /// <summary>
+    /// A moving cursor over a row re-asserts pointer ownership, mirroring
+    /// MainMenuButtonHoverEffect.OnPointerMove (for example after code-driven
+    /// selection returned default focus while the cursor rested on a row).
+    /// </summary>
+    private sealed class RootPointerMoveRelay : MonoBehaviour, IPointerMoveHandler
+    {
+        internal VNGameMenuView Owner;
+        internal Button Row;
+        internal VNGameMenuAction Action;
+
+        public void OnPointerMove(PointerEventData eventData)
+        {
+            if (Owner != null && eventData != null && eventData.delta.sqrMagnitude > 0f)
+            {
+                Owner.HandleRootPointerOver(Row, Action);
+            }
+        }
     }
 
     private static void AddFocusMarkerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction action)
     {
         EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
         entry.callback.AddListener(_ => action());
+        trigger.triggers.Add(entry);
+    }
+
+    private static void AddFocusMarkerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction<BaseEventData> action)
+    {
+        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
+        entry.callback.AddListener(action);
         trigger.triggers.Add(entry);
     }
 
@@ -651,6 +902,29 @@ public sealed class VNGameMenuView : MonoBehaviour
     }
 
     private static Texture2D playIconTexture;
+    private static Texture2D focusPlateTexture;
+
+    private static Sprite CreateFocusPlateSprite()
+    {
+        if (focusPlateTexture == null)
+        {
+            const int width = 128;
+            focusPlateTexture = new Texture2D(width, 1, TextureFormat.RGBA32, false);
+            focusPlateTexture.wrapMode = TextureWrapMode.Clamp;
+            Color32[] pixels = new Color32[width];
+            for (int x = 0; x < width; x++)
+            {
+                float t = x / (width - 1f);
+                byte alpha = (byte)Mathf.RoundToInt(180f * Mathf.Pow(1f - t, 1.5f));
+                pixels[x] = new Color32(255, 255, 255, alpha);
+            }
+
+            focusPlateTexture.SetPixels32(pixels);
+            focusPlateTexture.Apply(false, true);
+        }
+
+        return Sprite.Create(focusPlateTexture, new Rect(0f, 0f, 128f, 1f), new Vector2(0.5f, 0.5f), 100f);
+    }
 
     /// <summary>Right-pointing triangle for the integrated Return action, built once at runtime.</summary>
     private static Sprite CreatePlayIconSprite()
@@ -664,7 +938,7 @@ public sealed class VNGameMenuView : MonoBehaviour
             {
                 for (int x = 0; x < size; x++)
                 {
-                    float halfHeight = (x - 4f) * (9f / 16f);
+                    float halfHeight = (20f - x) * (9f / 16f);
                     bool inside = x >= 4 && x <= 20 && Mathf.Abs(y - 11.5f) <= halfHeight + 0.5f;
                     pixels[y * size + x] = inside ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
                 }
@@ -682,13 +956,15 @@ public sealed class VNGameMenuView : MonoBehaviour
     private static ColorBlock CreateButtonColors()
     {
         ColorBlock colors = ColorBlock.defaultColorBlock;
-        colors.normalColor = Color.white;
-        // Multipliers above 1 let a quiet translucent plate brighten into a
-        // clearly visible hover/focus plate while staying calm at rest.
-        colors.highlightedColor = new Color(1.6f, 1.8f, 2.1f, 2.2f);
-        colors.pressedColor = new Color(1.2f, 1.35f, 1.55f, 1.9f);
-        colors.selectedColor = new Color(1.5f, 1.7f, 2.0f, 2.2f);
-        colors.disabledColor = new Color(0.45f, 0.50f, 0.60f, 1.0f);
+        colors.normalColor = new Color(1f, 1f, 1f, 0f);
+        colors.highlightedColor = new Color(1f, 1f, 1f, 0.16f);
+        colors.pressedColor = new Color(1f, 1f, 1f, 0.24f);
+        // The selection state must stay as quiet as rest: the logical
+        // EventSystem selection can outlive the pointer (deterministic
+        // Submit/navigation), so any selected tint would linger as a stale
+        // plate after the visible highlight has faded out.
+        colors.selectedColor = new Color(1f, 1f, 1f, 0f);
+        colors.disabledColor = new Color(0.6f, 0.6f, 0.6f, 0f);
         colors.colorMultiplier = 1f;
         colors.fadeDuration = 0.08f;
         return colors;

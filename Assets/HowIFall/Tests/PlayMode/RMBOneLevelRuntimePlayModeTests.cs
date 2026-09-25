@@ -102,6 +102,30 @@ namespace HowIFall.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator PartialTyping_RmbMenuFreezesExactText_ThenResumesSameLine()
+        {
+            RuntimeContext context = CreateContext(CreateLinearScene("rmb-typing", new string('А', 40), "B"));
+            yield return null;
+            Assert.That(GetPrivate<bool>(context.Controller, "isTyping"), Is.True);
+
+            yield return ClickRightMouse();
+            Assert.That(context.Controller.IsGameMenuOpen, Is.True);
+            string pausedText = context.Controller.dialogueText.text;
+            string lineId = context.GameState.currentLineId;
+            yield return new WaitForSecondsRealtime(0.2f);
+            Assert.That(context.Controller.dialogueText.text, Is.EqualTo(pausedText),
+                "Typing continued behind the frozen Game Menu frame.");
+
+            yield return ClickRightMouse();
+            Assert.That(context.Controller.IsGameMenuOpen, Is.False);
+            yield return new WaitForSecondsRealtime(0.2f);
+            Assert.That(context.Controller.dialogueText.text.Length, Is.GreaterThan(pausedText.Length),
+                "Typing did not resume after closing Game Menu.");
+            Assert.That(context.GameState.currentLineId, Is.EqualTo(lineId),
+                "Opening and closing Game Menu advanced the dialogue line.");
+        }
+
+        [UnityTest]
         public IEnumerator GameMenuLocalQuitConfirmation_RmbClosesOnlyConfirmation_ThenMenu()
         {
             RuntimeContext context = CreateContext(CreateLinearScene("rmb-local-confirm", "A", "B"));

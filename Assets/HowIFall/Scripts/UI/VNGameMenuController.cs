@@ -76,7 +76,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         view.SetReplayMode(SceneFlowManager.IsReplayModeActive);
         view.GetButton(VNGameMenuAction.Save).interactable = dialogueController.CanSave;
         view.GetButton(VNGameMenuAction.Load).interactable = dialogueController.CanLoad;
-        view.SetVisible(true);
+        view.SetVisible(true, VNGameMenuAction.Save);
         dialogueController.OnGameMenuOpened();
         return true;
     }
@@ -139,6 +139,7 @@ public sealed class VNGameMenuController : MonoBehaviour
         dialogueController = controller;
         view = runtimeView;
         Bind(VNGameMenuAction.Return, HandleReturn);
+        Bind(VNGameMenuAction.Back, HandleBack);
         Bind(VNGameMenuAction.Save, OpenSave);
         Bind(VNGameMenuAction.Load, OpenLoad);
         Bind(VNGameMenuAction.Preferences, OpenPreferences);
@@ -304,6 +305,17 @@ public sealed class VNGameMenuController : MonoBehaviour
         }
 
         Close();
+    }
+
+    private void HandleBack()
+    {
+        if (childContext == ChildContext.SaveLoad)
+        {
+            TryLeaveSaveLoadSection();
+            return;
+        }
+
+        TryHandleEscape();
     }
 
     private void CloseSaveLoadSection()

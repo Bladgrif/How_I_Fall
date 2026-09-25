@@ -3657,8 +3657,18 @@ public class VNDialogueController : MonoBehaviour
 
         foreach (char character in text)
         {
+            while (IsGameMenuOpen)
+            {
+                yield return null;
+            }
+
             dialogueText.text += character;
             yield return new WaitForSecondsRealtime(characterDelay);
+        }
+
+        while (IsGameMenuOpen)
+        {
+            yield return null;
         }
 
         dialogueText.text = text;

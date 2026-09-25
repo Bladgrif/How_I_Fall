@@ -127,6 +127,15 @@ public static class QuickMenuVisibilitySmokeTests
             quickMenu.RefreshEffectiveVisibility();
             Require(root.activeSelf, "Latest ON preference must restore only after the blocker exits.");
 
+            quickMenu.SetGameMenuModalHidden(true);
+            CanvasGroup gameMenuInput = root.GetComponent<CanvasGroup>();
+            Require(root.activeSelf && gameMenuInput != null
+                && !gameMenuInput.interactable && !gameMenuInput.blocksRaycasts,
+                "Game Menu must preserve visible Quick Menu chrome while blocking its input.");
+            quickMenu.SetGameMenuModalHidden(false);
+            Require(root.activeSelf && gameMenuInput.interactable && gameMenuInput.blocksRaycasts,
+                "Closing Game Menu must restore Quick Menu interaction.");
+
             quickMenu.SetPreferencesModalHidden(true);
             manager.SetShowQuickMenu(false);
             manager.SetShowQuickMenu(true);
@@ -134,8 +143,9 @@ public static class QuickMenuVisibilitySmokeTests
                 "Changing B03 under Preferences must update truth without revealing the Quick Menu.");
             quickMenu.SetGameMenuModalHidden(true);
             quickMenu.SetPreferencesModalHidden(false);
-            Require(!root.activeSelf && manager.settings.showQuickMenu,
-                "Closing Preferences must not override the Game Menu blocker or mutate B03.");
+            Require(root.activeSelf && manager.settings.showQuickMenu
+                && !gameMenuInput.interactable && !gameMenuInput.blocksRaycasts,
+                "Closing Preferences must return to visible, input-blocked Game Menu chrome without mutating B03.");
             manager.SetShowQuickMenu(false);
             quickMenu.SetGameMenuModalHidden(false);
             Require(!root.activeSelf && !manager.settings.showQuickMenu,
