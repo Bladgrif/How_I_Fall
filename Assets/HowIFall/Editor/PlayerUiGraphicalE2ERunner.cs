@@ -255,6 +255,8 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureResponsivePreferences": CaptureResponsivePreferences(); break;
                 case "PrepareGameMenuRootProof": PrepareGameMenuRootProof(); break;
                 case "OpenGameMenuRootProof": OpenGameMenuRootProof(); break;
+                case "HoverFocusedGameMenuQuit": HoverFocusedGameMenuQuit(); break;
+                case "CaptureFocusedGameMenuQuitHover": CaptureFocusedGameMenuQuitHover(); break;
                 case "CaptureFocusedGameMenuAlternateFocus": CaptureFocusedGameMenuAlternateFocus(); break;
                 case "CaptureGameMenuRoot1280": CaptureGameMenuRoot1280(); break;
                 case "OpenGameMenuSaveLoad": OpenGameMenuSaveLoad(); break;
@@ -1521,7 +1523,30 @@ public static class PlayerUiGraphicalE2ERunner
         TextMeshProUGUI rollbackLabel = quickMenu.rollbackButton.GetComponentInChildren<TextMeshProUGUI>(true);
         Require(rollbackLabel != null && rollbackLabel.text == "Назад",
             "Quick Menu rollback action must keep the compact 'Назад' label.");
-        Capture("game_menu_root_1920x1080.png", "CaptureFocusedGameMenuAlternateFocus");
+        Capture("game_menu_root_1920x1080.png", "HoverFocusedGameMenuQuit");
+    }
+
+    private static void HoverFocusedGameMenuQuit()
+    {
+        VNGameMenuView view = RequireGameplayDialogue().GameMenuController.View;
+        Button quit = view.GetButton(VNGameMenuAction.Quit);
+        Require(quit != null && quit.interactable, "Game Menu Quit action is unavailable for pointer-hover proof.");
+        ExecuteEvents.Execute<IPointerEnterHandler>(quit.gameObject,
+            new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+        Require(EventSystem.current.currentSelectedGameObject == quit.gameObject
+            && IsFocusMarkerVisible(view, VNGameMenuAction.Quit)
+            && !IsFocusMarkerVisible(view, VNGameMenuAction.Save)
+            && !view.GetButton(VNGameMenuAction.Save).transform.Find("Focus Plate").gameObject.activeSelf
+            && view.VisibleFocusMarkerCount == 1,
+            "Pointer hover left Save and Quit simultaneously focused.");
+        SessionState.SetString(StageKey, "CaptureFocusedGameMenuQuitHover");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void CaptureFocusedGameMenuQuitHover()
+    {
+        Capture("game_menu_pointer_hover_quit_1920x1080.png", "CaptureFocusedGameMenuAlternateFocus");
     }
 
     private static void CaptureFocusedGameMenuAlternateFocus()

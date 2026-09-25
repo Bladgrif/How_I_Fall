@@ -271,6 +271,25 @@ namespace HowIFall.PlayModeTests
             Assert.That(gameMenu.IsPresentationVisible, Is.True);
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Save).gameObject),
                 "Game Menu did not assign initial Save focus.");
+            Button quitAction = gameMenu.View.GetButton(VNGameMenuAction.Quit);
+            Button backAction = gameMenu.View.GetButton(VNGameMenuAction.Back);
+            Hover(quitAction, "Game Menu Quit");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(quitAction.gameObject));
+            Assert.That(gameMenu.View.GetButton(VNGameMenuAction.Save).transform.Find("Focus Plate").gameObject.activeSelf, Is.False,
+                "Save kept its cyan plate after Quit pointer hover.");
+            Hover(backAction, "Game Menu Back");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(backAction.gameObject));
+            Assert.That(gameMenu.View.VisibleFocusMarkerCount, Is.EqualTo(1));
+            Canvas.ForceUpdateCanvases();
+            Button keyboardNext = backAction.FindSelectableOnUp() as Button;
+            Assert.That(keyboardNext, Is.Not.Null, "Game Menu keyboard navigation has no row above Back.");
+            ExecuteEvents.Execute<IMoveHandler>(backAction.gameObject,
+                new AxisEventData(EventSystem.current) { moveDir = MoveDirection.Up, moveVector = Vector2.up },
+                ExecuteEvents.moveHandler);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(keyboardNext.gameObject),
+                "Keyboard navigation did not continue from the pointer-selected Back row.");
+            Assert.That(gameMenu.View.VisibleFocusMarkerCount, Is.EqualTo(1),
+                "Keyboard navigation left a second mouse-owned focus marker.");
             Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.True, "Root Game Menu must preserve the Reading dialogue shell.");
             Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Root Game Menu must not own dialogue-shell suppression.");
             Assert.That(quickMenu.IsEffectivelyVisible && quickMenu.root.activeInHierarchy, Is.True,

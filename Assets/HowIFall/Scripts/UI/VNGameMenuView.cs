@@ -517,7 +517,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         focusMarker.SetActive(false);
         focusMarkers[action] = focusMarker;
         focusPlates[action] = focusPlate;
-        AddFocusMarkerEvents(buttonObject);
+        AddFocusMarkerEvents(button);
 
         chevronGroups[action] = CreateChevron(buttonObject.transform);
 
@@ -553,12 +553,23 @@ public sealed class VNGameMenuView : MonoBehaviour
         rect.localRotation = Quaternion.Euler(0f, 0f, sign * 45f);
     }
 
-    private void AddFocusMarkerEvents(GameObject buttonObject)
+    private void AddFocusMarkerEvents(Button button)
     {
-        EventTrigger trigger = buttonObject.AddComponent<EventTrigger>();
+        EventTrigger trigger = button.gameObject.AddComponent<EventTrigger>();
         trigger.triggers = new List<EventTrigger.Entry>();
         AddFocusMarkerEvent(trigger, EventTriggerType.Select, RefreshFocusMarkers);
         AddFocusMarkerEvent(trigger, EventTriggerType.Deselect, RefreshFocusMarkers);
+        AddFocusMarkerEvent(trigger, EventTriggerType.PointerEnter, () =>
+        {
+            if (!IsVisible || IsConfirmationVisible || !button.isActiveAndEnabled || !button.interactable)
+            {
+                return;
+            }
+
+            EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+            eventSystem?.SetSelectedGameObject(button.gameObject);
+            RefreshFocusMarkers();
+        });
     }
 
     private static void AddFocusMarkerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction action)

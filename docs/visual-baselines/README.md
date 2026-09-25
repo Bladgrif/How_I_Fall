@@ -67,6 +67,7 @@ Save/Load-набор обновлён после unified strip graphical E2E о�
 UX-контракт отката: откат доступен только колёсиком мыши и кнопкой «Назад» в нижнем Quick Menu. Одноимённая строка корневого Game Menu не откатывает реплику, а закрывает меню и возвращает к чтению.
 
 - `game_menu_root.png` — UI Target v1: цельная полно-высотная левая navy glass-панель поверх затемнённого, но узнаваемого Reading-кадра; шесть строк навигации с «Назад», верхний логотип с отступом, начальный фокус «Сохранить» с cyan-полосой и сдержанной плашкой, отдельная «Вернуться в игру» над нижним tagline.
+- `game_menu_pointer_hover_quit.png` — после наведения на «Выйти» единственный cyan-фокус находится на этой строке; «Сохранить» больше не сохраняет прежнюю плашку.
 - `game_menu_reading_before.png`, `game_menu_reading_after_close.png` — один и тот же TECH DEMO Reading-кадр до открытия и после закрытия Game Menu: фон, персонаж-заглушка, имя, реплика, поле контраста и Quick Menu восстановлены без смены содержания.
 - `reading_game_menu_1280.png` — та же композиция при 1280×720: шесть строк, читаемый Reading-кадр и видимое неинтерактивное Quick Menu без обрезок.
 - `game_menu_main_confirmation.png` — подтверждение возврата в главное меню: экран изолирован dimmer-слоем, безопасное `Нет` получает default focus.
@@ -79,6 +80,8 @@ Game Menu target parity pass 2026-09-22: панель приведена к `03_
 Game Menu Reading-frame proof 2026-09-24: корневое меню сохраняет текущий фон, TECH DEMO персонажа, имя, реплику и поле чтения; Quick Menu скрывается, полноэкранный scrim с alpha 0.30 умеренно затемняет сцену. После встроенных Save/Load и закрытия меню обычное чтение возвращается. Пересняты только пять затронутых Game Menu baseline-кадров выше и добавлена пара Reading до/после; подтверждение главного меню не менялось. Fresh GameMenu graphical E2E: `PASS`, `playerPrefsRestored=true`; полный PlayerUi E2E после обновления QA-контракта: `PASS`, `playerPrefsRestored=true`. Это automated proof, не человеческое визуальное одобрение.
 
 Game Menu correction 2026-09-25: корневое меню оставляет весь Reading-кадр, включая Quick Menu, видимым и блокирует ввод нижней полосы; печатающаяся реплика останавливается до закрытия меню. Scrim alpha изменён с 0.30 на 0.38; добавлена строка «Назад», начальный фокус перенесён на «Сохранить», а возврат из дочерних экранов сохраняет прежний фокус «Вернуться в игру». Пересняты только Game Menu baselines по fresh GameMenu и PlayerUi graphical E2E (`PASS`, `playerPrefsRestored=true`). Это automated proof и review candidate, не субъективное visual approval.
+
+Game Menu hover/focus correction 2026-09-25: наведение мыши на доступную строку передаёт ей выбор EventSystem; `PointerExit` не сбрасывает последнюю осмысленно выбранную строку. Новый baseline `game_menu_pointer_hover_quit.png` снят в GameMenu graphical E2E (`PASS`, `playerPrefsRestored=true`): подсвечена только «Выйти», прежняя подсветка «Сохранить» отсутствует. Остальные baseline-семейства не обновлялись.
 
 ## Основной опыт чтения
 

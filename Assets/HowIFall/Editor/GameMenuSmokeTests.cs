@@ -502,6 +502,30 @@ public static class GameMenuSmokeTests
             Require(eventSystem != null && eventSystem.currentSelectedGameObject == harness.Menu.View.GetButton(VNGameMenuAction.Save).gameObject
                 && harness.Menu.View.VisibleFocusMarkerCount == 1,
                 "Root Game Menu must select only Save on opening.");
+            VNGameMenuView view = harness.Menu.View;
+            foreach (VNGameMenuAction action in new[]
+            {
+                VNGameMenuAction.Quit, VNGameMenuAction.Back, VNGameMenuAction.Load,
+                VNGameMenuAction.Preferences, VNGameMenuAction.MainMenu,
+                VNGameMenuAction.Return, VNGameMenuAction.Save
+            })
+            {
+                Button button = view.GetButton(action);
+                ExecuteEvents.Execute<IPointerEnterHandler>(button.gameObject,
+                    new PointerEventData(eventSystem), ExecuteEvents.pointerEnterHandler);
+                Require(eventSystem.currentSelectedGameObject == button.gameObject
+                    && button.transform.Find("Focus Marker").gameObject.activeSelf
+                    && button.transform.Find("Focus Plate").gameObject.activeSelf
+                    && view.VisibleFocusMarkerCount == 1,
+                    $"Pointer hover did not transfer sole Game Menu focus to {action}.");
+                if (action != VNGameMenuAction.Save)
+                {
+                    Button save = view.GetButton(VNGameMenuAction.Save);
+                    Require(!save.transform.Find("Focus Marker").gameObject.activeSelf
+                        && !save.transform.Find("Focus Plate").gameObject.activeSelf,
+                        $"Save retained stale cyan focus while hovering {action}.");
+                }
+            }
             harness.QuickMenu.historyButton.Select();
             Require(eventSystem.currentSelectedGameObject == harness.Menu.View.GetButton(VNGameMenuAction.Save).gameObject,
                 "Blocked Quick Menu stole EventSystem focus from Save.");
@@ -517,9 +541,20 @@ public static class GameMenuSmokeTests
                 "Closing Game Menu did not restore Quick Menu interaction.");
 
             Require(harness.Menu.Open(), "Game Menu did not reopen for Back-row proof.");
-            harness.Menu.View.GetButton(VNGameMenuAction.Back).onClick.Invoke();
+            Require(eventSystem.currentSelectedGameObject == view.GetButton(VNGameMenuAction.Save).gameObject
+                && view.VisibleFocusMarkerCount == 1,
+                "Reopening root Game Menu did not restore Save as sole default focus.");
+            Button back = view.GetButton(VNGameMenuAction.Back);
+            ExecuteEvents.Execute<IPointerEnterHandler>(back.gameObject,
+                new PointerEventData(eventSystem), ExecuteEvents.pointerEnterHandler);
+            ExecuteEvents.Execute<IPointerExitHandler>(back.gameObject,
+                new PointerEventData(eventSystem), ExecuteEvents.pointerExitHandler);
+            Require(eventSystem.currentSelectedGameObject == back.gameObject && view.VisibleFocusMarkerCount == 1,
+                "Pointer exit cleared the last meaningful Game Menu selection.");
+            ExecuteEvents.Execute<ISubmitHandler>(eventSystem.currentSelectedGameObject,
+                new BaseEventData(eventSystem), ExecuteEvents.submitHandler);
             Require(!harness.Menu.IsOpen && GetPrivate<int>(harness.Dialogue, "currentLineIndex") == lineBefore,
-                "Root Back row did not close one level without advancing Reading.");
+                "Submitting the pointer-selected Back row did not close one level without advancing Reading.");
 
             harness.QuickMenu.SetPlayerInterfaceHidden(true);
             Require(harness.Dialogue.HandleEscapePressed() && harness.Menu.IsOpen, "Game Menu did not reopen for blocker composition test.");
