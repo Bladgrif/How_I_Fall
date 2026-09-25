@@ -275,10 +275,12 @@ namespace HowIFall.PlayModeTests
             Button backAction = gameMenu.View.GetButton(VNGameMenuAction.Back);
             Hover(quitAction, "Game Menu Quit");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(quitAction.gameObject));
+            gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
             Assert.That(gameMenu.View.GetButton(VNGameMenuAction.Save).transform.Find("Focus Plate").gameObject.activeSelf, Is.False,
                 "Save kept its cyan plate after Quit pointer hover.");
             Hover(backAction, "Game Menu Back");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(backAction.gameObject));
+            gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
             Assert.That(gameMenu.View.VisibleFocusMarkerCount, Is.EqualTo(1));
             Canvas.ForceUpdateCanvases();
             Button keyboardNext = backAction.FindSelectableOnUp() as Button;
@@ -288,6 +290,7 @@ namespace HowIFall.PlayModeTests
                 ExecuteEvents.moveHandler);
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(keyboardNext.gameObject),
                 "Keyboard navigation did not continue from the pointer-selected Back row.");
+            gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
             Assert.That(gameMenu.View.VisibleFocusMarkerCount, Is.EqualTo(1),
                 "Keyboard navigation left a second mouse-owned focus marker.");
             Assert.That(dialogue.dialogueUiRoot.activeSelf, Is.True, "Root Game Menu must preserve the Reading dialogue shell.");

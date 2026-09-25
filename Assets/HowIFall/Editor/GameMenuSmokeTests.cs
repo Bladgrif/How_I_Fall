@@ -513,6 +513,7 @@ public static class GameMenuSmokeTests
                 Button button = view.GetButton(action);
                 ExecuteEvents.Execute<IPointerEnterHandler>(button.gameObject,
                     new PointerEventData(eventSystem), ExecuteEvents.pointerEnterHandler);
+                view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
                 Require(eventSystem.currentSelectedGameObject == button.gameObject
                     && button.transform.Find("Focus Marker").gameObject.activeSelf
                     && button.transform.Find("Focus Plate").gameObject.activeSelf
@@ -549,8 +550,13 @@ public static class GameMenuSmokeTests
                 new PointerEventData(eventSystem), ExecuteEvents.pointerEnterHandler);
             ExecuteEvents.Execute<IPointerExitHandler>(back.gameObject,
                 new PointerEventData(eventSystem), ExecuteEvents.pointerExitHandler);
-            Require(eventSystem.currentSelectedGameObject == back.gameObject && view.VisibleFocusMarkerCount == 1,
+            Require(eventSystem.currentSelectedGameObject == back.gameObject,
                 "Pointer exit cleared the last meaningful Game Menu selection.");
+            view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
+            Require(view.VisibleFocusMarkerCount == 0
+                && !back.transform.Find("Focus Marker").gameObject.activeSelf
+                && !back.transform.Find("Focus Plate").gameObject.activeSelf,
+                "Pointer exit to empty space must fade the visible Game Menu highlight out completely.");
             ExecuteEvents.Execute<ISubmitHandler>(eventSystem.currentSelectedGameObject,
                 new BaseEventData(eventSystem), ExecuteEvents.submitHandler);
             Require(!harness.Menu.IsOpen && GetPrivate<int>(harness.Dialogue, "currentLineIndex") == lineBefore,

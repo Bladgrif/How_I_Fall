@@ -52,12 +52,28 @@ public sealed class VNGameMenuView : MonoBehaviour
     private readonly Dictionary<VNGameMenuAction, GameObject> focusMarkers = new Dictionary<VNGameMenuAction, GameObject>();
     private readonly Dictionary<VNGameMenuAction, GameObject> focusPlates = new Dictionary<VNGameMenuAction, GameObject>();
     private readonly Dictionary<VNGameMenuAction, CanvasGroup> chevronGroups = new Dictionary<VNGameMenuAction, CanvasGroup>();
+    private readonly Dictionary<VNGameMenuAction, FocusFadeState> focusFades = new Dictionary<VNGameMenuAction, FocusFadeState>();
     private GameObject root;
     private RectTransform saveLoadContentHost;
     private GameObject confirmationRoot;
     private TextMeshProUGUI confirmationText;
     private Button confirmationYesButton;
     private Button confirmationNoButton;
+    // Visible interaction highlight owner, deliberately separate from the
+    // EventSystem selection: pointer exit to empty space clears it while the
+    // logical selection may silently remain for deterministic Submit/navigation.
+    private VNGameMenuAction? visualFocusAction;
+
+    /// <summary>Restrained focus fade duration; short enough to feel instant, long enough to remove the hard SetActive snap.</summary>
+    public const float FocusFadeDuration = 0.12f;
+
+    private sealed class FocusFadeState
+    {
+        public CanvasGroup Marker;
+        public CanvasGroup Plate;
+        public float Alpha;
+        public float Target;
+    }
 
     public bool IsVisible => root != null && root.activeSelf;
     public bool IsConfirmationVisible => confirmationRoot != null && confirmationRoot.activeSelf;
@@ -139,7 +155,7 @@ public sealed class VNGameMenuView : MonoBehaviour
         else
         {
             HideConfirmation();
-            RefreshFocusMarkers();
+            SnapFocusVisualsHidden();
         }
     }
 
@@ -234,29 +250,122 @@ public sealed class VNGameMenuView : MonoBehaviour
         {
             RefreshEnabledPresentation();
             RefreshFocusMarkers();
+            AdvanceFocusFade(Time.unscaledDeltaTime);
         }
     }
 
-    /// <summary>Synchronizes the visual marker with the sole EventSystem selection.</summary>
+    /// <summary>
+    /// Synchronizes the visible interaction highlight with the view's own
+    /// visual-focus owner, which is deliberately NOT the raw EventSystem
+    /// selection: Main Menu parity requires pointer exit to empty space to
+    /// clear every root highlight while the logical selection may remain.
+    /// </summary>
     public void RefreshFocusMarkers()
     {
-        GameObject selected = (EventSystem.current ?? FindFirstObjectByType<EventSystem>())?.currentSelectedGameObject;
         foreach (KeyValuePair<VNGameMenuAction, GameObject> pair in focusMarkers)
         {
+            if (!focusFades.TryGetValue(pair.Key, out FocusFadeState fade))
+            {
+                continue;
+            }
+
             Button button = GetButton(pair.Key);
             bool focused = root != null
                 && root.activeSelf
+                && visualFocusAction == pair.Key
                 && button != null
                 && button.interactable
-                && button.gameObject.activeInHierarchy
-                && selected == button.gameObject;
-            if (pair.Value != null && pair.Value.activeSelf != focused)
+                && button.gameObject.activeInHierarchy;
+            fade.Target = focused ? 1f : 0f;
+            if (!focused)
             {
-                pair.Value.SetActive(focused);
+                continue;
             }
-            if (focusPlates.TryGetValue(pair.Key, out GameObject plate) && plate != null && plate.activeSelf != focused)
+
+            // Activate immediately; the fade only carries the visible alpha,
+            // and a mid-fade re-hover resumes from its current alpha.
+            if (pair.Value != null && !pair.Value.activeSelf)
             {
-                plate.SetActive(focused);
+                pair.Value.SetActive(true);
+            }
+
+            if (focusPlates.TryGetValue(pair.Key, out GameObject plate) && plate != null && !plate.activeSelf)
+            {
+                plate.SetActive(true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Advances the focus marker/plate fade by unscaled time, so a paused
+    /// Reading frame (Game Menu freezes the dialogue) can never freeze the
+    /// transition itself. Driven by Update in play mode; editor smoke and
+    /// graphical proofs call it directly to settle transitions deterministically.
+    /// Deactivation happens only after a fade-out reaches zero alpha.
+    /// </summary>
+    public void AdvanceFocusFade(float unscaledDeltaTime)
+    {
+        if (focusFades.Count == 0)
+        {
+            return;
+        }
+
+        float step = FocusFadeDuration > 0f ? unscaledDeltaTime / FocusFadeDuration : 1f;
+        foreach (FocusFadeState fade in focusFades.Values)
+        {
+            if (fade.Marker == null)
+            {
+                continue;
+            }
+
+            float alpha = Mathf.MoveTowards(fade.Alpha, fade.Target, step);
+            bool active = fade.Target > 0f || alpha > 0f;
+            if (alpha != fade.Alpha || fade.Marker.alpha != alpha)
+            {
+                fade.Alpha = alpha;
+                fade.Marker.alpha = alpha;
+                if (fade.Plate != null)
+                {
+                    fade.Plate.alpha = alpha;
+                }
+            }
+
+            if (fade.Marker.gameObject.activeSelf != active)
+            {
+                fade.Marker.gameObject.SetActive(active);
+            }
+
+            if (fade.Plate != null && fade.Plate.gameObject.activeSelf != active)
+            {
+                fade.Plate.gameObject.SetActive(active);
+            }
+        }
+    }
+
+    /// <summary>Hiding the menu must never leave a half-faded marker that would flash on the next open.</summary>
+    private void SnapFocusVisualsHidden()
+    {
+        visualFocusAction = null;
+        foreach (FocusFadeState fade in focusFades.Values)
+        {
+            fade.Alpha = 0f;
+            fade.Target = 0f;
+            if (fade.Marker != null)
+            {
+                fade.Marker.alpha = 0f;
+                if (fade.Marker.gameObject.activeSelf)
+                {
+                    fade.Marker.gameObject.SetActive(false);
+                }
+            }
+
+            if (fade.Plate != null)
+            {
+                fade.Plate.alpha = 0f;
+                if (fade.Plate.gameObject.activeSelf)
+                {
+                    fade.Plate.gameObject.SetActive(false);
+                }
             }
         }
     }
@@ -412,7 +521,11 @@ public sealed class VNGameMenuView : MonoBehaviour
         ColorBlock returnColors = returnButton.colors;
         returnColors.normalColor = new Color(0.14f, 0.29f, 0.42f, 0.17f);
         returnColors.highlightedColor = new Color(0.23f, 0.48f, 0.63f, 0.32f);
-        returnColors.selectedColor = new Color(0.19f, 0.38f, 0.52f, 0.26f);
+        // Selection must never present its own plate: after the pointer leaves
+        // a row the logical selection may remain, and a lingering selected
+        // tint would read as a stale highlight. Keyboard/controller focus is
+        // expressed solely by the fading Focus Marker/Focus Plate pair.
+        returnColors.selectedColor = returnColors.normalColor;
         returnButton.colors = returnColors;
         Outline returnOutline = returnButton.gameObject.AddComponent<Outline>();
         returnOutline.effectColor = new Color(0.25f, 0.57f, 0.76f, 0.85f);
@@ -493,6 +606,10 @@ public sealed class VNGameMenuView : MonoBehaviour
             : new Color(0.21f, 0.54f, 0.72f, 0.60f);
         focusPlateImage.raycastTarget = false;
         Stretch(focusPlate.GetComponent<RectTransform>());
+        CanvasGroup plateGroup = focusPlate.AddComponent<CanvasGroup>();
+        plateGroup.alpha = 0f;
+        plateGroup.blocksRaycasts = false;
+        plateGroup.ignoreParentGroups = true;
         focusPlate.SetActive(false);
 
         TextMeshProUGUI text = CreateText(buttonObject.transform, "Label", label, 23f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, EnabledLabelColor);
@@ -514,10 +631,15 @@ public sealed class VNGameMenuView : MonoBehaviour
         focusMarkerRect.anchorMax = new Vector2(0f, 1f);
         focusMarkerRect.pivot = new Vector2(0f, 0.5f);
         focusMarkerRect.sizeDelta = new Vector2(6f, 0f);
+        CanvasGroup markerGroup = focusMarker.AddComponent<CanvasGroup>();
+        markerGroup.alpha = 0f;
+        markerGroup.blocksRaycasts = false;
+        markerGroup.ignoreParentGroups = true;
         focusMarker.SetActive(false);
         focusMarkers[action] = focusMarker;
         focusPlates[action] = focusPlate;
-        AddFocusMarkerEvents(button);
+        focusFades[action] = new FocusFadeState { Marker = markerGroup, Plate = plateGroup, Alpha = 0f, Target = 0f };
+        AddFocusMarkerEvents(button, action);
 
         chevronGroups[action] = CreateChevron(buttonObject.transform);
 
@@ -553,29 +675,105 @@ public sealed class VNGameMenuView : MonoBehaviour
         rect.localRotation = Quaternion.Euler(0f, 0f, sign * 45f);
     }
 
-    private void AddFocusMarkerEvents(Button button)
+    private void AddFocusMarkerEvents(Button button, VNGameMenuAction action)
     {
         EventTrigger trigger = button.gameObject.AddComponent<EventTrigger>();
         trigger.triggers = new List<EventTrigger.Entry>();
-        AddFocusMarkerEvent(trigger, EventTriggerType.Select, RefreshFocusMarkers);
-        AddFocusMarkerEvent(trigger, EventTriggerType.Deselect, RefreshFocusMarkers);
-        AddFocusMarkerEvent(trigger, EventTriggerType.PointerEnter, () =>
+        // Keyboard/controller (or programmatic) selection owns the visible
+        // highlight directly, mirroring MainMenuButtonHoverEffect semantics.
+        AddFocusMarkerEvent(trigger, EventTriggerType.Select, () =>
         {
-            if (!IsVisible || IsConfirmationVisible || !button.isActiveAndEnabled || !button.interactable)
-            {
-                return;
-            }
-
-            EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
-            eventSystem?.SetSelectedGameObject(button.gameObject);
+            visualFocusAction = action;
             RefreshFocusMarkers();
         });
+        AddFocusMarkerEvent(trigger, EventTriggerType.Deselect, () =>
+        {
+            // Selection left this row (another row, a child panel, the local
+            // confirmation): the root row loses its visible highlight even
+            // though some other object now owns the logical selection.
+            if (visualFocusAction == action)
+            {
+                visualFocusAction = null;
+            }
+
+            RefreshFocusMarkers();
+        });
+        AddFocusMarkerEvent(trigger, EventTriggerType.PointerEnter, () => HandleRootPointerOver(button, action));
+        AddFocusMarkerEvent(trigger, EventTriggerType.PointerExit, () =>
+        {
+            // Leaving all rows must clear the visible highlight while the
+            // EventSystem selection may silently remain so Submit and the next
+            // navigation step stay deterministic.
+            if (visualFocusAction == action)
+            {
+                visualFocusAction = null;
+            }
+
+            RefreshFocusMarkers();
+        });
+        AddFocusMarkerEvent(trigger, EventTriggerType.Move, () =>
+        {
+            // Navigation input fires here on the selected row; at a navigation
+            // edge no Select follows, so the selected row must re-assert the
+            // sole visible keyboard/controller highlight itself.
+            if (visualFocusAction == null)
+            {
+                visualFocusAction = action;
+                RefreshFocusMarkers();
+            }
+        });
+        // EventTrigger has no PointerMove entry, so a moving cursor re-asserts
+        // pointer ownership through the tiny relay component instead.
+        RootPointerMoveRelay relay = button.gameObject.AddComponent<RootPointerMoveRelay>();
+        relay.Owner = this;
+        relay.Row = button;
+        relay.Action = action;
+    }
+
+    private void HandleRootPointerOver(Button button, VNGameMenuAction action)
+    {
+        if (!IsVisible || IsConfirmationVisible || !button.isActiveAndEnabled || !button.interactable)
+        {
+            return;
+        }
+
+        EventSystem eventSystem = EventSystem.current ?? FindFirstObjectByType<EventSystem>();
+        eventSystem?.SetSelectedGameObject(button.gameObject);
+        visualFocusAction = action;
+        RefreshFocusMarkers();
+    }
+
+    /// <summary>
+    /// A moving cursor over a row re-asserts pointer ownership, mirroring
+    /// MainMenuButtonHoverEffect.OnPointerMove (for example after code-driven
+    /// selection returned default focus while the cursor rested on a row).
+    /// </summary>
+    private sealed class RootPointerMoveRelay : MonoBehaviour, IPointerMoveHandler
+    {
+        internal VNGameMenuView Owner;
+        internal Button Row;
+        internal VNGameMenuAction Action;
+
+        public void OnPointerMove(PointerEventData eventData)
+        {
+            if (Owner != null && eventData != null && eventData.delta.sqrMagnitude > 0f)
+            {
+                Owner.HandleRootPointerOver(Row, Action);
+            }
+        }
     }
 
     private static void AddFocusMarkerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction action)
     {
         EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
         entry.callback.AddListener(_ => action());
+        trigger.triggers.Add(entry);
+    }
+
+    private static void AddFocusMarkerEvent(EventTrigger trigger, EventTriggerType eventType, UnityEngine.Events.UnityAction<BaseEventData> action)
+    {
+        EventTrigger.Entry entry = new EventTrigger.Entry { eventID = eventType };
+        entry.callback.AddListener(action);
         trigger.triggers.Add(entry);
     }
 
@@ -761,7 +959,11 @@ public sealed class VNGameMenuView : MonoBehaviour
         colors.normalColor = new Color(1f, 1f, 1f, 0f);
         colors.highlightedColor = new Color(1f, 1f, 1f, 0.16f);
         colors.pressedColor = new Color(1f, 1f, 1f, 0.24f);
-        colors.selectedColor = new Color(1f, 1f, 1f, 0.08f);
+        // The selection state must stay as quiet as rest: the logical
+        // EventSystem selection can outlive the pointer (deterministic
+        // Submit/navigation), so any selected tint would linger as a stale
+        // plate after the visible highlight has faded out.
+        colors.selectedColor = new Color(1f, 1f, 1f, 0f);
         colors.disabledColor = new Color(0.6f, 0.6f, 0.6f, 0f);
         colors.colorMultiplier = 1f;
         colors.fadeDuration = 0.08f;

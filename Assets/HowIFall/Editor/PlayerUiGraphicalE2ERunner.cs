@@ -257,6 +257,9 @@ public static class PlayerUiGraphicalE2ERunner
                 case "OpenGameMenuRootProof": OpenGameMenuRootProof(); break;
                 case "HoverFocusedGameMenuQuit": HoverFocusedGameMenuQuit(); break;
                 case "CaptureFocusedGameMenuQuitHover": CaptureFocusedGameMenuQuitHover(); break;
+                case "ExitPointerGameMenuRows": ExitPointerGameMenuRows(); break;
+                case "CaptureGameMenuPointerOff": CaptureGameMenuPointerOff(); break;
+                case "KeyboardFocusAfterPointerExit": KeyboardFocusAfterPointerExit(); break;
                 case "CaptureFocusedGameMenuAlternateFocus": CaptureFocusedGameMenuAlternateFocus(); break;
                 case "CaptureGameMenuRoot1280": CaptureGameMenuRoot1280(); break;
                 case "OpenGameMenuSaveLoad": OpenGameMenuSaveLoad(); break;
@@ -1314,6 +1317,7 @@ public static class PlayerUiGraphicalE2ERunner
             "Game Menu did not assign its initial Save focus.");
         Require(IsFocusMarkerVisible(view, VNGameMenuAction.Save) && view.VisibleFocusMarkerCount == 1,
             "Game Menu initial Save focus must have exactly one visible marker.");
+        view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
         Capture("game_menu_root_1920x1080.png", "CaptureGameMenuAlternateFocus");
     }
 
@@ -1326,6 +1330,7 @@ public static class PlayerUiGraphicalE2ERunner
             "Game Menu Preferences action is unavailable for focus proof.");
         preferences.Select();
         view.RefreshFocusMarkers();
+        view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
         Require(EventSystem.current != null && EventSystem.current.currentSelectedGameObject == preferences.gameObject,
             "Game Menu alternate focus did not select Preferences.");
         Require(IsFocusMarkerVisible(view, VNGameMenuAction.Preferences)
@@ -1426,6 +1431,13 @@ public static class PlayerUiGraphicalE2ERunner
         return marker != null && marker.gameObject.activeSelf;
     }
 
+    private static float FocusMarkerAlpha(VNGameMenuView view, VNGameMenuAction action)
+    {
+        Transform marker = view != null ? view.GetButton(action)?.transform.Find("Focus Marker") : null;
+        CanvasGroup group = marker != null ? marker.GetComponent<CanvasGroup>() : null;
+        return group != null ? group.alpha : 0f;
+    }
+
     private static bool HasPersistentRoute(Button button, string methodName)
     {
         if (button == null) return false;
@@ -1523,6 +1535,7 @@ public static class PlayerUiGraphicalE2ERunner
         TextMeshProUGUI rollbackLabel = quickMenu.rollbackButton.GetComponentInChildren<TextMeshProUGUI>(true);
         Require(rollbackLabel != null && rollbackLabel.text == "Назад",
             "Quick Menu rollback action must keep the compact 'Назад' label.");
+        view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
         Capture("game_menu_root_1920x1080.png", "HoverFocusedGameMenuQuit");
     }
 
@@ -1533,12 +1546,15 @@ public static class PlayerUiGraphicalE2ERunner
         Require(quit != null && quit.interactable, "Game Menu Quit action is unavailable for pointer-hover proof.");
         ExecuteEvents.Execute<IPointerEnterHandler>(quit.gameObject,
             new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+        view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
         Require(EventSystem.current.currentSelectedGameObject == quit.gameObject
             && IsFocusMarkerVisible(view, VNGameMenuAction.Quit)
             && !IsFocusMarkerVisible(view, VNGameMenuAction.Save)
             && !view.GetButton(VNGameMenuAction.Save).transform.Find("Focus Plate").gameObject.activeSelf
             && view.VisibleFocusMarkerCount == 1,
             "Pointer hover left Save and Quit simultaneously focused.");
+        Require(FocusMarkerAlpha(view, VNGameMenuAction.Quit) > 0.999f,
+            "Game Menu focus fade did not settle at full alpha after the fade duration.");
         SessionState.SetString(StageKey, "CaptureFocusedGameMenuQuitHover");
         ResetCounter();
         SetDelay(0.3d);
@@ -1546,7 +1562,53 @@ public static class PlayerUiGraphicalE2ERunner
 
     private static void CaptureFocusedGameMenuQuitHover()
     {
-        Capture("game_menu_pointer_hover_quit_1920x1080.png", "CaptureFocusedGameMenuAlternateFocus");
+        Capture("game_menu_pointer_hover_quit_1920x1080.png", "ExitPointerGameMenuRows");
+    }
+
+    private static void ExitPointerGameMenuRows()
+    {
+        VNGameMenuView view = RequireGameplayDialogue().GameMenuController.View;
+        Button quit = view.GetButton(VNGameMenuAction.Quit);
+        Require(quit != null, "Game Menu Quit action disappeared before the pointer-exit proof.");
+        ExecuteEvents.Execute<IPointerExitHandler>(quit.gameObject,
+            new PointerEventData(EventSystem.current), ExecuteEvents.pointerExitHandler);
+        view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
+        Require(EventSystem.current.currentSelectedGameObject == quit.gameObject,
+            "Pointer exit must keep the logical EventSystem selection on Quit for deterministic Submit.");
+        Require(view.VisibleFocusMarkerCount == 0
+            && !quit.transform.Find("Focus Marker").gameObject.activeSelf
+            && !quit.transform.Find("Focus Plate").gameObject.activeSelf
+            && FocusMarkerAlpha(view, VNGameMenuAction.Quit) == 0f
+            && FocusMarkerAlpha(view, VNGameMenuAction.Save) == 0f,
+            "Pointer exit to empty space must fade every root Game Menu highlight out completely.");
+        SessionState.SetString(StageKey, "CaptureGameMenuPointerOff");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void CaptureGameMenuPointerOff()
+    {
+        Capture("game_menu_pointer_off_rows_1920x1080.png", "KeyboardFocusAfterPointerExit");
+    }
+
+    private static void KeyboardFocusAfterPointerExit()
+    {
+        VNGameMenuView view = RequireGameplayDialogue().GameMenuController.View;
+        GameObject before = EventSystem.current.currentSelectedGameObject;
+        Require(before == view.GetButton(VNGameMenuAction.Quit).gameObject,
+            "Keyboard return proof lost the retained Quit selection.");
+        ExecuteEvents.Execute(before,
+            new AxisEventData(EventSystem.current) { moveDir = MoveDirection.Down, moveVector = Vector2.down },
+            ExecuteEvents.moveHandler);
+        GameObject navigated = EventSystem.current.currentSelectedGameObject;
+        Require(navigated != null && navigated != before,
+            "Keyboard navigation after pointer exit did not move the Game Menu selection.");
+        view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
+        Require(IsFocusMarkerVisible(view, VNGameMenuAction.Back) && view.VisibleFocusMarkerCount == 1,
+            "Keyboard navigation after pointer exit must restore exactly one visible Game Menu highlight.");
+        Require(FocusMarkerAlpha(view, VNGameMenuAction.Back) > 0.999f,
+            "Keyboard-returned Game Menu focus did not settle at full alpha.");
+        Capture("game_menu_keyboard_focus_return_1920x1080.png", "CaptureFocusedGameMenuAlternateFocus");
     }
 
     private static void CaptureFocusedGameMenuAlternateFocus()
@@ -1556,6 +1618,7 @@ public static class PlayerUiGraphicalE2ERunner
         Require(alternate != null && alternate.interactable, "Return action is unavailable for alternate focus proof.");
         alternate.Select();
         view.RefreshFocusMarkers();
+        view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
         Require(IsFocusMarkerVisible(view, VNGameMenuAction.Return) && view.VisibleFocusMarkerCount == 1,
             "Game Menu alternate focus did not select only Return.");
         Capture("game_menu_alternate_focus_1920x1080.png", "CaptureGameMenuRoot1280");
@@ -1566,6 +1629,7 @@ public static class PlayerUiGraphicalE2ERunner
         VNGameMenuView rootView = RequireGameplayDialogue().GameMenuController.View;
         rootView.GetButton(VNGameMenuAction.Save).Select();
         rootView.RefreshFocusMarkers();
+        rootView.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
         ConfigureGameViewResolution(ResponsiveQaResolution);
         if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
         {
@@ -1781,6 +1845,7 @@ public static class PlayerUiGraphicalE2ERunner
             "Game Menu did not restore default Return focus after Save/Load return.");
         Require(view.VisibleFocusMarkerCount == 1,
             "Game Menu must show exactly one focus marker after Save/Load return.");
+        view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
         Capture("game_menu_return_focus_after_save_load_1920x1080.png", "PrepareQuickRollbackReading");
     }
 
