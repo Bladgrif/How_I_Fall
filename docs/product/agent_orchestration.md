@@ -222,8 +222,12 @@ Stage только task files.
   curated baseline при значимом visual pass.
 
 Запускай проверки, соразмерные изменению. Расширяй suite только при failure,
-новом риске или unresolved concern. После push mandatory CI:
-`Unity Test Framework` + `Unity smoke tests`.
+новом риске или unresolved concern. После push mandatory PR check — `CI Gate`:
+docs-only без Unity; безопасная in-place Art/Audio asset replacement → smoke;
+C#/runtime/UI/scene/prefab/Save/Packages/ProjectSettings/workflow/mixed →
+`Unity Test Framework` + `Unity smoke tests`. После merge duplicate Unity CI на
+`master` не нужен; reviewer только проверяет exact merged SHA. `workflow_dispatch`
+остаётся для exceptional/high-risk full CI.
 
 ## 11. Delegation
 
