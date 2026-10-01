@@ -34,15 +34,26 @@
 
 **HIF не принимает:** Portal/AiKA dependency, универсальную гарантию «90% savings» или передачу worker'у root-cause, Save compatibility и product judgement.
 
-## OpenAI — official GPT-6 model guidance
+## OpenAI — GPT-6.1 Sol и current model guidance
 
-Источник: [OpenAI latest model guide](https://developers.openai.com/api/docs/guides/latest-model). Это official guidance, а не HIF quality benchmark.
+Источники:
+- [GPT-6.1 Sol model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol);
+- [OpenAI model selection](https://developers.openai.com/api/docs/guides/model-selection);
+- [Using GPT-6](https://developers.openai.com/api/docs/guides/latest-model);
+- [OpenAI API changelog, 2026-09-29](https://developers.openai.com/api/docs/changelog);
+- [OpenAI Developer Community announcement: GPT-6.1 Sol](https://community.openai.com/t/gpt-6-1-sol-in-the-api-a-meaningful-cost-performance-step/1402388).
 
-**Источник указывает:** GPT-6 model family выбирается по требуемому reasoning, latency и cost; Luna позиционируется как efficient/high-volume модель, Sol — для demanding coding/agentic work, Astra — для hardest end-to-end work. Guidance отдельно подчёркивает initiative/follow-through, чувствительность к instructions в skills/AGENTS, явную delegation policy и соразмерную задаче testing breadth. Reasoning effort остаётся реальным model control.
+Это external model evidence, не локальный HIF benchmark.
 
-**HIF выводит:** bounded task должен иметь ясную цель/finish line и protected contracts, после чего агент действует автономно внутри scope, не спрашивая подтверждение каждого safe/reversible шага. Prompt не дублирует выбранный reasoning пустыми усилителями. Testing расширяется только при новом change/failure/risk. В Codex Luna считается high-volume workhorse для focused bounded задач; Sol/Astra — escalation по complexity/risk, а не по размеру prompt.
+**Official positioning:** GPT-6.1 Sol — current Sol-tier с near-Astra performance для complex coding/computer use/professional work при меньшей стоимости. Model-selection guidance рекомендует Luna для scoped/high-volume work, GPT-6.1 Sol Medium для complex technical work и higher effort для polished/connected deliverables, Astra — для наиболее demanding задач.
 
-**HIF не принимает:** предположение, что API pricing/позиционирование напрямую равно subscription allowance, обещание наличия delegation в любой среде или автоматическую эскалацию на Astra/Sol для обычной implementation.
+**Спецификации/цена API на запуске:** 1.05M context, 128K max output, reasoning `low/medium/high/xhigh/max`; standard pricing $2/M input и $10/M output, то есть uncached цена совпадает с GPT-6 Sol, а cached input снижен с $0.20/M до $0.10/M. API pricing не интерпретируется как subscription quota.
+
+**Опубликованные launch benchmark signals:** OpenAI Developer Community announcement приводит DeepSWE v1.1 `75.2%` у GPT-6.1 Sol High против `68.8%` лучшего результата GPT-6 Sol Max, AutomationBench `31.7%` на Medium (+4.8 п.п. против GPT-6 Sol на том же effort) и OSWorld 2.0 offline `71.4%` против `73.5%` у Astra на Max. В том же материале reported cost per task для этих сравнений существенно ниже Astra/старого Sol. Эти числа относятся к конкретным launch evaluations и не являются гарантией Unity/HIF quality.
+
+**HIF выводит:** GPT-6.1 Sol заменяет GPT-6 Sol как preferred Sol-tier в Codex. Он используется не как default worker, а как selective escalation/finisher: high-visibility UI target matching, ambiguous root cause, lifecycle/state/Save/Load, high regression-risk и polished final correction. GLM-5.3-Flash остаётся default worker; GPT-6 Luna — bounded/high-volume Codex worker; GLM-5.3 остаётся альтернативной escalation при interdependent systems. Astra отодвигается на hardest/high-risk случаи, несколько неудачных попыток или задачи, где GPT-6.1 Sol не проходит quality bar.
+
+**HIF не принимает:** автоматическую замену Flash на Sol из-за новых benchmark цифр, вывод о реальных Plus/Codex лимитах из API pricing, или обещание, что near-Astra aggregate benchmark обязательно означает near-Astra результат на конкретной Unity visual/debugging задаче. Для HIF важнее локальный diff/tests/graphical proof и фактическая стоимость лимита пользователя.
 
 ## Anthropic — Opus 5.5 prompting guidance
 
