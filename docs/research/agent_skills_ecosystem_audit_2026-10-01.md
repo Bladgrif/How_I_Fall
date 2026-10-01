@@ -9,7 +9,7 @@
 ## Источники
 
 - Repository: `AGENTS.md`, `docs/product/{agent_orchestration,review_workflow,decision_log,demo_goal,ui_principles}.md`, `.agents/skills/{hif-polish-loop,hif-visual-qa}`, `tools/run-graphical-e2e.ps1`, `tools/run-unity-tests.ps1`, `.github/workflows/unity-ci.yml`, листинги `Assets/HowIFall/Tests/{EditMode,PlayMode}` и `Assets/HowIFall/Editor/*QaLauncher.cs`.
-- [Unity-Technologies/skills](https://github.com/Unity-Technologies/skills) — 32 официальных skill'а, лицензия Unity Companion License. Проверены README и содержимое skill'ов: `unity-cli`, `ui`, `ui-ugui`, `unity-package-management`, `new-unity-project`. Skill'ы — agent-agnostic prompt-файлы, установка через `npx skills add`; работают с Codex и 50+ агентами. `unity-cli` управляет открытым Editor через companion-пакет (`unity status/command/eval`, `editor_play`, install/test/build/vcs), включая PlayMode-верификацию со скриншотом, readback консоли и freeze detection. Официальный plugin-путь для Codex — [Unity-Technologies/unity-agent-plugin](https://github.com/Unity-Technologies/unity-agent-plugin): `codex plugin marketplace add Unity-Technologies/unity-agent-plugin` + `codex plugin add unity@unity-agent-plugin` (v0.1.8-beta), Unity 6+, требует локального executor'а, управляет Unity через CLI + Pipeline package, не MCP.
+- [Unity-Technologies/skills](https://github.com/Unity-Technologies/skills) — 34 официальных skill'а на момент проверки (2026-10-01, HEAD `main` `cb1dccb`), лицензия Unity Companion License. Проверены README и содержимое skill'ов: `unity-cli`, `ui`, `ui-ugui`, `unity-package-management`, `new-unity-project`. Skill'ы — agent-agnostic prompt-файлы, установка через `npx skills add`; работают с Codex и 50+ агентами. `unity-cli` управляет открытым Editor через companion-пакет (`unity status/command/eval`, `editor_play`, install/test/build/vcs), включая PlayMode-верификацию со скриншотом, readback консоли и freeze detection. Официальный plugin-путь для Codex — [Unity-Technologies/unity-agent-plugin](https://github.com/Unity-Technologies/unity-agent-plugin): `codex plugin marketplace add Unity-Technologies/unity-agent-plugin` + `codex plugin add unity@unity-agent-plugin` (v0.1.8-beta), Unity 6+, требует локального executor'а, управляет Unity через CLI + Pipeline package, не MCP.
 - [scenario-labs/skills](https://github.com/scenario-labs/skills) — MIT. Семейство scenario-unity-expert (14 skill'ов, Python `ut_*` toolkit + C# AgentKit, AGENT_RESULT envelopes, evidence gates, blind-graded 63%→97%) — но с жёсткими предположениями: macOS Apple Silicon (пути `/Applications`, Metal), Unity 6000.3.21f1, URP 17.3. Генеративные skill'ы (`consistency`, `identity-library`, `game-assets`, `image`, `asset-analysis`, `quality-gate`, `refine-loop`, `audio`) управляют Scenario MCP (`mcp.scenario.com`) через платные кредиты и OAuth/API key; `quality-gate` — Enterprise add-on.
 
 ## Карта возможностей HIF
@@ -74,9 +74,9 @@
 
 ## Codex vs Z-Code vs J-Code
 
-- **Codex:** единственная среда с официальным plugin-путём для Unity skills (`codex plugin add unity@unity-agent-plugin`). Опциональное усиление, не требование.
-- **Z-Code (default):** ничего из внешнего не требуется; существующие skills + документация покрывают default-работу. Ручная установка skill-файлов в `~/.agents/skills` возможна, но сейчас не даёт того, чего нет в repository.
-- **J-Code:** многоагентная координация уже покрыта `agent_orchestration.md` (§4, §11) и сама по себе не требует новых skill'ов. J-Code — механизм для периодических audit/investigation проходов, как этот; не нуждается в постоянных agent-определениях.
+- **Codex:** одна из сред с официальным plugin-путём для Unity skills (`codex plugin add unity@unity-agent-plugin`; тот же плагин официально ставится и в Claude Code, и в Grok). Опциональное усиление, не требование.
+- **Z-Code (default):** ничего из внешнего не требуется; существующие skills + документация покрывают default-работу — и single-agent bounded execution, и координированную multi-agent работу с read-only subagent'ами. Ручная установка skill-файлов в `~/.agents/skills` возможна, но сейчас не даёт того, чего нет в repository.
+- **J-Code:** многоагентная координация уже покрыта `agent_orchestration.md` (§4, §11) и сама по себе не требует новых skill'ов. Multi-agent работа по умолчанию выполняется в Z-Code; J-Code — опциональная специализированная среда, только когда её harness даёт конкретное преимущество для задачи. Постоянные agent-определения не нужны.
 
 Постоянные agent-определения (persistent roles) отклонены: в `AGENTS.md`/`agent_orchestration.md` уже есть ролевая модель Implementer/Reviewer/User, а swarm-использование описано как исключение. Роль должна задаваться brief'ом задачи, не репозиторием.
 
@@ -84,9 +84,9 @@
 
 1. **Ничего не менять** — отклонено: G1 реален, agents waste context на переоткрытие debug-карты.
 2. **Вендорить Unity skills в репозиторий** — отклонено: дублирование официального контента, лицензионный риск (Unity Companion License не позволяет свободное копирование текста), prompt bloat.
-3. **Постоянные J-Code agent-роли (implementation worker / reviewer / QA investigator)** — отклонено: дублирует существующую ролевую модель в source of truth; J-Code остаётся reserved для genuinely parallel work.
+3. **Постоянные J-Code agent-роли (implementation worker / reviewer / QA investigator)** — отклонено: дублирует существующую ролевую модель в source of truth; роли задаются brief'ом задачи независимо от среды.
 4. **Отдельный skill для каждой внешней концепции** — отклонено: создало бы 10+ мелких skill'ов против принципа минимальности.
-5. **Принято: минимальная архитектура** — один узкий repository-skill для G1, документация опционального Unity plugin для Codex, паттерны Scenario зафиксированы как уже-принятые-в-духе (sentinel verdict, numbers-before-pixels), генеративный Scenario — defer. Agent-архитектура не меняется: default остаётся single-agent Z-Code; J-Code — для genuinely parallel work.
+5. **Принято: минимальная архитектура** — один узкий repository-skill для G1, документация опционального Unity plugin для Codex, паттерны Scenario зафиксированы как уже-принятые-в-духе (sentinel verdict, numbers-before-pixels), генеративный Scenario — defer. Agent-архитектура не меняется: default Z-Code — и для single-agent bounded execution, и для координированной multi-agent работы с read-only subagent'ами; J-Code — опционально, только при конкретном преимуществе её harness.
 
 ## Рекомендация для HIF
 

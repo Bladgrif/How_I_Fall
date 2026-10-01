@@ -10,7 +10,7 @@ description: Маршрутизирует debug-симптомы How I Fall к �
 ## Правила
 
 - Сначала найди существующий инструмент в таблице ниже; не создавай новый launcher/тест, пока существующий реально не покрывает симптом (см. `AGENTS.md`).
-- Названия тестов — фильтры для `tools/run-unity-tests.ps1 -TestFilter`; launcher'ы лежат в `Assets/HowIFall/Editor/`.
+- Названия тестов — фильтры для `tools/run-unity-tests.ps1 -TestFilter` (только EditMode/PlayMode); launcher'ы лежат в `Assets/HowIFall/Editor/`.
 - Изменённое поведение покрывай существующим suite'ом по возможности; новый тест добавляй по правилам тестирования из `AGENTS.md`.
 - Инструмент не доказывает сам себя: результаты и скриншоты проверяй по `docs/codex/unity_agent_guide.md` (наличие скриншота не является доказательством).
 
@@ -24,7 +24,7 @@ description: Маршрутизирует debug-симптомы How I Fall к �
 | Preferences/настройки (иерархия, draft, apply) | `PreferencesInteractionPlayModeTests`, `PreferencesControllerResolutionDraftEditModeTests`, `PreferencesApplyDisabledPresentationEditModeTests` | E2E `PlayerUi` (`main_menu_preferences_*`) |
 | Сохранения: пагинация, слоты, бэкенд | `SavePaginationEditModeTests`, `SaveSlotFocusPresentationEditModeTests`, `RollbackBackendPlayModeTests` | E2E `SaveBackendV2`, `ManualSave`; контракт — `docs/product/decision_log.md` (2026-08-31) |
 | Rollback/rewind | `RollbackCheckpointEditModeTests`, `QuickMenuRollbackButtonEditModeTests`, `RollbackBackendPlayModeTests` | E2E `GameMenu` (`gameplay_quick_menu_rollback_*`) |
-| Reading: backlog, история, wheel, auto | `DialogueBacklogEditModeTests`, `HistoryPresentationPlayModeTests`, `WheelReadingRuntimePlayModeTests` | smoke `BacklogRestorationSmokeTests`, `AutoDialogueSmokeTests`, `DialogueBacklogSmokeTests` |
+| Reading: backlog, история, wheel, auto | `DialogueBacklogEditModeTests`, `HistoryPresentationPlayModeTests`, `WheelReadingRuntimePlayModeTests` | внутренние проверки smoke suite (запускаются только в составе `HowIFallCiSmokeTests.RunAll`, отдельно не фильтруются): `BacklogRestorationSmokeTests`, `AutoDialogueSmokeTests`, `DialogueBacklogSmokeTests` |
 | Interactive hotspot / карта | `InteractiveHotspotPlayModeTests`, `InteractiveHotspotEditModeTests`, `MapLocationsPlayModeTests`, `MapLocationsEditModeTests` | `InteractiveHotspotQaLauncher`, `MapLocationsQaLauncher` |
 | Сквозной путь игрока (маршрут/состояние) | `PlayerJourneyE2ETests` | E2E `PlayerUi` полный набор proof-скриншотов |
 | Настройки вне главного меню | `SettingsPanelWithoutMainMenuPlayModeTests` | `SettingsManagerResolutionEditModeTests` |
@@ -35,6 +35,7 @@ description: Маршрутизирует debug-симптомы How I Fall к �
 
 ## Как запускать
 
-- Юнит/PlayMode тесты: `tools/run-unity-tests.ps1 -Mode <EditMode|PlayMode|Smoke> [-TestFilter <ИмяТеста>]`.
-- Graphical E2E: `tools/run-graphical-e2e.ps1 -Scenario <ManualSave|SaveBackendV2|PlayerUi|GameMenu>`; запускать без `-nographics`, результат — sentinel + proof-скриншоты в `QAArtifacts/GraphicalE2E/<Scenario>`.
+- Таргетные тесты: `tools/run-unity-tests.ps1 -Mode <EditMode|PlayMode> [-TestFilter <ИмяТеста>]` — фильтр передаётся в Unity `-testFilter` как regex; несколько тестов объединяй через `|`, разделитель `;` даёт 0 совпадений.
+- Smoke suite: `tools/run-unity-tests.ps1 -Mode Smoke` — без `-TestFilter` (раннер его отклоняет) и всегда целиком: все проверки `HowIFallCiSmokeTests.RunAll`.
+- Graphical E2E: `tools/run-graphical-e2e.ps1 -Scenario <ManualSave|SaveBackendV2|PlayerUi|GameMenu>`; запускать без `-nographics`, результат — sentinel-файл в корне репозитория + proof-скриншоты в `QAArtifacts/GraphicalE2E/<Scenario>` (для `GameMenu` — в `QAArtifacts/GraphicalE2E/PlayerUi`).
 - Новый QA launcher при реальной необходимости — только по образцу существующих в `Assets/HowIFall/Editor/`; для мелкой кнопки launcher не создаётся (`$hif-visual-qa`).
