@@ -4,9 +4,15 @@
 
 ## Общий review
 
-Работа не считается `DONE`, пока обязательные GitHub CI checks не зелёные:
-- `Unity Test Framework` — `GREEN`;
-- `Unity smoke tests` — `GREEN`.
+Работа не считается `DONE`, пока обязательный PR-check `CI Gate` не `GREEN`.
+
+`CI Gate` сам выбирает минимально достаточный CI по diff:
+- docs-only (`docs/**`, Markdown и `.agents/**`) → Unity jobs пропускаются;
+- безопасная in-place замена бинарного Art/Audio asset без `.meta`/rename/add/delete → `Unity smoke tests`;
+- C#/runtime/UI/scene/prefab/Save/Packages/ProjectSettings/workflow/config/mixed → `Unity Test Framework` + `Unity smoke tests`;
+- `workflow_dispatch` всегда запускает full CI.
+
+После merge обязательный duplicate Unity CI на `master` не запускается: reviewer проверяет exact merged `master` SHA. Manual full CI остаётся для exceptional/high-risk случаев.
 
 Локальные тесты, graphical E2E и скриншоты указываются отдельно от GitHub CI. Незапущенные проверки отмечаются `NOT RUN`.
 
@@ -87,4 +93,4 @@ Google Drive используется reviewer'ом как живой tracker be
 
 ## Стандартный поток
 
-`Задача` → исследование/решение при необходимости → implementation → targeted tests → regression/smoke → graphical E2E для player-facing UI → просмотр screenshots → обновление baselines → при возможности зеркало на Drive → scoped review-candidate commit/push → review реального commit → синхронизация roadmap/capability → correction при необходимости → обязательный GitHub CI `GREEN` → субъективное одобрение пользователя, если действительно нужно → `DONE` → следующий ограниченный pass из синхронизированного состояния.
+`Задача` → исследование/решение при необходимости → implementation → targeted tests → regression/smoke → graphical E2E для player-facing UI → просмотр screenshots → обновление baselines → при возможности зеркало на Drive → scoped review-candidate commit/push → review реального commit → синхронизация roadmap/capability → correction при необходимости → PR `CI Gate` `GREEN` → субъективное одобрение пользователя, если действительно нужно → merge → verify exact `master` → `DONE` → следующий ограниченный pass из синхронизированного состояния.
