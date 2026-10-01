@@ -50,14 +50,7 @@ jobs:
 
             is_safe_asset_path() {
               local path="$1"
-              case "$path" in
-                Assets/HowIFall/Art/*.png|Assets/HowIFall/Art/*.jpg|Assets/HowIFall/Art/*.jpeg|Assets/HowIFall/Art/*.webp|                Assets/HowIFall/Audio/*.wav|Assets/HowIFall/Audio/*.ogg|Assets/HowIFall/Audio/*.mp3)
-                  return 0
-                  ;;
-                *)
-                  return 1
-                  ;;
-              esac
+              [[ "$path" =~ ^Assets/HowIFall/(Art|Audio)/.*\.(png|jpg|jpeg|webp|wav|ogg|mp3)$ ]]
             }
 
             docs_only=true
@@ -68,14 +61,16 @@ jobs:
               [[ -z "${status:-}" ]] && continue
               changed=true
 
+              line_docs=true
               for candidate in "$path" "${extra:-}"; do
                 [[ -z "$candidate" ]] && continue
                 if ! is_docs_path "$candidate"; then
                   docs_only=false
+                  line_docs=false
                 fi
               done
 
-              if is_docs_path "$path" && [[ -z "${extra:-}" || -z "${extra:-}" ]]; then
+              if [[ "$line_docs" == "true" ]]; then
                 continue
               fi
 
