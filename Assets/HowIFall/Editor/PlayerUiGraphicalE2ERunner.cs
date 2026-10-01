@@ -302,6 +302,7 @@ public static class PlayerUiGraphicalE2ERunner
 
         saves.ConfigureSaveDirectoryForTests(SessionState.GetString(DirectoryKey, string.Empty));
         menu.RefreshContinueAvailability();
+        SettingsManager.Instance?.SetShowQuickMenu(true);
         ConfigureGameViewResolution(QaResolution);
         if (!IsQaResolutionReady()) { Retry("Game View did not switch to 1920x1080."); return; }
         Require(UnityEngine.Object.FindObjectsByType<SaveManager>(FindObjectsSortMode.None).Length == 1, "MainMenu has more than one SaveManager.");
@@ -326,6 +327,7 @@ public static class PlayerUiGraphicalE2ERunner
             effect.OnPointerExit(null);
         }
         menu.FocusDefaultAction();
+        SettleMainMenuEffects(menu);
         Require(!menu.continueButton.interactable,
             "Fresh PlayerUi fixture must expose the disabled Continue state before the enabled visual fixture is applied.");
         Capture("main_menu_disabled_continue_1920x1080.png", "CaptureMainMenuNormal");
@@ -344,6 +346,7 @@ public static class PlayerUiGraphicalE2ERunner
             effect.OnPointerExit(null);
             effect.OnDeselect(null);
         }
+        SettleMainMenuEffects(menu);
         Require(menu.PlayerFacingActionButtons.Select(b => b.GetComponent<MainMenuButtonHoverEffect>().CurrentLabelColor).Distinct().Count() == 1,
             "Enabled normal actions must be visually equal.");
         Capture("main_menu_normal_enabled_1920x1080.png", "CaptureMainMenuHover");
@@ -353,6 +356,7 @@ public static class PlayerUiGraphicalE2ERunner
     {
         MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
         menu.PlayerFacingActionButtons[1].GetComponent<MainMenuButtonHoverEffect>().OnPointerEnter(new PointerEventData(EventSystem.current));
+        SettleMainMenuEffects(menu);
         Require(menu.PlayerFacingActionButtons.Count(b => b.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible) == 1,
             "Hover must activate exactly one action.");
         Capture("main_menu_hover_1920x1080.png", "CaptureMainMenuExit");
@@ -362,6 +366,7 @@ public static class PlayerUiGraphicalE2ERunner
     {
         MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
         menu.PlayerFacingActionButtons[1].GetComponent<MainMenuButtonHoverEffect>().OnPointerExit(new PointerEventData(EventSystem.current));
+        SettleMainMenuEffects(menu);
         Require(menu.PlayerFacingActionButtons.All(b => !b.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible),
             "Pointer exit must clear the selected mouse action's visual.");
         Capture("main_menu_pointer_exit_1920x1080.png", "CaptureMainMenuNavigation");
@@ -372,6 +377,7 @@ public static class PlayerUiGraphicalE2ERunner
         MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
         ExecuteEvents.Execute(EventSystem.current.currentSelectedGameObject,
             new AxisEventData(EventSystem.current) { moveDir = MoveDirection.Down, moveVector = Vector2.down }, ExecuteEvents.moveHandler);
+        SettleMainMenuEffects(menu);
         Require(EventSystem.current.currentSelectedGameObject == menu.PlayerFacingActionButtons[2].gameObject,
             "Navigation after mouse exit must move to Load.");
         Require(menu.PlayerFacingActionButtons.Count(b => b.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible) == 1,
@@ -387,7 +393,16 @@ public static class PlayerUiGraphicalE2ERunner
         MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
         Require(menu != null, "MainMenuController disappeared before alternate-focus capture.");
         menu.FocusSettingsAction();
+        SettleMainMenuEffects(menu);
         Capture("main_menu_settings_focus_1920x1080.png", "OpenMainPreferences");
+    }
+
+    private static void SettleMainMenuEffects(MainMenuController menu)
+    {
+        foreach (Button action in menu.PlayerFacingActionButtons)
+        {
+            action.GetComponent<MainMenuButtonHoverEffect>()?.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
+        }
     }
 
     private static void OpenMainPreferences()
@@ -655,6 +670,7 @@ public static class PlayerUiGraphicalE2ERunner
         effect.OnPointerEnter(new PointerEventData(EventSystem.current));
         Require(EventSystem.current.currentSelectedGameObject == hovered.gameObject,
             "Mouse hover did not replace the restored Settings selection.");
+        SettleMainMenuEffects(menu);
         MainMenuButtonHoverEffect settingsEffect = settings.GetComponent<MainMenuButtonHoverEffect>();
         Require(settingsEffect == null || !settingsEffect.IsFocusAccentVisible,
             "Settings retained a focus accent alongside the hovered Main Menu action.");

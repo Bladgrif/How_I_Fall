@@ -21,6 +21,8 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     IDeselectHandler,
     IMoveHandler
 {
+    public const float InteractionFadeDuration = 0.12f;
+
     public Image highlightImage;
     public Text labelText;
     public GameObject playIndicator;
@@ -44,6 +46,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     private MainMenuButtonVisualRole role;
     private IReadOnlyList<Button> mainMenuActions;
     private IReadOnlyList<Button> exclusiveActions;
+    private float interactionFade;
+    private float interactionFadeTarget;
+    private bool isPointerPressed;
 
     public MainMenuButtonVisualRole Role => role;
     public bool IsInteractionVisible => button != null && button.interactable && (isPointerInside || isSelected);
@@ -115,6 +120,35 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     private void OnEnable()
     {
         RefreshState();
+    }
+
+    private void Update()
+    {
+        if (mainMenuActions != null)
+        {
+            AdvanceInteractionFade(Time.unscaledDeltaTime);
+        }
+    }
+
+    // Root navigation only. Modal confirmation buttons retain their existing instant treatment.
+    public void AdvanceInteractionFade(float unscaledDeltaTime)
+    {
+        if (mainMenuActions == null || button == null || isPointerPressed)
+        {
+            return;
+        }
+
+        if (!button.interactable)
+        {
+            RefreshState();
+            return;
+        }
+
+        float next = Mathf.MoveTowards(interactionFade, interactionFadeTarget,
+            Mathf.Max(0f, unscaledDeltaTime) / InteractionFadeDuration);
+        if (next == interactionFade) return;
+        interactionFade = next;
+        ApplyMainMenuFade();
     }
 
     public void Configure(MainMenuButtonVisualRole visualRole)
@@ -201,6 +235,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             if (effect == null) continue;
             effect.isPointerInside = effect == this && pointer;
             effect.isSelected = effect == this && !pointer;
+            if (effect != this) effect.isPointerPressed = false;
             effect.RefreshState();
         }
     }
@@ -233,7 +268,16 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         EnsureReferences();
         if (button != null && !button.interactable)
         {
+            interactionFade = interactionFadeTarget = 0f;
+            isPointerInside = isSelected = isPointerPressed = false;
             ApplyDisabledState();
+            return;
+        }
+
+        if (mainMenuActions != null)
+        {
+            interactionFadeTarget = isPointerInside || isSelected ? 1f : 0f;
+            ApplyMainMenuFade();
             return;
         }
 
@@ -264,6 +308,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     public void OnPointerExit(PointerEventData eventData)
     {
         isPointerInside = false;
+        if (mainMenuActions != null) isPointerPressed = false;
         RefreshState();
     }
 
@@ -278,6 +323,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (mainMenuActions == null) return;
         isPointerInside = false;
         isSelected = false;
+        isPointerPressed = false;
+        interactionFade = interactionFadeTarget = 0f;
+        ApplyMainMenuFade();
     }
 
     public void OnPointerDown(PointerEventData eventData)
@@ -285,13 +333,41 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (mainMenuActions != null) SetMainMenuInteraction(true);
         if (button == null || button.interactable)
         {
+            if (mainMenuActions != null) isPointerPressed = true;
             ApplyPressedState();
         }
     }
 
     public void OnPointerUp(PointerEventData eventData)
     {
+        isPointerPressed = false;
         RefreshState();
+    }
+
+    private void ApplyMainMenuFade()
+    {
+        float amount = isPointerPressed ? 1f : interactionFade;
+        bool active = interactionFadeTarget > 0f || amount > 0f;
+        if (highlightImage != null)
+        {
+            highlightImage.color = TargetV1SelectedPlate((isPointerPressed ? 0.58f : 0.40f) * amount);
+        }
+        if (labelGraphic != null)
+        {
+            labelGraphic.color = Color.Lerp(RoleNormalText(), new Color(0.88f, 0.96f, 1f, 1f), amount);
+        }
+        if (outline != null) outline.enabled = false;
+        if (playIndicator != null) playIndicator.SetActive(false);
+        if (focusAccent != null)
+        {
+            focusAccent.color = new Color(0.01f, 0.85f, 0.98f, 0.98f * amount);
+            focusAccent.gameObject.SetActive(active && !suppressFocusAccent);
+        }
+        if (selectionGlow != null)
+        {
+            selectionGlow.color = new Color(1f, 1f, 1f, 0.06f * amount);
+            selectionGlow.gameObject.SetActive(active);
+        }
     }
 
     public void OnSelect(BaseEventData eventData)
@@ -313,6 +389,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     public void OnDeselect(BaseEventData eventData)
     {
         if (mainMenuActions != null || exclusiveActions != null) isPointerInside = false;
+        if (mainMenuActions != null) isPointerPressed = false;
         isSelected = false;
         RefreshState();
     }
