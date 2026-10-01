@@ -50,7 +50,7 @@ Budget remaining:
 
 ## Context и baseline
 
-Сначала прочитай `AGENTS.md`, только relevant product/research contracts, ближайшие production files/tests, relevant baseline и существующий graphical E2E/launcher. Для больших файлов сначала search и точные spans; расширяй pack только после доказанной зависимости.
+Сначала прочитай `AGENTS.md`, только relevant product/research contracts, ближайшие production files/tests, relevant baseline и существующий graphical E2E/launcher. Для больших файлов сначала search и точные spans; расширяй pack только после доказанной зависимости. Для диагностики конкретного дефекта используй `$hif-debug-routing` вместо переоткрытия карты тестов/launcher'ов.
 
 До visual change переиспользуй существующий graphical E2E/launcher и, если инфраструктура позволяет, получи current screenshot. Не создавай второй graphical QA framework. Свежий точный baseline не нужно перезапускать только ради формальности.
 

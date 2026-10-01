@@ -87,6 +87,21 @@ serialized assets. Не используй swarm для простой single-sc
 Используй для GPT-6 моделей, когда Codex harness удобнее или нужен независимый
 второй стек implementation/review.
 
+### Внешние agent-инструменты Unity
+
+Официальный [Unity agent plugin](https://github.com/Unity-Technologies/unity-agent-plugin)
+(`codex plugin add unity@unity-agent-plugin`) — опциональное Codex-усиление:
+Editor-driving, CLI test/build, uGUI-гайды. Обоснование и границы —
+`docs/research/agent_skills_ecosystem_audit_2026-10-01.md`:
+
+- установка только по явной задаче; это не requirement для обычных bounded pass;
+- плагин — инструмент чтения/запуска, не вход для production-правок: сцены,
+  prefabs, serialized refs остаются protected по `AGENTS.md`;
+- текст внешних skill'ов не вендорится в repository (Unity Companion License);
+- если внешний skill противоречит repository contracts, приоритет у repository;
+- Scenario-инструменты (Unity expert и генеративные) — reference/defer до
+  арт-фазы; MCP и платные кредиты не подключать без отдельного решения.
+
 ## 5. Модель и budget
 
 Главный принцип: **самая дешёвая модель, стабильно проходящая quality bar**.

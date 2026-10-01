@@ -1,0 +1,6 @@
+interface:
+  display_name: "How I Fall — debug routing"
+  short_description: "Маршрутизация debug-симптомов к существующим тестам/launcher'ам/E2E"
+  default_prompt: "Используй $hif-debug-routing: определи симптом (фокус/навигация, runtime state, Save/Load, visual regression) и выбери существующий тест/launcher/E2E из таблицы skill'а. Не создавай новые инструменты без реального пробела покрытия; доказательства проверяй по docs/codex/unity_agent_guide.md."
+policy:
+  allow_implicit_invocation: true
