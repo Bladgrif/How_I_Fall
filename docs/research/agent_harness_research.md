@@ -41,13 +41,14 @@
 - [OpenAI model selection](https://developers.openai.com/api/docs/guides/model-selection);
 - [Using GPT-6](https://developers.openai.com/api/docs/guides/latest-model);
 - [OpenAI API changelog, 2026-09-29](https://developers.openai.com/api/docs/changelog);
+- [ChatGPT Work/Codex rate card](https://help.openai.com/en/articles/20001415-chatgpt-rate-card-enterprise-token-based-pricing);
 - [OpenAI Developer Community announcement: GPT-6.1 Sol](https://community.openai.com/t/gpt-6-1-sol-in-the-api-a-meaningful-cost-performance-step/1402388).
 
 Это external model evidence, не локальный HIF benchmark.
 
 **Official positioning:** GPT-6.1 Sol — current Sol-tier с near-Astra performance для complex coding/computer use/professional work при меньшей стоимости. Model-selection guidance рекомендует Luna для scoped/high-volume work, GPT-6.1 Sol Medium для complex technical work и higher effort для polished/connected deliverables, Astra — для наиболее demanding задач.
 
-**Спецификации/цена API на запуске:** 1.05M context, 128K max output, reasoning `low/medium/high/xhigh/max`; standard pricing $2/M input и $10/M output, то есть uncached цена совпадает с GPT-6 Sol, а cached input снижен с $0.20/M до $0.10/M. API pricing не интерпретируется как subscription quota.
+**Спецификации/цена API на запуске:** 1.05M context, 128K max output, reasoning `low/medium/high/xhigh/max`; standard pricing $2/M input и $10/M output, то есть uncached цена совпадает с GPT-6 Sol, а cached input снижен с $0.20/M до $0.10/M. В legacy Codex credit rate card OpenAI также приводит ориентир ~4 credits за local task для GPT-6.1 Sol против ~5 у GPT-6 Sol и ~16 у Astra. Это усреднённая legacy-метрика, не гарантия конкретного Plus/Codex allowance.
 
 **Опубликованные launch benchmark signals:** OpenAI Developer Community announcement приводит DeepSWE v1.1 `75.2%` у GPT-6.1 Sol High против `68.8%` лучшего результата GPT-6 Sol Max, AutomationBench `31.7%` на Medium (+4.8 п.п. против GPT-6 Sol на том же effort) и OSWorld 2.0 offline `71.4%` против `73.5%` у Astra на Max. В том же материале reported cost per task для этих сравнений существенно ниже Astra/старого Sol. Эти числа относятся к конкретным launch evaluations и не являются гарантией Unity/HIF quality.
 
