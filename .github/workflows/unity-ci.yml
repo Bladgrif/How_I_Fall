@@ -2,8 +2,6 @@
 name: Unity CI
 
 on:
-  push:
-    branches: [ master ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
@@ -13,12 +11,116 @@ permissions:
   checks: write
 
 concurrency:
-  group: unity-ci-${{ github.ref }}
+  group: unity-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  classify:
+    name: CI change classification
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.classify.outputs.mode }}
+      run_utf: ${{ steps.classify.outputs.run_utf }}
+      run_smoke: ${{ steps.classify.outputs.run_smoke }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: Classify changed files
+        id: classify
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            mode="full"
+          else
+            is_docs_path() {
+              local path="$1"
+              [[ "$path" == docs/* || "$path" == *.md || "$path" == .agents/* ]]
+            }
+
+            is_safe_asset_path() {
+              local path="$1"
+              [[ "$path" =~ ^Assets/HowIFall/(Art|Audio)/.*\.(png|jpg|jpeg|webp|wav|ogg|mp3)$ ]]
+            }
+
+            docs_only=true
+            asset_only=true
+            changed=false
+
+            while IFS=$'\t' read -r status path extra; do
+              [[ -z "${status:-}" ]] && continue
+              changed=true
+
+              line_docs=true
+              for candidate in "$path" "${extra:-}"; do
+                [[ -z "$candidate" ]] && continue
+                if ! is_docs_path "$candidate"; then
+                  docs_only=false
+                  line_docs=false
+                fi
+              done
+
+              if [[ "$line_docs" == "true" ]]; then
+                continue
+              fi
+
+              # Fast asset path is intentionally narrow: an in-place binary
+              # replacement under Art/Audio. Added/deleted/renamed assets,
+              # .meta/import changes, code/config and mixed production changes
+              # all fall back to the full gate.
+              if [[ "${status:0:1}" != "M" || -n "${extra:-}" ]] || ! is_safe_asset_path "$path"; then
+                asset_only=false
+              fi
+            done < <(git diff --name-status --find-renames "$BASE_SHA" "$HEAD_SHA")
+
+            if [[ "$changed" != "true" ]]; then
+              mode="full"
+            elif [[ "$docs_only" == "true" ]]; then
+              mode="docs"
+            elif [[ "$asset_only" == "true" ]]; then
+              mode="asset"
+            else
+              mode="full"
+            fi
+          fi
+
+          case "$mode" in
+            docs)
+              run_utf=false
+              run_smoke=false
+              ;;
+            asset)
+              run_utf=false
+              run_smoke=true
+              ;;
+            full)
+              run_utf=true
+              run_smoke=true
+              ;;
+            *)
+              echo "Unknown CI mode: $mode" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "mode=$mode" | tee -a "$GITHUB_OUTPUT"
+          echo "run_utf=$run_utf" | tee -a "$GITHUB_OUTPUT"
+          echo "run_smoke=$run_smoke" | tee -a "$GITHUB_OUTPUT"
+
   unity-tests:
     name: Unity Test Framework
+    needs: classify
+    if: ${{ needs.classify.outputs.run_utf == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -59,6 +161,8 @@ jobs:
 
   smoke-tests:
     name: Unity smoke tests
+    needs: classify
+    if: ${{ needs.classify.outputs.run_smoke == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -99,3 +203,55 @@ jobs:
             *.log
           if-no-files-found: ignore
           retention-days: 7
+
+  ci-gate:
+    name: CI Gate
+    needs: [classify, unity-tests, smoke-tests]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify required checks for change class
+        shell: bash
+        env:
+          MODE: ${{ needs.classify.outputs.mode }}
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          UTF_RESULT: ${{ needs.unity-tests.result }}
+          SMOKE_RESULT: ${{ needs.smoke-tests.result }}
+        run: |
+          set -euo pipefail
+
+          echo "mode=$MODE"
+          echo "classify=$CLASSIFY_RESULT"
+          echo "unity-tests=$UTF_RESULT"
+          echo "smoke-tests=$SMOKE_RESULT"
+
+          if [[ "$CLASSIFY_RESULT" != "success" ]]; then
+            echo "Change classification failed." >&2
+            exit 1
+          fi
+
+          case "$MODE" in
+            docs)
+              ;;
+            asset)
+              [[ "$SMOKE_RESULT" == "success" ]] || {
+                echo "Asset-only changes require green Unity smoke tests." >&2
+                exit 1
+              }
+              ;;
+            full)
+              [[ "$UTF_RESULT" == "success" ]] || {
+                echo "Full changes require green Unity Test Framework." >&2
+                exit 1
+              }
+              [[ "$SMOKE_RESULT" == "success" ]] || {
+                echo "Full changes require green Unity smoke tests." >&2
+                exit 1
+              }
+              ;;
+            *)
+              echo "Unknown or missing CI mode: $MODE" >&2
+              exit 1
+              ;;
+          esac

@@ -43,7 +43,7 @@
 - Не добавляй в stage несвязанные пользовательские изменения и не используй `git add .`, если worktree содержит изменения вне задачи.
 - Не делай destructive reset пользовательских изменений.
 - Не создавай commit/push, если задача явно этого не просит.
-- После push техническая задача не считается полностью проверенной, пока релевантные обязательные проверки GitHub CI не зелёные: `Unity Test Framework` и `Unity smoke tests`.
+- После push техническая задача не считается полностью проверенной, пока GitHub `CI Gate` не зелёный. Gate пропорционален diff: docs-only не запускает Unity; безопасная in-place Art/Audio asset replacement запускает smoke; C#/runtime/UI/scene/prefab/Save/Packages/ProjectSettings/workflow/mixed запускает `Unity Test Framework` + `Unity smoke tests`.
 - Review candidate не становится `DONE`, пока reviewer не проверил реальный commit/diff и не синхронизировал живую product roadmap по правилам `docs/product/review_workflow.md`. При рассинхронизации репозиторий остаётся главным источником истины.
 - Для выбора среды/модели/сессии, reasoning, бюджета контекста и orchestration implementation prompts используй `docs/product/agent_orchestration.md`; execution-specific player-facing loops остаются в `$hif-polish-loop`.
 
