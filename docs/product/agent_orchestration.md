@@ -112,10 +112,22 @@ repeatable bounded work at scale: обычная Unity/C#/UI implementation,
 tests/docs/configs, correction passes и independent second implementation/check,
 когда Codex удобнее. Не эскалируй на Sol только из-за размера задачи.
 
-### GPT-6 Sol
-Для demanding coding/agentic work: несколько связанных systems, сложный
-Unity lifecycle/state, Save/Load, нетривиальный debugging, высокая
-regression-risk.
+### GPT-6.1 Sol
+Preferred Sol-tier для HIF, если модель доступна в Codex. GPT-6.1 Sol заменяет
+GPT-6 Sol как основной Codex escalation: сложный Unity lifecycle/state,
+Save/Load, ambiguous root cause, high regression-risk, high-visibility UI
+target-match/final correction и coordinated technical deliverables.
+
+Default reasoning: Medium. High — visual finishing, lifecycle/state,
+нетривиальный debugging или когда нужен более надёжный final correction.
+Max — только после неудачной High-попытки или при действительно высокой цене
+ошибки. Не используй Sol автоматически для routine fixes/polish, если
+GLM-5.3-Flash стабильно проходит quality bar.
+
+Официальное позиционирование OpenAI: near-Astra performance для complex work
+при существенно меньшей стоимости. Это API evidence, а не гарантия
+subscription allowance; поэтому HIF всё равно оптимизирует фактические лимиты
+пользователя. Старый GPT-6 Sol — fallback только если GPT-6.1 Sol недоступен.
 
 ### GPT-6 Astra
 Для hardest end-to-end work: неясная root cause, несколько неудачных попыток,
@@ -123,7 +135,7 @@ architecture/system reasoning, крупные interdependent изменения 
 стоимость ошибки.
 
 Практический ориентир:
-`GLM-5.3-Flash / GPT-6 Luna → GLM-5.3 / GPT-6 Sol → GPT-6 Astra`
+`GLM-5.3-Flash / GPT-6 Luna → GLM-5.3 / GPT-6.1 Sol → GPT-6 Astra`
 
 Это не автоматическая лестница. Размер context, число файлов и длительность
 сами по себе не являются причиной эскалации.
