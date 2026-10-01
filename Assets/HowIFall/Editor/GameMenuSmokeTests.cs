@@ -264,14 +264,13 @@ public static class GameMenuSmokeTests
             AssertVisibleActions(view, new[]
             {
                 VNGameMenuAction.Save, VNGameMenuAction.Load, VNGameMenuAction.Preferences,
-                VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Back, VNGameMenuAction.Return
+                VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Return
             });
             AssertLabel(view, VNGameMenuAction.Save, "Сохранить");
             AssertLabel(view, VNGameMenuAction.Load, "Загрузить");
             AssertLabel(view, VNGameMenuAction.Preferences, "Настройки");
             AssertLabel(view, VNGameMenuAction.MainMenu, "Главное меню");
             AssertLabel(view, VNGameMenuAction.Quit, "Выйти");
-            AssertLabel(view, VNGameMenuAction.Back, "Назад");
             AssertLabel(view, VNGameMenuAction.Return, "Вернуться в игру");
             Require(!view.IsActionVisible(VNGameMenuAction.History), "History leaked into the normal Game Menu.");
             Require(!view.IsActionVisible(VNGameMenuAction.Characters), "Characters leaked into the normal Game Menu.");
@@ -284,7 +283,7 @@ public static class GameMenuSmokeTests
             AssertVisibleActions(view, new[]
             {
                 VNGameMenuAction.Preferences, VNGameMenuAction.History,
-                VNGameMenuAction.EndReplay, VNGameMenuAction.Quit, VNGameMenuAction.Back, VNGameMenuAction.Return
+                VNGameMenuAction.EndReplay, VNGameMenuAction.Quit, VNGameMenuAction.Return
             });
             AssertLabel(view, VNGameMenuAction.EndReplay, "Завершить повтор");
             Require(!view.IsActionVisible(VNGameMenuAction.Save)
@@ -370,7 +369,6 @@ public static class GameMenuSmokeTests
                 && view.GetButton(VNGameMenuAction.Preferences).interactable
                 && view.GetButton(VNGameMenuAction.MainMenu).interactable
                 && view.GetButton(VNGameMenuAction.Quit).interactable
-                && view.GetButton(VNGameMenuAction.Back).interactable
                 && view.GetButton(VNGameMenuAction.Return).interactable,
                 "Embedded Save/Load did not retain the persistent Game Menu navigation.");
             view.SetSaveLoadSection(VNGameMenuAction.Load, confirmationOpen: true);
@@ -379,7 +377,6 @@ public static class GameMenuSmokeTests
                 && !view.GetButton(VNGameMenuAction.Preferences).interactable
                 && !view.GetButton(VNGameMenuAction.MainMenu).interactable
                 && !view.GetButton(VNGameMenuAction.Quit).interactable
-                && !view.GetButton(VNGameMenuAction.Back).interactable
                 && !view.GetButton(VNGameMenuAction.Return).interactable,
                 "Nested confirmation did not block the underlying Game Menu navigation.");
             view.SetSaveLoadSection(null);
@@ -505,7 +502,7 @@ public static class GameMenuSmokeTests
             VNGameMenuView view = harness.Menu.View;
             foreach (VNGameMenuAction action in new[]
             {
-                VNGameMenuAction.Quit, VNGameMenuAction.Back, VNGameMenuAction.Load,
+                VNGameMenuAction.Quit, VNGameMenuAction.Load,
                 VNGameMenuAction.Preferences, VNGameMenuAction.MainMenu,
                 VNGameMenuAction.Return, VNGameMenuAction.Save
             })
@@ -541,26 +538,26 @@ public static class GameMenuSmokeTests
             Require(harness.QuickRoot.activeInHierarchy && quickInput.interactable && quickInput.blocksRaycasts,
                 "Closing Game Menu did not restore Quick Menu interaction.");
 
-            Require(harness.Menu.Open(), "Game Menu did not reopen for Back-row proof.");
+            Require(harness.Menu.Open(), "Game Menu did not reopen for Return-row proof.");
             Require(eventSystem.currentSelectedGameObject == view.GetButton(VNGameMenuAction.Save).gameObject
                 && view.VisibleFocusMarkerCount == 1,
                 "Reopening root Game Menu did not restore Save as sole default focus.");
-            Button back = view.GetButton(VNGameMenuAction.Back);
-            ExecuteEvents.Execute<IPointerEnterHandler>(back.gameObject,
+            Button returnRow = view.GetButton(VNGameMenuAction.Return);
+            ExecuteEvents.Execute<IPointerEnterHandler>(returnRow.gameObject,
                 new PointerEventData(eventSystem), ExecuteEvents.pointerEnterHandler);
-            ExecuteEvents.Execute<IPointerExitHandler>(back.gameObject,
+            ExecuteEvents.Execute<IPointerExitHandler>(returnRow.gameObject,
                 new PointerEventData(eventSystem), ExecuteEvents.pointerExitHandler);
-            Require(eventSystem.currentSelectedGameObject == back.gameObject,
+            Require(eventSystem.currentSelectedGameObject == returnRow.gameObject,
                 "Pointer exit cleared the last meaningful Game Menu selection.");
             view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
             Require(view.VisibleFocusMarkerCount == 0
-                && !back.transform.Find("Focus Marker").gameObject.activeSelf
-                && !back.transform.Find("Focus Plate").gameObject.activeSelf,
+                && !returnRow.transform.Find("Focus Marker").gameObject.activeSelf
+                && !returnRow.transform.Find("Focus Plate").gameObject.activeSelf,
                 "Pointer exit to empty space must fade the visible Game Menu highlight out completely.");
             ExecuteEvents.Execute<ISubmitHandler>(eventSystem.currentSelectedGameObject,
                 new BaseEventData(eventSystem), ExecuteEvents.submitHandler);
             Require(!harness.Menu.IsOpen && GetPrivate<int>(harness.Dialogue, "currentLineIndex") == lineBefore,
-                "Submitting the pointer-selected Back row did not close one level without advancing Reading.");
+                "Submitting the pointer-selected Return row did not close one level without advancing Reading.");
 
             harness.QuickMenu.SetPlayerInterfaceHidden(true);
             Require(harness.Dialogue.HandleEscapePressed() && harness.Menu.IsOpen, "Game Menu did not reopen for blocker composition test.");
@@ -680,7 +677,6 @@ public static class GameMenuSmokeTests
                 VNGameMenuAction.Preferences,
                 VNGameMenuAction.MainMenu,
                 VNGameMenuAction.Quit,
-                VNGameMenuAction.Back,
                 VNGameMenuAction.Return
             };
             Require(embeddedNavigation.All(action => harness.Menu.View.GetButton(action).interactable),
@@ -728,14 +724,21 @@ public static class GameMenuSmokeTests
                 "Escape did not cancel Quit while retaining Game Menu.");
 
             harness.Menu.View.GetButton(VNGameMenuAction.Save).onClick.Invoke();
-            harness.Menu.View.GetButton(VNGameMenuAction.Back).onClick.Invoke();
+            Require(saveLoad.HandleEscape(),
+                "Escape inside the embedded Save/Load panel was not accepted by the panel.");
+            // The panel close fades out over 0.16s and only then deactivates the
+            // panel; an EditMode smoke run cannot tick that coroutine, so the
+            // animation's terminal state is applied directly before checking how
+            // the Game Menu reacts to a closed embedded panel.
+            saveLoad.gameObject.SetActive(false);
+            typeof(VNGameMenuController).GetMethod("Update", PrivateInstance)?.Invoke(harness.Menu, null);
             Require(harness.Menu.IsOpen && !harness.Menu.View.IsSaveLoadContentVisible
                 && saveLoad.transform.parent == harness.Canvas.transform,
-                "Back from embedded Save/Load must return one level to root Game Menu.");
+                "Leaving the embedded Save/Load must return one level to root Game Menu.");
             harness.Menu.View.GetButton(VNGameMenuAction.Return).onClick.Invoke();
             Require(!harness.Menu.IsOpen && !harness.Menu.View.IsSaveLoadContentVisible
                 && saveLoad.transform.parent == harness.Canvas.transform,
-                "Return from root after Back did not close Game Menu cleanly.");
+                "Return from root after leaving Save/Load did not close Game Menu cleanly.");
         }
         finally
         {
