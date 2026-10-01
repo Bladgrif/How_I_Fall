@@ -140,22 +140,22 @@ namespace HowIFall.PlayModeTests
         }
 
         [UnityTest]
-        public IEnumerator PointerEnterBack_BecomesSoleVisibleHighlight()
+        public IEnumerator PointerEnterPreferences_BecomesSoleVisibleHighlight()
         {
-            RuntimeContext context = CreateContext(CreateLinearScene("gm-focus-back", "А", "B"));
+            RuntimeContext context = CreateContext(CreateLinearScene("gm-focus-hover", "А", "B"));
             yield return null;
             CompleteCurrentLine(context.Controller);
             VNGameMenuView view = OpenGameMenu(context);
             SettleFocus(view);
 
-            Button back = view.GetButton(VNGameMenuAction.Back);
-            ExecuteEvents.Execute<IPointerEnterHandler>(back.gameObject,
+            Button preferences = view.GetButton(VNGameMenuAction.Preferences);
+            ExecuteEvents.Execute<IPointerEnterHandler>(preferences.gameObject,
                 new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(back.gameObject),
-                "Pointer hover must make Back the logical selection.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(preferences.gameObject),
+                "Pointer hover must make Preferences the logical selection.");
 
             SettleFocus(view);
-            AssertFocusState(view, VNGameMenuAction.Back, expectVisible: true);
+            AssertFocusState(view, VNGameMenuAction.Preferences, expectVisible: true);
             AssertFocusState(view, VNGameMenuAction.Save, expectVisible: false);
             Assert.That(view.VisibleFocusMarkerCount, Is.EqualTo(1),
                 "Exactly one root row may stay visibly highlighted after moving between rows.");
@@ -230,10 +230,10 @@ namespace HowIFall.PlayModeTests
             VNGameMenuView view = OpenGameMenu(context);
             SettleFocus(view);
 
-            ExecuteEvents.Execute<IPointerEnterHandler>(view.GetButton(VNGameMenuAction.Back).gameObject,
+            ExecuteEvents.Execute<IPointerEnterHandler>(view.GetButton(VNGameMenuAction.Preferences).gameObject,
                 new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
-            CanvasGroup backMarker = GetFocusMarkerGroup(view, VNGameMenuAction.Back);
-            Assert.That(backMarker.alpha, Is.LessThan(1f),
+            CanvasGroup preferencesMarker = GetFocusMarkerGroup(view, VNGameMenuAction.Preferences);
+            Assert.That(preferencesMarker.alpha, Is.LessThan(1f),
                 "A just-activated highlight must start below full alpha: the transition is a fade, not SetActive-only.");
 
             Time.timeScale = 0f;
@@ -242,7 +242,7 @@ namespace HowIFall.PlayModeTests
                 // The Game Menu freezes the Reading frame; the highlight fade
                 // must still complete because it is driven by unscaled time.
                 yield return new WaitForSecondsRealtime(0.3f);
-                Assert.That(backMarker.alpha, Is.EqualTo(1f),
+                Assert.That(preferencesMarker.alpha, Is.EqualTo(1f),
                     "Focus fade must settle at full alpha even while the game is paused (unscaled time).");
                 Assert.That(view.VisibleFocusMarkerCount, Is.EqualTo(1),
                     "The settled fade must leave exactly one visible highlight.");
@@ -265,7 +265,7 @@ namespace HowIFall.PlayModeTests
             foreach (VNGameMenuAction action in new[]
                      {
                          VNGameMenuAction.Save, VNGameMenuAction.Load, VNGameMenuAction.Preferences,
-                         VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Back, VNGameMenuAction.Return
+                         VNGameMenuAction.MainMenu, VNGameMenuAction.Quit, VNGameMenuAction.Return
                      })
             {
                 Button button = view.GetButton(action);
