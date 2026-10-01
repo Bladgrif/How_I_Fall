@@ -67,25 +67,43 @@ validation. Не микроменеджерь порядок шагов без �
 Среду и модель выбирай отдельно.
 
 ### Z-Code
-Default GLM-среда для single-agent bounded implementation, routine Unity/C#/UI,
-fixes с ясным scope/root cause, tests/docs/validators, graphical E2E,
-screenshot QA, CI/log investigation и correction passes.
+Default GLM-среда для HIF: и single-agent bounded implementation (routine
+Unity/C#/UI, fixes с ясным scope/root cause, tests/docs/validators, graphical
+E2E, screenshot QA, CI/log investigation, correction passes), и координированная
+multi-agent работа, когда параллельные независимые workstreams дают реальную
+ценность: 2+ независимых направления, отдельный read-only reviewer, параллельное
+исследование production/tests/QA, длинное repo-wide investigation.
+
+Subagent'ы — не default: используй столько, сколько оправдано независимыми
+workstreams (2/3/5+), без swarm ради количества. Типовая форма — один
+coordinator/writer + read-only investigator'ы; coordinator отвечает за итоговый
+diff/tests/report. Не давай нескольким агентам одновременно редактировать одни
+scenes/prefabs/serialized assets. Не используй swarm для простой single-scope
+задачи.
 
 ### J-Code
-Используй, когда multi-agent harness реально полезен:
-- 2+ независимых workstreams;
-- отдельный read-only reviewer;
-- параллельное исследование production/tests/QA;
-- длинное repo-wide investigation;
-- bounded swarm.
-
-Default: 2–3 агента, один coordinator отвечает за итоговый diff/tests/report.
-Не давай нескольким агентам одновременно редактировать одни scenes/prefabs/
-serialized assets. Не используй swarm для простой single-scope задачи.
+Опциональная специализированная среда. Используй только когда её конкретное
+harness-поведение даёт реальное преимущество для этой задачи; сам факт
+multi-agent задачи причиной не является.
 
 ### Codex
 Используй для GPT-6 моделей, когда Codex harness удобнее или нужен независимый
 второй стек implementation/review.
+
+### Внешние agent-инструменты Unity
+
+Официальный [Unity agent plugin](https://github.com/Unity-Technologies/unity-agent-plugin)
+(`codex plugin add unity@unity-agent-plugin`) — опциональное Codex-усиление:
+Editor-driving, CLI test/build, uGUI-гайды. Обоснование и границы —
+`docs/research/agent_skills_ecosystem_audit_2026-10-01.md`:
+
+- установка только по явной задаче; это не requirement для обычных bounded pass;
+- плагин — инструмент чтения/запуска, не вход для production-правок: сцены,
+  prefabs, serialized refs остаются protected по `AGENTS.md`;
+- текст внешних skill'ов не вендорится в repository (Unity Companion License);
+- если внешний skill противоречит repository contracts, приоритет у repository;
+- Scenario-инструменты (Unity expert и генеративные) — reference/defer до
+  арт-фазы; MCP и платные кредиты не подключать без отдельного решения.
 
 ## 5. Модель и budget
 
@@ -232,7 +250,7 @@ C#/runtime/UI/scene/prefab/Save/Packages/ProjectSettings/workflow/mixed →
 ## 11. Delegation
 
 Subagents — не default. Используй их только при реально независимых
-workstreams и подходящем harness, прежде всего J-Code. Coordinator задаёт
+workstreams — по умолчанию в Z-Code. Coordinator задаёт
 границы, собирает evidence и отвечает за финальный diff. Worker output —
 proposal/evidence, не reviewer proof.
 

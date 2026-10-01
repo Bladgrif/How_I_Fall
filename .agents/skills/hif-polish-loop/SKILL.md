@@ -50,7 +50,7 @@ Budget remaining:
 
 ## Context и baseline
 
-Сначала прочитай `AGENTS.md`, только relevant product/research contracts, ближайшие production files/tests, relevant baseline и существующий graphical E2E/launcher. Для больших файлов сначала search и точные spans; расширяй pack только после доказанной зависимости.
+Сначала прочитай `AGENTS.md`, только relevant product/research contracts, ближайшие production files/tests, relevant baseline и существующий graphical E2E/launcher. Для больших файлов сначала search и точные spans; расширяй pack только после доказанной зависимости. Для диагностики конкретного дефекта используй `$hif-debug-routing` вместо переоткрытия карты тестов/launcher'ов.
 
 До visual change переиспользуй существующий graphical E2E/launcher и, если инфраструктура позволяет, получи current screenshot. Не создавай второй graphical QA framework. Свежий точный baseline не нужно перезапускать только ради формальности.
 
@@ -80,12 +80,12 @@ Budget remaining:
 
 Среду и модель выбирает reviewer по `docs/product/agent_orchestration.md`.
 
-- **GLM-5.3-Flash** — default Z-Code/J-Code worker для routine Unity/C#/UI, visual polish, QA и correction loops.
+- **GLM-5.3-Flash** — default Z-Code worker для routine Unity/C#/UI, visual polish, QA и correction loops.
 - **GPT-6 Luna** — Codex high-volume workhorse для focused bounded implementation, tests/docs и independent second pass.
 - **GLM-5.3 / GPT-6.1 Sol** — escalation для сложного reasoning/lifecycle/state/high regression-risk; GPT-6.1 Sol также preferred Codex finisher для high-visibility target-match и final visual correction.
 - **GPT-6 Astra** — hardest/high-risk end-to-end work, не default visual-polish coder.
 
-Если нужен multi-agent harness, предпочитай J-Code только при 2+ genuinely independent workstreams, отдельном read-only review или полезном parallel production/tests/QA investigation. Обычно 2–3 агента и один coordinator.
+Multi-agent работа — default в Z-Code: coordinator/writer + read-only investigator'ы в количестве, оправданном независимыми workstreams (2/3/5+). J-Code — только когда его конкретное harness-поведение даёт преимущество для задачи, а не сам факт multi-agent. Обычно 2–3 агента и один coordinator.
 
 Не давай нескольким агентам конкурирующе редактировать одну поверхность, scene/prefab или serialized asset. Worker output — proposal/evidence, не reviewer proof. Если реального routing/delegation нет, не имитируй его.
 
