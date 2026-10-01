@@ -26,6 +26,10 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
     private const float ConfirmationDuration = 0.12f;
     private static readonly Color ActiveTabOutlineColor = new Color(0.28f, 0.54f, 0.76f, 0.62f);
     private static readonly Color InactiveTabOutlineColor = new Color(0.16f, 0.25f, 0.34f, 0.34f);
+    // Hover and EventSystem selection share one plate lift. The serialized
+    // strip tints multiply the dark navy plates into near-black, so keyboard
+    // selection was invisible on every entry and indistinguishable from hover.
+    private static readonly Color StripFocusTint = new Color(1.75f, 1.75f, 1.75f, 1f);
 
     public int visualVersion;
     public CanvasGroup canvasGroup;
@@ -114,6 +118,7 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         ApplyPlayerFacingPalette();
         ConfigureConfirmationPresentation();
         ConfigureCompactNavigationPresentation();
+        ConfigureStripInteractionOwnership();
         if (canvasGroup == null)
         {
             canvasGroup = GetComponent<CanvasGroup>();
@@ -203,6 +208,61 @@ public sealed class ManualSaveLoadPanel : MonoBehaviour
         compactNavigationRoot.pivot = new Vector2(0.5f, 0.5f);
         compactNavigationRoot.anchoredPosition = new Vector2(0f, 54f);
         compactNavigationRoot.sizeDelta = new Vector2(1040f, 64f);
+    }
+
+    // Runtime-only ownership contract for the unified strip and delete controls:
+    // pointer hover transfers the EventSystem selection (one strong owner, Submit
+    // acts on the control the UI presents as selected), and the strip hover/selected
+    // tint lifts the plate clearly so keyboard/controller focus stays readable even
+    // on the already-highlighted active entry. The delete button keeps its authored
+    // red duality; the transfer alone resolves its hover-vs-selection ambiguity.
+    private void ConfigureStripInteractionOwnership()
+    {
+        ApplyStripOwnership(quickTabButton);
+        ApplyStripOwnership(autoTabButton);
+        ApplyStripOwnership(previousManualPageButton);
+        ApplyStripOwnership(nextManualPageButton);
+        if (manualPageButtons != null)
+        {
+            for (int index = 0; index < manualPageButtons.Length; index++)
+            {
+                ApplyStripOwnership(manualPageButtons[index]);
+            }
+        }
+
+        if (slotViews != null)
+        {
+            for (int index = 0; index < slotViews.Length; index++)
+            {
+                ManualSaveSlotView view = slotViews[index];
+                if (view != null && view.deleteButton != null)
+                {
+                    EnsurePointerSelectionTransfer(view.deleteButton);
+                }
+            }
+        }
+    }
+
+    private static void ApplyStripOwnership(Button button)
+    {
+        if (button == null)
+        {
+            return;
+        }
+
+        ColorBlock colors = button.colors;
+        colors.highlightedColor = StripFocusTint;
+        colors.selectedColor = StripFocusTint;
+        button.colors = colors;
+        EnsurePointerSelectionTransfer(button);
+    }
+
+    private static void EnsurePointerSelectionTransfer(Button button)
+    {
+        if (button != null && button.GetComponent<PointerEnterSelectionTransfer>() == null)
+        {
+            button.gameObject.AddComponent<PointerEnterSelectionTransfer>();
+        }
     }
 
     private void ConfigureStoryMomentPresentation()
