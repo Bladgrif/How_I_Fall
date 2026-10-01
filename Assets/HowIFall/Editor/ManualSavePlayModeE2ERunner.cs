@@ -34,6 +34,10 @@ public static class ManualSavePlayModeE2ERunner
     private const string DeleteConfirmationCompactProofFileName = "gameplay_delete_confirmation_1280x720.png";
     private const string InvalidSaveProofFileName = "gameplay_invalid_save_slot_1920x1080.png";
     private const string EmptySlotFocusProofFileName = "save_load_empty_slot_focus_1920x1080.png";
+    private const string StripKeyboardFocusProofFileName = "save_load_strip_keyboard_focus_1920x1080.png";
+    private const string StripHoverTransferProofFileName = "save_load_strip_hover_transfers_selection_1920x1080.png";
+    private const string StripSubmitOwnerProofFileName = "save_load_strip_submit_owner_1920x1080.png";
+    private const string DeleteHoverOwnershipProofFileName = "save_load_delete_hover_ownership_1920x1080.png";
     private static readonly Vector2Int QaResolution = new Vector2Int(1920, 1080);
     private static readonly Vector2Int CompactQaResolution = new Vector2Int(1280, 720);
 
@@ -128,6 +132,54 @@ public static class ManualSavePlayModeE2ERunner
                 break;
             case "WaitUiScreenshot":
                 WaitUiScreenshot();
+                break;
+            case "SetStripLoadMode":
+                SetStripLoadMode();
+                break;
+            case "CaptureStripKeyboardFocus":
+                CaptureStripKeyboardFocus();
+                break;
+            case "CaptureStripKeyboardFocusShot":
+                CaptureStripKeyboardFocusShot();
+                break;
+            case "WaitStripKeyboardFocus":
+                WaitStripKeyboardFocus();
+                break;
+            case "CaptureStripHoverTransfer":
+                CaptureStripHoverTransfer();
+                break;
+            case "CaptureStripHoverTransferShot":
+                CaptureStripHoverTransferShot();
+                break;
+            case "WaitStripHoverTransfer":
+                WaitStripHoverTransfer();
+                break;
+            case "CaptureStripSubmitOwner":
+                CaptureStripSubmitOwner();
+                break;
+            case "CaptureStripSubmitOwnerShot":
+                CaptureStripSubmitOwnerShot();
+                break;
+            case "WaitStripSubmitOwner":
+                WaitStripSubmitOwner();
+                break;
+            case "SetStripPointerExit":
+                SetStripPointerExit();
+                break;
+            case "CaptureDeleteHoverOwnership":
+                CaptureDeleteHoverOwnership();
+                break;
+            case "CaptureDeleteHoverTransfer":
+                CaptureDeleteHoverTransfer();
+                break;
+            case "CaptureDeleteHoverOwnershipShot":
+                CaptureDeleteHoverOwnershipShot();
+                break;
+            case "WaitDeleteHoverOwnership":
+                WaitDeleteHoverOwnership();
+                break;
+            case "RestoreSaveModeAfterOwnership":
+                RestoreSaveModeAfterOwnership();
                 break;
             case "CaptureEmptySlotFocus":
                 CaptureEmptySlotFocus();
@@ -454,8 +506,188 @@ public static class ManualSavePlayModeE2ERunner
         Pass($"Save UI layout and screenshot {resolution.x}x{resolution.y}");
 
         SessionState.SetInt(CounterKey, 0);
-        SessionState.SetString(StageKey, "CaptureEmptySlotFocus");
+        SessionState.SetString(StageKey, "SetStripLoadMode");
         SetDelay(0.2d);
+    }
+
+    // Hover-vs-focus ownership proof for the unified strip and delete controls:
+    // keyboard selection, pointer hover transfer, Submit alignment, pointer exit
+    // and delete hover ownership must each present exactly one strong interaction
+    // owner. Captures run one settle delay after their interaction so ColorTint
+    // fades are settled, and every simulated pointer enter is paired with an exit
+    // (a real pointer always generates the matching exit when it moves on).
+    private static void SetStripLoadMode()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen, "Save panel closed before strip ownership proof.");
+        panel.OpenLoad();
+        Require(panel.IsOpen && !panel.IsSaveMode, "Load mode did not open for the strip ownership proof.");
+        Require(panel.CurrentManualPage == 1, "Load mode did not reset the strip to page 1.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureStripKeyboardFocus");
+        SetDelay(0.3d);
+    }
+
+    private static void CaptureStripKeyboardFocus()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen && !panel.IsSaveMode, "Load panel closed before strip keyboard focus proof.");
+        Button page2 = panel.manualPageButtons[1];
+        EventSystem.current.SetSelectedGameObject(page2.gameObject);
+        Require(EventSystem.current.currentSelectedGameObject == page2.gameObject,
+            "Keyboard/controller selection did not land on strip page 2.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureStripKeyboardFocusShot");
+        SetDelay(0.35d);
+    }
+
+    private static void CaptureStripKeyboardFocusShot()
+    {
+        CaptureProofScreenshot(StripKeyboardFocusProofFileName, "WaitStripKeyboardFocus");
+    }
+
+    private static void WaitStripKeyboardFocus()
+    {
+        if (!WaitForProofScreenshot(StripKeyboardFocusProofFileName, "Strip keyboard focus screenshot")) return;
+        Pass("Strip keyboard focus state captured");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureStripHoverTransfer");
+        SetDelay(0.2d);
+    }
+
+    private static void CaptureStripHoverTransfer()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen && !panel.IsSaveMode, "Load panel closed before hover transfer proof.");
+        Button page3 = panel.manualPageButtons[2];
+        ExecuteEvents.Execute<IPointerEnterHandler>(page3.gameObject,
+            new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+        Require(EventSystem.current.currentSelectedGameObject == page3.gameObject,
+            "Pointer hover on strip page 3 must transfer the EventSystem selection: one strong owner.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureStripHoverTransferShot");
+        SetDelay(0.35d);
+    }
+
+    private static void CaptureStripHoverTransferShot()
+    {
+        CaptureProofScreenshot(StripHoverTransferProofFileName, "WaitStripHoverTransfer");
+    }
+
+    private static void WaitStripHoverTransfer()
+    {
+        if (!WaitForProofScreenshot(StripHoverTransferProofFileName, "Strip hover transfer screenshot")) return;
+        Pass("Strip hover transfer state captured");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureStripSubmitOwner");
+        SetDelay(0.2d);
+    }
+
+    private static void CaptureStripSubmitOwner()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen && !panel.IsSaveMode, "Load panel closed before strip Submit proof.");
+        GameObject selected = EventSystem.current.currentSelectedGameObject;
+        Require(selected != null && selected == panel.manualPageButtons[2].gameObject,
+            "The visually selected strip owner must still own the selection before Submit.");
+        ExecuteEvents.Execute<ISubmitHandler>(selected, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+        Require(panel.CurrentManualPage == 3,
+            "Submit must activate the strip entry the UI presented as selected.");
+        Require(EventSystem.current.currentSelectedGameObject == panel.manualPageButtons[2].gameObject,
+            "Submit must leave the activated page as the single EventSystem selection.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureStripSubmitOwnerShot");
+        SetDelay(0.35d);
+    }
+
+    private static void CaptureStripSubmitOwnerShot()
+    {
+        CaptureProofScreenshot(StripSubmitOwnerProofFileName, "WaitStripSubmitOwner");
+    }
+
+    private static void WaitStripSubmitOwner()
+    {
+        if (!WaitForProofScreenshot(StripSubmitOwnerProofFileName, "Strip Submit owner screenshot")) return;
+        Pass("Strip Submit activation matches the visible owner");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "SetStripPointerExit");
+        SetDelay(0.2d);
+    }
+
+    private static void SetStripPointerExit()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen && !panel.IsSaveMode, "Load panel closed before strip pointer exit proof.");
+        ExecuteEvents.Execute<IPointerExitHandler>(panel.manualPageButtons[2].gameObject,
+            new PointerEventData(EventSystem.current), ExecuteEvents.pointerExitHandler);
+        Require(EventSystem.current.currentSelectedGameObject == panel.manualPageButtons[2].gameObject,
+            "Pointer exit keeps the transferred selection so Submit and navigation stay deterministic.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureDeleteHoverOwnership");
+        SetDelay(0.4d);
+    }
+
+    private static void CaptureDeleteHoverOwnership()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen && !panel.IsSaveMode, "Load panel closed before delete ownership proof.");
+        panel.SelectManualPage(1);
+        ManualSaveSlotView slot1 = panel.slotViews[0];
+        Require(slot1 != null && slot1.button.interactable, "Occupied slot 1 is not loadable for the delete ownership proof.");
+        Require(slot1.deleteButton != null && slot1.deleteButton.gameObject.activeSelf && slot1.deleteButton.interactable,
+            "The delete control of occupied slot 1 is missing.");
+        EventSystem.current.SetSelectedGameObject(slot1.button.gameObject);
+        Require(EventSystem.current.currentSelectedGameObject == slot1.button.gameObject,
+            "The occupied card did not take the keyboard selection for the delete ownership proof.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureDeleteHoverTransfer");
+        SetDelay(0.4d);
+    }
+
+    private static void CaptureDeleteHoverTransfer()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen && !panel.IsSaveMode, "Load panel closed before delete hover transfer proof.");
+        Button staleCandidate = panel.manualPageButtons[2];
+        Color settledTint = staleCandidate.GetComponent<CanvasRenderer>().GetColor();
+        Require(settledTint.r < 0.2f,
+            $"Pointer exit must clear the strip highlight: page 3 must fade back to the normal tint after losing hover and selection; actual {settledTint}; "
+                + $"selection={EventSystem.current?.currentSelectedGameObject?.name}; "
+                + $"interactable={staleCandidate.interactable}; isActiveAndEnabled={staleCandidate.isActiveAndEnabled}");
+        ManualSaveSlotView slot1 = panel.slotViews[0];
+        ExecuteEvents.Execute<IPointerEnterHandler>(slot1.deleteButton.gameObject,
+            new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+        Require(EventSystem.current.currentSelectedGameObject == slot1.deleteButton.gameObject,
+            "Hovering the delete control must transfer the selection from the card: one strong owner.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureDeleteHoverOwnershipShot");
+        SetDelay(0.35d);
+    }
+
+    private static void CaptureDeleteHoverOwnershipShot()
+    {
+        CaptureProofScreenshot(DeleteHoverOwnershipProofFileName, "WaitDeleteHoverOwnership");
+    }
+
+    private static void WaitDeleteHoverOwnership()
+    {
+        if (!WaitForProofScreenshot(DeleteHoverOwnershipProofFileName, "Delete hover ownership screenshot")) return;
+        Pass("Delete hover ownership state captured");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "RestoreSaveModeAfterOwnership");
+        SetDelay(0.2d);
+    }
+
+    private static void RestoreSaveModeAfterOwnership()
+    {
+        ManualSaveLoadPanel panel = VNDialogueController.Instance.manualSaveLoadPanel;
+        Require(panel != null && panel.IsOpen, "Panel closed before restoring Save mode.");
+        panel.OpenSave();
+        Require(panel.IsOpen && panel.IsSaveMode && panel.CurrentManualPage == 1,
+            "Save mode was not restored after the strip ownership proof.");
+        SessionState.SetInt(CounterKey, 0);
+        SessionState.SetString(StageKey, "CaptureEmptySlotFocus");
+        SetDelay(0.3d);
     }
 
     private static void CaptureEmptySlotFocus()

@@ -164,6 +164,13 @@ public static class ManualSaveSystemV1SmokeTests
                 panel.slotViews[i].Initialize(panel, i + 1);
             }
 
+            MethodInfo ownershipMethod = typeof(ManualSaveLoadPanel).GetMethod(
+                "ConfigureStripInteractionOwnership",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Require(ownershipMethod != null, "Save/Load strip interaction ownership configuration is missing.");
+            ownershipMethod.Invoke(panel, null);
+            VerifyStripPointerOwnership(panel);
+
             RenderPanelForSmoke(panel, context.Manager, SaveSlotType.Manual, false);
             VerifyStripVisualState(panel, SaveSlotType.Manual);
             Require(panel.manualPaginationRoot.activeSelf, "Unified strip root is hidden in Load.");
@@ -214,6 +221,28 @@ public static class ManualSaveSystemV1SmokeTests
         finally
         {
             PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
+    private static void VerifyStripPointerOwnership(ManualSaveLoadPanel panel)
+    {
+        foreach (UnityEngine.UI.Button entry in new[] { panel.quickTabButton, panel.autoTabButton }.Concat(panel.manualPageButtons))
+        {
+            Require(entry != null, "Strip entry disappeared before ownership verification.");
+            Require(entry.GetComponent<PointerEnterSelectionTransfer>() != null,
+                $"{entry.name} is missing the pointer hover selection transfer.");
+            Require(entry.colors.selectedColor == entry.colors.highlightedColor,
+                $"{entry.name} hover and selection must share one strong selected treatment.");
+            Require(entry.colors.selectedColor.r > 1.2f,
+                $"{entry.name} selected tint must visibly lift the dark plate instead of multiplying it toward black.");
+        }
+
+        foreach (ManualSaveSlotView view in panel.slotViews)
+        {
+            Require(view.deleteButton != null && view.deleteButton.GetComponent<PointerEnterSelectionTransfer>() != null,
+                "The delete control is missing the pointer hover selection transfer.");
+            Require(view.deleteButton.colors.highlightedColor == view.deleteButton.colors.selectedColor,
+                "Delete hover and selection keep their authored red duality, resolved by the transfer.");
         }
     }
 
