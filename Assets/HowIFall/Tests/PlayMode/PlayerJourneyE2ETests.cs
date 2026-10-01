@@ -272,24 +272,20 @@ namespace HowIFall.PlayModeTests
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(gameMenu.View.GetButton(VNGameMenuAction.Save).gameObject),
                 "Game Menu did not assign initial Save focus.");
             Button quitAction = gameMenu.View.GetButton(VNGameMenuAction.Quit);
-            Button backAction = gameMenu.View.GetButton(VNGameMenuAction.Back);
             Hover(quitAction, "Game Menu Quit");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(quitAction.gameObject));
             gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
             Assert.That(gameMenu.View.GetButton(VNGameMenuAction.Save).transform.Find("Focus Plate").gameObject.activeSelf, Is.False,
                 "Save kept its cyan plate after Quit pointer hover.");
-            Hover(backAction, "Game Menu Back");
-            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(backAction.gameObject));
-            gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
             Assert.That(gameMenu.View.VisibleFocusMarkerCount, Is.EqualTo(1));
             Canvas.ForceUpdateCanvases();
-            Button keyboardNext = backAction.FindSelectableOnUp() as Button;
-            Assert.That(keyboardNext, Is.Not.Null, "Game Menu keyboard navigation has no row above Back.");
-            ExecuteEvents.Execute<IMoveHandler>(backAction.gameObject,
+            Button keyboardNext = quitAction.FindSelectableOnUp() as Button;
+            Assert.That(keyboardNext, Is.Not.Null, "Game Menu keyboard navigation has no row above Quit.");
+            ExecuteEvents.Execute<IMoveHandler>(quitAction.gameObject,
                 new AxisEventData(EventSystem.current) { moveDir = MoveDirection.Up, moveVector = Vector2.up },
                 ExecuteEvents.moveHandler);
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(keyboardNext.gameObject),
-                "Keyboard navigation did not continue from the pointer-selected Back row.");
+                "Keyboard navigation did not continue from the pointer-selected Quit row.");
             gameMenu.View.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
             Assert.That(gameMenu.View.VisibleFocusMarkerCount, Is.EqualTo(1),
                 "Keyboard navigation left a second mouse-owned focus marker.");

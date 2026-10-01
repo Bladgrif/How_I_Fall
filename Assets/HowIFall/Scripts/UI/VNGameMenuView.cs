@@ -16,7 +16,6 @@ public enum VNGameMenuAction
     MainMenu,
     EndReplay,
     Quit,
-    Back,
     Return
 }
 
@@ -498,7 +497,6 @@ public sealed class VNGameMenuView : MonoBehaviour
         CreateActionButton(primaryActions.transform, VNGameMenuAction.MainMenu, "Главное меню");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.EndReplay, "Завершить повтор");
         CreateActionButton(primaryActions.transform, VNGameMenuAction.Quit, "Выйти");
-        CreateActionButton(primaryActions.transform, VNGameMenuAction.Back, "Назад");
 
         GameObject returnArea = CreateUiObject(navigation.transform, "Return Area");
         RectTransform returnAreaRect = returnArea.GetComponent<RectTransform>();

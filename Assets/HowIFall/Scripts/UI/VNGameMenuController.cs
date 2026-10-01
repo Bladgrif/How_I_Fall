@@ -139,7 +139,6 @@ public sealed class VNGameMenuController : MonoBehaviour
         dialogueController = controller;
         view = runtimeView;
         Bind(VNGameMenuAction.Return, HandleReturn);
-        Bind(VNGameMenuAction.Back, HandleBack);
         Bind(VNGameMenuAction.Save, OpenSave);
         Bind(VNGameMenuAction.Load, OpenLoad);
         Bind(VNGameMenuAction.Preferences, OpenPreferences);
@@ -305,17 +304,6 @@ public sealed class VNGameMenuController : MonoBehaviour
         }
 
         Close();
-    }
-
-    private void HandleBack()
-    {
-        if (childContext == ChildContext.SaveLoad)
-        {
-            TryLeaveSaveLoadSection();
-            return;
-        }
-
-        TryHandleEscape();
     }
 
     private void CloseSaveLoadSection()

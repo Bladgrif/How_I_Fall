@@ -82,7 +82,7 @@ Budget remaining:
 
 - **GLM-5.3-Flash** — default Z-Code/J-Code worker для routine Unity/C#/UI, visual polish, QA и correction loops.
 - **GPT-6 Luna** — Codex high-volume workhorse для focused bounded implementation, tests/docs и independent second pass.
-- **GLM-5.3 / GPT-6 Sol** — escalation для реально сложного reasoning, lifecycle/state или high regression-risk.
+- **GLM-5.3 / GPT-6.1 Sol** — escalation для сложного reasoning/lifecycle/state/high regression-risk; GPT-6.1 Sol также preferred Codex finisher для high-visibility target-match и final visual correction.
 - **GPT-6 Astra** — hardest/high-risk end-to-end work, не default visual-polish coder.
 
 Если нужен multi-agent harness, предпочитай J-Code только при 2+ genuinely independent workstreams, отдельном read-only review или полезном parallel production/tests/QA investigation. Обычно 2–3 агента и один coordinator.

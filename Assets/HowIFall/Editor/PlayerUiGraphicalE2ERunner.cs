@@ -1620,9 +1620,14 @@ public static class PlayerUiGraphicalE2ERunner
         Require(navigated != null && navigated != before,
             "Keyboard navigation after pointer exit did not move the Game Menu selection.");
         view.AdvanceFocusFade(VNGameMenuView.FocusFadeDuration);
-        Require(IsFocusMarkerVisible(view, VNGameMenuAction.Back) && view.VisibleFocusMarkerCount == 1,
+        Button navigatedRow = navigated.GetComponent<Button>();
+        VNGameMenuAction navigatedAction = Enum.GetValues(typeof(VNGameMenuAction)).Cast<VNGameMenuAction>()
+            .FirstOrDefault(action => view.GetButton(action) == navigatedRow);
+        Require(navigatedRow != null && view.GetButton(navigatedAction) == navigatedRow,
+            "Keyboard navigation after pointer exit did not land on a Game Menu row.");
+        Require(IsFocusMarkerVisible(view, navigatedAction) && view.VisibleFocusMarkerCount == 1,
             "Keyboard navigation after pointer exit must restore exactly one visible Game Menu highlight.");
-        Require(FocusMarkerAlpha(view, VNGameMenuAction.Back) > 0.999f,
+        Require(FocusMarkerAlpha(view, navigatedAction) > 0.999f,
             "Keyboard-returned Game Menu focus did not settle at full alpha.");
         Capture("game_menu_keyboard_focus_return_1920x1080.png", "CaptureFocusedGameMenuAlternateFocus");
     }
