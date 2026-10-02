@@ -117,6 +117,51 @@ jobs:
           echo "run_utf=$run_utf" | tee -a "$GITHUB_OUTPUT"
           echo "run_smoke=$run_smoke" | tee -a "$GITHUB_OUTPUT"
 
+      - name: Collect changed visual review images
+        id: visual_review
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          found=false
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              docs/visual-baselines/*.png|docs/ui-targets/*.png)
+                if [[ -f "$path" ]]; then
+                  if [[ "$found" != "true" ]]; then
+                    mkdir -p visual-review
+                    {
+                      echo "base=$BASE_SHA"
+                      echo "head=$HEAD_SHA"
+                      echo "files:"
+                    } > visual-review/manifest.txt
+                  fi
+
+                  target="visual-review/$path"
+                  mkdir -p "$(dirname "$target")"
+                  cp -- "$path" "$target"
+                  echo "$path" >> visual-review/manifest.txt
+                  found=true
+                fi
+                ;;
+            esac
+          done < <(git diff --name-only --diff-filter=AM -z "$BASE_SHA" "$HEAD_SHA")
+
+          echo "has_images=$found" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Upload visual review images
+        if: ${{ github.event_name == 'pull_request' && steps.visual_review.outputs.has_images == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-review-${{ github.run_number }}
+          path: visual-review/
+          if-no-files-found: error
+          retention-days: 7
+
   unity-tests:
     name: Unity Test Framework
     needs: classify
