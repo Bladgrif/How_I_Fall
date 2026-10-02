@@ -10,6 +10,7 @@ Google Drive остаётся удобным зеркалом для челов�
 - `02_Reading_Target_v1.png`
 - `03_Game_Menu_Target_v1.png`
 - `04_Choice_Target_v1.png`
+- `05_Speaker_Dialogue_Target_v1.svg` — detail/state sheet; `02_Reading_Target_v1.png` remains the base Reading composition
 - `06_History_Target_v1.png`
 
 Правила:
