@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1a2b"/>
+      <stop offset="55%" stop-color="#101a2a"/>
+      <stop offset="100%" stop-color="#07111d"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#000814" flood-opacity="0.45"/>
+    </filter>
+    <style><![CDATA[
+      .title { font-family: "DejaVu Sans", "Arial", sans-serif; font-weight: 700; fill: #f0f7ff; font-size: 34px; }
+      .sub { font-family: "DejaVu Sans", "Arial", sans-serif; fill: #a6bbd2; font-size: 17px; }
+      .h { font-family: "DejaVu Sans", "Arial", sans-serif; font-weight: 700; fill: #f0f7ff; font-size: 21px; }
+      .tag { font-family: "DejaVu Sans", "Arial", sans-serif; font-weight: 700; fill: #4ee2ff; font-size: 14px; letter-spacing: .3px; }
+      .name { font-family: "DejaVu Sans", "Arial", sans-serif; font-weight: 700; fill: #4ee2ff; font-size: 22px; }
+      .body { font-family: "DejaVu Sans", "Arial", sans-serif; fill: #f0f7ff; font-size: 19px; }
+      .note { font-family: "DejaVu Sans", "Arial", sans-serif; fill: #a6bbd2; font-size: 14px; }
+      .panel { fill: #071829; fill-opacity: .96; stroke: #499dc1; stroke-opacity: .75; stroke-width: 2; }
+      .card { fill: #081b2e; fill-opacity: .97; stroke: #417e9a; stroke-opacity: .72; stroke-width: 1; }
+      .inner { fill: #0d263e; stroke: #2e5d78; stroke-opacity: .75; stroke-width: 1; }
+      .cyan-line { stroke: #4ee2ff; stroke-width: 2; }
+    ]]></style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <circle cx="1650" cy="150" r="380" fill="#14324d" opacity=".20"/>
+  <circle cx="280" cy="910" r="420" fill="#1c3550" opacity=".16"/>
+
+  <text x="54" y="58" class="title">05. SPEAKER / DIALOGUE — TARGET v1</text>
+  <text x="54" y="91" class="sub">Detail/state sheet for accepted Reading UI • fixture text only • NOT CANON</text>
+  <line x1="54" y1="108" x2="1866" y2="108" stroke="#4ee2ff" stroke-opacity=".55" stroke-width="2"/>
+
+  <!-- Base Reading reference -->
+  <rect x="54" y="136" width="1116" height="624" rx="24" class="panel" filter="url(#shadow)"/>
+  <text x="82" y="175" class="h">01. BASE — accepted Reading target</text>
+  <image x="112" y="204" width="1000" height="562.5" preserveAspectRatio="xMidYMid meet"
+         xlink:href="02_Reading_Target_v1.png"/>
+  <rect x="112" y="204" width="1000" height="562.5" rx="14" fill="none" stroke="#56bfdc" stroke-opacity=".68" stroke-width="2"/>
+
+  <!-- Short speaker -->
+  <text x="1200" y="150" class="tag">02. SHORT SPEAKER / 1–2 LINES</text>
+  <rect x="1200" y="158" width="666" height="148" rx="18" class="card"/>
+  <rect x="1218" y="176" width="630" height="112" rx="14" class="inner"/>
+  <text x="1240" y="206" class="name">Артём</text>
+  <line x1="1240" y1="216" x2="1278" y2="216" class="cyan-line"/>
+  <text x="1240" y="248" class="body">Я делаю вид, что ничего не произошло.</text>
+  <text x="1240" y="275" class="body">Получается плохо.</text>
+  <path d="M1812 258 l14 0 l-7 10 z" fill="#4ee2ff"/>
+
+  <!-- Long name -->
+  <text x="1200" y="337" class="tag">03. LONG SPEAKER NAME — no collision</text>
+  <rect x="1200" y="344" width="666" height="162" rx="18" class="card"/>
+  <rect x="1218" y="362" width="630" height="126" rx="14" class="inner"/>
+  <text x="1240" y="392" class="name">Александр Сергеевич</text>
+  <line x1="1240" y1="402" x2="1278" y2="402" class="cyan-line"/>
+  <text x="1240" y="437" class="body">Имя не давит на текст и не ломает</text>
+  <text x="1240" y="464" class="body">ритм строки.</text>
+
+  <!-- Narration -->
+  <text x="1200" y="537" class="tag">04. NARRATION — no speaker label</text>
+  <rect x="1200" y="544" width="666" height="146" rx="18" class="card"/>
+  <rect x="1218" y="562" width="630" height="110" rx="14" class="inner"/>
+  <text x="1240" y="602" class="body">За окнами класс постепенно затихал.</text>
+  <text x="1240" y="631" class="body">Остался только мягкий свет.</text>
+
+  <!-- Bottom detail area -->
+  <rect x="54" y="790" width="1812" height="228" rx="24" class="panel"/>
+  <text x="82" y="828" class="h">STATE / SCALE DETAILS</text>
+
+  <text x="82" y="861" class="tag">05. TYPING</text>
+  <rect x="82" y="868" width="538" height="126" rx="18" class="card"/>
+  <rect x="100" y="886" width="502" height="90" rx="14" class="inner"/>
+  <text x="120" y="916" class="name">Артём</text>
+  <line x1="120" y1="926" x2="158" y2="926" class="cyan-line"/>
+  <text x="120" y="956" class="body">Я делаю вид, что ничего</text>
+  <rect x="353" y="940" width="3" height="23" fill="#4ee2ff"/>
+
+  <text x="650" y="861" class="tag">06. COMPLETE</text>
+  <rect x="650" y="868" width="538" height="126" rx="18" class="card"/>
+  <rect x="668" y="886" width="502" height="90" rx="14" class="inner"/>
+  <text x="688" y="916" class="name">Артём</text>
+  <line x1="688" y1="926" x2="726" y2="926" class="cyan-line"/>
+  <text x="688" y="956" class="body">Реплика завершена.</text>
+  <path d="M1137 946 l14 0 l-7 10 z" fill="#4ee2ff"/>
+
+  <text x="1218" y="861" class="tag">07. UI SCALE 125% — hierarchy preserved</text>
+  <rect x="1218" y="868" width="620" height="126" rx="18" class="card"/>
+  <rect x="1236" y="886" width="584" height="90" rx="14" class="inner"/>
+  <text x="1256" y="916" class="name">Артём</text>
+  <line x1="1256" y1="926" x2="1294" y2="926" class="cyan-line"/>
+  <text x="1256" y="956" class="body">Текст остаётся читаемым.</text>
+  <path d="M1787 946 l14 0 l-7 10 z" fill="#4ee2ff"/>
+
+  <!-- Rules -->
+  <g transform="translate(70,1032)">
+    <rect x="0" y="0" width="210" height="30" rx="12" fill="#0f2d43"/>
+    <text x="11" y="20" class="note">Speaker: cyan + short underline</text>
+    <rect x="220" y="0" width="110" height="30" rx="12" fill="#0f2d43"/>
+    <text x="231" y="20" class="note">Body: white</text>
+    <rect x="340" y="0" width="160" height="30" rx="12" fill="#0f2d43"/>
+    <text x="351" y="20" class="note">Narration: text-only</text>
+    <rect x="510" y="0" width="175" height="30" rx="12" fill="#0f2d43"/>
+    <text x="521" y="20" class="note">Advance: cyan chevron</text>
+    <rect x="695" y="0" width="235" height="30" rx="12" fill="#0f2d43"/>
+    <text x="706" y="20" class="note">Fixture copy only / NOT CANON</text>
+  </g>
+</svg>
