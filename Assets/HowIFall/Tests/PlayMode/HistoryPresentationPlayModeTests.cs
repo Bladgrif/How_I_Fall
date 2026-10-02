@@ -82,21 +82,40 @@ public class HistoryPresentationPlayModeTests
         Assert.That(rows[0].Find("History Entry Text") != null, Is.True, "Speaker entry must expose a body label.");
         Assert.That(rows[1].Find("History Entry Speaker") == null, Is.True, "Narration entry must not show a speaker label.");
 
-        Assert.That(rows[2].Find("History Entry Focus Bar") != null, Is.True, "Latest entry must carry a light current-state bar.");
-        Assert.That(rows[0].Find("History Entry Focus Bar") == null, Is.True, "Older entries must not carry the current-state bar.");
+        // Target v1: every entry carries a quiet accent bar (cyan for speaker lines,
+        // muted for narration), and only the latest entry gains the soft focus frame.
+        Image speakerBar = rows[0].Find("History Entry Accent Bar")?.GetComponent<Image>();
+        Image narrationBar = rows[1].Find("History Entry Accent Bar")?.GetComponent<Image>();
+        Image latestBar = rows[2].Find("History Entry Accent Bar")?.GetComponent<Image>();
+        Assert.That(speakerBar, Is.Not.Null, "Speaker entry must carry an accent bar.");
+        Assert.That(narrationBar, Is.Not.Null, "Narration entry must carry a muted accent bar.");
+        Assert.That(latestBar, Is.Not.Null, "Latest entry must carry an accent bar.");
+        Assert.That(narrationBar.color, Is.Not.EqualTo(speakerBar.color), "Narration bar must stay muted against the speaker bar.");
+        Assert.That(latestBar.color, Is.Not.EqualTo(speakerBar.color), "Latest bar must read brighter than older speaker bars.");
+
+        Assert.That(rows[2].Find("History Entry Focus Frame") != null, Is.True, "Latest entry must carry the soft current-state frame.");
+        Assert.That(rows[0].Find("History Entry Focus Frame") == null, Is.True, "Older entries must not carry the current-state frame.");
         Image latestPlate = rows[2].GetComponent<Image>();
         Image olderPlate = rows[0].GetComponent<Image>();
-        Assert.That(latestPlate.color != olderPlate.color, Is.True, "Latest plate must be visually distinct from older plates.");
+        Assert.That(latestPlate.color.a, Is.GreaterThan(0.01f), "Latest entry must keep a subtle fill.");
+        Assert.That(olderPlate.color.a, Is.LessThan(0.01f), "Older entries must stay transparent against the panel.");
         Assert.That(olderPlate.raycastTarget, Is.True, "Entry plates must stay part of scroll drag hit-testing.");
 
         TextMeshProUGUI latestBody = rows[2].Find("History Entry Text")?.GetComponent<TextMeshProUGUI>();
         Assert.That(latestBody, Is.Not.Null);
         Assert.That(latestBody.font != null && latestBody.font.name == "Runtime Backlog Cyrillic Fallback",
             Is.True, "History entry labels must use the transient Cyrillic fallback font.");
+
+        Button closeButton = surface.Controller.backlogCloseButton;
+        Assert.That(closeButton, Is.Not.Null);
+        Assert.That(closeButton.targetGraphic is Image closeFill && closeFill.sprite != null,
+            Is.True, "History close action must be styled as the target pill.");
+        Assert.That(closeButton.colors.normalColor, Is.EqualTo(Color.white),
+            "Close button ColorBlock must stay neutral while presentation owns visible states.");
     }
 
     [UnityTest]
-    public IEnumerator ShowBacklog_WithoutEntries_KeepsEmptySurfaceVisible()
+    public IEnumerator ShowBacklog_WithoutEntries_ShowsComposedEmptyState()
     {
         UnityEngine.TestTools.LogAssert.Expect(LogType.Error, "Dialogue scene data is missing.");
         HistorySurface surface = CreateHistorySurface();
@@ -108,8 +127,17 @@ public class HistoryPresentationPlayModeTests
         surface.Controller.ShowBacklog();
         yield return null;
 
-        Assert.That(surface.EmptyText.gameObject.activeSelf, Is.True, "Empty history must keep the text surface visible.");
-        Assert.That(surface.EmptyText.text, Is.EqualTo("История пока пуста."));
+        Transform emptyState = surface.Controller.backlogPanel.transform.Find("History Empty State");
+        Assert.That(emptyState, Is.Not.Null, "Empty history must render the composed empty state.");
+        Assert.That(emptyState.gameObject.activeSelf, Is.True, "Empty state must be visible without entries.");
+        Assert.That(surface.EmptyText.gameObject.activeSelf, Is.False,
+            "The bare contract text surface stays hidden while the composed empty state renders.");
+        TextMeshProUGUI primary = emptyState.Find("History Empty Primary")?.GetComponent<TextMeshProUGUI>();
+        TextMeshProUGUI secondary = emptyState.Find("History Empty Secondary")?.GetComponent<TextMeshProUGUI>();
+        Assert.That(primary, Is.Not.Null, "Empty state must expose the primary caption.");
+        Assert.That(primary.text, Is.EqualTo("Здесь пока нет записей."));
+        Assert.That(secondary, Is.Not.Null, "Empty state must expose the secondary caption.");
+        Assert.That(secondary.text, Is.EqualTo("История будет заполняться по мере чтения."));
         List<Transform> rows = CollectActiveRows(surface.Content, surface.EmptyText.transform);
         Assert.That(rows.Count, Is.EqualTo(0), "Empty history must not render entry blocks.");
     }

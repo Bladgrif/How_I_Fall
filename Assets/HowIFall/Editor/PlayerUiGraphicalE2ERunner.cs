@@ -229,6 +229,7 @@ public static class PlayerUiGraphicalE2ERunner
                 case "CaptureNegativeRelationshipCue": CaptureNegativeRelationshipCue(); break;
                 case "CaptureMixedRelationshipCue": CaptureMixedRelationshipCue(); break;
                 case "CaptureReadingAfterCue": CaptureReadingAfterCue(); break;
+                case "PrepareBacklogEmpty": PrepareBacklogEmpty(); break;
                 case "PrepareBacklog": PrepareBacklog(); break;
                 case "PrepareDetailedBacklog": PrepareDetailedBacklog(); break;
                 case "CloseDetailedBacklog": CloseDetailedBacklog(); break;
@@ -1103,12 +1104,24 @@ public static class PlayerUiGraphicalE2ERunner
         }
 
         LoadRuntimeFixture(dialogue, "Обычное чтение возвращается без остаточного индикатора последствия.", new List<DialogueChoice>());
-        Capture("gameplay_reading_after_relationship_cue_1920x1080.png", "PrepareBacklog");
+        Capture("gameplay_reading_after_relationship_cue_1920x1080.png", "PrepareBacklogEmpty");
+    }
+
+    private static void PrepareBacklogEmpty()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.HideBacklog();
+        dialogue.ClearBacklog();
+        dialogue.ShowBacklog();
+        Require(dialogue.backlogPanel != null && dialogue.backlogPanel.activeSelf,
+            "Empty History did not open for the empty-state proof.");
+        Capture("gameplay_backlog_empty_1920x1080.png", "PrepareBacklog");
     }
 
     private static void PrepareBacklog()
     {
         VNDialogueController dialogue = RequireGameplayDialogue();
+        dialogue.HideBacklog();
         if (dialogue.notificationPanel != null && dialogue.notificationPanel.activeSelf)
         {
             Retry("Relationship feedback is still visible before reading-control proof.");
