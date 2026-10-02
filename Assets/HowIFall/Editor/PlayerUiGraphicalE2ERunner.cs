@@ -213,6 +213,8 @@ public static class PlayerUiGraphicalE2ERunner
                 case "StartGameplay": StartGameplay(); break;
                 case "WaitGameplay": WaitGameplay(); break;
                 case "CaptureQuickSaveFeedback": CaptureQuickSaveFeedback(); break;
+                case "PrepareTypingDialogue": PrepareTypingDialogue(); break;
+                case "WaitTypingProgress": WaitTypingProgress(); break;
                 case "PrepareLongDialogue": PrepareLongDialogue(); break;
                 case "CaptureResponsiveLongDialogue": CaptureResponsiveLongDialogue(); break;
                 case "RestoreAfterLongDialogue": RestoreAfterLongDialogue(); break;
@@ -853,7 +855,47 @@ public static class PlayerUiGraphicalE2ERunner
 
         Require(dialogue.notificationText != null && dialogue.notificationText.text.Contains("Быстрое сохранение"),
             "Quick Save feedback has unexpected copy.");
-        Capture("gameplay_quick_save_feedback_1920x1080.png", "PrepareLongDialogue");
+        Capture("gameplay_quick_save_feedback_1920x1080.png", "PrepareTypingDialogue");
+    }
+
+    private static void PrepareTypingDialogue()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        if (dialogue.notificationPanel != null && dialogue.notificationPanel.activeSelf)
+        {
+            Retry("Quick Save feedback is still visible before typing-state proof.");
+            return;
+        }
+
+        // Speaker/Dialogue target v1: the in-progress line shows the cyan caret
+        // and no advance cue; the chevron returns only on the completed line.
+        LoadRuntimeFixture(dialogue, LongReadingFixtureText, new List<DialogueChoice>(), false);
+        SessionState.SetString(StageKey, "WaitTypingProgress");
+        ResetCounter();
+        SetDelay(1.5d);
+    }
+
+    private static void WaitTypingProgress()
+    {
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        VerifyTypingPresentationState(dialogue);
+        Capture("gameplay_dialogue_typing_1920x1080.png", "PrepareLongDialogue");
+    }
+
+    private static void VerifyTypingPresentationState(VNDialogueController dialogue)
+    {
+        Require(dialogue.dialogueText != null && dialogue.dialogueText.isActiveAndEnabled,
+            "Typing proof requires the ordinary dialogue text.");
+        Transform caret = dialogue.dialogueText.transform.Find("Typing Caret");
+        Require(caret != null && caret.gameObject.activeInHierarchy,
+            "In-progress line is missing the typing caret.");
+        TextMeshProUGUI advanceIndicator = dialogue.nextButton != null
+            ? dialogue.nextButton.GetComponentInChildren<TextMeshProUGUI>(true)
+            : null;
+        Require(advanceIndicator != null && !advanceIndicator.gameObject.activeInHierarchy,
+            "In-progress line must hide the advance cue until the line completes.");
+        Require(dialogue.dialogueText.text.Length < LongReadingFixtureText.Length,
+            "Typing proof captured a completed line.");
     }
 
     private static void PrepareLongDialogue()
@@ -2516,15 +2558,15 @@ public static class PlayerUiGraphicalE2ERunner
         return dialogue;
     }
 
-    private static void LoadRuntimeFixture(VNDialogueController dialogue, string text, List<DialogueChoice> choices)
+    private static void LoadRuntimeFixture(VNDialogueController dialogue, string text, List<DialogueChoice> choices, bool completeTyping = true)
     {
         LoadRuntimeFixture(dialogue, new List<DialogueLine>
         {
             new DialogueLine { lineId = "reading_1", speaker = string.Empty, text = text }
-        }, choices);
+        }, choices, completeTyping);
     }
 
-    private static void LoadRuntimeFixture(VNDialogueController dialogue, List<DialogueLine> lines, List<DialogueChoice> choices)
+    private static void LoadRuntimeFixture(VNDialogueController dialogue, List<DialogueLine> lines, List<DialogueChoice> choices, bool completeTyping = true)
     {
         DialogueSceneData fixture = ScriptableObject.CreateInstance<DialogueSceneData>();
         fixture.hideFlags = HideFlags.DontSave;
@@ -2538,7 +2580,10 @@ public static class PlayerUiGraphicalE2ERunner
         }
         InvokePrivate(dialogue, "LoadDialogueScene", fixture, 0, false);
         InvokePrivate(dialogue, "ClearChoiceState");
-        CompleteTyping(dialogue);
+        if (completeTyping)
+        {
+            CompleteTyping(dialogue);
+        }
     }
 
     private static void CompleteTyping(VNDialogueController dialogue)
