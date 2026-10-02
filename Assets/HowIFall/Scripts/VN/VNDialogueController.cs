@@ -21,13 +21,41 @@ public class VNDialogueController : MonoBehaviour
     private const string BacklogFallbackFontResourcePath = "Fonts & Materials/LiberationSans SDF - Fallback";
     private const string RuntimeBacklogFallbackFontName = "Runtime Backlog Cyrillic Fallback";
     private const string HistoryTitleUnderlineName = "History Title Red Underline";
-    private static readonly Color HistoryLatestPlateColor = new Color(0.05f, 0.13f, 0.19f, 0.62f);
-    private static readonly Color HistoryEntryPlateColor = new Color(0.02f, 0.06f, 0.10f, 0.40f);
-    private static readonly Color HistoryFocusBarColor = new Color(0.46f, 0.79f, 0.95f, 0.85f);
-    private static readonly Color HistoryLatestSpeakerColor = new Color(0.56f, 0.85f, 0.98f, 1f);
-    private static readonly Color HistorySpeakerColor = new Color(0.69f, 0.77f, 0.85f, 0.91f);
-    private static readonly Color HistoryLatestBodyColor = new Color(0.96f, 0.98f, 1f, 1f);
-    private static readonly Color HistoryBodyColor = new Color(0.91f, 0.93f, 0.96f, 0.91f);
+    // History target v1: a light translucent navy surface floating over readable
+    // gameplay — quiet accent bars per entry, one soft cyan frame on the latest row.
+    private static readonly Color HistoryPanelFillColor = new Color(0.048f, 0.10f, 0.165f, 0.80f);
+    private static readonly Color HistoryPanelEdgeColor = new Color(0.40f, 0.60f, 0.76f, 0.40f);
+    private static readonly Color HistoryCloseFillColor = new Color(0.035f, 0.09f, 0.155f, 0.78f);
+    private static readonly Color HistoryCloseHoverColor = new Color(0.15f, 0.30f, 0.44f, 0.9f);
+    private static readonly Color HistoryClosePressedColor = new Color(0.19f, 0.36f, 0.5f, 0.95f);
+    private static readonly Color HistoryCloseEdgeColor = new Color(0.35f, 0.72f, 0.91f, 0.8f);
+    private static readonly Color HistoryCloseTextColor = new Color(0.92f, 0.96f, 1f, 1f);
+    private static readonly Color HistoryCloseIconColor = new Color(0.82f, 0.93f, 0.99f, 1f);
+    private static readonly Color HistoryTitleColor = new Color(0.95f, 0.97f, 1f, 1f);
+    private static readonly Color HistoryUnderlineColor = new Color(0.31f, 0.70f, 0.91f, 0.95f);
+    private static readonly Color HistorySpeakerBarColor = new Color(0.37f, 0.78f, 0.94f, 0.9f);
+    private static readonly Color HistoryNarrationBarColor = new Color(0.60f, 0.67f, 0.74f, 0.55f);
+    private static readonly Color HistoryLatestBarColor = new Color(0.56f, 0.87f, 0.98f, 1f);
+    private static readonly Color HistoryLatestFillColor = new Color(0.42f, 0.68f, 0.85f, 0.08f);
+    private static readonly Color HistoryLatestFrameColor = new Color(0.36f, 0.75f, 0.94f, 0.85f);
+    private static readonly Color HistoryLatestSpeakerColor = new Color(0.62f, 0.88f, 1f, 1f);
+    private static readonly Color HistorySpeakerColor = new Color(0.42f, 0.79f, 0.95f, 1f);
+    private static readonly Color HistoryLatestBodyColor = new Color(0.98f, 1f, 1f, 1f);
+    private static readonly Color HistoryBodyColor = new Color(0.92f, 0.95f, 0.975f, 0.94f);
+    private static readonly Color HistoryScrollbarTrackColor = new Color(0.09f, 0.17f, 0.25f, 0.6f);
+    private static readonly Color HistoryScrollbarHandleColor = new Color(0.63f, 0.84f, 0.95f, 0.85f);
+    private static readonly Color HistoryEmptyIconColor = new Color(0.5f, 0.79f, 0.93f, 0.95f);
+    private static readonly Color HistoryEmptyPrimaryColor = new Color(0.93f, 0.96f, 1f, 1f);
+    private static readonly Color HistoryEmptySecondaryColor = new Color(0.66f, 0.75f, 0.83f, 0.95f);
+    private const string HistoryPanelEdgeName = "History Panel Edge";
+    private const string HistoryCloseIconName = "History Close Icon";
+    private const string HistoryCloseFocusRingName = "History Close Focus Ring";
+    private const string HistoryEntryAccentBarName = "History Entry Accent Bar";
+    private const string HistoryEntryFocusFrameName = "History Entry Focus Frame";
+    private const string HistoryEmptyStateName = "History Empty State";
+    private const float HistoryPanelWidth = 1204f;
+    private const float HistoryPanelHeight = 620f;
+    private const float HistoryPanelCenterYOffset = 150f;
     // Choice target v1: floating navy rows over readable gameplay with one cyan
     // interaction accent shared by the focus ring and arrow.
     private static readonly Color ChoiceRowNormalColor = new Color(0.038f, 0.066f, 0.105f, 0.87f);
@@ -134,6 +162,22 @@ public class VNDialogueController : MonoBehaviour
     private bool autoSaveInProgress;
     private TMP_FontAsset runtimeBacklogFallbackFont;
     private readonly List<GameObject> historyEntryRows = new List<GameObject>();
+    private GameObject historyPanelEdge;
+    private GameObject historyEmptyState;
+    private Texture2D historyPanelTexture;
+    private Sprite historyPanelSprite;
+    private Texture2D historyPillTexture;
+    private Sprite historyPillSprite;
+    private Texture2D historyEdgeTexture;
+    private Sprite historyEdgeSprite;
+    private Texture2D historyFrameTexture;
+    private Sprite historyFrameSprite;
+    private Texture2D historyBarTexture;
+    private Sprite historyBarSprite;
+    private Texture2D historyCloseIconTexture;
+    private Sprite historyCloseIconSprite;
+    private Texture2D historyBookTexture;
+    private Sprite historyBookSprite;
     private bool pendingAutoSave;
     private bool preLoadAutoSavePending;
     private System.Action<bool> preLoadAutoSaveCompletion;
@@ -430,6 +474,7 @@ public class VNDialogueController : MonoBehaviour
         RefreshSpecialModeOwnerLifecycle();
         RefreshAutoForwardState();
         RefreshChoiceFocusPresentation();
+        RefreshHistoryClosePresentation();
 
         if (VNInputMap.WasPressedThisFrame(VNInputAction.CloseOrCancel) && !IsHandlingPreferencesDropdownCancel())
         {
@@ -2257,6 +2302,7 @@ public class VNDialogueController : MonoBehaviour
         StopAutoForwardTimer();
         ApplyBacklogPlayerFacingPalette();
         ApplyBacklogPresentation();
+        ApplyHistoryScrollbarPresentation();
         backlogText.text = backlog.BuildRichText();
         if (backlogText.font != null && !backlogText.font.TryAddCharacters(backlogText.text, out string missingCharacters))
         {
@@ -2327,9 +2373,17 @@ public class VNDialogueController : MonoBehaviour
         ClearHistoryEntryRows();
         List<DialogueBacklogEntry> snapshot = backlog.CaptureSnapshot();
         bool hasEntries = snapshot.Count > 0;
+        EnsureHistoryEmptyState();
+        if (historyEmptyState != null)
+        {
+            historyEmptyState.SetActive(!hasEntries);
+        }
+
         if (backlogText != null)
         {
-            backlogText.gameObject.SetActive(!hasEntries);
+            // The serialized empty surface keeps its contract text for callers, but
+            // target v1 renders the composed empty state instead of a bare line.
+            backlogText.gameObject.SetActive(false);
         }
 
         if (!hasEntries)
@@ -2340,8 +2394,8 @@ public class VNDialogueController : MonoBehaviour
         VerticalLayoutGroup contentLayout = scrollRect.content.GetComponent<VerticalLayoutGroup>();
         if (contentLayout != null)
         {
-            contentLayout.spacing = 12f;
-            contentLayout.padding = new RectOffset(0, 6, 6, 10);
+            contentLayout.spacing = 22f;
+            contentLayout.padding = new RectOffset(10, 12, 12, 14);
         }
 
         TMP_FontAsset fallbackFont = GetRuntimeBacklogFallbackFont();
@@ -2368,7 +2422,7 @@ public class VNDialogueController : MonoBehaviour
         historyEntryRows.Clear();
     }
 
-    private static GameObject BuildHistoryEntryRow(
+    private GameObject BuildHistoryEntryRow(
         RectTransform content,
         DialogueBacklogEntry entry,
         bool latest,
@@ -2387,11 +2441,13 @@ public class VNDialogueController : MonoBehaviour
         plate.sprite = null;
         plate.type = Image.Type.Simple;
         plate.raycastTarget = true;
-        plate.color = latest ? HistoryLatestPlateColor : HistoryEntryPlateColor;
+        // Older entries stay transparent: the panel itself is the only surface in
+        // target v1, rows speak through their accent bar and text hierarchy alone.
+        plate.color = Color.clear;
 
         VerticalLayoutGroup layout = row.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(28, 24, 16, 18);
-        layout.spacing = 4f;
+        layout.padding = new RectOffset(34, 22, 12, 14);
+        layout.spacing = 3f;
         layout.childAlignment = TextAnchor.UpperLeft;
         layout.childForceExpandWidth = true;
         layout.childForceExpandHeight = false;
@@ -2402,11 +2458,47 @@ public class VNDialogueController : MonoBehaviour
         fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
+        if (latest)
+        {
+            plate.sprite = GetOrCreateHistoryPanelSprite();
+            plate.type = Image.Type.Sliced;
+            plate.color = HistoryLatestFillColor;
+        }
+
+        Image accentBar = CreateHistoryAccentBar(row.transform, content.gameObject.layer);
+        accentBar.color = latest
+            ? HistoryLatestBarColor
+            : string.IsNullOrWhiteSpace(entry.speaker) ? HistoryNarrationBarColor : HistorySpeakerBarColor;
+
+        if (latest)
+        {
+            // ignoreLayout keeps the frame wrapping the whole row instead of
+            // becoming a layout item of the row's vertical group.
+            GameObject frame = new GameObject(
+                HistoryEntryFocusFrameName,
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(LayoutElement));
+            frame.layer = content.gameObject.layer;
+            frame.transform.SetParent(row.transform, false);
+            frame.GetComponent<LayoutElement>().ignoreLayout = true;
+            Image frameImage = frame.GetComponent<Image>();
+            frameImage.sprite = GetOrCreateHistoryFrameSprite();
+            frameImage.type = Image.Type.Sliced;
+            frameImage.color = HistoryLatestFrameColor;
+            frameImage.raycastTarget = false;
+            RectTransform frameRect = frame.transform as RectTransform;
+            frameRect.anchorMin = Vector2.zero;
+            frameRect.anchorMax = Vector2.one;
+            frameRect.anchoredPosition = Vector2.zero;
+            frameRect.sizeDelta = new Vector2(6f, 6f);
+        }
+
         if (!string.IsNullOrWhiteSpace(entry.speaker))
         {
             TextMeshProUGUI speaker = CreateHistoryEntryLabel(row.transform, "History Entry Speaker", fallbackFont);
             speaker.text = DialogueBacklog.EscapeRichText(entry.speaker);
-            speaker.fontSize = 24f;
+            speaker.fontSize = 23f;
             speaker.fontStyle = FontStyles.Bold;
             speaker.lineSpacing = 0f;
             speaker.color = latest ? HistoryLatestSpeakerColor : HistorySpeakerColor;
@@ -2414,34 +2506,34 @@ public class VNDialogueController : MonoBehaviour
 
         TextMeshProUGUI body = CreateHistoryEntryLabel(row.transform, "History Entry Text", fallbackFont);
         body.text = DialogueBacklog.EscapeRichText(entry.text);
-        body.fontSize = 30f;
+        body.fontSize = 29f;
         body.lineSpacing = 10f;
         body.color = latest ? HistoryLatestBodyColor : HistoryBodyColor;
 
-        if (latest)
-        {
-            GameObject focusBar = new GameObject(
-                "History Entry Focus Bar",
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(LayoutElement));
-            focusBar.layer = content.gameObject.layer;
-            focusBar.transform.SetParent(row.transform, false);
-            focusBar.GetComponent<LayoutElement>().ignoreLayout = true;
-            Image barImage = focusBar.GetComponent<Image>();
-            barImage.sprite = null;
-            barImage.type = Image.Type.Simple;
-            barImage.raycastTarget = false;
-            barImage.color = HistoryFocusBarColor;
-            RectTransform barRect = focusBar.transform as RectTransform;
-            barRect.anchorMin = new Vector2(0f, 0f);
-            barRect.anchorMax = new Vector2(0f, 1f);
-            barRect.pivot = new Vector2(0f, 0.5f);
-            barRect.anchoredPosition = new Vector2(0f, 0f);
-            barRect.sizeDelta = new Vector2(3f, 0f);
-        }
-
         return row;
+    }
+
+    private Image CreateHistoryAccentBar(Transform parent, int layer)
+    {
+        GameObject bar = new GameObject(
+            HistoryEntryAccentBarName,
+            typeof(RectTransform),
+            typeof(Image),
+            typeof(LayoutElement));
+        bar.layer = layer;
+        bar.transform.SetParent(parent, false);
+        bar.GetComponent<LayoutElement>().ignoreLayout = true;
+        Image barImage = bar.GetComponent<Image>();
+        barImage.sprite = GetOrCreateHistoryBarSprite();
+        barImage.type = Image.Type.Sliced;
+        barImage.raycastTarget = false;
+        RectTransform barRect = bar.transform as RectTransform;
+        barRect.anchorMin = new Vector2(0f, 0f);
+        barRect.anchorMax = new Vector2(0f, 1f);
+        barRect.pivot = new Vector2(0f, 0.5f);
+        barRect.anchoredPosition = new Vector2(6f, 0f);
+        barRect.sizeDelta = new Vector2(4f, -12f);
+        return barImage;
     }
 
     private static TextMeshProUGUI CreateHistoryEntryLabel(Transform parent, string labelName, TMP_FontAsset fallbackFont)
@@ -2502,9 +2594,51 @@ public class VNDialogueController : MonoBehaviour
             {
                 panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0.5f);
                 panelRect.pivot = new Vector2(0.5f, 0.5f);
-                panelRect.anchoredPosition = Vector2.zero;
-                panelRect.sizeDelta = new Vector2(1640f, 880f);
+                panelRect.anchoredPosition = new Vector2(0f, HistoryPanelCenterYOffset);
+                panelRect.sizeDelta = new Vector2(HistoryPanelWidth, HistoryPanelHeight);
             }
+
+            // Target v1 replaces the heavy near-opaque card with a floating
+            // translucent navy plate: rounded fill plus a thin quiet edge.
+            Image panelImage = backlogPanel.GetComponent<Image>();
+            if (panelImage != null)
+            {
+                panelImage.sprite = GetOrCreateHistoryPanelSprite();
+                panelImage.type = Image.Type.Sliced;
+                panelImage.color = HistoryPanelFillColor;
+            }
+
+            Shadow panelShadow = backlogPanel.GetComponent<Shadow>();
+            if (panelShadow != null)
+            {
+                panelShadow.enabled = false;
+            }
+
+            Outline panelOutline = backlogPanel.GetComponent<Outline>();
+            if (panelOutline != null)
+            {
+                panelOutline.enabled = false;
+            }
+
+            if (historyPanelEdge == null)
+            {
+                historyPanelEdge = new GameObject(HistoryPanelEdgeName, typeof(RectTransform), typeof(Image));
+                historyPanelEdge.layer = backlogPanel.gameObject.layer;
+                historyPanelEdge.transform.SetParent(backlogPanel.transform, false);
+                Image edgeImage = historyPanelEdge.GetComponent<Image>();
+                edgeImage.raycastTarget = false;
+            }
+
+            Image panelEdgeImage = historyPanelEdge.GetComponent<Image>();
+            panelEdgeImage.sprite = GetOrCreateHistoryEdgeSprite();
+            panelEdgeImage.type = Image.Type.Sliced;
+            panelEdgeImage.color = HistoryPanelEdgeColor;
+            RectTransform edgeRect = historyPanelEdge.transform as RectTransform;
+            edgeRect.anchorMin = Vector2.zero;
+            edgeRect.anchorMax = Vector2.one;
+            edgeRect.anchoredPosition = Vector2.zero;
+            edgeRect.sizeDelta = new Vector2(2f, 2f);
+
             TextMeshProUGUI title = backlogPanel.GetComponentsInChildren<TextMeshProUGUI>(true)
                 .FirstOrDefault(candidate => candidate.gameObject.name == "History Title");
             if (title != null)
@@ -2512,12 +2646,14 @@ public class VNDialogueController : MonoBehaviour
                 RectTransform titleRect = title.rectTransform;
                 titleRect.anchorMin = titleRect.anchorMax = new Vector2(0f, 1f);
                 titleRect.pivot = new Vector2(0f, 1f);
-                titleRect.anchoredPosition = new Vector2(64f, -34f);
-                titleRect.sizeDelta = new Vector2(520f, 64f);
-                title.fontSize = 42f;
+                titleRect.anchoredPosition = new Vector2(56f, -38f);
+                titleRect.sizeDelta = new Vector2(520f, 60f);
+                title.fontSize = 44f;
                 title.fontStyle = FontStyles.Normal;
+                title.color = HistoryTitleColor;
                 title.alignment = TextAlignmentOptions.MidlineLeft;
             }
+
             Image titleUnderline = backlogPanel.GetComponentsInChildren<Image>(true)
                 .FirstOrDefault(candidate => candidate.gameObject.name == HistoryTitleUnderlineName);
             if (titleUnderline != null)
@@ -2525,33 +2661,654 @@ public class VNDialogueController : MonoBehaviour
                 RectTransform underlineRect = titleUnderline.rectTransform;
                 underlineRect.anchorMin = underlineRect.anchorMax = new Vector2(0f, 1f);
                 underlineRect.pivot = new Vector2(0f, 1f);
-                underlineRect.anchoredPosition = new Vector2(64f, -108f);
-                underlineRect.sizeDelta = new Vector2(224f, 4f);
+                underlineRect.anchoredPosition = new Vector2(58f, -106f);
+                underlineRect.sizeDelta = new Vector2(216f, 3f);
+                titleUnderline.color = HistoryUnderlineColor;
             }
+
             ScrollRect historyScroll = backlogPanel.GetComponentInChildren<ScrollRect>(true);
             if (historyScroll != null && historyScroll.transform is RectTransform historyRect)
             {
                 historyRect.anchorMin = Vector2.zero;
                 historyRect.anchorMax = Vector2.one;
-                historyRect.offsetMin = new Vector2(64f, 78f);
-                historyRect.offsetMax = new Vector2(-48f, -150f);
+                historyRect.offsetMin = new Vector2(52f, 48f);
+                historyRect.offsetMax = new Vector2(-76f, -142f);
             }
         }
 
-        if (backlogCloseButton != null)
+        EnsureHistoryClosePresentation();
+    }
+
+    private void EnsureHistoryClosePresentation()
+    {
+        if (backlogCloseButton == null)
         {
-            ColorBlock colors = backlogCloseButton.colors;
-            colors.normalColor = new Color(0.04f, 0.14f, 0.21f, 0.94f);
-            colors.highlightedColor = new Color(0.10f, 0.27f, 0.36f, 0.98f);
-            colors.pressedColor = new Color(0.12f, 0.32f, 0.42f, 1f);
-            colors.selectedColor = new Color(0.10f, 0.27f, 0.36f, 0.98f);
-            colors.colorMultiplier = 1f;
-            backlogCloseButton.colors = colors;
-            if (backlogCloseButton.targetGraphic is Image image)
+            return;
+        }
+
+        RectTransform buttonRect = backlogCloseButton.transform as RectTransform;
+        if (buttonRect != null)
+        {
+            buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(1f, 1f);
+            buttonRect.pivot = new Vector2(1f, 1f);
+            buttonRect.anchoredPosition = new Vector2(-44f, -40f);
+            buttonRect.sizeDelta = new Vector2(216f, 58f);
+        }
+
+        // The pill carries its own fill; ColorBlock stays neutral so Selectable tint
+        // transitions cannot compound with the owned hover/focus colors.
+        ColorBlock colors = backlogCloseButton.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = Color.white;
+        colors.pressedColor = Color.white;
+        colors.selectedColor = Color.white;
+        colors.disabledColor = Color.white;
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0f;
+        backlogCloseButton.colors = colors;
+
+        Outline buttonOutline = backlogCloseButton.GetComponent<Outline>();
+        if (buttonOutline != null)
+        {
+            buttonOutline.enabled = false;
+        }
+
+        if (backlogCloseButton.targetGraphic is Image fill)
+        {
+            fill.sprite = GetOrCreateHistoryPillSprite();
+            fill.type = Image.Type.Sliced;
+            fill.color = HistoryCloseFillColor;
+        }
+
+        Transform ring = backlogCloseButton.transform.Find(HistoryCloseFocusRingName);
+        if (ring == null)
+        {
+            ring = new GameObject(HistoryCloseFocusRingName, typeof(RectTransform), typeof(Image)).transform;
+            ring.SetParent(backlogCloseButton.transform, false);
+            ring.GetComponent<Image>().raycastTarget = false;
+        }
+
+        Image ringImage = ring.GetComponent<Image>();
+        ringImage.sprite = GetOrCreateHistoryEdgeSprite();
+        ringImage.type = Image.Type.Sliced;
+        ringImage.color = HistoryCloseEdgeColor;
+        RectTransform ringRect = ring as RectTransform;
+        ringRect.anchorMin = Vector2.zero;
+        ringRect.anchorMax = Vector2.one;
+        ringRect.anchoredPosition = Vector2.zero;
+        ringRect.sizeDelta = new Vector2(4f, 4f);
+        ringImage.enabled = false;
+
+        Transform icon = backlogCloseButton.transform.Find(HistoryCloseIconName);
+        if (icon == null)
+        {
+            icon = new GameObject(HistoryCloseIconName, typeof(RectTransform), typeof(Image)).transform;
+            icon.SetParent(backlogCloseButton.transform, false);
+        }
+
+        Image iconImage = icon.GetComponent<Image>();
+        iconImage.sprite = GetOrCreateHistoryCloseIconSprite();
+        iconImage.type = Image.Type.Simple;
+        iconImage.color = HistoryCloseIconColor;
+        iconImage.raycastTarget = false;
+        RectTransform iconRect = icon as RectTransform;
+        iconRect.anchorMin = new Vector2(0f, 0.5f);
+        iconRect.anchorMax = new Vector2(0f, 0.5f);
+        iconRect.pivot = new Vector2(0.5f, 0.5f);
+        iconRect.anchoredPosition = new Vector2(36f, 0f);
+        iconRect.sizeDelta = new Vector2(20f, 20f);
+
+        TextMeshProUGUI label = backlogCloseButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            RectTransform labelRect = label.rectTransform;
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.pivot = new Vector2(0.5f, 0.5f);
+            labelRect.offsetMin = new Vector2(56f, 0f);
+            labelRect.offsetMax = new Vector2(-18f, 0f);
+            label.fontSize = 25f;
+            label.color = HistoryCloseTextColor;
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.enableWordWrapping = false;
+            label.overflowMode = TextOverflowModes.Overflow;
+            TMP_FontAsset fallbackFont = GetRuntimeBacklogFallbackFont();
+            if (fallbackFont != null)
             {
-                image.color = colors.normalColor;
+                label.font = fallbackFont;
+                label.fontSharedMaterial = fallbackFont.material;
             }
         }
+
+        if (backlogCloseButton.GetComponent<ChoicePointerFocus>() == null)
+        {
+            backlogCloseButton.gameObject.AddComponent<ChoicePointerFocus>();
+        }
+
+        RefreshHistoryClosePresentation();
+    }
+
+    private void RefreshHistoryClosePresentation()
+    {
+        if (backlogCloseButton == null || backlogPanel == null || !backlogPanel.activeInHierarchy)
+        {
+            return;
+        }
+
+        EventSystem eventSystem = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+        GameObject selectedObject = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+        bool selectedClose = selectedObject == backlogCloseButton.gameObject;
+        ChoicePointerFocus pointerFocus = backlogCloseButton.GetComponent<ChoicePointerFocus>();
+        bool pointerHover = selectedClose && pointerFocus != null && pointerFocus.IsPointerOver;
+        bool pointerPressed = pointerHover && pointerFocus != null && pointerFocus.IsPressed;
+        bool keyboardFocus = selectedClose && !pointerHover;
+        if (backlogCloseButton.targetGraphic is Image fill)
+        {
+            fill.color = pointerPressed
+                ? HistoryClosePressedColor
+                : pointerHover ? HistoryCloseHoverColor : HistoryCloseFillColor;
+        }
+
+        Transform ring = backlogCloseButton.transform.Find(HistoryCloseFocusRingName);
+        if (ring != null)
+        {
+            ring.GetComponent<Image>().enabled = keyboardFocus;
+        }
+    }
+
+    private void ApplyHistoryScrollbarPresentation()
+    {
+        if (backlogPanel == null)
+        {
+            return;
+        }
+
+        ScrollRect historyScroll = backlogPanel.GetComponentInChildren<ScrollRect>(true);
+        Scrollbar scrollbar = historyScroll != null
+            ? historyScroll.verticalScrollbar
+            : null;
+        if (scrollbar == null)
+        {
+            scrollbar = backlogPanel.GetComponentInChildren<Scrollbar>(true);
+        }
+
+        if (scrollbar == null)
+        {
+            return;
+        }
+
+        RectTransform scrollbarRect = scrollbar.transform as RectTransform;
+        if (scrollbarRect != null)
+        {
+            // The slim bar lives in the gap between the content's right edge and
+            // the panel edge, outside the framed entries (target v1 placement).
+            scrollbarRect.anchorMin = new Vector2(1f, 0f);
+            scrollbarRect.anchorMax = new Vector2(1f, 1f);
+            scrollbarRect.pivot = new Vector2(1f, 0.5f);
+            scrollbarRect.anchoredPosition = new Vector2(30f, 0f);
+            scrollbarRect.sizeDelta = new Vector2(8f, -12f);
+        }
+
+        // Neutralize Selectable tinting: the slim bar owns its quiet track/handle
+        // colors so tint transitions cannot darken the frosted composition.
+        ColorBlock scrollbarColors = scrollbar.colors;
+        scrollbarColors.normalColor = Color.white;
+        scrollbarColors.highlightedColor = Color.white;
+        scrollbarColors.pressedColor = Color.white;
+        scrollbarColors.selectedColor = Color.white;
+        scrollbarColors.disabledColor = Color.white;
+        scrollbarColors.colorMultiplier = 1f;
+        scrollbarColors.fadeDuration = 0f;
+        scrollbar.colors = scrollbarColors;
+
+        if (scrollbar.image != null)
+        {
+            scrollbar.image.sprite = GetOrCreateHistoryBarSprite();
+            scrollbar.image.type = Image.Type.Sliced;
+            scrollbar.image.color = HistoryScrollbarTrackColor;
+        }
+
+        Image handleImage = scrollbar.handleRect != null ? scrollbar.handleRect.GetComponent<Image>() : null;
+        if (handleImage != null)
+        {
+            handleImage.sprite = GetOrCreateHistoryBarSprite();
+            handleImage.type = Image.Type.Sliced;
+            handleImage.color = HistoryScrollbarHandleColor;
+        }
+
+        if (scrollbar.targetGraphic != null && scrollbar.targetGraphic != scrollbar.image
+            && scrollbar.targetGraphic != handleImage)
+        {
+            scrollbar.targetGraphic.color = HistoryScrollbarHandleColor;
+        }
+    }
+
+    private void EnsureHistoryEmptyState()
+    {
+        if (backlogPanel == null)
+        {
+            return;
+        }
+
+        Transform existing = backlogPanel.transform.Find(HistoryEmptyStateName);
+        if (existing != null)
+        {
+            historyEmptyState = existing.gameObject;
+            return;
+        }
+
+        if (historyEmptyState != null)
+        {
+            Object.Destroy(historyEmptyState);
+            historyEmptyState = null;
+        }
+
+        historyEmptyState = new GameObject(HistoryEmptyStateName, typeof(RectTransform), typeof(VerticalLayoutGroup));
+        historyEmptyState.layer = backlogPanel.gameObject.layer;
+        historyEmptyState.transform.SetParent(backlogPanel.transform, false);
+        RectTransform stateRect = historyEmptyState.transform as RectTransform;
+        stateRect.anchorMin = Vector2.zero;
+        stateRect.anchorMax = Vector2.one;
+        stateRect.offsetMin = new Vector2(52f, 48f);
+        stateRect.offsetMax = new Vector2(-76f, -142f);
+
+        VerticalLayoutGroup layout = historyEmptyState.GetComponent<VerticalLayoutGroup>();
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.spacing = 18f;
+        layout.padding = new RectOffset(0, 0, 0, 46);
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        TMP_FontAsset fallbackFont = GetRuntimeBacklogFallbackFont();
+        GameObject icon = new GameObject("History Empty Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+        icon.layer = historyEmptyState.layer;
+        icon.transform.SetParent(historyEmptyState.transform, false);
+        Image iconImage = icon.GetComponent<Image>();
+        iconImage.sprite = GetOrCreateHistoryBookSprite();
+        iconImage.color = HistoryEmptyIconColor;
+        iconImage.raycastTarget = false;
+        LayoutElement iconLayout = icon.GetComponent<LayoutElement>();
+        iconLayout.preferredWidth = 104f;
+        iconLayout.preferredHeight = 78f;
+
+        TextMeshProUGUI primary = CreateHistoryEntryLabel(historyEmptyState.transform, "History Empty Primary", fallbackFont);
+        primary.text = "Здесь пока нет записей.";
+        primary.fontSize = 31f;
+        primary.color = HistoryEmptyPrimaryColor;
+        primary.alignment = TextAlignmentOptions.Center;
+
+        TextMeshProUGUI secondary = CreateHistoryEntryLabel(historyEmptyState.transform, "History Empty Secondary", fallbackFont);
+        secondary.text = "История будет заполняться по мере чтения.";
+        secondary.fontSize = 23f;
+        secondary.color = HistoryEmptySecondaryColor;
+        secondary.alignment = TextAlignmentOptions.Center;
+
+        historyEmptyState.SetActive(false);
+    }
+
+    /// <summary>
+    /// Rounded translucent plate for the History surface of target v1. The 9-slice
+    /// border keeps the corner radius 1:1 at any panel size.
+    /// </summary>
+    private Sprite GetOrCreateHistoryPanelSprite()
+    {
+        if (historyPanelSprite != null)
+        {
+            return historyPanelSprite;
+        }
+
+        const int size = 96;
+        const float radius = 24f;
+        Vector4 border = new Vector4(30f, 30f, 30f, 30f);
+        historyPanelTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime History Panel",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = ChoiceRoundedRectDistance(x + 0.5f, y + 0.5f, size, 0f, radius);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(0.5f - distance));
+            }
+        }
+
+        historyPanelTexture.SetPixels(pixels);
+        historyPanelTexture.Apply(false, true);
+        historyPanelSprite = Sprite.Create(
+            historyPanelTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            border);
+        historyPanelSprite.name = "Runtime History Panel Sprite";
+        historyPanelSprite.hideFlags = HideFlags.HideAndDontSave;
+        return historyPanelSprite;
+    }
+
+    /// <summary>Fully rounded pill for the History close action.</summary>
+    private Sprite GetOrCreateHistoryPillSprite()
+    {
+        if (historyPillSprite != null)
+        {
+            return historyPillSprite;
+        }
+
+        const int size = 96;
+        const float radius = 44f;
+        Vector4 border = new Vector4(46f, 46f, 46f, 46f);
+        historyPillTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime History Pill",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = ChoiceRoundedRectDistance(x + 0.5f, y + 0.5f, size, 0f, radius);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(0.5f - distance));
+            }
+        }
+
+        historyPillTexture.SetPixels(pixels);
+        historyPillTexture.Apply(false, true);
+        historyPillSprite = Sprite.Create(
+            historyPillTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            border);
+        historyPillSprite.name = "Runtime History Pill Sprite";
+        historyPillSprite.hideFlags = HideFlags.HideAndDontSave;
+        return historyPillSprite;
+    }
+
+    /// <summary>Thin quiet stroke with a faint glow, used for the panel edge and the focused close pill.</summary>
+    private Sprite GetOrCreateHistoryEdgeSprite()
+    {
+        if (historyEdgeSprite != null)
+        {
+            return historyEdgeSprite;
+        }
+
+        const int size = 96;
+        const float radius = 24f;
+        const float strokeHalfWidth = 0.85f;
+        const float outerGlowRange = 3.5f;
+        const float innerGlowRange = 5f;
+        Vector4 border = new Vector4(30f, 30f, 30f, 30f);
+        historyEdgeTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime History Edge",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = ChoiceRoundedRectDistance(x + 0.5f, y + 0.5f, size, 0f, radius);
+                float stroke = Mathf.Clamp01(strokeHalfWidth + 0.5f - Mathf.Abs(distance));
+                float outerGlow = distance > strokeHalfWidth
+                    ? Mathf.Clamp01(1f - (distance - strokeHalfWidth) / outerGlowRange) * 0.35f
+                    : 0f;
+                float innerGlow = distance < -strokeHalfWidth
+                    ? Mathf.Clamp01(1f - (-distance - strokeHalfWidth) / innerGlowRange) * 0.16f
+                    : 0f;
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Max(stroke, Mathf.Max(outerGlow, innerGlow)));
+            }
+        }
+
+        historyEdgeTexture.SetPixels(pixels);
+        historyEdgeTexture.Apply(false, true);
+        historyEdgeSprite = Sprite.Create(
+            historyEdgeTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            border);
+        historyEdgeSprite.name = "Runtime History Edge Sprite";
+        historyEdgeSprite.hideFlags = HideFlags.HideAndDontSave;
+        return historyEdgeSprite;
+    }
+
+    /// <summary>Soft cyan frame around the latest history entry (target v1 current-state emphasis).</summary>
+    private Sprite GetOrCreateHistoryFrameSprite()
+    {
+        if (historyFrameSprite != null)
+        {
+            return historyFrameSprite;
+        }
+
+        const int size = 96;
+        const float radius = 14f;
+        const float strokeHalfWidth = 0.85f;
+        const float outerGlowRange = 4.5f;
+        const float innerGlowRange = 6f;
+        Vector4 border = new Vector4(36f, 36f, 36f, 36f);
+        historyFrameTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime History Frame",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = ChoiceRoundedRectDistance(x + 0.5f, y + 0.5f, size, 0f, radius);
+                float stroke = Mathf.Clamp01(strokeHalfWidth + 0.5f - Mathf.Abs(distance));
+                float outerGlow = distance > strokeHalfWidth
+                    ? Mathf.Clamp01(1f - (distance - strokeHalfWidth) / outerGlowRange) * 0.4f
+                    : 0f;
+                float innerGlow = distance < -strokeHalfWidth
+                    ? Mathf.Clamp01(1f - (-distance - strokeHalfWidth) / innerGlowRange) * 0.22f
+                    : 0f;
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Max(stroke, Mathf.Max(outerGlow, innerGlow)));
+            }
+        }
+
+        historyFrameTexture.SetPixels(pixels);
+        historyFrameTexture.Apply(false, true);
+        historyFrameSprite = Sprite.Create(
+            historyFrameTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            border);
+        historyFrameSprite.name = "Runtime History Frame Sprite";
+        historyFrameSprite.hideFlags = HideFlags.HideAndDontSave;
+        return historyFrameSprite;
+    }
+
+    /// <summary>Small rounded bar reused by entry accent bars and the slim scrollbar.</summary>
+    private Sprite GetOrCreateHistoryBarSprite()
+    {
+        if (historyBarSprite != null)
+        {
+            return historyBarSprite;
+        }
+
+        const int size = 16;
+        const float radius = 3.5f;
+        Vector4 border = new Vector4(6f, 6f, 6f, 6f);
+        historyBarTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime History Bar",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = ChoiceRoundedRectDistance(x + 0.5f, y + 0.5f, size, 0f, radius);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(0.5f - distance));
+            }
+        }
+
+        historyBarTexture.SetPixels(pixels);
+        historyBarTexture.Apply(false, true);
+        historyBarSprite = Sprite.Create(
+            historyBarTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            border);
+        historyBarSprite.name = "Runtime History Bar Sprite";
+        historyBarSprite.hideFlags = HideFlags.HideAndDontSave;
+        return historyBarSprite;
+    }
+
+    /// <summary>Thin soft-edged cross for the History close pill.</summary>
+    private Sprite GetOrCreateHistoryCloseIconSprite()
+    {
+        if (historyCloseIconSprite != null)
+        {
+            return historyCloseIconSprite;
+        }
+
+        const int size = 24;
+        const float halfWidth = 1.4f;
+        historyCloseIconTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime History Close Icon",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Vector2 a = new Vector2(5.5f, 5.5f);
+        Vector2 b = new Vector2(18.5f, 18.5f);
+        Vector2 c = new Vector2(18.5f, 5.5f);
+        Vector2 d = new Vector2(5.5f, 18.5f);
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 point = new Vector2(x + 0.5f, y + 0.5f);
+                float distance = Mathf.Min(
+                    HistorySegmentDistance(point, a, b),
+                    HistorySegmentDistance(point, c, d));
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(halfWidth + 0.75f - distance));
+            }
+        }
+
+        historyCloseIconTexture.SetPixels(pixels);
+        historyCloseIconTexture.Apply(false, true);
+        historyCloseIconSprite = Sprite.Create(
+            historyCloseIconTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f);
+        historyCloseIconSprite.name = "Runtime History Close Icon Sprite";
+        historyCloseIconSprite.hideFlags = HideFlags.HideAndDontSave;
+        return historyCloseIconSprite;
+    }
+
+    /// <summary>Thin open-book outline for the composed History empty state.</summary>
+    private Sprite GetOrCreateHistoryBookSprite()
+    {
+        if (historyBookSprite != null)
+        {
+            return historyBookSprite;
+        }
+
+        const int width = 128;
+        const int height = 96;
+        const float halfWidth = 2.6f;
+        historyBookTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime History Book Icon",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Vector2[] path =
+        {
+            new Vector2(60f, 26f), new Vector2(40f, 18f), new Vector2(18f, 13f),
+            new Vector2(18f, 64f), new Vector2(42f, 72f), new Vector2(64f, 80f),
+            new Vector2(86f, 72f), new Vector2(110f, 64f),
+            new Vector2(110f, 13f), new Vector2(88f, 18f), new Vector2(68f, 26f)
+        };
+        Color[] pixels = new Color[width * height];
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Vector2 point = new Vector2(x + 0.5f, y + 0.5f);
+                float distance = float.MaxValue;
+                for (int i = 0; i < path.Length - 1; i++)
+                {
+                    distance = Mathf.Min(distance, HistorySegmentDistance(point, path[i], path[i + 1]));
+                }
+
+                pixels[y * width + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(halfWidth + 0.75f - distance));
+            }
+        }
+
+        historyBookTexture.SetPixels(pixels);
+        historyBookTexture.Apply(false, true);
+        historyBookSprite = Sprite.Create(
+            historyBookTexture,
+            new Rect(0f, 0f, width, height),
+            new Vector2(0.5f, 0.5f),
+            100f);
+        historyBookSprite.name = "Runtime History Book Icon Sprite";
+        historyBookSprite.hideFlags = HideFlags.HideAndDontSave;
+        return historyBookSprite;
+    }
+
+    private static float HistorySegmentDistance(Vector2 point, Vector2 a, Vector2 b)
+    {
+        Vector2 pointToA = point - a;
+        Vector2 line = b - a;
+        float h = Mathf.Clamp01(Vector2.Dot(pointToA, line) / Mathf.Max(line.sqrMagnitude, 1e-6f));
+        return (pointToA - line * h).magnitude;
+    }
+
+    private void DestroyHistoryPresentationResources()
+    {
+        DestroyChoiceSprite(ref historyPanelSprite, ref historyPanelTexture);
+        DestroyChoiceSprite(ref historyPillSprite, ref historyPillTexture);
+        DestroyChoiceSprite(ref historyEdgeSprite, ref historyEdgeTexture);
+        DestroyChoiceSprite(ref historyFrameSprite, ref historyFrameTexture);
+        DestroyChoiceSprite(ref historyBarSprite, ref historyBarTexture);
+        DestroyChoiceSprite(ref historyCloseIconSprite, ref historyCloseIconTexture);
+        DestroyChoiceSprite(ref historyBookSprite, ref historyBookTexture);
     }
 
     private TMP_FontAsset GetRuntimeBacklogFallbackFont()
@@ -4546,6 +5303,7 @@ public class VNDialogueController : MonoBehaviour
 
         DestroyReadingScrimResources();
         DestroyChoicePresentationResources();
+        DestroyHistoryPresentationResources();
 
         if (Instance == this)
         {
