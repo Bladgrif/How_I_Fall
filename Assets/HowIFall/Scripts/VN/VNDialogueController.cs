@@ -186,6 +186,8 @@ public class VNDialogueController : MonoBehaviour
     private PreferencesController preferencesController;
     private float dialogueBaseFontSize;
     private Image dialogueBoxBackground;
+    private TextMeshProUGUI advanceIndicatorText;
+    private Image typingCaretImage;
     private Texture2D readingScrimTexture;
     private Texture2D choicePlateTexture;
     private Sprite choicePlateSprite;
@@ -4025,12 +4027,17 @@ public class VNDialogueController : MonoBehaviour
             ConfigureReadingTextShadow(speakerText, new Vector2(2f, -2f), 0.92f);
         }
 
-        TextMeshProUGUI advanceIndicator = nextButton != null
-            ? nextButton.GetComponentInChildren<TextMeshProUGUI>(true)
-            : null;
-        if (advanceIndicator != null)
+        if (nextButton != null)
         {
-            advanceIndicator.color = new Color(0.10f, 0.83f, 0.95f, 0.95f);
+            if (advanceIndicatorText == null)
+            {
+                advanceIndicatorText = nextButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            }
+
+            if (advanceIndicatorText != null)
+            {
+                advanceIndicatorText.color = new Color(0.10f, 0.83f, 0.95f, 0.95f);
+            }
         }
 
         ApplyChoicePresentation();
@@ -4047,6 +4054,8 @@ public class VNDialogueController : MonoBehaviour
     private const float ReadingScrimCenterAlpha = 0.38f;
     private const float ReadingScrimSideFade = 0.18f;
     private const string SpeakerAccentName = "Speaker Accent";
+    private const string TypingCaretName = "Typing Caret";
+    private static readonly Color TypingCaretColor = new Color(0.008f, 0.851f, 0.976f, 0.95f);
 
     /// <summary>
     /// Sizes the reading shell to the rendered line so short replies stop reserving a
@@ -4133,6 +4142,112 @@ public class VNDialogueController : MonoBehaviour
         tailRect.pivot = new Vector2(0f, 0.5f);
         tailRect.anchoredPosition = new Vector2(60f, 5f);
         tailRect.sizeDelta = new Vector2(44f, 3.5f);
+    }
+
+    /// <summary>
+    /// Speaker/Dialogue target v1 typing states: a small cyan caret marks the
+    /// in-progress line and the advance cue appears only on the completed line.
+    /// Presentation only — typing, skip and advance semantics are unchanged.
+    /// </summary>
+    private void SetTypingPresentationActive(bool typing)
+    {
+        SetTypingCaretVisible(typing);
+        SetAdvanceIndicatorVisible(!typing);
+    }
+
+    private void SetAdvanceIndicatorVisible(bool visible)
+    {
+        if (advanceIndicatorText == null && nextButton != null)
+        {
+            advanceIndicatorText = nextButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        }
+
+        if (advanceIndicatorText != null && advanceIndicatorText.gameObject.activeSelf != visible)
+        {
+            advanceIndicatorText.gameObject.SetActive(visible);
+        }
+    }
+
+    private void SetTypingCaretVisible(bool visible)
+    {
+        Image caret = EnsureTypingCaret();
+        if (caret == null)
+        {
+            return;
+        }
+
+        if (caret.gameObject.activeSelf != visible)
+        {
+            caret.gameObject.SetActive(visible);
+        }
+
+        if (visible)
+        {
+            UpdateTypingCaretPlacement();
+        }
+    }
+
+    /// <summary>Builds the typing caret once as a runtime child of the dialogue text, mirroring the speaker accent helper.</summary>
+    private Image EnsureTypingCaret()
+    {
+        if (typingCaretImage != null)
+        {
+            return typingCaretImage;
+        }
+
+        if (dialogueText == null)
+        {
+            return null;
+        }
+
+        Transform existing = dialogueText.transform.Find(TypingCaretName);
+        if (existing != null)
+        {
+            typingCaretImage = existing.GetComponent<Image>();
+            return typingCaretImage;
+        }
+
+        GameObject caret = new GameObject(TypingCaretName, typeof(RectTransform), typeof(Image));
+        caret.layer = dialogueText.gameObject.layer;
+        caret.transform.SetParent(dialogueText.transform, false);
+        Image caretImage = caret.GetComponent<Image>();
+        caretImage.color = TypingCaretColor;
+        caretImage.raycastTarget = false;
+        RectTransform caretRect = caretImage.rectTransform;
+        caretRect.anchorMin = caretRect.anchorMax = new Vector2(0.5f, 0.5f);
+        caretRect.pivot = new Vector2(0.5f, 0.5f);
+        typingCaretImage = caretImage;
+        return typingCaretImage;
+    }
+
+    /// <summary>
+    /// Places the caret at the pen position of the last typed character in the text's
+    /// local space; the mesh is refreshed first so placement always matches what is rendered.
+    /// </summary>
+    private void UpdateTypingCaretPlacement()
+    {
+        if (typingCaretImage == null || dialogueText == null)
+        {
+            return;
+        }
+
+        dialogueText.ForceMeshUpdate(false, false);
+        TMP_TextInfo textInfo = dialogueText.textInfo;
+        RectTransform caretRect = typingCaretImage.rectTransform;
+        if (textInfo == null || textInfo.characterCount == 0)
+        {
+            caretRect.sizeDelta = Vector2.zero;
+            caretRect.anchoredPosition = Vector2.zero;
+            return;
+        }
+
+        TMP_CharacterInfo character = textInfo.characterInfo[textInfo.characterCount - 1];
+        float caretWidth = Mathf.Max(2.5f, character.pointSize * 0.085f);
+        float caretHeight = Mathf.Max(10f, (character.ascender - character.descender) * 0.9f);
+        caretRect.sizeDelta = new Vector2(caretWidth, caretHeight);
+        caretRect.anchoredPosition = new Vector2(
+            character.xAdvance + caretWidth * 0.5f,
+            character.baseLine + caretHeight * 0.5f);
     }
 
     private Sprite GetOrCreateReadingScrimSprite()
@@ -4721,6 +4836,7 @@ public class VNDialogueController : MonoBehaviour
 
         currentFullText = text;
         ApplyReadingShellContentHeight(text);
+        SetTypingPresentationActive(true);
         typingCoroutine = StartCoroutine(TypeText(text));
     }
 
@@ -4747,6 +4863,7 @@ public class VNDialogueController : MonoBehaviour
             }
 
             dialogueText.text += character;
+            UpdateTypingCaretPlacement();
             yield return new WaitForSecondsRealtime(characterDelay);
         }
 
@@ -4758,6 +4875,7 @@ public class VNDialogueController : MonoBehaviour
         dialogueText.text = text;
         isTyping = false;
         typingCoroutine = null;
+        SetTypingPresentationActive(false);
         MarkDisplayedLineSeen();
         CaptureStableCheckpoint(RollbackCheckpointKind.StableLine);
         StartAutoForwardDelayIfReady();
@@ -4778,6 +4896,7 @@ public class VNDialogueController : MonoBehaviour
         dialogueText.text = currentFullText;
         isTyping = false;
         typingCoroutine = null;
+        SetTypingPresentationActive(false);
         MarkDisplayedLineSeen();
         CaptureStableCheckpoint(RollbackCheckpointKind.StableLine);
         StartAutoForwardDelayIfReady();
