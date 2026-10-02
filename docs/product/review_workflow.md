@@ -36,6 +36,8 @@ UI commit/push вместе с baselines после automated PASS — это `R
 
 Baselines не являются финальным артом или автоматическим эстетическим одобрением.
 
+Для PR с изменёнными PNG в `docs/visual-baselines/` или `docs/ui-targets/` GitHub CI публикует artifact `visual-review-<run_number>` только с этими изменёнными изображениями и manifest с base/head SHA. Reviewer скачивает artifact и открывает реальные PNG для независимого визуального сравнения. Artifact — транспорт для ревью и не заменяет repository baseline, graphical E2E или утверждённый target.
+
 ## Зеркало визуального ревью на Google Drive
 
 GitHub остаётся источником истины для code, docs и curated visual baselines. Для удобного просмотра reviewer'ом используется:
