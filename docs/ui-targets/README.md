@@ -10,6 +10,7 @@ Google Drive остаётся удобным зеркалом для челов�
 - `02_Reading_Target_v1.png`
 - `03_Game_Menu_Target_v1.png`
 - `04_Choice_Target_v1.png`
+- `06_History_Target_v1.png`
 
 Правила:
 - target фиксирует visual/UX направление, но не финальный art или будущий канон;
