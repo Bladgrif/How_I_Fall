@@ -28,14 +28,29 @@ public class VNDialogueController : MonoBehaviour
     private static readonly Color HistorySpeakerColor = new Color(0.69f, 0.77f, 0.85f, 0.91f);
     private static readonly Color HistoryLatestBodyColor = new Color(0.96f, 0.98f, 1f, 1f);
     private static readonly Color HistoryBodyColor = new Color(0.91f, 0.93f, 0.96f, 0.91f);
-    private const float ChoiceRowMinimumHeight = 60f;
+    // Choice target v1: floating navy rows over readable gameplay with one cyan
+    // interaction accent shared by the focus ring and arrow.
+    private static readonly Color ChoiceRowNormalColor = new Color(0.038f, 0.066f, 0.105f, 0.87f);
+    private static readonly Color ChoiceRowHoverColor = new Color(0.215f, 0.335f, 0.455f, 0.72f);
+    private static readonly Color ChoiceRowFocusColor = new Color(0.045f, 0.11f, 0.16f, 0.9f);
+    private static readonly Color ChoiceRowPressedColor = new Color(0.1f, 0.24f, 0.34f, 0.94f);
+    private static readonly Color ChoiceRowDisabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
+    private static readonly Color ChoiceAccentColor = new Color(0.13f, 0.85f, 0.95f, 1f);
+    private const float ChoiceRowMinimumHeight = 68f;
     // Four wrapped lines at the 24 px choice font need ~135 px including margins;
-    // the old 108 px clamp let long text ride the card edges.
+    // the clamp keeps the longest option inside the centered floating column.
     private const float ChoiceRowMaximumHeight = 144f;
-    private const float ChoiceRowSpacing = 10f;
-    private const float ChoicePanelVerticalPadding = 28f;
-    private const float ChoicePanelHeaderHeight = 58f;
+    private const float ChoiceRowSpacing = 14f;
+    private const float ChoiceColumnWidth = 780f;
+    private const float ChoiceRowTextMarginX = 48f;
+    private const float ChoiceRowTextMargin = 12f;
+    private const float ChoiceArrowSize = 24f;
+    private const float ChoiceArrowInsetX = 16f;
+    private const float ChoiceFocusRingMargin = 8f;
     public const int SupportedChoiceButtonCapacity = 4;
+    private const string ChoiceButtonAccentName = "Choice Button Accent";
+    private const string ChoiceFocusRingName = "Choice Focus Ring";
+    private const string ChoiceFocusArrowName = "Choice Focus Arrow";
     private static readonly string[] TemporaryReadingChromeNames =
     {
         "How I Fall Logo",
@@ -128,6 +143,12 @@ public class VNDialogueController : MonoBehaviour
     private float dialogueBaseFontSize;
     private Image dialogueBoxBackground;
     private Texture2D readingScrimTexture;
+    private Texture2D choicePlateTexture;
+    private Sprite choicePlateSprite;
+    private Texture2D choiceFocusRingTexture;
+    private Sprite choiceFocusRingSprite;
+    private Texture2D choiceArrowTexture;
+    private Sprite choiceArrowSprite;
     private Sprite readingScrimSprite;
     private Vector2 dialogueBaseBoxSize;
     private Vector2 dialogueBaseTextSize;
@@ -2585,22 +2606,31 @@ public class VNDialogueController : MonoBehaviour
             TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label != null)
             {
+                // Target v1 keeps one constant text inset per row; the focus arrow
+                // lives in the same padding lane instead of shifting the label.
+                RectTransform labelRect = label.rectTransform;
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.anchoredPosition = Vector2.zero;
+                labelRect.sizeDelta = Vector2.zero;
                 label.alignment = TextAlignmentOptions.MidlineLeft;
-                label.margin = new Vector4(34f, 12f, 34f, 12f);
+                label.margin = new Vector4(ChoiceRowTextMarginX, ChoiceRowTextMargin, ChoiceRowTextMarginX, ChoiceRowTextMargin);
                 label.enableWordWrapping = true;
                 label.overflowMode = TextOverflowModes.Overflow;
-                label.fontSize = Mathf.Max(label.fontSize, 20f);
+                label.fontSize = Mathf.Max(label.fontSize, 24f);
             }
 
             RectTransform rect = button.transform as RectTransform;
             float height = ChoiceRowMinimumHeight;
             if (rect != null && label != null)
             {
+                rect.sizeDelta = new Vector2(ChoiceColumnWidth, rect.sizeDelta.y);
                 float textWidth = Mathf.Max(1f, rect.rect.width - label.margin.x - label.margin.z);
                 float preferredTextHeight = label.GetPreferredValues(label.text, textWidth, 0f).y;
                 height = Mathf.Clamp(preferredTextHeight + label.margin.y + label.margin.w, ChoiceRowMinimumHeight, ChoiceRowMaximumHeight);
             }
 
+            ConfigureChoiceRowVisuals(button);
             visibleButtons.Add(button);
             heights.Add(height);
         }
@@ -2614,30 +2644,42 @@ public class VNDialogueController : MonoBehaviour
         RectTransform panelRect = choicePanel != null ? choicePanel.transform as RectTransform : null;
         if (panelRect != null)
         {
-            panelRect.sizeDelta = new Vector2(
-                panelRect.sizeDelta.x,
-                totalHeight + ChoicePanelHeaderHeight + ChoicePanelVerticalPadding * 2f);
+            // Target v1 drops the enclosing card: the serialized panel object stays
+            // only as the centered layout container for the floating rounded rows.
+            panelRect.sizeDelta = new Vector2(ChoiceColumnWidth, totalHeight);
 
-            RectTransform titleRect = choicePanel.transform.Find("Choice Title") as RectTransform;
-            if (titleRect != null)
+            Transform title = choicePanel.transform.Find("Choice Title");
+            if (title != null)
             {
-                titleRect.anchoredPosition = new Vector2(
-                    titleRect.anchoredPosition.x,
-                    panelRect.rect.height * 0.5f - ChoicePanelVerticalPadding - titleRect.rect.height * 0.5f);
+                title.gameObject.SetActive(false);
+            }
 
-                RectTransform underlineRect = choicePanel.transform.Find("Choice Title Red Underline") as RectTransform;
-                if (underlineRect != null)
-                {
-                    underlineRect.anchoredPosition = new Vector2(
-                        underlineRect.anchoredPosition.x,
-                        titleRect.anchoredPosition.y - titleRect.rect.height * 0.5f - 8f);
-                }
+            Transform underline = choicePanel.transform.Find("Choice Title Red Underline");
+            if (underline != null)
+            {
+                underline.gameObject.SetActive(false);
+            }
+
+            Image panelImage = choicePanel.GetComponent<Image>();
+            if (panelImage != null)
+            {
+                panelImage.color = Color.clear;
+            }
+
+            Shadow panelShadow = choicePanel.GetComponent<Shadow>();
+            if (panelShadow != null)
+            {
+                panelShadow.enabled = false;
+            }
+
+            Outline panelOutline = choicePanel.GetComponent<Outline>();
+            if (panelOutline != null)
+            {
+                panelOutline.enabled = false;
             }
         }
 
-        float currentTop = panelRect != null
-            ? panelRect.rect.height * 0.5f - ChoicePanelVerticalPadding - ChoicePanelHeaderHeight
-            : totalHeight * 0.5f;
+        float currentTop = panelRect != null ? panelRect.rect.height * 0.5f : totalHeight * 0.5f;
         for (int i = 0; i < visibleButtons.Count; i++)
         {
             Button button = visibleButtons[i];
@@ -2649,48 +2691,93 @@ public class VNDialogueController : MonoBehaviour
                 rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, currentTop - height * 0.5f);
                 currentTop -= height + spacing;
             }
-
-            ColorBlock colors = button.colors;
-            colors.normalColor = new Color(0.025f, 0.06f, 0.12f, 0.88f);
-            colors.highlightedColor = new Color(0.08f, 0.18f, 0.25f, 0.96f);
-            colors.pressedColor = new Color(0.12f, 0.30f, 0.40f, 1f);
-            colors.selectedColor = new Color(0.08f, 0.20f, 0.29f, 0.98f);
-            colors.disabledColor = new Color(0.02f, 0.02f, 0.03f, 0.35f);
-            colors.colorMultiplier = 1f;
-            button.colors = colors;
-
-            if (button.GetComponent<ChoicePointerFocus>() == null)
-            {
-                button.gameObject.AddComponent<ChoicePointerFocus>();
-            }
-
-            Outline outline = button.GetComponent<Outline>();
-            if (outline != null)
-            {
-                outline.effectColor = new Color(0.44f, 0.78f, 0.98f, 0.52f);
-                outline.effectDistance = new Vector2(1f, -1f);
-            }
-
-            foreach (Image image in button.GetComponentsInChildren<Image>(true))
-            {
-                if (image != button.targetGraphic && image.color.r > image.color.g * 1.3f)
-                {
-                    image.color = new Color(0.34f, 0.72f, 0.94f, image.color.a);
-                }
-            }
         }
+    }
 
-        if (choicePanel != null)
+    private void ConfigureChoiceRowVisuals(Button button)
+    {
+        if (button.targetGraphic is Image plate)
         {
-            foreach (Image image in choicePanel.GetComponentsInChildren<Image>(true))
-            {
-                if (image.GetComponentInParent<Button>(true) == null
-                    && image.color.r > image.color.g * 1.3f)
-                {
-                    image.color = new Color(0.30f, 0.66f, 0.90f, image.color.a);
-                }
-            }
+            plate.sprite = GetOrCreateChoicePlateSprite();
+            plate.type = Image.Type.Sliced;
         }
+
+        ColorBlock colors = button.colors;
+        // The ColorBlock stays neutral on purpose: Selectable tint transitions multiply
+        // the canvas renderer color on top of the row's own Image color, which compounds
+        // two navy passes into near-black and can leave a runtime slot stuck in a faded
+        // state. RefreshChoiceFocusPresentation owns every visible row state instead.
+        colors.normalColor = Color.white;
+        colors.highlightedColor = Color.white;
+        colors.pressedColor = Color.white;
+        colors.selectedColor = Color.white;
+        colors.disabledColor = Color.white;
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0f;
+        button.colors = colors;
+
+        Outline outline = button.GetComponent<Outline>();
+        if (outline != null)
+        {
+            // The rounded plate carries its own edge treatment; the legacy square
+            // outline would trace a rectangle around the rounded corners.
+            outline.enabled = false;
+        }
+
+        if (button.GetComponent<ChoicePointerFocus>() == null)
+        {
+            button.gameObject.AddComponent<ChoicePointerFocus>();
+        }
+
+        Transform accent = button.transform.Find(ChoiceButtonAccentName);
+        if (accent != null)
+        {
+            accent.gameObject.SetActive(false);
+        }
+
+        Image ring = EnsureChoiceRowOverlay(button, ChoiceFocusRingName);
+        if (ring != null)
+        {
+            ring.sprite = GetOrCreateChoiceFocusRingSprite();
+            ring.type = Image.Type.Sliced;
+            ring.color = ChoiceAccentColor;
+            ring.rectTransform.anchorMin = Vector2.zero;
+            ring.rectTransform.anchorMax = Vector2.one;
+            ring.rectTransform.anchoredPosition = Vector2.zero;
+            ring.rectTransform.sizeDelta = new Vector2(ChoiceFocusRingMargin * 2f, ChoiceFocusRingMargin * 2f);
+            ring.enabled = false;
+        }
+
+        Image arrow = EnsureChoiceRowOverlay(button, ChoiceFocusArrowName);
+        if (arrow != null)
+        {
+            arrow.sprite = GetOrCreateChoiceArrowSprite();
+            arrow.type = Image.Type.Simple;
+            arrow.color = ChoiceAccentColor;
+            RectTransform arrowRect = arrow.rectTransform;
+            arrowRect.anchorMin = new Vector2(0f, 0.5f);
+            arrowRect.anchorMax = new Vector2(0f, 0.5f);
+            arrowRect.pivot = new Vector2(0f, 0.5f);
+            arrowRect.anchoredPosition = new Vector2(ChoiceArrowInsetX, 0f);
+            arrowRect.sizeDelta = new Vector2(ChoiceArrowSize, ChoiceArrowSize);
+            arrow.enabled = false;
+        }
+    }
+
+    private static Image EnsureChoiceRowOverlay(Button button, string overlayName)
+    {
+        Transform existing = button.transform.Find(overlayName);
+        if (existing != null)
+        {
+            return existing.GetComponent<Image>();
+        }
+
+        GameObject overlay = new GameObject(overlayName, typeof(RectTransform), typeof(Image));
+        overlay.layer = button.gameObject.layer;
+        overlay.transform.SetParent(button.transform, false);
+        Image image = overlay.GetComponent<Image>();
+        image.raycastTarget = false;
+        return image;
     }
 
     private void EnsureChoiceButtonCapacity()
@@ -2843,32 +2930,49 @@ public class VNDialogueController : MonoBehaviour
             }
 
             bool selected = button.gameObject == selectedObject;
+            // Target v1 state language: pointer hover lights the plate without the
+            // ring, keyboard/controller focus owns the cyan ring and arrow, and the
+            // two can never paint two rows at once because hover moves the selection.
+            bool pointerHover = selected && IsPointerOverChoiceButton(button);
+            bool pointerPressed = pointerHover && IsPressedChoiceButton(button);
+            bool keyboardFocus = selected && !pointerHover;
             if (button.targetGraphic is Image targetImage)
             {
-                targetImage.color = selected
-                    ? new Color(0.08f, 0.23f, 0.32f, 0.98f)
-                    : new Color(0.025f, 0.06f, 0.12f, 0.88f);
+                targetImage.color = !button.interactable
+                    ? ChoiceRowDisabledColor
+                    : pointerPressed
+                        ? ChoiceRowPressedColor
+                        : pointerHover
+                            ? ChoiceRowHoverColor
+                            : selected
+                                ? ChoiceRowFocusColor
+                                : ChoiceRowNormalColor;
             }
 
-            Outline outline = button.GetComponent<Outline>();
-            if (outline != null)
+            Transform ring = button.transform.Find(ChoiceFocusRingName);
+            if (ring != null)
             {
-                outline.effectColor = selected
-                    ? new Color(0.58f, 0.90f, 1f, 0.96f)
-                    : new Color(0.44f, 0.78f, 0.98f, 0.14f);
-                outline.effectDistance = selected ? new Vector2(2f, -2f) : new Vector2(1f, -1f);
+                ring.GetComponent<Image>().enabled = keyboardFocus;
             }
 
-            foreach (Image image in button.GetComponentsInChildren<Image>(true))
+            Transform arrow = button.transform.Find(ChoiceFocusArrowName);
+            if (arrow != null)
             {
-                if (image != button.targetGraphic)
-                {
-                    image.color = selected
-                        ? new Color(0.48f, 0.86f, 1f, 1f)
-                        : new Color(0.34f, 0.72f, 0.94f, 0.32f);
-                }
+                arrow.GetComponent<Image>().enabled = keyboardFocus;
             }
         }
+    }
+
+    private static bool IsPointerOverChoiceButton(Button button)
+    {
+        ChoicePointerFocus pointerFocus = button.GetComponent<ChoicePointerFocus>();
+        return pointerFocus != null && pointerFocus.IsPointerOver;
+    }
+
+    private static bool IsPressedChoiceButton(Button button)
+    {
+        ChoicePointerFocus pointerFocus = button.GetComponent<ChoicePointerFocus>();
+        return pointerFocus != null && pointerFocus.IsPressed;
     }
 
     private static void Focus(Selectable control)
@@ -2882,15 +2986,37 @@ public class VNDialogueController : MonoBehaviour
         eventSystem?.SetSelectedGameObject(control.gameObject);
     }
 
-    private sealed class ChoicePointerFocus : MonoBehaviour, IPointerEnterHandler
+    private sealed class ChoicePointerFocus : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler
     {
+        public bool IsPointerOver { get; private set; }
+        public bool IsPressed { get; private set; }
+
         public void OnPointerEnter(PointerEventData eventData)
         {
+            IsPointerOver = true;
             Button button = GetComponent<Button>();
             if (button != null && button.isActiveAndEnabled && button.interactable)
             {
                 (EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>())?.SetSelectedGameObject(button.gameObject);
             }
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            // Selection intentionally survives the exit: the last hovered row keeps
+            // focus and gains the keyboard/controller ring presentation.
+            IsPointerOver = false;
+            IsPressed = false;
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            IsPressed = true;
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            IsPressed = false;
         }
     }
 
@@ -3295,6 +3421,183 @@ public class VNDialogueController : MonoBehaviour
     }
 
     /// <summary>
+    /// Rounded translucent plate for one choice row of the target v1 column. The
+    /// 9-slice border keeps the corner radius 1:1 at any row height.
+    /// </summary>
+    private Sprite GetOrCreateChoicePlateSprite()
+    {
+        if (choicePlateSprite != null)
+        {
+            return choicePlateSprite;
+        }
+
+        const int size = 64;
+        const float radius = 14f;
+        Vector4 border = new Vector4(18f, 18f, 18f, 18f);
+        choicePlateTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime Choice Plate",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = ChoiceRoundedRectDistance(x + 0.5f, y + 0.5f, size, 0f, radius);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(0.5f - distance));
+            }
+        }
+
+        choicePlateTexture.SetPixels(pixels);
+        choicePlateTexture.Apply(false, true);
+        choicePlateSprite = Sprite.Create(
+            choicePlateTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            border);
+        choicePlateSprite.name = "Runtime Choice Plate Sprite";
+        choicePlateSprite.hideFlags = HideFlags.HideAndDontSave;
+        return choicePlateSprite;
+    }
+
+    /// <summary>
+    /// Neon focus ring for the focused choice: a 3.5 px cyan stroke one pixel outside
+    /// the plate edge plus a soft inner/outer glow, sliced so corners stay round.
+    /// </summary>
+    private Sprite GetOrCreateChoiceFocusRingSprite()
+    {
+        if (choiceFocusRingSprite != null)
+        {
+            return choiceFocusRingSprite;
+        }
+
+        const int size = 96;
+        // The ring image extends 8 px past the plate on every side (ChoiceFocusRingMargin),
+        // so a path shrunk 7 px from the image edge lands ~1 px outside the plate corner.
+        const float shrink = 7f;
+        const float radius = 15f;
+        const float strokeHalfWidth = 1.75f;
+        const float outerGlowRange = 4.5f;
+        const float innerGlowRange = 8f;
+        Vector4 border = new Vector4(36f, 36f, 36f, 36f);
+        choiceFocusRingTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime Choice Focus Ring",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = ChoiceRoundedRectDistance(x + 0.5f, y + 0.5f, size, shrink, radius);
+                float stroke = Mathf.Clamp01(strokeHalfWidth + 0.5f - Mathf.Abs(distance));
+                float outerGlow = distance > strokeHalfWidth
+                    ? Mathf.Clamp01(1f - (distance - strokeHalfWidth) / outerGlowRange) * 0.45f
+                    : 0f;
+                float innerGlow = distance < -strokeHalfWidth
+                    ? Mathf.Clamp01(1f - (-distance - strokeHalfWidth) / innerGlowRange) * 0.3f
+                    : 0f;
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Max(stroke, Mathf.Max(outerGlow, innerGlow)));
+            }
+        }
+
+        choiceFocusRingTexture.SetPixels(pixels);
+        choiceFocusRingTexture.Apply(false, true);
+        choiceFocusRingSprite = Sprite.Create(
+            choiceFocusRingTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect,
+            border);
+        choiceFocusRingSprite.name = "Runtime Choice Focus Ring Sprite";
+        choiceFocusRingSprite.hideFlags = HideFlags.HideAndDontSave;
+        return choiceFocusRingSprite;
+    }
+
+    /// <summary>White right-pointing focus arrow, tinted cyan by the row presentation.</summary>
+    private Sprite GetOrCreateChoiceArrowSprite()
+    {
+        if (choiceArrowSprite != null)
+        {
+            return choiceArrowSprite;
+        }
+
+        const int size = 32;
+        choiceArrowTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+        {
+            name = "Runtime Choice Focus Arrow",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Vector2 a = new Vector2(4f, 6f);
+        Vector2 b = new Vector2(28f, 16f);
+        Vector2 c = new Vector2(4f, 26f);
+        float ab = 1f / (b - a).magnitude;
+        float bc = 1f / (c - b).magnitude;
+        float ca = 1f / (a - c).magnitude;
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 point = new Vector2(x + 0.5f, y + 0.5f);
+                float edge1 = ab * Cross(b - a, point - a);
+                float edge2 = bc * Cross(c - b, point - b);
+                float edge3 = ca * Cross(a - c, point - c);
+                float signed = Mathf.Min(edge1, Mathf.Min(edge2, edge3));
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(signed + 0.5f));
+            }
+        }
+
+        choiceArrowTexture.SetPixels(pixels);
+        choiceArrowTexture.Apply(false, true);
+        choiceArrowSprite = Sprite.Create(
+            choiceArrowTexture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f);
+        choiceArrowSprite.name = "Runtime Choice Focus Arrow Sprite";
+        choiceArrowSprite.hideFlags = HideFlags.HideAndDontSave;
+        return choiceArrowSprite;
+    }
+
+    private static float Cross(Vector2 lhs, Vector2 rhs)
+    {
+        return lhs.x * rhs.y - lhs.y * rhs.x;
+    }
+
+    /// <summary>
+    /// Signed distance to a rounded-rect edge in texture pixels (negative inside),
+    /// shifted by <paramref name="shrink"/> so positive values ask for a smaller path.
+    /// </summary>
+    private static float ChoiceRoundedRectDistance(float x, float y, float size, float shrink, float radius)
+    {
+        float half = size * 0.5f;
+        float innerHalf = half - radius;
+        float px = Mathf.Abs(x - half);
+        float py = Mathf.Abs(y - half);
+        float qx = Mathf.Max(px - innerHalf, 0f);
+        float qy = Mathf.Max(py - innerHalf, 0f);
+        float insideFlat = Mathf.Min(Mathf.Max(px - innerHalf, py - innerHalf), 0f);
+        return new Vector2(qx, qy).magnitude + insideFlat - radius + shrink;
+    }
+
+    /// <summary>
     /// Borderless contrast field for the centered reading composition. The alpha falls
     /// off smoothly and symmetrically toward every edge — most of the field's weight is
     /// shed well before the border — while the useful center behind the dialogue keeps a
@@ -3354,6 +3657,30 @@ public class VNDialogueController : MonoBehaviour
             if (Application.isPlaying) Destroy(readingScrimTexture);
             else DestroyImmediate(readingScrimTexture);
             readingScrimTexture = null;
+        }
+    }
+
+    private void DestroyChoicePresentationResources()
+    {
+        DestroyChoiceSprite(ref choicePlateSprite, ref choicePlateTexture);
+        DestroyChoiceSprite(ref choiceFocusRingSprite, ref choiceFocusRingTexture);
+        DestroyChoiceSprite(ref choiceArrowSprite, ref choiceArrowTexture);
+    }
+
+    private static void DestroyChoiceSprite(ref Sprite sprite, ref Texture2D texture)
+    {
+        if (sprite != null)
+        {
+            if (Application.isPlaying) Destroy(sprite);
+            else DestroyImmediate(sprite);
+            sprite = null;
+        }
+
+        if (texture != null)
+        {
+            if (Application.isPlaying) Destroy(texture);
+            else DestroyImmediate(texture);
+            texture = null;
         }
     }
 
@@ -4218,6 +4545,7 @@ public class VNDialogueController : MonoBehaviour
         }
 
         DestroyReadingScrimResources();
+        DestroyChoicePresentationResources();
 
         if (Instance == this)
         {
