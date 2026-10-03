@@ -279,7 +279,7 @@ namespace HowIFall.PlayModeTests
             yield return PressFrame(keyboard.enterKey);
             Assert.That(interactive.IsRunning, Is.False, "Door completion must close the interactive runtime.");
             Assert.That(dialogue.CanAdvanceDialogue, Is.True, "Completion must restore normal dialogue eligibility.");
-            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Completion must release the suppressed dialogue shell.");
+            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Completion must leave the Reading dialogue shell unsuppressed.");
             Assert.That(GameState.Instance.currentSceneId, Is.EqualTo("interactive_hotspot_complete"));
             GameObject staleSelection = EventSystem.current.currentSelectedGameObject;
             Assert.That(staleSelection == null || (staleSelection != laptop.gameObject && staleSelection != door.gameObject && staleSelection != window.gameObject),
@@ -394,10 +394,18 @@ namespace HowIFall.PlayModeTests
             Button[] ownedButtons = { laptop, notes, door };
 
             // Presentation: the approved sprite is displayed, and the runtime surface
-            // carries compact markers, the Menu entry and the Reading-aligned feedback panel.
+            // carries compact markers only — hotspot feedback is presented by the accepted
+            // Reading dialogue shell instead of a private Menu button or feedback panel.
             Image displayed = interactive.DisplayedImageRect.GetComponent<Image>();
             Assert.That(displayed.sprite, Is.EqualTo(showcase.background), "The approved showcase background must be displayed instead of the fallback.");
-            Assert.That(interactive.MenuButton, Is.Not.Null, "The Hotspot Menu button must exist on the runtime surface.");
+            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Hotspot mode must not suppress the accepted Reading dialogue shell.");
+            AssertHotspotViewBelowDialogueBox(dialogue, interactive);
+            Transform view = interactive.DisplayedImageRect.parent.parent;
+            Assert.That(view.Find("Hotspot Menu Button"), Is.Null, "Hotspot mode must not present its own Menu button; Game Menu access stays on the established Esc/RMB path.");
+            Assert.That(view.Find("Feedback Panel"), Is.Null, "Hotspot mode must not present its own feedback panel.");
+            yield return WaitFor(() => dialogue.dialogueText.text == showcase.initialFeedback, "Showcase initial feedback did not reach the Reading dialogue shell.");
+            Assert.That(dialogue.speakerText.text, Is.EqualTo(showcase.feedbackSpeaker), "Initial showcase feedback must present the scene speaker through the Reading shell.");
+            Assert.That(dialogue.nameBox.activeSelf, Is.True, "The showcase speaker must be presented with the accepted Reading name box.");
             AssertMarkerPresentation(ownedButtons);
 
             Assert.That(laptop.interactable, Is.True, "Ноутбук must start available.");
@@ -423,6 +431,9 @@ namespace HowIFall.PlayModeTests
             Assert.That(state.suspicion, Is.EqualTo(initialSuspicion), "Local showcase completion must not touch canonical GameState.");
             Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(notes.gameObject),
                 "A completed one-shot must hand focus to the next authored hotspot.");
+            InteractiveHotspotOutcome laptopOutcome = showcase.hotspots.First(hotspot => hotspot.hotspotId == "showcase_laptop").outcome;
+            yield return WaitFor(() => dialogue.dialogueText.text == laptopOutcome.feedbackText, "Laptop outcome feedback did not reach the Reading dialogue shell.");
+            Assert.That(dialogue.speakerText.text, Is.EqualTo(showcase.feedbackSpeaker), "Outcome showcase feedback must keep presenting the scene speaker.");
 
             // Keyboard navigation stays inside the showcase controls; the locked Door is reachable and safe.
             yield return PressFrame(keyboard.rightArrowKey);
@@ -459,7 +470,7 @@ namespace HowIFall.PlayModeTests
             Assert.That(interactive.IsRunning, Is.False, "Door completion must close the interactive runtime.");
             Assert.That(interactive.ActivationCount, Is.EqualTo(activationsBeforeDoor + 1), "Door must activate exactly once.");
             Assert.That(dialogue.CanAdvanceDialogue, Is.True, "Completion must restore normal dialogue eligibility.");
-            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Completion must release the suppressed dialogue shell.");
+            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Completion must leave the Reading dialogue shell unsuppressed.");
             Assert.That(GameState.Instance.currentSceneId, Is.EqualTo("interactive_hotspot_complete"));
             Assert.That(state.suspicion, Is.EqualTo(initialSuspicion));
             Assert.That(state.trustMasha, Is.EqualTo(initialTrustMasha));
@@ -495,6 +506,70 @@ namespace HowIFall.PlayModeTests
             Assert.That(interactive.IsRunning, Is.False, "Door completion must close the runtime on re-entry too.");
             Assert.That(state.suspicion, Is.EqualTo(initialSuspicion));
             Assert.That(state.trustMasha, Is.EqualTo(initialTrustMasha));
+        }
+
+        [UnityTest]
+        public IEnumerator Hotspot_FeedbackUsesReadingShell_NoPrivateChrome_AndEscRmbKeepGameMenuAccess()
+        {
+            yield return LoadScene("VNPrototype");
+            yield return WaitFor(() => VNDialogueController.Instance != null && VNDialogueController.Instance.IsRuntimeReady, "VN runtime did not become ready.");
+            VNDialogueController dialogue = VNDialogueController.Instance;
+            InteractiveSceneData room = Resources.Load<InteractiveSceneData>("InteractiveHotspot/TechnicalInteractiveRoom");
+            Assert.That(room, Is.Not.Null, "TECH Interactive Room resource is missing.");
+            EnsureEventSystem();
+
+            Assert.That(dialogue.TryStartInteractiveScene(room, out string failure), Is.True, failure);
+            InteractiveSceneController interactive = dialogue.ActiveInteractiveSceneController;
+
+            // The accepted Reading dialogue shell stays in charge of presentation: never
+            // suppressed, rendered above the Hotspot view, with no private Hotspot chrome.
+            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Hotspot mode must not suppress the accepted Reading dialogue shell.");
+            AssertHotspotViewBelowDialogueBox(dialogue, interactive);
+            Transform view = interactive.DisplayedImageRect.parent.parent;
+            Assert.That(view.Find("Hotspot Menu Button"), Is.Null, "Hotspot mode must not present its own Menu button; Game Menu access stays on the established Esc/RMB path.");
+            Assert.That(view.Find("Feedback Panel"), Is.Null, "Hotspot mode must not present its own feedback panel.");
+
+            // Initial feedback appears in the shell (TECH room: narration without a speaker).
+            yield return WaitFor(() => dialogue.dialogueText.text == room.initialFeedback, "Initial Hotspot feedback did not reach the Reading dialogue shell.");
+            Assert.That(dialogue.nameBox.activeSelf, Is.False, "A null scene.feedbackSpeaker must present as narration without a name box.");
+
+            // The established Escape path still opens the existing Game Menu over the Hotspot.
+            yield return PressFrame(keyboard.escapeKey);
+            Assert.That(dialogue.IsGameMenuOpen, Is.True, "Esc must open the existing Game Menu while the Hotspot owns interaction.");
+            Assert.That(dialogue.CanSave, Is.False, "Hotspot mode must keep Save blocked while the Game Menu is open.");
+            Assert.That(dialogue.CanLoad, Is.False, "Hotspot mode must keep Load blocked while the Game Menu is open.");
+            yield return PressFrame(keyboard.escapeKey);
+            Assert.That(dialogue.IsGameMenuOpen, Is.False, "Esc must close the Game Menu back into the active Hotspot.");
+            Assert.That(interactive.IsRunning, Is.True, "Game Menu close must return to the active room.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(interactive.GetHotspotButton("test_laptop").gameObject),
+                "Game Menu return must restore a usable Hotspot focus owner.");
+
+            // RMB keeps the same single-owner Game Menu access path.
+            yield return PressFrame(mouse.rightButton);
+            Assert.That(dialogue.IsGameMenuOpen, Is.True, "RMB must open the existing Game Menu while the Hotspot owns interaction.");
+            yield return PressFrame(mouse.rightButton);
+            Assert.That(dialogue.IsGameMenuOpen, Is.False, "RMB must close the Game Menu back into the active Hotspot.");
+
+            // Outcome feedback is presented through the same shell.
+            Click(interactive.GetHotspotButton("test_laptop"));
+            yield return WaitFor(() => dialogue.dialogueText.text == "TEST:computer_checked = true", "Hotspot outcome feedback did not reach the Reading dialogue shell.");
+
+            // Save/Load blocking stays correct while the Hotspot owns interaction.
+            Assert.That(dialogue.CanSave, Is.False, "Hotspot mode must keep Save blocked.");
+            Assert.That(dialogue.CanLoad, Is.False, "Hotspot mode must keep Load blocked.");
+        }
+
+        /// <summary>Hands-on correction: the Hotspot view renders inside the Reading shell layer, directly below the ordinary Dialogue Box.</summary>
+        private static void AssertHotspotViewBelowDialogueBox(VNDialogueController dialogue, InteractiveSceneController interactive)
+        {
+            Transform shellBox = dialogue.dialogueUiRoot.transform;
+            Transform view = interactive.DisplayedImageRect.parent.parent;
+            Assert.That(view.name, Is.EqualTo("Interactive Hotspot Runtime View"));
+            Assert.That(view.parent, Is.EqualTo(shellBox.parent),
+                "The Hotspot view must live in the Reading shell layer, not as a private top-most canvas layer.");
+            Assert.That(view.GetSiblingIndex(), Is.LessThan(shellBox.GetSiblingIndex()),
+                "The Hotspot view must render below the ordinary Dialogue Box so shell feedback stays visible.");
+            Assert.That(shellBox.gameObject.activeInHierarchy, Is.True, "The Reading dialogue shell must stay visible during Hotspot mode.");
         }
 
         private static void AssertMarkerPresentation(Button[] ownedButtons)
@@ -561,7 +636,7 @@ namespace HowIFall.PlayModeTests
             string sceneBefore = GameState.Instance.currentSceneId;
             yield return ClickScreenPoint(new Vector2(Screen.width * 0.5f, Screen.height * 0.04f));
             Assert.That(interactive.IsRunning, Is.True, "A backdrop click must not complete or close the interactive runtime.");
-            Assert.That(dialogue.IsDialogueShellSuppressed, Is.True, "A backdrop click must not release the suppressed dialogue shell.");
+            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "A backdrop click must leave the accepted Reading dialogue shell untouched.");
             Assert.That(dialogue.CanAdvanceDialogue, Is.False, "A backdrop click must not restore Reading input ownership.");
             Assert.That(GameState.Instance.currentSceneId, Is.EqualTo(sceneBefore), "A backdrop click must not advance the underlying dialogue.");
             Assert.That(interactive.ActivationCount, Is.EqualTo(1), "A backdrop click must not activate any hotspot.");
