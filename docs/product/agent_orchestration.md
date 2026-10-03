@@ -247,7 +247,36 @@ C#/runtime/UI/scene/prefab/Save/Packages/ProjectSettings/workflow/mixed →
 `master` не нужен; reviewer только проверяет exact merged SHA. `workflow_dispatch`
 остаётся для exceptional/high-risk full CI.
 
-## 11. Delegation
+## 11. Reviewer-visible evidence handoff
+
+Если screenshots/graphical proof materially участвуют в acceptance или reviewer
+decision, implementer обязан опубликовать bounded proof так, чтобы reviewer мог
+сам открыть исходные кадры. Не оставляй единственную копию evidence в
+`C:\Temp`, `QAArtifacts` или другом agent-local архиве.
+
+Порядок публикации:
+1. Если meaningful visual pass уже меняет небольшой curated набор
+   `docs/visual-baselines/`, используй существующий GitHub `visual-review`
+   artifact exact-head CI как основной handoff.
+2. Если свежие proof-кадры нужны reviewer'у, но baseline менять не следует,
+   загрузи релевантные originals/contact sheet в Google Drive
+   `03 — UI — implementation & QA proof`, если upload tool доступен в среде.
+3. Если Drive-upload недоступен, создай отдельную временную ветку
+   `evidence/<task>` от review-candidate head и добавь только bounded proof set
+   + manifest с source PR/head SHA, filenames и SHA-256. Эта ветка не входит в
+   task PR, никогда не мержится в `master` и удаляется после reviewer acceptance.
+
+Не публикуй сотни кадров только ради полноты: reviewer должен получить все
+состояния, materially нужные для решения, а полный локальный archive может
+остаться дополнительным evidence. Build binaries, весь `QAArtifacts` и прочие
+массовые generated outputs в task PR/master не коммить.
+
+Финальный report всегда указывает publish location/branch/folder и source head
+SHA. Если после реальной попытки ни один publish route недоступен, пиши
+`REVIEWER VISUAL PROOF NOT AVAILABLE` с причиной; agent-local inspection тогда
+остаётся отдельным уровнем evidence и не выдаётся за independent reviewer proof.
+
+## 12. Delegation
 
 Subagents — не default. Используй их только при реально независимых
 workstreams — по умолчанию в Z-Code. Coordinator задаёт
@@ -257,7 +286,7 @@ proposal/evidence, не reviewer proof.
 Не поручай параллельно нескольким агентам редактировать одну serialized
 поверхность. Не используй delegation только потому, что задача «большая».
 
-## 12. Stop conditions и роли
+## 13. Stop conditions и роли
 
 Остановись и сообщи blocker, если expected base изменился, отсутствует
 необходимое product decision, scope неожиданно требует scene/prefab/SaveData
