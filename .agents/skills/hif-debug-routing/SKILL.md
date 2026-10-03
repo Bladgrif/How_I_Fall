@@ -25,7 +25,7 @@ description: Маршрутизирует debug-симптомы How I Fall к �
 | Сохранения: пагинация, слоты, бэкенд | `SavePaginationEditModeTests`, `SaveSlotFocusPresentationEditModeTests`, `RollbackBackendPlayModeTests` | E2E `SaveBackendV2`, `ManualSave`; контракт — `docs/product/decision_log.md` (2026-08-31) |
 | Rollback/rewind | `RollbackCheckpointEditModeTests`, `QuickMenuRollbackButtonEditModeTests`, `RollbackBackendPlayModeTests` | E2E `GameMenu` (`gameplay_quick_menu_rollback_*`) |
 | Reading: backlog, история, wheel, auto | `DialogueBacklogEditModeTests`, `HistoryPresentationPlayModeTests`, `WheelReadingRuntimePlayModeTests` | внутренние проверки smoke suite (запускаются только в составе `HowIFallCiSmokeTests.RunAll`, отдельно не фильтруются): `BacklogRestorationSmokeTests`, `AutoDialogueSmokeTests`, `DialogueBacklogSmokeTests` |
-| Interactive hotspot / карта | `InteractiveHotspotPlayModeTests`, `InteractiveHotspotEditModeTests`, `MapLocationsPlayModeTests`, `MapLocationsEditModeTests` | `InteractiveHotspotQaLauncher`, `MapLocationsQaLauncher` |
+| Interactive hotspot / карта | `InteractiveHotspotPlayModeTests`, `InteractiveHotspotEditModeTests`, `MapLocationsPlayModeTests`, `MapLocationsEditModeTests` | `InteractiveHotspotQaLauncher`, `MapLocationsQaLauncher`, E2E `Hotspot` (`hotspot_*_1920x1080.png`: authored/fallback background, focus, Game Menu round-trip, re-entry) |
 | Сквозной путь игрока (маршрут/состояние) | `PlayerJourneyE2ETests` | E2E `PlayerUi` полный набор proof-скриншотов |
 | Настройки вне главного меню | `SettingsPanelWithoutMainMenuPlayModeTests` | `SettingsManagerResolutionEditModeTests` |
 | Input map / RMB-навигация | `VNInputMapControllerTests`, `RMBOneLevelRuntimePlayModeTests` | — |
