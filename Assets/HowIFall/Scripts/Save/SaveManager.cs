@@ -63,6 +63,10 @@ public sealed class SaveManager : MonoBehaviour
     /// <summary>Narrow PlayMode seam; null in normal runtime so player captures still use ScreenCapture.</summary>
     public static Func<Texture2D> ScreenshotCaptureOverrideForTests { get; set; }
 
+#if UNITY_EDITOR
+    public static Action<string> PublishFailureInjectionForTests { get; set; }
+#endif
+
     internal static Texture2D CaptureScreenshotForSave()
     {
         return ScreenshotCaptureOverrideForTests != null
@@ -244,6 +248,11 @@ public sealed class SaveManager : MonoBehaviour
             string jsonTemporaryPath = jsonPath + ".tmp";
             string previewTemporaryPath = previewPath + ".tmp";
 
+            RecoverSlotPublication(jsonPath, previewPath);
+            if (File.Exists(previewPath + ".bak") || File.Exists(previewPath + ".new") || File.Exists(jsonPath + ".bak"))
+            {
+                throw new IOException("Previous committed publication cleanup is still blocked.");
+            }
             try
             {
                 File.WriteAllBytes(previewTemporaryPath, previewBytes);
@@ -252,15 +261,54 @@ public sealed class SaveManager : MonoBehaviour
                     JsonUtility.ToJson(data, true),
                     new UTF8Encoding(false));
 
-                File.Copy(previewTemporaryPath, previewPath, true);
-                File.Copy(jsonTemporaryPath, jsonPath, true);
+                // Staged JSON is consumed only by the atomic commit. Until then
+                // preserve the previous preview (or its absence), even on restart.
+                if (File.Exists(jsonPath))
+                {
+                    File.Copy(jsonPath, jsonPath + ".bak.tmp", true);
+                    File.Move(jsonPath + ".bak.tmp", jsonPath + ".bak");
+                }
+                if (File.Exists(previewPath))
+                {
+                    File.Copy(previewPath, previewPath + ".bak.tmp", true);
+                    File.Move(previewPath + ".bak.tmp", previewPath + ".bak");
+                }
+                else
+                {
+                    File.WriteAllBytes(previewPath + ".new", Array.Empty<byte>());
+                }
+#if UNITY_EDITOR
+                PublishFailureInjectionForTests?.Invoke("BeforePreviewPublish");
+#endif
+                PublishSlotFile(previewTemporaryPath, previewPath);
+#if UNITY_EDITOR
+                PublishFailureInjectionForTests?.Invoke("AfterPreviewPublish");
+#endif
+                PublishSlotFile(jsonTemporaryPath, jsonPath);
+            }
+            catch
+            {
+                // Never remove staged JSON before recovery: its absence means
+                // the JSON commit already happened, not an unfinished overwrite.
+                RecoverSlotPublication(jsonPath, previewPath);
+                throw;
             }
             finally
             {
-                DeleteTemporaryFile(jsonTemporaryPath);
                 DeleteTemporaryFile(previewTemporaryPath);
+                DeleteTemporaryFile(previewPath + ".bak.tmp");
+                DeleteTemporaryFile(jsonPath + ".bak.tmp");
+                if (!File.Exists(previewPath + ".bak") && !File.Exists(previewPath + ".new"))
+                {
+                    DeleteTemporaryFile(jsonTemporaryPath);
+                    DeleteTemporaryFile(jsonPath + ".bak");
+                }
             }
 
+            // Cleanup failure after commit must not report a failed save.
+            DeleteTemporaryFile(previewPath + ".bak");
+            DeleteTemporaryFile(previewPath + ".new");
+            DeleteTemporaryFile(jsonPath + ".bak");
             Debug.Log(
                 $"[SAVE] {type} slot {slotIndex} saved. json='{jsonPath}', preview='{previewPath}', sceneId='{sceneId}', lineId='{lineId}', lineIndex={resolvedLineIndex}, choiceIndex={data.selectedChoiceIndex}.",
                 this);
@@ -411,7 +459,14 @@ public sealed class SaveManager : MonoBehaviour
             jsonPath,
             previewPath,
             jsonPath + ".tmp",
-            previewPath + ".tmp"
+            previewPath + ".tmp",
+            previewPath + ".bak",
+            previewPath + ".bak.tmp",
+            previewPath + ".new",
+            previewPath + ".restore.tmp",
+            jsonPath + ".bak",
+            jsonPath + ".bak.tmp",
+            jsonPath + ".restore.tmp"
         };
 
         bool succeeded = true;
@@ -530,18 +585,28 @@ public sealed class SaveManager : MonoBehaviour
             PreviewPath = string.Empty,
             DisplayDate = string.Empty,
             DisplayName = string.Empty,
-            Error = string.Empty,
-            IsOccupied = !string.IsNullOrEmpty(jsonPath)
-                && (File.Exists(jsonPath)
-                    || File.Exists(previewPath)
-                    || File.Exists(jsonPath + ".tmp")
-                    || File.Exists(previewPath + ".tmp"))
+            Error = string.Empty
         };
 
         if (!validAddress)
         {
             result.Error = addressError;
             return result;
+        }
+
+        try
+        {
+            RecoverSlotPublication(jsonPath, previewPath);
+            result.IsOccupied = File.Exists(jsonPath)
+                || File.Exists(previewPath)
+                || File.Exists(jsonPath + ".tmp")
+                || File.Exists(previewPath + ".tmp");
+        }
+        catch (Exception exception)
+        {
+            result.IsOccupied = true;
+            result.Error = $"Interrupted publication could not be recovered: {exception.Message}";
+            return result; // Never expose an unrecovered mixed pair to Continue/UI.
         }
 
         if (!result.IsOccupied)
@@ -774,6 +839,9 @@ public sealed class SaveManager : MonoBehaviour
         List<DialogueBacklogEntry> previousBacklog = dialogueController != null
             ? dialogueController.CaptureBacklogSnapshot()
             : null;
+        Action restorePreviousReading = dialogueController != null
+            ? dialogueController.CaptureFailedLoadFallback()
+            : null;
 
         ApplyGameState(data, gameState);
         if (dialogueController != null)
@@ -807,7 +875,18 @@ public sealed class SaveManager : MonoBehaviour
             dialogueController.ReplaceBacklogFromSnapshot(previousBacklog);
         }
 
-        ClearPendingLoad();
+        try
+        {
+            restorePreviousReading?.Invoke();
+        }
+        catch (Exception exception)
+        {
+            error += $" Previous Reading fallback failed: {exception.Message}";
+        }
+        finally
+        {
+            ClearPendingLoad();
+        }
         if (string.IsNullOrEmpty(error))
         {
             error = "VNDialogueController.RestoreFromGameState() returned false.";
@@ -1581,6 +1660,75 @@ public sealed class SaveManager : MonoBehaviour
             SaveSlotType.Quick => $"quick_{slotIndex:D2}",
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unsupported save slot type.")
         };
+    }
+
+    private static void PublishSlotFile(string stagedPath, string destinationPath)
+    {
+        if (File.Exists(destinationPath))
+        {
+            File.Replace(stagedPath, destinationPath, null);
+        }
+        else
+        {
+            File.Move(stagedPath, destinationPath);
+        }
+    }
+
+    private static void RecoverSlotPublication(string jsonPath, string previewPath)
+    {
+        string backupPath = previewPath + ".bak";
+        string absentPreviewPath = previewPath + ".new";
+        if (!File.Exists(backupPath) && !File.Exists(absentPreviewPath))
+        {
+            // Interruption while preparing backups cannot have changed the slot.
+            DeleteTemporaryFile(jsonPath + ".bak");
+            return;
+        }
+
+        // Rename/replace consumes staged JSON at commit. Before commit the old
+        // pair is either untouched or recoverable from the slot-local backups.
+        if (!File.Exists(jsonPath + ".tmp"))
+        {
+            // A committed pair remains readable even if cleanup is denied.
+            DeleteTemporaryFile(backupPath);
+            DeleteTemporaryFile(absentPreviewPath);
+            DeleteTemporaryFile(jsonPath + ".bak");
+            return;
+        }
+        if (File.Exists(jsonPath + ".tmp"))
+        {
+            // ReplaceFile can fail after removing its destination. Preserve JSON
+            // too, and avoid touching an unchanged file held open by a reader.
+            if (File.Exists(jsonPath + ".bak"))
+            {
+                if (!File.Exists(jsonPath)
+                    || !File.ReadAllBytes(jsonPath).SequenceEqual(File.ReadAllBytes(jsonPath + ".bak")))
+                {
+                    File.Copy(jsonPath + ".bak", jsonPath + ".restore.tmp", true);
+                    PublishSlotFile(jsonPath + ".restore.tmp", jsonPath);
+                }
+            }
+            else
+            {
+                File.Delete(jsonPath);
+            }
+            if (File.Exists(backupPath))
+            {
+                File.Copy(backupPath, previewPath + ".restore.tmp", true);
+                PublishSlotFile(previewPath + ".restore.tmp", previewPath);
+            }
+            else
+            {
+                File.Delete(previewPath);
+            }
+        }
+
+        // Do not clear the commit signal if restoring the preview failed.
+        File.Delete(backupPath);
+        File.Delete(absentPreviewPath);
+        DeleteTemporaryFile(jsonPath + ".tmp");
+        DeleteTemporaryFile(previewPath + ".tmp");
+        DeleteTemporaryFile(jsonPath + ".bak");
     }
 
     private static void DeleteTemporaryFile(string path)

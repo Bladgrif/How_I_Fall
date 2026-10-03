@@ -24,6 +24,8 @@ public class RollbackBackendPlayModeTests
     public IEnumerator SetUp()
     {
         VNDialogueController.RollbackRestoreFailureInjectionForTests = null;
+        VNDialogueController.LoadRestoreFailureInjectionForTests = null;
+        SaveManager.PublishFailureInjectionForTests = null;
         DestroyExistingSingletons();
         yield return null;
     }
@@ -32,6 +34,8 @@ public class RollbackBackendPlayModeTests
     public IEnumerator TearDown()
     {
         VNDialogueController.RollbackRestoreFailureInjectionForTests = null;
+        VNDialogueController.LoadRestoreFailureInjectionForTests = null;
+        SaveManager.PublishFailureInjectionForTests = null;
         foreach (string key in playerPrefsKeys)
         {
             PlayerPrefs.DeleteKey(key);
@@ -433,8 +437,8 @@ public class RollbackBackendPlayModeTests
     [UnityTest]
     public IEnumerator SavePreservesBuffer_AndAcceptedLoadClearsIt()
     {
-        Scene testScene = SceneManager.CreateScene("VNPrototype");
-        SceneManager.SetActiveScene(testScene);
+        integritySaveScene = SceneManager.CreateScene("VNPrototype");
+        SceneManager.SetActiveScene(integritySaveScene);
         DialogueSceneData scene = CreateLinearScene("save-load", "A", "B", "C");
         TestContext context = CreateContext(scene);
         saveDirectory = Path.Combine(Application.temporaryCachePath, "hif-rollback-" + Guid.NewGuid().ToString("N"));
@@ -842,6 +846,424 @@ public class RollbackBackendPlayModeTests
         beat.progressSlider = CreateGameObject("Progress", beat.rootPanel.transform).AddComponent<Slider>();
         owner.SetActive(true);
         return beat;
+    }
+
+    [UnityTest]
+    public IEnumerator SavePublication_OverwriteFailurePreservesKnownGoodGeneration()
+    {
+        TestContext context = CreateContext(CreateLinearScene("publish", "Generation A", "Generation B"));
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        Texture2D previewA = CreateSprite(Color.red).texture;
+        Texture2D previewB = CreateSprite(Color.blue).texture;
+        Assert.That(manager.SaveSlot(1, previewA), Is.True);
+        string jsonPath = manager.GetSlotJsonPath(1);
+        string previewPath = manager.GetSlotPreviewPath(1);
+        byte[] originalJson = File.ReadAllBytes(jsonPath);
+        byte[] originalPreview = File.ReadAllBytes(previewPath);
+        AdvanceAndComplete(context.Controller);
+        SaveManager.PublishFailureInjectionForTests = stage =>
+        {
+            if (stage == "AfterPreviewPublish") throw new IOException("injected publication failure");
+        };
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[SAVE\\].*write failed.*injected publication failure"));
+        Assert.That(manager.SaveSlot(1, previewB), Is.False);
+        SaveManager.PublishFailureInjectionForTests = null;
+        TestContextProgress(manager, "overwrite-failure");
+        // Stable-session invariants
+        {
+            Assert.That(File.ReadAllBytes(jsonPath), Is.EqualTo(originalJson), "Failed overwrite must preserve A JSON bytes.");
+            Assert.That(File.ReadAllBytes(previewPath), Is.EqualTo(originalPreview), "Failed overwrite must preserve A preview bytes.");
+            Assert.That(manager.GetSlot(1).IsLoadable, Is.True);
+            Assert.That(manager.GetSlot(1).Data.lineId, Is.EqualTo("line-0"));
+            Assert.That(File.Exists(jsonPath + ".tmp") || File.Exists(previewPath + ".tmp"), Is.False);
+        }
+        Assert.That(manager.SaveSlot(1, previewB), Is.True, "Retry must succeed.");
+        Assert.That(manager.GetSlot(1).Data.lineId, Is.EqualTo("line-1"));
+        Assert.That(File.ReadAllBytes(manager.GetSlotPreviewPath(1)), Is.Not.EqualTo(originalPreview));
+    }
+
+    [UnityTest]
+    public IEnumerator SavePublication_EmptySlotFailureIsNotLoadable_AndRetryDeleteAreDeterministic()
+    {
+        TestContext context = CreateContext(CreateLinearScene("empty-publish", "A"));
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        Texture2D preview = CreateSprite(Color.red).texture;
+        SaveManager.PublishFailureInjectionForTests = stage =>
+        {
+            if (stage == "AfterPreviewPublish") throw new IOException("injected publication failure");
+        };
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[SAVE\\].*write failed.*injected publication failure"));
+        Assert.That(manager.SaveSlot(1, preview), Is.False);
+        SaveManager.PublishFailureInjectionForTests = null;
+        Assert.That(manager.GetSlot(1).IsLoadable, Is.False);
+        Assert.That(manager.HasAnyValidSave(), Is.False);
+        Assert.That(manager.DeleteSlot(1), Is.True);
+        Assert.That(Directory.GetFiles(saveDirectory), Is.Empty);
+        Assert.That(manager.SaveSlot(1, preview), Is.True);
+        Assert.That(manager.GetSlot(1).IsLoadable, Is.True);
+    }
+
+    [UnityTest]
+    public IEnumerator FailedLoad_AfterPresentationMutationRestoresStableReading()
+    {
+        integritySaveScene = SceneManager.CreateScene("VNPrototype");
+        SceneManager.SetActiveScene(integritySaveScene);
+        DialogueSceneData current = CreateLinearScene("load-current", "A", "Stable B", "Next C");
+        DialogueSceneData target = CreateLinearScene("load-target", "Unseen target");
+        DialogueSceneData next = CreateLinearScene("load-next", "Next target");
+        Sprite backgroundA = CreateSprite(Color.red);
+        Sprite backgroundB = CreateSprite(Color.blue);
+        current.lines[1].background = backgroundA;
+        current.lines[1].characterSprite = backgroundA;
+        target.lines[0].background = backgroundB;
+        target.lines[0].characterSprite = backgroundB;
+        target.lines[0].speaker = "Target speaker";
+        target.choices.Add(CreateChoice("Target choice", "Target result", next, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+        TestContext context = CreateContext(current, target, next);
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        AdvanceAndComplete(context.Controller);
+        SetAllNumericState(context.GameState, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        string speaker = context.Controller.speakerText.text;
+        Color backgroundColor = new Color(.6f, .7f, .8f, .9f);
+        context.Controller.backgroundImage.color = backgroundColor;
+        Vector2 characterPosition = new Vector2(42f, 123f);
+        Vector2 characterSize = new Vector2(456f, 321f);
+        context.Controller.characterImage.rectTransform.anchoredPosition = characterPosition;
+        context.Controller.characterImage.rectTransform.sizeDelta = characterSize;
+        AudioClip previousMusic = CreateAudioClip("Current music");
+        AudioClip targetMusic = CreateAudioClip("Target music");
+        context.Audio.musicSource.clip = previousMusic;
+        context.Audio.musicSource.Play();
+        target.backgroundMusic = targetMusic;
+        context.Settings.settings.autoForward = true;
+        context.Settings.settings.autoForwardDelay = 500f;
+        context.Controller.SetSkip(true);
+        var targetData = new SaveData
+        {
+            slotIndex = 1, createdAtUtc = DateTime.UtcNow.ToString("O"),
+            sceneId = target.sceneId, lineId = "line-0", lineIndex = 0,
+            selectedChoiceIndex = 0, choiceResultActive = true, pendingNextSceneId = next.sceneId,
+            previewFileName = "slot_01.png", lust = 99,
+            backlogEntries = new List<BacklogEntryData> { new BacklogEntryData { text = "Target result" } }
+        };
+        File.WriteAllText(manager.GetSlotJsonPath(1), JsonUtility.ToJson(targetData));
+        bool mutationObserved = false;
+        VNDialogueController.LoadRestoreFailureInjectionForTests = () =>
+        {
+            VNDialogueController.LoadRestoreFailureInjectionForTests = null;
+            mutationObserved = context.Controller.sceneData == target
+                && GetPrivate<string>(context.Controller, "currentFullText") == "Target result"
+                && context.Controller.backgroundImage.sprite == backgroundB;
+            throw new InvalidOperationException("injected restore failure after presentation");
+        };
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[LOAD\\].*not restored in-place.*injected restore failure"));
+        Assert.That(manager.LoadSlot(1), Is.False);
+        Assert.That(mutationObserved, Is.True, "Fault must happen after meaningful target presentation mutation.");
+        TestContextProgress(manager, "failed-load");
+        Debug.Log($"failed-load residue: GameState={context.GameState.currentSceneId}/{context.GameState.currentLineId}; "
+            + $"controller={context.Controller.sceneData.sceneId}; text={context.Controller.dialogueText.text}; full={GetPrivate<string>(context.Controller, "currentFullText")}; "
+            + $"typing={GetPrivate<bool>(context.Controller, "isTyping")}; targetSeen={context.ReadHistory.IsSeen(target.sceneId, "line-0")}; "
+            + $"skip={context.Controller.IsSkipEnabled}; pendingNext={GetPrivate<DialogueSceneData>(context.Controller, "pendingNextScene")?.sceneId}");
+        // Stable-session invariants
+        {
+            Assert.That(context.GameState.currentSceneId, Is.EqualTo(current.sceneId));
+            Assert.That(context.GameState.currentLineId, Is.EqualTo("line-1"));
+            AssertAllNumericState(context.GameState, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+            Assert.That(context.Controller.sceneData, Is.EqualTo(current));
+            Assert.That(context.Controller.dialogueText.text, Is.EqualTo("Stable B"));
+            Assert.That(GetPrivate<string>(context.Controller, "currentFullText"), Is.EqualTo("Stable B"));
+            Assert.That(context.Controller.speakerText.text, Is.EqualTo(speaker));
+            Assert.That(context.Controller.nameBox.activeSelf, Is.True);
+            Assert.That(context.Controller.backgroundImage.sprite, Is.EqualTo(backgroundA));
+            Assert.That(context.Controller.backgroundImage.color, Is.EqualTo(backgroundColor));
+            Assert.That(context.Controller.characterImage.sprite, Is.EqualTo(backgroundA));
+            Assert.That(context.Controller.characterImage.rectTransform.anchoredPosition, Is.EqualTo(characterPosition));
+            Assert.That(context.Controller.characterImage.rectTransform.sizeDelta, Is.EqualTo(characterSize));
+            Assert.That(context.Audio.musicSource.clip, Is.EqualTo(previousMusic));
+            Assert.That(context.Audio.musicSource.isPlaying, Is.True);
+            Assert.That(GetPrivate<bool>(context.Controller, "isTyping"), Is.False);
+            Assert.That(GetPrivate<bool>(context.Controller, "showingFinalLine"), Is.False);
+            Assert.That(GetPrivate<DialogueSceneData>(context.Controller, "pendingNextScene"), Is.Null);
+            Assert.That(context.GameState.choiceResultActive, Is.False);
+            AssertBacklog(context.Controller, "A", "Stable B");
+            Assert.That(context.ReadHistory.IsSeen(target.sceneId, "line-0"), Is.False, "Failed load must not mark target seen.");
+            Assert.That(manager.HasPendingSceneRestore, Is.False);
+            Assert.That(manager.PendingSlotIndex, Is.Zero);
+            manager.GetPendingBacklogRestore(out List<DialogueBacklogEntry> pendingHistory, out bool pendingAvailable);
+            Assert.That(pendingAvailable, Is.False);
+            Assert.That(pendingHistory, Is.Empty);
+            Assert.That(context.Controller.IsSkipEnabled, Is.True, "Failed target must not disable current Skip.");
+            Assert.That(context.Controller.IsAutoForwardEnabledState, Is.True);
+            Assert.That(context.Settings.settings.autoForward, Is.True);
+            Assert.That(context.Controller.RollbackCheckpointCount, Is.Zero, "Intentional hard barrier.");
+            Assert.That(context.Controller.HasActiveSpecialMode || context.Controller.IsGameMenuOpen, Is.False);
+            Assert.That(context.Controller.CanSave && context.Controller.CanLoad && context.Controller.CanAdvanceDialogue, Is.True);
+        }
+        context.Controller.SetSkip(false); // Check that no cancelled target typewriter resumes.
+        yield return new WaitForSecondsRealtime(.2f);
+        Assert.That(context.Controller.dialogueText.text, Is.EqualTo("Stable B"), "No stale target typewriter may continue.");
+        Assert.That(manager.SaveSlot(2, CreateSprite(Color.red).texture), Is.True);
+        context.Controller.AdvanceDialogue();
+        CompleteCurrentLine(context.Controller);
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-2"));
+        Assert.That(manager.LoadSlot(1), Is.True, "Normal target retry must remain usable.");
+        Assert.That(manager.LoadSlot(2), Is.True, "Normal current-session save/load must remain usable.");
+    }
+
+    [UnityTest]
+    public IEnumerator FailedLoad_ChoicePromptRestoresCurrentFocusAndModalOwnership()
+    {
+        integritySaveScene = SceneManager.CreateScene("VNPrototype");
+        SceneManager.SetActiveScene(integritySaveScene);
+        EventSystem events = EventSystem.current;
+        if (events == null)
+        {
+            GameObject eventOwner = CreateGameObject("Load integrity EventSystem");
+            events = eventOwner.AddComponent<EventSystem>();
+            eventOwner.AddComponent<InputSystemUIInputModule>();
+        }
+        DialogueSceneData current = CreateLinearScene("focus-current", "Stable current", "Next");
+        DialogueSceneData target = CreateLinearScene("focus-target", "Target prompt");
+        target.choices.Add(CreateChoice("Target choice", "Target result", null, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+        TestContext context = CreateContext(current, target);
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        Assert.That(context.Controller.OpenGameMenu(), Is.True);
+        GameObject previousFocus = events.currentSelectedGameObject;
+        Assert.That(previousFocus, Is.Not.Null);
+        File.WriteAllText(manager.GetSlotJsonPath(1), JsonUtility.ToJson(new SaveData
+        {
+            slotIndex = 1, createdAtUtc = DateTime.UtcNow.ToString("O"), sceneId = target.sceneId,
+            lineId = "line-0", previewFileName = "slot_01.png", backlogEntries = new List<BacklogEntryData>()
+        }));
+        bool targetPromptObserved = false;
+        VNDialogueController.LoadRestoreFailureInjectionForTests = () =>
+        {
+            targetPromptObserved = context.Controller.choicePanel.activeSelf;
+            throw new IOException("injected prompt failure");
+        };
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[LOAD\\].*not restored in-place.*injected prompt failure"));
+        Assert.That(manager.LoadSlot(1), Is.False);
+        VNDialogueController.LoadRestoreFailureInjectionForTests = null;
+        Debug.Log($"failed prompt: targetSeen={context.ReadHistory.IsSeen(target.sceneId, "line-0")}; "
+            + $"focus={events.currentSelectedGameObject?.name}; choiceVisible={context.Controller.choicePanel.activeSelf}; menuOpen={context.Controller.IsGameMenuOpen}");
+        Assert.That(targetPromptObserved, Is.True);
+        Assert.That(context.Controller.IsGameMenuOpen, Is.True, "Failed load must not transfer modal ownership.");
+        Assert.That(events.currentSelectedGameObject, Is.EqualTo(previousFocus));
+        Assert.That(events.currentSelectedGameObject.activeInHierarchy, Is.True);
+        Assert.That(context.Controller.choicePanel.activeSelf, Is.False);
+        Assert.That(context.ReadHistory.IsSeen(target.sceneId, "line-0"), Is.False);
+        Assert.That(manager.HasPendingSceneRestore, Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator SavePublication_AllFamiliesAndFaultBoundariesPreserveBytesAndRetry()
+    {
+        TestContext context = CreateContext(CreateLinearScene("publish-matrix", "A"));
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        Texture2D previewA = CreateSprite(Color.red).texture;
+        Texture2D previewB = CreateSprite(Color.blue).texture;
+        foreach (SaveSlotType type in new[] { SaveSlotType.Manual, SaveSlotType.Auto, SaveSlotType.Quick })
+        foreach (string stage in new[] { "BeforePreviewPublish", "AfterPreviewPublish" })
+        foreach (int original in new[] { 0, 1, 2, 3 }) // empty, valid, corrupt, valid without preview
+        {
+            Assert.That(manager.DeleteSlot(type, 1), Is.True);
+            string json = manager.GetSlotJsonPath(type, 1);
+            string preview = manager.GetSlotPreviewPath(type, 1);
+            if (original == 1 || original == 3) Assert.That(manager.SaveSlot(type, 1, previewA), Is.True);
+            if (original == 2)
+            {
+                File.WriteAllText(json, "corrupt existing JSON");
+                File.WriteAllBytes(preview, new byte[] { 7, 8, 9 });
+            }
+            if (original == 3) File.Delete(preview);
+            byte[] oldJson = File.Exists(json) ? File.ReadAllBytes(json) : null;
+            byte[] oldPreview = File.Exists(preview) ? File.ReadAllBytes(preview) : null;
+            SaveManager.PublishFailureInjectionForTests = reached =>
+            {
+                if (reached == stage) throw new IOException("injected matrix failure");
+            };
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[SAVE\\].*write failed.*injected matrix failure"));
+            Assert.That(manager.SaveSlot(type, 1, previewB), Is.False, $"{type}/{stage}/{original}");
+            SaveManager.PublishFailureInjectionForTests = null;
+            Assert.That(File.Exists(json) ? File.ReadAllBytes(json) : null, Is.EqualTo(oldJson));
+            Assert.That(File.Exists(preview) ? File.ReadAllBytes(preview) : null, Is.EqualTo(oldPreview));
+            Assert.That(manager.GetSlot(type, 1).IsLoadable, Is.EqualTo(original == 1 || original == 3));
+            Assert.That(manager.SaveSlot(type, 1, previewB), Is.True);
+            Assert.That(manager.GetSlot(type, 1).IsLoadable, Is.True);
+            Assert.That(manager.DeleteSlot(type, 1), Is.True);
+            Assert.That(Directory.GetFiles(Path.GetDirectoryName(json)), Is.Empty);
+        }
+    }
+
+    [UnityTest]
+    public IEnumerator SavePublication_RealJsonSharingFailurePreservesPair()
+    {
+        if (Application.platform != RuntimePlatform.WindowsEditor)
+        {
+            Assert.Ignore("Windows sharing violation proof; deterministic boundary matrix covers other Editors.");
+        }
+        TestContext context = CreateContext(CreateLinearScene("sharing", "A", "B"));
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        Assert.That(manager.SaveSlot(1, CreateSprite(Color.red).texture), Is.True);
+        string json = manager.GetSlotJsonPath(1);
+        string preview = manager.GetSlotPreviewPath(1);
+        byte[] oldJson = File.ReadAllBytes(json);
+        byte[] oldPreview = File.ReadAllBytes(preview);
+        AdvanceAndComplete(context.Controller);
+        using (var reader = new FileStream(json, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[SAVE\\].*write failed"));
+            Assert.That(manager.SaveSlot(1, CreateSprite(Color.blue).texture), Is.False);
+        }
+        Assert.That(File.ReadAllBytes(json), Is.EqualTo(oldJson));
+        Assert.That(File.ReadAllBytes(preview), Is.EqualTo(oldPreview));
+        Assert.That(manager.GetSlot(1).IsLoadable, Is.True);
+        Assert.That(manager.SaveSlot(1, CreateSprite(Color.blue).texture), Is.True);
+    }
+
+    [UnityTest]
+    public IEnumerator SavePublication_InterruptedPairRecoversBeforeReadContinueAndRetry()
+    {
+        integritySaveScene = SceneManager.CreateScene("VNPrototype");
+        SceneManager.SetActiveScene(integritySaveScene);
+        TestContext context = CreateContext(CreateLinearScene("interrupted", "A", "B"));
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        Assert.That(manager.SaveSlot(1, CreateSprite(Color.red).texture), Is.True);
+        string json = manager.GetSlotJsonPath(1);
+        string preview = manager.GetSlotPreviewPath(1);
+        byte[] oldJson = File.ReadAllBytes(json);
+        byte[] oldPreview = File.ReadAllBytes(preview);
+        AdvanceAndComplete(context.Controller);
+        Dictionary<string, byte[]> interrupted = null;
+        SaveManager.PublishFailureInjectionForTests = stage =>
+        {
+            if (stage != "AfterPreviewPublish") return;
+            interrupted = Directory.GetFiles(saveDirectory).ToDictionary(Path.GetFileName, File.ReadAllBytes);
+            throw new IOException("injected interrupted write");
+        };
+        LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[SAVE\\].*write failed.*injected interrupted write"));
+        Assert.That(manager.SaveSlot(1, CreateSprite(Color.blue).texture), Is.False);
+        SaveManager.PublishFailureInjectionForTests = null;
+        // Recreate exact captured boundary bytes, as if the process never ran catch/finally.
+        foreach (var file in interrupted) File.WriteAllBytes(Path.Combine(saveDirectory, file.Key), file.Value);
+        Assert.That(File.ReadAllBytes(preview), Is.Not.EqualTo(oldPreview), "The interrupted disk pair must really be mixed before recovery.");
+        Assert.That(manager.GetSlot(1).IsLoadable, Is.True);
+        Assert.That(File.ReadAllBytes(json), Is.EqualTo(oldJson));
+        Assert.That(File.ReadAllBytes(preview), Is.EqualTo(oldPreview));
+        // A future-dated temp JSON is not a published Continue candidate.
+        SaveData future = JsonUtility.FromJson<SaveData>(File.ReadAllText(json));
+        future.slotIndex = 60;
+        future.createdAtUtc = DateTime.UtcNow.AddDays(1).ToString("O");
+        future.lineId = "line-1";
+        File.WriteAllText(manager.GetSlotJsonPath(60) + ".tmp", JsonUtility.ToJson(future));
+        Assert.That(manager.LoadLatest(), Is.True);
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-0"));
+        Assert.That(manager.DeleteSlot(60), Is.True);
+        Assert.That(File.Exists(manager.GetSlotJsonPath(60) + ".tmp"), Is.False);
+        Assert.That(manager.SaveSlot(1, CreateSprite(Color.blue).texture), Is.True);
+        byte[] committedPreview = File.ReadAllBytes(preview);
+        // Interrupted post-commit cleanup: staged JSON has already been consumed.
+        File.WriteAllBytes(preview + ".bak", oldPreview);
+        Assert.That(manager.GetSlot(1).IsLoadable, Is.True);
+        Assert.That(File.ReadAllBytes(preview), Is.EqualTo(committedPreview));
+        Assert.That(File.Exists(preview + ".bak"), Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator SavePublication_InterruptedEmptySlotAndMissingJsonRecoverDeterministically()
+    {
+        TestContext context = CreateContext(CreateLinearScene("recover-files", "A"));
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        Texture2D preview = CreateSprite(Color.red).texture;
+        foreach (bool occupied in new[] { false, true })
+        {
+            Assert.That(manager.DeleteSlot(1), Is.True);
+            if (occupied) Assert.That(manager.SaveSlot(1, preview), Is.True);
+            string json = manager.GetSlotJsonPath(1);
+            byte[] originalJson = occupied ? File.ReadAllBytes(json) : null;
+            Dictionary<string, byte[]> boundary = null;
+            SaveManager.PublishFailureInjectionForTests = stage =>
+            {
+                if (stage != "AfterPreviewPublish") return;
+                boundary = Directory.GetFiles(saveDirectory).ToDictionary(Path.GetFileName, File.ReadAllBytes);
+                throw new IOException("injected recovery probe");
+            };
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[SAVE\\].*write failed.*injected recovery probe"));
+            Assert.That(manager.SaveSlot(1, preview), Is.False);
+            SaveManager.PublishFailureInjectionForTests = null;
+            foreach (var file in boundary) File.WriteAllBytes(Path.Combine(saveDirectory, file.Key), file.Value);
+            File.Delete(json); // Also model ReplaceFile's documented missing-destination error state.
+            Assert.That(manager.GetSlot(1).IsLoadable, Is.EqualTo(occupied));
+            Assert.That(File.Exists(json) ? File.ReadAllBytes(json) : null, Is.EqualTo(originalJson));
+            if (!occupied) Assert.That(Directory.GetFiles(saveDirectory), Is.Empty);
+            Assert.That(manager.SaveSlot(1, preview), Is.True);
+        }
+    }
+
+    [UnityTest]
+    public IEnumerator SavePublication_CommittedPairRemainsLoadableWhenBackupCleanupIsBlocked()
+    {
+        if (Application.platform != RuntimePlatform.WindowsEditor) Assert.Ignore("Windows sharing semantics.");
+        TestContext context = CreateContext(CreateLinearScene("cleanup", "A", "B"));
+        yield return null;
+        SaveManager manager = ConfigureIntegritySaveDirectory();
+        CompleteCurrentLine(context.Controller);
+        Assert.That(manager.SaveSlot(1, CreateSprite(Color.red).texture), Is.True);
+        AdvanceAndComplete(context.Controller);
+        FileStream heldBackup = null;
+        string backup = manager.GetSlotPreviewPath(1) + ".bak";
+        SaveManager.PublishFailureInjectionForTests = stage =>
+        {
+            if (stage == "AfterPreviewPublish") heldBackup = new FileStream(backup, FileMode.Open, FileAccess.Read, FileShare.Read);
+        };
+        try
+        {
+            Assert.That(manager.SaveSlot(1, CreateSprite(Color.blue).texture), Is.True);
+            SaveManager.PublishFailureInjectionForTests = null;
+            Assert.That(manager.GetSlot(1).IsLoadable, Is.True, "Cleanup-only artifacts must not poison a committed save.");
+            Assert.That(manager.HasAnyValidSave(), Is.True);
+            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("\\[SAVE\\].*write failed.*cleanup is still blocked"));
+            Assert.That(manager.SaveSlot(1, CreateSprite(Color.red).texture), Is.False);
+            Assert.That(manager.GetSlot(1).Data.lineId, Is.EqualTo("line-1"));
+            Assert.That(File.Exists(manager.GetSlotJsonPath(1) + ".tmp"), Is.False);
+        }
+        finally
+        {
+            SaveManager.PublishFailureInjectionForTests = null;
+            heldBackup?.Dispose();
+        }
+        Assert.That(manager.GetSlot(1).Data.lineId, Is.EqualTo("line-1"));
+        Assert.That(File.Exists(backup), Is.False);
+    }
+
+    private SaveManager ConfigureIntegritySaveDirectory()
+    {
+        saveDirectory = Path.Combine(Application.temporaryCachePath, "hif-save-integrity-" + Guid.NewGuid().ToString("N"));
+        SaveManager manager = SaveManager.Instance;
+        manager.ConfigureSaveDirectoryForTests(saveDirectory);
+        return manager;
+    }
+
+    private static void TestContextProgress(SaveManager manager, string stage)
+    {
+        Debug.Log($"{stage}: {manager.SaveDirectoryPath}; "
+            + string.Join(", ", Directory.GetFiles(manager.SaveDirectoryPath).Select(path => Path.GetFileName(path) + "=" + new FileInfo(path).Length)));
     }
 
     private TestContext CreateContext(DialogueSceneData startScene, params DialogueSceneData[] additionalScenes)
