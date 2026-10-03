@@ -258,13 +258,13 @@ public sealed class InteractiveSceneController : MonoBehaviour
         GameObject menuObject = CreateUiObject(root.transform, "Hotspot Menu Button");
         RectTransform rect = menuObject.GetComponent<RectTransform>();
         rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f); rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-50f, -38f); rect.sizeDelta = new Vector2(190f, 52f);
+        rect.anchoredPosition = new Vector2(-52f, -24f); rect.sizeDelta = new Vector2(196f, 60f);
         Image fill = menuObject.AddComponent<Image>(); fill.sprite = GetPillSprite(); fill.type = Image.Type.Sliced; fill.color = LabelFillColor; fill.raycastTarget = true;
         Image edge = CreateImage(menuObject.transform, "Menu Edge", GetStrokeSprite(), Vector2.zero, Vector2.zero, Vector2.zero, MarkerEdgeColor); Stretch(edge.rectTransform, -3f, -3f, -3f, -3f); edge.type = Image.Type.Sliced;
         Image icon = CreateImage(menuObject.transform, "Menu Icon", GetMenuIconSprite(), Vector2.zero, Vector2.zero, Vector2.zero, GlyphAvailableColor);
-        SetAnchor(icon.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(38f, 0f), new Vector2(28f, 28f));
-        TextMeshProUGUI label = CreateText(menuObject.transform, "Menu Label", "Меню", 26f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, LabelTextColor);
-        Stretch(label.rectTransform, 58f, 4f, 16f, 4f);
+        SetAnchor(icon.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(40f, 0f), new Vector2(30f, 28f));
+        TextMeshProUGUI label = CreateText(menuObject.transform, "Menu Label", "Меню", 32f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, LabelTextColor);
+        Stretch(label.rectTransform, 76f, 4f, 18f, 4f);
         Button button = menuObject.AddComponent<Button>();
         button.targetGraphic = fill;
         ColorBlock colors = button.colors; colors.normalColor = Color.white; colors.highlightedColor = new Color(1.7f, 1.9f, 2f, 1f); colors.selectedColor = new Color(1.5f, 1.7f, 1.8f, 1f); colors.pressedColor = new Color(1.2f, 1.35f, 1.45f, 1f); colors.disabledColor = Color.white; colors.colorMultiplier = 1f; colors.fadeDuration = 0.1f; button.colors = colors;
@@ -314,22 +314,22 @@ public sealed class InteractiveSceneController : MonoBehaviour
         marker.markerRoot = CreateUiObject(objectRoot.transform, "Marker");
         RectTransform markerRect = marker.markerRoot.GetComponent<RectTransform>();
         markerRect.anchorMin = markerRect.anchorMax = new Vector2(0.5f, 1f); markerRect.pivot = new Vector2(0.5f, 1f); markerRect.sizeDelta = Vector2.zero; markerRect.anchoredPosition = Vector2.zero;
-        marker.chipFill = CreateImage(marker.markerRoot.transform, "Chip Fill", GetCircleSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -30f), new Vector2(72f, 72f), ChipFillColor);
-        marker.ring = CreateImage(marker.markerRoot.transform, "Chip Ring", GetRingSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -30f), new Vector2(72f, 72f), RingAvailableColor);
+        marker.chipFill = CreateImage(marker.markerRoot.transform, "Chip Fill", GetCircleSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -35f), new Vector2(80f, 80f), ChipFillColor);
+        marker.ring = CreateImage(marker.markerRoot.transform, "Chip Ring", GetRingSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -35f), new Vector2(80f, 80f), RingAvailableColor);
         Sprite glyphSprite = GetGlyphSprite(hotspot.iconId);
-        if (glyphSprite != null) marker.glyph = CreateImage(marker.markerRoot.transform, "Glyph", glyphSprite, Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -30f), new Vector2(40f, 40f), GlyphAvailableColor);
-        marker.dot = CreateImage(marker.markerRoot.transform, "Anchor Dot", GetCircleSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -100f), new Vector2(18f, 18f), AnchorDotColor);
+        if (glyphSprite != null) marker.glyph = CreateImage(marker.markerRoot.transform, "Glyph", glyphSprite, Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -35f), new Vector2(46f, 46f), GlyphAvailableColor);
+        marker.dot = CreateImage(marker.markerRoot.transform, "Anchor Dot", GetCircleSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -105f), new Vector2(20f, 20f), AnchorDotColor);
         marker.labelRoot = CreateUiObject(marker.markerRoot.transform, "Label");
         RectTransform labelRect = marker.labelRoot.GetComponent<RectTransform>();
-        labelRect.anchorMin = labelRect.anchorMax = new Vector2(0f, 1f); labelRect.pivot = new Vector2(0f, 0.5f); labelRect.anchoredPosition = new Vector2(45f, -30f); labelRect.sizeDelta = new Vector2(120f, 46f);
+        labelRect.anchorMin = labelRect.anchorMax = new Vector2(0f, 1f); labelRect.pivot = new Vector2(0f, 0.5f); labelRect.anchoredPosition = new Vector2(37f, -35f); labelRect.sizeDelta = new Vector2(130f, 54f);
         marker.labelFill = CreateImage(marker.labelRoot.transform, "Label Fill", GetPillSprite(), Vector2.zero, Vector2.zero, Vector2.zero, LabelFillColor); Stretch(marker.labelFill.rectTransform); marker.labelFill.type = Image.Type.Sliced;
         marker.labelEdge = CreateImage(marker.labelRoot.transform, "Label Edge", GetStrokeSprite(), Vector2.zero, Vector2.zero, Vector2.zero, MarkerEdgeColor); Stretch(marker.labelEdge.rectTransform, -2f, -2f, -2f, -2f); marker.labelEdge.type = Image.Type.Sliced;
-        marker.label = CreateText(marker.labelRoot.transform, "Label Text", hotspot.displayName, 24f, FontStyles.Normal, TextAlignmentOptions.Center, LabelTextColor);
-        Stretch(marker.label.rectTransform, 15f, 2f, 15f, 2f); marker.label.enableWordWrapping = false; marker.label.overflowMode = TextOverflowModes.Overflow;
+        marker.label = CreateText(marker.labelRoot.transform, "Label Text", hotspot.displayName, 30f, FontStyles.Normal, TextAlignmentOptions.Center, LabelTextColor);
+        Stretch(marker.label.rectTransform, 18f, 2f, 14f, 2f); marker.label.enableWordWrapping = false; marker.label.overflowMode = TextOverflowModes.Overflow;
         // Deterministic pill width: TMP preferred-width measurement of Cyrillic labels
         // on the not-yet-activated canvas undershoots and truncates the last glyph.
-        float labelWidth = Mathf.Clamp(hotspot.displayName.Length * 20f + 50f, 110f, 300f);
-        labelRect.sizeDelta = new Vector2(labelWidth, 46f);
+        float labelWidth = Mathf.Clamp(hotspot.displayName.Length * 18f + 48f, 130f, 340f);
+        labelRect.sizeDelta = new Vector2(labelWidth, 54f);
         return marker;
     }
 
@@ -421,7 +421,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
     private static Sprite GetRingSprite()
     {
         if (ringSprite != null) return ringSprite;
-        const float ringRadius = 46f, strokeHalfWidth = 1.4f;
+        const float ringRadius = 46f, strokeHalfWidth = 2.2f;
         return ringSprite = BuildMaskSprite("Runtime Hotspot Chip Ring", 96, (x, y) =>
         {
             float distance = Mathf.Sqrt(x * x + y * y) - ringRadius;
@@ -513,7 +513,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
     {
         if (menuIconSprite != null) return menuIconSprite;
         return menuIconSprite = BuildGlyphSprite("Runtime Hotspot Menu Icon", (x, y) =>
-            Mathf.Min(SdRoundRect(x, y, 0f, 10f, 14f, 2f, 1.5f), Mathf.Min(SdRoundRect(x, y, 0f, 0f, 14f, 2f, 1.5f), SdRoundRect(x, y, 0f, -10f, 14f, 2f, 1.5f))));
+            Mathf.Min(SdRoundRect(x, y, 0f, 10f, 15f, 2.6f, 1.8f), Mathf.Min(SdRoundRect(x, y, 0f, 0f, 15f, 2.6f, 1.8f), SdRoundRect(x, y, 0f, -10f, 15f, 2.6f, 1.8f))));
     }
 
     private static Sprite GetRuntimeBackgroundSprite()

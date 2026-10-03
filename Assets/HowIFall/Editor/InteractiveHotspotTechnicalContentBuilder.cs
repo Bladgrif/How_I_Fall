@@ -53,7 +53,7 @@ public static class InteractiveHotspotTechnicalContentBuilder
         showcase.sceneId = "hotspot_showcase_room";
         showcase.displayName = "Hotspot Showcase — TECH DEMO ONLY / NOT CANON";
         showcase.background = background;
-        showcase.initialFeedback = "Здесь всё на своих местах. Только вот с чего начать?";
+        showcase.initialFeedback = "Здесь всё на своих местах.\nТолько вот с чего начать?";
         showcase.feedbackSpeaker = "Алекс";
         showcase.completionNextScene = completion;
         showcase.hotspots = new List<InteractiveHotspotData>
@@ -63,7 +63,7 @@ public static class InteractiveHotspotTechnicalContentBuilder
                 hotspotId = "showcase_laptop",
                 displayName = "Ноутбук",
                 iconId = "laptop",
-                normalizedRect = new Rect(0.03888f, 0.41827f, 0.14711f, 0.16834f),
+                normalizedRect = new Rect(0.014952f, 0.417851f, 0.147129f, 0.157601f),
                 availabilityConditions = new List<ChoiceCondition>(),
                 requiredCompletedHotspotIds = new List<string>(),
                 oneShot = true,
@@ -78,7 +78,7 @@ public static class InteractiveHotspotTechnicalContentBuilder
                 hotspotId = "showcase_notes",
                 displayName = "Записки",
                 iconId = "notes",
-                normalizedRect = new Rect(0.52452f, 0.54835f, 0.19737f, 0.15409f),
+                normalizedRect = new Rect(0.482656f, 0.543040f, 0.197249f, 0.111051f),
                 availabilityConditions = new List<ChoiceCondition>(),
                 requiredCompletedHotspotIds = new List<string>(),
                 oneShot = true,
