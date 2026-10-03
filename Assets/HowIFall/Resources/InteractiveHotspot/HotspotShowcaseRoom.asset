@@ -1,0 +1,82 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8ecb5d3457ae2a4e9c20bbf7494c0f5, type: 3}
+  m_Name: HotspotShowcaseRoom
+  m_EditorClassIdentifier: HowIFall.Runtime::InteractiveSceneData
+  sceneId: hotspot_showcase_room
+  displayName: "Hotspot Showcase \u2014 TECH DEMO ONLY / NOT CANON"
+  background: {fileID: 21300000, guid: 8bf0c4ad5d0146b596495cd765c77482, type: 3}
+  initialFeedback: "\u0417\u0434\u0435\u0441\u044C \u0432\u0441\u0451 \u043D\u0430
+    \u0441\u0432\u043E\u0438\u0445 \u043C\u0435\u0441\u0442\u0430\u0445. \u0422\u043E\u043B\u044C\u043A\u043E
+    \u0432\u043E\u0442 \u0441 \u0447\u0435\u0433\u043E \u043D\u0430\u0447\u0430\u0442\u044C?"
+  feedbackSpeaker: "\u0410\u043B\u0435\u043A\u0441"
+  hotspots:
+  - hotspotId: showcase_laptop
+    displayName: "\u041D\u043E\u0443\u0442\u0431\u0443\u043A"
+    iconId: laptop
+    normalizedRect:
+      serializedVersion: 2
+      x: 0.03888
+      y: 0.41827
+      width: 0.14711
+      height: 0.16834
+    availabilityConditions: []
+    requiredCompletedHotspotIds: []
+    oneShot: 1
+    outcome:
+      stateChanges: []
+      feedbackText: "\u041D\u043E\u0443\u0442\u0431\u0443\u043A \u043E\u0441\u043C\u043E\u0442\u0440\u0435\u043D.
+        \u0414\u043B\u044F \u0442\u0435\u0445-\u0434\u0435\u043C\u043E \u044D\u0442\u043E\u0433\u043E
+        \u0434\u043E\u0441\u0442\u0430\u0442\u043E\u0447\u043D\u043E."
+      completeScene: 0
+      nextScene: {fileID: 0}
+  - hotspotId: showcase_notes
+    displayName: "\u0417\u0430\u043F\u0438\u0441\u043A\u0438"
+    iconId: notes
+    normalizedRect:
+      serializedVersion: 2
+      x: 0.52452
+      y: 0.54835
+      width: 0.19737
+      height: 0.15409
+    availabilityConditions: []
+    requiredCompletedHotspotIds: []
+    oneShot: 1
+    outcome:
+      stateChanges: []
+      feedbackText: "\u0417\u0430\u043F\u0438\u0441\u043A\u0438 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043D\u044B.
+        \u0422\u0435\u0445\u043D\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0430
+        \u043F\u0440\u043E\u0439\u0434\u0435\u043D\u0430."
+      completeScene: 0
+      nextScene: {fileID: 0}
+  - hotspotId: showcase_door
+    displayName: "\u0414\u0432\u0435\u0440\u044C"
+    iconId: door
+    normalizedRect:
+      serializedVersion: 2
+      x: 0.80861
+      y: 0.54304
+      width: 0.16125
+      height: 0.27014
+    availabilityConditions: []
+    requiredCompletedHotspotIds:
+    - showcase_laptop
+    - showcase_notes
+    oneShot: 0
+    outcome:
+      stateChanges: []
+      feedbackText: "\u0414\u0432\u0435\u0440\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u0430.
+        \u0414\u0435\u043C\u043E\u043D\u0441\u0442\u0440\u0430\u0446\u0438\u044F
+        \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0430."
+      completeScene: 1
+      nextScene: {fileID: 0}
+  completionNextScene: {fileID: 11400000, guid: 4fbec9c4f05d6e1478b0b50bbd6a2c58, type: 2}

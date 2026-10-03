@@ -8,6 +8,8 @@ public sealed class InteractiveSceneData : ScriptableObject
     public string sceneId;
     public string displayName;
     public Sprite background;
+    [TextArea] public string initialFeedback;
+    public string feedbackSpeaker;
     public List<InteractiveHotspotData> hotspots = new List<InteractiveHotspotData>();
     public DialogueSceneData completionNextScene;
 
@@ -42,6 +44,7 @@ public sealed class InteractiveHotspotData
 {
     public string hotspotId;
     public string displayName;
+    public string iconId;
     public Rect normalizedRect;
     public List<ChoiceCondition> availabilityConditions = new List<ChoiceCondition>();
     public List<string> requiredCompletedHotspotIds = new List<string>();
