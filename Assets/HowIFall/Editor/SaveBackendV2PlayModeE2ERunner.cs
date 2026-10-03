@@ -30,6 +30,8 @@ public static class SaveBackendV2PlayModeE2ERunner
     private const string ResultPath = "save_backend_v2_playmode_result.txt";
     private const string MainMenuScenePath = "Assets/HowIFall/Scenes/MainMenu.unity";
     private static readonly Vector2Int TabsUiResolution = new Vector2Int(1920, 1080);
+    private static bool expectingFailedLoadProbe;
+    private static bool observedFailedLoadProbeError;
 
     static SaveBackendV2PlayModeE2ERunner()
     {
@@ -439,6 +441,7 @@ public static class SaveBackendV2PlayModeE2ERunner
         Dictionary<string, byte[]> autoFiles = CaptureTypeFiles(manager, SaveSlotType.Auto);
 
         controller.choiceMashaButton.onClick.Invoke();
+        yield return RunSafely(VerifyFailedLoadReadingFallback(controller, manager));
         Require(manager.LoadSlot(SaveSlotType.Manual, 1), "Public Manual LoadSlot failed during autosave suppression test.");
         yield return new WaitForSecondsRealtime(0.2f);
         VerifyChoiceCheckpoint(manualCheckpoint, controller, "Manual restore suppression");
@@ -471,6 +474,56 @@ public static class SaveBackendV2PlayModeE2ERunner
         Require(GameState.Instance.selectedChoiceIndex == -1, $"A selected choice remained during {context}.");
         Require(!GameState.Instance.choiceResultActive, $"Choice result remained active during {context}.");
         Require(string.IsNullOrEmpty(GameState.Instance.pendingNextSceneId), $"Pending next scene remained during {context}.");
+    }
+
+    private static IEnumerator VerifyFailedLoadReadingFallback(VNDialogueController controller, SaveManager manager)
+    {
+        string resultText = controller.sceneData.choices[GameState.Instance.selectedChoiceIndex].resultText;
+        if (controller.dialogueText.text != resultText)
+        {
+            controller.AdvanceDialogue(); // Complete the current result, never advance its scene.
+        }
+        Require(controller.dialogueText.text == resultText, "Failed-load probe needs stable Reading.");
+        SaveData previousState = CaptureRuntimeState(controller);
+        string previousSpeaker = controller.speakerText.text;
+        Sprite previousBackground = controller.backgroundImage.sprite;
+        Sprite previousCharacter = controller.characterImage.sprite;
+        ConfigureGameViewResolution(TabsUiResolution);
+        for (int frame = 0; frame < 40 && (Screen.width != 1920 || Screen.height != 1080); frame++) yield return null;
+        yield return new WaitForEndOfFrame();
+        CaptureTabsScreenshot(SaveSlotType.Manual, TabsUiResolution, "failed_load_before");
+        bool targetMutationObserved = false;
+        observedFailedLoadProbeError = false;
+        expectingFailedLoadProbe = true;
+        VNDialogueController.LoadRestoreFailureInjectionForTests = () =>
+        {
+            targetMutationObserved = controller.choicePanel.activeSelf && !GameState.Instance.choiceResultActive;
+            throw new IOException("graphical failed-load probe");
+        };
+        bool loaded;
+        try
+        {
+            loaded = manager.LoadSlot(SaveSlotType.Manual, 1);
+        }
+        finally
+        {
+            VNDialogueController.LoadRestoreFailureInjectionForTests = null;
+            expectingFailedLoadProbe = false;
+        }
+        Require(!loaded && targetMutationObserved && observedFailedLoadProbeError,
+            "Failed-load probe did not fail after real target-choice presentation mutation.");
+        VerifyRuntimeState(previousState, controller, "failed-load Reading fallback");
+        Require(controller.dialogueText.text == resultText && controller.speakerText.text == previousSpeaker,
+            "Failed load left target dialogue/speaker residue.");
+        Require(controller.backgroundImage.sprite == previousBackground && controller.characterImage.sprite == previousCharacter,
+            "Failed load left target art residue.");
+        Require(!controller.choicePanel.activeSelf && !manager.HasPendingSceneRestore && controller.RollbackCheckpointCount == 0,
+            "Failed load left target choices/pending state or rollback history.");
+        Require(controller.CanSave && controller.CanLoad && controller.CanAdvanceDialogue,
+            "Failed load left Reading commands unavailable.");
+        yield return new WaitForEndOfFrame();
+        CaptureTabsScreenshot(SaveSlotType.Manual, TabsUiResolution, "failed_load_after");
+        Pass("Failed in-place load after target-choice mutation restored stable Reading, backlog and input eligibility");
     }
 
     private static IEnumerator WaitForOccupiedSlotCount(
@@ -1921,6 +1974,14 @@ public static class SaveBackendV2PlayModeE2ERunner
 
     private static void CaptureLog(string condition, string stackTrace, LogType type)
     {
+        if (expectingFailedLoadProbe && type == LogType.Error
+            && condition.StartsWith("[LOAD] Slot 1 was not restored in-place.", StringComparison.Ordinal)
+            && condition.Contains("graphical failed-load probe"))
+        {
+            observedFailedLoadProbeError = true;
+            return;
+        }
+
         if (!SessionState.GetBool(ActiveKey, false)
             || (type != LogType.Error && type != LogType.Exception && type != LogType.Assert)
             || condition.StartsWith("[SAVE BACKEND E2E] FAILURE", StringComparison.Ordinal))

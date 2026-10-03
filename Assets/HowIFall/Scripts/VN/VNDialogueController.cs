@@ -8,6 +8,9 @@ using System.Linq;
 
 public class VNDialogueController : MonoBehaviour
 {
+#if UNITY_EDITOR
+    public static System.Action LoadRestoreFailureInjectionForTests { get; set; }
+#endif
     public static VNDialogueController Instance { get; private set; }
 
 #if UNITY_EDITOR
@@ -202,6 +205,8 @@ public class VNDialogueController : MonoBehaviour
     private bool observedAutoForward;
     private bool skipEnabled;
     private DialogueReadHistory readHistory;
+    private List<System.Action> deferredLoadSeenUpdates;
+    private int failedLoadFallbackDepth;
     private DialogueSceneData displayedLineScene;
     private DialogueLine displayedLine;
     private bool interactiveFeedbackActive;
@@ -1530,6 +1535,11 @@ public class VNDialogueController : MonoBehaviour
 
     private void MarkDisplayedLineSeen()
     {
+        if (failedLoadFallbackDepth > 0)
+        {
+            return;
+        }
+
         if (interactiveFeedbackActive || displayedLineScene == null || displayedLine == null
             || string.IsNullOrWhiteSpace(displayedLineScene.sceneId)
             || string.IsNullOrWhiteSpace(displayedLine.lineId))
@@ -1543,7 +1553,15 @@ public class VNDialogueController : MonoBehaviour
             return;
         }
 
-        EnsureReadHistory().MarkSeen(displayedLineScene.sceneId, displayedLine.lineId);
+        string sceneId = displayedLineScene.sceneId;
+        string lineId = displayedLine.lineId;
+        if (deferredLoadSeenUpdates != null)
+        {
+            deferredLoadSeenUpdates.Add(() => EnsureReadHistory().MarkSeen(sceneId, lineId));
+            return;
+        }
+
+        EnsureReadHistory().MarkSeen(sceneId, lineId);
     }
 
     private void StartSkipDelayIfReady()
@@ -5109,6 +5127,73 @@ public class VNDialogueController : MonoBehaviour
 
     public bool RestoreFromGameState(bool snapshotContainsVisibleEntry)
     {
+        var seenUpdates = new List<System.Action>();
+        deferredLoadSeenUpdates = seenUpdates;
+        try
+        {
+            bool restored = RestoreFromGameStateCore(snapshotContainsVisibleEntry);
+            if (restored)
+            {
+                foreach (System.Action update in seenUpdates)
+                {
+                    update();
+                }
+            }
+            return restored;
+        }
+        finally
+        {
+            deferredLoadSeenUpdates = null;
+        }
+    }
+
+    /// <summary>Load failure returns to stable Reading, not old timer/typewriter progress.</summary>
+    internal System.Action CaptureFailedLoadFallback()
+    {
+        RollbackPresentationSnapshot presentation = CapturePresentationSnapshot();
+        bool previousSkipEnabled = skipEnabled;
+        bool previousAutomationPaused = rollbackAutomationPaused;
+        EventSystem previousEventSystem = EventSystem.current;
+        GameObject previousFocus = previousEventSystem != null ? previousEventSystem.currentSelectedGameObject : null;
+        return () =>
+        {
+            failedLoadFallbackDepth++;
+            stableCheckpointCaptureSuppressionDepth++;
+            try
+            {
+                // GameState/backlog have already been restored by SaveManager.
+                if (!RestoreFromGameState(true))
+                {
+                    throw new System.InvalidOperationException("Previous Reading position could not be restored.");
+                }
+                if (isTyping)
+                {
+                    CompleteTyping();
+                }
+                AudioSource musicSource = AudioManager.Instance != null ? AudioManager.Instance.musicSource : null;
+                presentation.Apply(backgroundImage, characterImage, musicSource);
+                skipEnabled = previousSkipEnabled;
+                rollbackAutomationPaused = previousAutomationPaused;
+                StopAutoForwardTimer();
+                StopSkipTimer();
+                StartAutoForwardDelayIfReady();
+                StartSkipDelayIfReady();
+                if (previousEventSystem != null)
+                {
+                    previousEventSystem.SetSelectedGameObject(
+                        previousFocus != null && previousFocus.activeInHierarchy ? previousFocus : null);
+                }
+            }
+            finally
+            {
+                stableCheckpointCaptureSuppressionDepth--;
+                failedLoadFallbackDepth--;
+            }
+        };
+    }
+
+    private bool RestoreFromGameStateCore(bool snapshotContainsVisibleEntry)
+    {
         GameState gameState = GameState.Instance;
 
         if (gameState == null)
@@ -5247,6 +5332,12 @@ public class VNDialogueController : MonoBehaviour
                 restoredPendingNextScene);
         }
 
+#if UNITY_EDITOR
+        if (failedLoadFallbackDepth == 0)
+        {
+            LoadRestoreFailureInjectionForTests?.Invoke();
+        }
+#endif
         Debug.Log($"[VN LOAD] Restoration finished. activeSceneId='{sceneData.sceneId}', activeLineIndex={currentLineIndex}, activeLineId='{(activeLines != null && currentLineIndex >= 0 && currentLineIndex < activeLines.Count && activeLines[currentLineIndex] != null ? activeLines[currentLineIndex].lineId : "<invalid>")}', choiceResultActive={GameState.Instance.choiceResultActive}.", this);
         return true;
     }
