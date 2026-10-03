@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using TMPro;
@@ -17,6 +18,7 @@ public class RollbackBackendPlayModeTests
     private readonly List<UnityEngine.Object> createdObjects = new List<UnityEngine.Object>();
     private readonly List<string> playerPrefsKeys = new List<string>();
     private string saveDirectory;
+    private Scene integritySaveScene;
 
     [UnitySetUp]
     public IEnumerator SetUp()
@@ -47,6 +49,12 @@ public class RollbackBackendPlayModeTests
         createdObjects.Clear();
         DestroyExistingSingletons();
         yield return null;
+
+        if (integritySaveScene.IsValid() && integritySaveScene.isLoaded)
+        {
+            yield return SceneManager.UnloadSceneAsync(integritySaveScene);
+        }
+        integritySaveScene = default;
 
         if (!string.IsNullOrEmpty(saveDirectory) && Directory.Exists(saveDirectory))
         {
@@ -488,6 +496,352 @@ public class RollbackBackendPlayModeTests
         }
         Assert.That(context.Controller.RollbackCheckpointCount, Is.Zero);
         Assert.That(context.Controller.CanRollback, Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator HotspotFeedback_DoesNotMarkInterruptedReadingLineSeen()
+    {
+        DialogueSceneData scene = CreateLinearScene("hotspot-unseen", new string('A', 200), "Next");
+        TestContext context = CreateContext(scene);
+        yield return null;
+        Assert.That(GetPrivate<bool>(context.Controller, "isTyping"), Is.True);
+        Assert.That(context.ReadHistory.IsSeen(scene.sceneId, "line-0"), Is.False);
+        List<DialogueBacklogEntry> before = context.Controller.CaptureBacklogSnapshot();
+        InteractiveSceneData room = CreateIntegrityRoom();
+        Assert.That(context.Controller.TryStartInteractiveScene(room, out string error), Is.True, error);
+        // Let the real feedback typewriter tail execute, not CompleteTyping via reflection.
+        yield return new WaitForSecondsRealtime(0.3f);
+        Assert.That(GetPrivate<bool>(context.Controller, "isTyping"), Is.False);
+        Assert.That(context.ReadHistory.IsSeen(scene.sceneId, "line-0"), Is.False,
+            "Hotspot feedback must not mark the interrupted ordinary line as fully displayed.");
+        Assert.That(context.GameState.currentSceneId, Is.EqualTo(scene.sceneId));
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-0"));
+        Assert.That(context.Controller.RollbackCheckpointCount, Is.Zero, "Accepted special entry is a rollback hard barrier.");
+        AssertBacklog(context.Controller, before.Select(entry => entry.text).ToArray());
+    }
+
+    [UnityTest]
+    public IEnumerator HotspotFeedback_NoRouteCompletionRestoresReading_AndSaveLoadIdentity()
+    {
+        Scene testScene = SceneManager.GetSceneByName("VNPrototype");
+        if (!testScene.IsValid()) testScene = integritySaveScene = SceneManager.CreateScene("VNPrototype");
+        SceneManager.SetActiveScene(testScene);
+        DialogueSceneData scene = CreateLinearScene("hotspot-restore", "Ordinary", "Next");
+        TestContext context = CreateContext(scene);
+        yield return null;
+        CompleteCurrentLine(context.Controller);
+        Assert.That(context.Controller.RollbackCheckpointCount, Is.EqualTo(1));
+        string fullText = GetPrivate<string>(context.Controller, "currentFullText");
+        string speaker = context.Controller.speakerText.text;
+        InteractiveSceneData room = CreateIntegrityRoom();
+        Assert.That(context.Controller.TryStartInteractiveScene(room, out string error), Is.True, error);
+        InteractiveSceneController interactive = context.Controller.ActiveInteractiveSceneController;
+        yield return new WaitForSecondsRealtime(0.3f);
+        Assert.That(interactive.TryActivateHotspot("exit"), Is.True);
+        Assert.That(interactive.IsRunning || interactive.IsRuntimeUiActive || context.Controller.HasActiveSpecialMode, Is.False);
+        Assert.That(context.Controller.dialogueText.text, Is.EqualTo(fullText), "No-route exit must restore Reading, not leave feedback.");
+        Assert.That(GetPrivate<string>(context.Controller, "currentFullText"), Is.EqualTo(fullText));
+        Assert.That(context.Controller.speakerText.text, Is.EqualTo(speaker));
+        Assert.That(GetPrivate<bool>(context.Controller, "isTyping"), Is.False);
+        Assert.That(context.Controller.RollbackCheckpointCount, Is.Zero);
+        AssertBacklog(context.Controller, "Ordinary");
+        Assert.That(context.Controller.CanSave && context.Controller.CanLoad && context.Controller.CanAdvanceDialogue, Is.True);
+
+        saveDirectory = Path.Combine(Application.temporaryCachePath, "hif-hotspot-integrity-" + Guid.NewGuid().ToString("N"));
+        SaveManager.Instance.ConfigureSaveDirectoryForTests(saveDirectory);
+        Texture2D preview = new Texture2D(2, 2);
+        createdObjects.Add(preview);
+        Assert.That(SaveManager.Instance.SaveSlot(SaveSlotType.Manual, 1, preview), Is.True);
+        AdvanceAndComplete(context.Controller);
+        Assert.That(SaveManager.Instance.LoadSlot(SaveSlotType.Manual, 1), Is.True);
+        CompleteCurrentLine(context.Controller);
+        Assert.That(context.GameState.currentSceneId, Is.EqualTo(scene.sceneId));
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-0"));
+        Assert.That(context.Controller.dialogueText.text, Is.EqualTo(fullText));
+        AssertBacklog(context.Controller, "Ordinary");
+        Assert.That(context.ReadHistory.IsSeen(scene.sceneId, "line-0"), Is.True);
+        Assert.That(SaveData.CurrentVersion, Is.EqualTo(3));
+        Assert.That(context.Controller.TryStartInteractiveScene(room, out error), Is.True, error);
+        Assert.That(interactive.TryActivateHotspot("exit"), Is.True);
+        Assert.That(context.Controller.dialogueText.text, Is.EqualTo(fullText));
+        AssertBacklog(context.Controller, "Ordinary");
+    }
+
+    [UnityTest]
+    public IEnumerator TimedBeat_DuplicateStartPreservesVisibleOriginal_AndResolvesOnce()
+    {
+        DialogueSceneData scene = CreateLinearScene("timed-before", "Before");
+        DialogueSceneData success = CreateLinearScene("timed-success", "Success");
+        DialogueSceneData timeout = CreateLinearScene("timed-timeout", "Timeout");
+        TestContext context = CreateContext(scene, success, timeout);
+        yield return null;
+        TimedNarrativeBeatController beat = CreateTimedBeat(context.Controller);
+        TimedNarrativeBeatDefinition definition = new TimedNarrativeBeatDefinition
+        {
+            promptText = "TECH DEMO ONLY / NOT CANON", actionText = "Act", durationSeconds = 30f,
+            successNextScene = success, timeoutNextScene = timeout
+        };
+        Assert.That(beat.TryStartBeat(definition), Is.True);
+        Assert.That(beat.rootPanel.activeInHierarchy && beat.IsRunning && context.Controller.HasActiveSpecialMode, Is.True);
+        SpecialModeLease lease = GetPrivate<SpecialModeLease>(beat, "activeLease");
+        float remaining = GetPrivate<float>(beat, "remainingSeconds");
+        Assert.That(beat.TryStartBeat(null), Is.False);
+        Assert.That(beat.TryStartBeat(definition), Is.False);
+        Assert.That(beat.rootPanel.activeInHierarchy, Is.True, "Rejected duplicate start must leave the active interaction visible.");
+        Assert.That(GetPrivate<SpecialModeLease>(beat, "activeLease"), Is.SameAs(lease));
+        Assert.That(GetPrivate<TimedNarrativeBeatDefinition>(beat, "activeDefinition"), Is.SameAs(definition));
+        Assert.That(GetPrivate<float>(beat, "remainingSeconds"), Is.EqualTo(remaining));
+        Assert.That(beat.IsRunning && context.Controller.HasActiveSpecialMode, Is.True);
+        Assert.That(context.Controller.CanAdvanceDialogue || context.Controller.CanSave || context.Controller.CanLoad, Is.False);
+        beat.actionButton.onClick.Invoke();
+        Assert.That(beat.IsRunning || beat.rootPanel.activeSelf || context.Controller.HasActiveSpecialMode, Is.False);
+        Assert.That(context.Controller.sceneData, Is.SameAs(success));
+        Assert.That(beat.ResolveFromManualAction(), Is.False);
+        Assert.That(context.Controller.ExitSpecialMode(lease), Is.False);
+        Assert.That(context.Controller.CanAdvanceDialogue && context.Controller.CanSave && context.Controller.CanLoad, Is.True);
+    }
+
+    [UnityTest]
+    public IEnumerator HotspotFeedback_InterruptedPrefixResumesAfterDisableAndDestroy()
+    {
+        DialogueSceneData scene = CreateLinearScene("hotspot-prefix", new string('A', 40), "Next");
+        TestContext context = CreateContext(scene);
+        yield return null;
+        yield return new WaitForSecondsRealtime(.1f);
+        string prefix = context.Controller.dialogueText.text;
+        string state = JsonUtility.ToJson(context.GameState);
+        InteractiveSceneData room = CreateIntegrityRoom();
+        Assert.That(context.Controller.TryStartInteractiveScene(room, out string error), Is.True, error);
+        InteractiveSceneController interactive = context.Controller.ActiveInteractiveSceneController;
+        yield return new WaitForSecondsRealtime(.3f);
+        interactive.enabled = false;
+        Assert.That(context.Controller.dialogueText.text, Is.EqualTo(prefix));
+        Assert.That(GetPrivate<bool>(context.Controller, "isTyping"), Is.True);
+        Assert.That(GetPrivate<Coroutine>(context.Controller, "typingCoroutine"), Is.Not.Null);
+        Assert.That(context.ReadHistory.IsSeen(scene.sceneId, "line-0"), Is.False);
+        Assert.That(JsonUtility.ToJson(context.GameState), Is.EqualTo(state));
+        Assert.That(context.Controller.HasActiveSpecialMode || interactive.IsRuntimeUiActive, Is.False);
+        yield return new WaitForSecondsRealtime(.15f);
+        Assert.That(context.Controller.dialogueText.text.Length, Is.GreaterThan(prefix.Length));
+        CompleteCurrentLine(context.Controller);
+        Assert.That(context.ReadHistory.IsSeen(scene.sceneId, "line-0"), Is.True);
+        AssertBacklog(context.Controller, scene.lines[0].text);
+        interactive.enabled = true;
+        Assert.That(context.Controller.TryStartInteractiveScene(room, out error), Is.True, error);
+        UnityEngine.Object.Destroy(interactive);
+        yield return null;
+        Assert.That(context.Controller.HasActiveSpecialMode, Is.False);
+        Assert.That(context.Controller.dialogueText.text, Is.EqualTo(scene.lines[0].text));
+        Assert.That(GetPrivate<Coroutine>(context.Controller, "typingCoroutine"), Is.Null);
+        Assert.That(context.Controller.RollbackCheckpointCount, Is.Zero);
+    }
+
+    [UnityTest]
+    public IEnumerator HotspotFeedback_RoutedCompletionNeverMarksInterruptedLine_AndPausesAutomation()
+    {
+        DialogueSceneData scene = CreateLinearScene("hotspot-route-before", new string('A', 100), "Next");
+        DialogueSceneData target = CreateLinearScene("hotspot-route-after", "Target", "Following");
+        TestContext context = CreateContext(scene, target);
+        context.Settings.settings.autoForward = true;
+        context.Settings.settings.autoForwardDelay = 50f;
+        yield return null;
+        InteractiveSceneData room = CreateIntegrityRoom(target);
+        Assert.That(context.Controller.TryStartInteractiveScene(room, out string error), Is.True, error);
+        // Select Skip while lease owns input; it must not complete underlying Reading.
+        context.Controller.SetSkip(true);
+        yield return new WaitForSecondsRealtime(.3f);
+        Assert.That(GetPrivate<Coroutine>(context.Controller, "autoForwardCoroutine"), Is.Null);
+        Assert.That(GetPrivate<Coroutine>(context.Controller, "skipCoroutine"), Is.Null);
+        Assert.That(context.GameState.currentSceneId, Is.EqualTo(scene.sceneId));
+        Assert.That(context.ReadHistory.IsSeen(scene.sceneId, "line-0"), Is.False);
+        context.Controller.SetSkip(false);
+        InteractiveSceneController interactive = context.Controller.ActiveInteractiveSceneController;
+        Assert.That(interactive.TryActivateHotspot("exit"), Is.True);
+        Assert.That(interactive.TryActivateHotspot("exit"), Is.False);
+        CompleteCurrentLine(context.Controller);
+        Assert.That(context.GameState.currentSceneId, Is.EqualTo(target.sceneId));
+        Assert.That(context.GameState.currentLineId, Is.EqualTo("line-0"));
+        Assert.That(context.ReadHistory.IsSeen(scene.sceneId, "line-0"), Is.False);
+        Assert.That(context.ReadHistory.IsSeen(target.sceneId, "line-0"), Is.True);
+        AssertBacklog(context.Controller, scene.lines[0].text, "Target");
+        Assert.That(context.Controller.RollbackCheckpointCount, Is.EqualTo(1), "Only the legitimate target Reading line may capture a checkpoint.");
+        Assert.That(context.Settings.settings.autoForward, Is.True);
+        Assert.That(GetPrivate<Coroutine>(context.Controller, "autoForwardCoroutine"), Is.Not.Null);
+        Assert.That(context.Controller.CanSave && context.Controller.CanLoad, Is.True);
+    }
+
+    [UnityTest]
+    public IEnumerator SpecialModeIntegrity_AllOwnersRejectCompetitors_AndHostCleanupDoesNotRoute()
+    {
+        DialogueSceneData scene = CreateLinearScene("owners-before", "Before", "Next");
+        DialogueSceneData target = CreateLinearScene("owners-after", "Target");
+        TestContext context = CreateContext(scene, target);
+        yield return null;
+        CompleteCurrentLine(context.Controller);
+        InteractiveSceneData room = CreateIntegrityRoom(target);
+        ChatSceneData chat = CreateIntegrityChat(target);
+        MapSceneData map = CreateIntegrityMap(target);
+        TimedNarrativeBeatController beat = CreateTimedBeat(context.Controller);
+        var definition = new TimedNarrativeBeatDefinition { promptText = "TECH", actionText = "Act", durationSeconds = 30f, successNextScene = target, timeoutNextScene = target };
+        Func<bool>[] starts = {
+            () => context.Controller.TryStartInteractiveScene(room, out _),
+            () => context.Controller.TryStartChat(chat, out _),
+            () => context.Controller.TryStartMapScene(map, out _),
+            () => beat.TryStartBeat(definition)
+        };
+        for (int index = 0; index < starts.Length; index++)
+        {
+            Assert.That(starts[index](), Is.True, "Owner entry " + index);
+            MonoBehaviour owner = index == 0 ? (MonoBehaviour)context.Controller.ActiveInteractiveSceneController
+                : index == 1 ? context.Controller.ActiveChatController
+                : index == 2 ? context.Controller.ActiveMapSceneController : beat;
+            SpecialModeLease lease = GetPrivate<SpecialModeLease>(owner, "activeLease");
+            string state = JsonUtility.ToJson(context.GameState);
+            foreach (Func<bool> competingStart in starts) Assert.That(competingStart(), Is.False);
+            Assert.That(context.Controller.OpenCharacterHub(), Is.False);
+            Assert.That(GetPrivate<SpecialModeLease>(owner, "activeLease"), Is.SameAs(lease));
+            Assert.That(context.Controller.HasActiveSpecialMode, Is.True);
+            Assert.That(context.Controller.CanAdvanceDialogue || context.Controller.CanSave || context.Controller.CanLoad
+                || context.Controller.CanOpenQuickMenu || context.Controller.CanOpenBacklog || context.Controller.CanOpenSettings, Is.False);
+            bool menuAllowed = index == 0 || index == 2;
+            Assert.That(context.Controller.OpenGameMenu(), Is.EqualTo(menuAllowed));
+            if (menuAllowed) Assert.That(context.Controller.GameMenuController.Close(), Is.True);
+            context.Controller.AdvanceDialogue();
+            Assert.That(JsonUtility.ToJson(context.GameState), Is.EqualTo(state));
+            owner.enabled = false;
+            Assert.That(context.Controller.HasActiveSpecialMode || context.Controller.IsDialogueShellSuppressed, Is.False);
+            Assert.That(context.Controller.CanAdvanceDialogue && context.Controller.CanSave && context.Controller.CanLoad, Is.True);
+            Assert.That(context.Controller.ExitSpecialMode(lease), Is.False);
+            Assert.That(JsonUtility.ToJson(context.GameState), Is.EqualTo(state), "Disable must not route or mutate state.");
+            AssertBacklog(context.Controller, "Before");
+            owner.enabled = true;
+            Assert.That(starts[index](), Is.True, "Clean re-entry " + index);
+            Assert.That(context.Controller.ExitSpecialMode(lease), Is.False, "Stale previous lease cannot clear a new owner.");
+            Assert.That(context.Controller.HasActiveSpecialMode, Is.True);
+            UnityEngine.Object.Destroy(owner);
+            yield return null;
+            Assert.That(context.Controller.HasActiveSpecialMode || context.Controller.IsDialogueShellSuppressed, Is.False);
+            Assert.That(JsonUtility.ToJson(context.GameState), Is.EqualTo(state), "Destroy must not route.");
+        }
+    }
+
+    [UnityTest]
+    public IEnumerator SpecialModeIntegrity_FailedShellSuppressionReleasesNewChatAndMapLease()
+    {
+        DialogueSceneData scene = CreateLinearScene("suppression", "Before");
+        TestContext context = CreateContext(scene);
+        yield return null;
+        CompleteCurrentLine(context.Controller);
+        GameObject shellOwner = CreateGameObject("Other shell owner");
+        Assert.That(context.Controller.TrySuppressDialogueShell(shellOwner), Is.True);
+        Assert.That(context.Controller.TryStartChat(CreateIntegrityChat(scene), out _), Is.False);
+        Assert.That(context.Controller.HasActiveSpecialMode, Is.False);
+        Assert.That(context.Controller.TryStartMapScene(CreateIntegrityMap(scene), out _), Is.False);
+        Assert.That(context.Controller.HasActiveSpecialMode, Is.False);
+        Assert.That(GetPrivate<UnityEngine.Object>(context.Controller, "dialogueShellSuppressionOwner"), Is.SameAs(shellOwner));
+        context.Controller.ReleaseDialogueShellSuppression(shellOwner);
+        Assert.That(context.Controller.dialogueUiRoot.activeSelf, Is.True);
+        Assert.That(context.Controller.CanAdvanceDialogue, Is.True);
+        AssertBacklog(context.Controller, "Before");
+    }
+
+    [UnityTest]
+    public IEnumerator SpecialModeIntegrity_CharacterHubDisableRestoresOrdinaryShellWithoutRouting()
+    {
+        TestContext context = CreateContext(CreateLinearScene("hub-host", "Before"));
+        yield return null;
+        CompleteCurrentLine(context.Controller);
+        Assert.That(context.Controller.OpenCharacterHub(), Is.True);
+        CharacterHubController hub = context.Controller.characterHubController;
+        Assert.That(context.Controller.HasActiveSpecialMode, Is.False, "Character Hub is an ordinary modal, not a lease owner.");
+        string state = JsonUtility.ToJson(context.GameState);
+        hub.enabled = false;
+        Assert.That(hub.IsOpen || context.Controller.IsDialogueShellSuppressed, Is.False, "Disabled Hub must relinquish its ordinary modal and shell.");
+        Assert.That(context.Controller.dialogueUiRoot.activeSelf, Is.True);
+        Assert.That(context.Controller.CanAdvanceDialogue && context.Controller.CanSave && context.Controller.CanLoad, Is.True);
+        Assert.That(JsonUtility.ToJson(context.GameState), Is.EqualTo(state));
+        AssertBacklog(context.Controller, "Before");
+        hub.enabled = true;
+        Assert.That(context.Controller.OpenCharacterHub(), Is.True);
+        UnityEngine.Object.Destroy(hub);
+        yield return null;
+        Assert.That(context.Controller.IsDialogueShellSuppressed || context.Controller.IsCharacterHubOpen, Is.False);
+        Assert.That(context.Controller.dialogueUiRoot.activeSelf, Is.True);
+        Assert.That(context.Controller.CanAdvanceDialogue && context.Controller.CanSave && context.Controller.CanLoad, Is.True);
+        Assert.That(JsonUtility.ToJson(context.GameState), Is.EqualTo(state));
+    }
+
+    [UnityTest]
+    public IEnumerator SpecialModeIntegrity_HotspotCleanupAfterUiDestructionReleasesLease()
+    {
+        TestContext context = CreateContext(CreateLinearScene("host-unload", "Before"));
+        yield return null;
+        Assert.That(context.Controller.TryStartInteractiveScene(CreateIntegrityRoom(), out string error), Is.True, error);
+        UnityEngine.Object.DestroyImmediate(context.Controller.nameBox);
+        UnityEngine.Object.DestroyImmediate(context.Controller.dialogueText.gameObject);
+        UnityEngine.Object.Destroy(context.Controller.ActiveInteractiveSceneController);
+        yield return null;
+        Assert.That(context.Controller.HasActiveSpecialMode, Is.False);
+        Assert.That(GetPrivate<Coroutine>(context.Controller, "typingCoroutine"), Is.Null);
+    }
+
+    private ChatSceneData CreateIntegrityChat(DialogueSceneData target)
+    {
+        ChatSceneData chat = ScriptableObject.CreateInstance<ChatSceneData>();
+        createdObjects.Add(chat);
+        chat.chatId = "tech-integrity-chat";
+        chat.contactDisplayName = "TECH DEMO ONLY / NOT CANON";
+        chat.returnScene = target;
+        chat.entries = new List<ChatEntry> { new ChatEntry { entryId = "wait", text = "TECH", sender = ChatSenderSide.Incoming,
+            kind = ChatEntryKind.Text, pacing = ChatEntryPacing.Delay, pacingSeconds = 30f } };
+        return chat;
+    }
+
+    private MapSceneData CreateIntegrityMap(DialogueSceneData target)
+    {
+        MapSceneData map = ScriptableObject.CreateInstance<MapSceneData>();
+        createdObjects.Add(map);
+        map.mapId = "tech-integrity-map";
+        map.displayName = "TECH DEMO ONLY / NOT CANON";
+        map.locations = new List<MapLocationData> { new MapLocationData { locationId = "exit", displayName = "TECH", normalizedRect = new Rect(.2f,.2f,.3f,.3f), destinationScene = target } };
+        return map;
+    }
+
+    private InteractiveSceneData CreateIntegrityRoom(DialogueSceneData target = null)
+    {
+        InteractiveSceneData room = ScriptableObject.CreateInstance<InteractiveSceneData>();
+        createdObjects.Add(room);
+        room.sceneId = "tech-integrity-room";
+        room.displayName = "TECH DEMO ONLY / NOT CANON";
+        room.initialFeedback = "F";
+        room.feedbackSpeaker = "TECH";
+        room.completionNextScene = target;
+        room.hotspots = new List<InteractiveHotspotData>
+        {
+            new InteractiveHotspotData
+            {
+                hotspotId = "exit", displayName = "Exit", normalizedRect = new Rect(.2f, .2f, .3f, .3f),
+                oneShot = true, availabilityConditions = new List<ChoiceCondition>(), requiredCompletedHotspotIds = new List<string>(),
+                outcome = new InteractiveHotspotOutcome { feedbackText = "Done", completeScene = true, stateChanges = new List<InteractiveStateChange>() }
+            }
+        };
+        return room;
+    }
+
+    private TimedNarrativeBeatController CreateTimedBeat(VNDialogueController dialogue)
+    {
+        GameObject owner = CreateGameObject("Integrity Timed Beat");
+        owner.SetActive(false); // Bind references before OnEnable installs the real button callback.
+        TimedNarrativeBeatController beat = owner.AddComponent<TimedNarrativeBeatController>();
+        beat.dialogueController = dialogue;
+        beat.rootPanel = CreateGameObject("Integrity Beat Panel", owner.transform);
+        beat.promptText = CreateTmp("Prompt", beat.rootPanel.transform);
+        beat.actionButton = CreateButton("Action", beat.rootPanel.transform);
+        CreateTmp("Action Label", beat.actionButton.transform);
+        beat.remainingTimeText = CreateTmp("Remaining", beat.rootPanel.transform);
+        beat.progressSlider = CreateGameObject("Progress", beat.rootPanel.transform).AddComponent<Slider>();
+        owner.SetActive(true);
+        return beat;
     }
 
     private TestContext CreateContext(DialogueSceneData startScene, params DialogueSceneData[] additionalScenes)

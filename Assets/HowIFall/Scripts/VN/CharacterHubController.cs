@@ -267,6 +267,23 @@ public sealed class CharacterHubController : MonoBehaviour
         return true;
     }
 
+    private void OnDisable() { CleanupWithoutRouting(); }
+    private void OnDestroy() { CleanupWithoutRouting(); }
+
+    private void CleanupWithoutRouting()
+    {
+        if (dialogueController != null && dialogueController.isActiveAndEnabled
+            && dialogueController.characterHubController == this)
+        {
+            dialogueController.CloseCharacterHub();
+        }
+        else
+        {
+            Hide();
+        }
+        dialogueController?.ReleaseDialogueShellSuppression(this);
+    }
+
     public bool SelectFixture(int index)
     {
         if (!IsOpen || index < 0 || index >= validFixtures.Count)

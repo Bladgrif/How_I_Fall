@@ -83,10 +83,15 @@ public sealed class TimedNarrativeBeatController : MonoBehaviour
         }
     }
 
-    /// <summary>Attempts to start one exclusive beat. A rejected start leaves no visible UI or active lease.</summary>
+    /// <summary>Attempts to start one exclusive beat. A rejected duplicate leaves the active beat unchanged.</summary>
     public bool TryStartBeat(TimedNarrativeBeatDefinition definition)
     {
-        if (IsRunning || !IsDefinitionRunnable(definition) || !HasRequiredUiReferences())
+        if (IsRunning)
+        {
+            return false;
+        }
+
+        if (!IsDefinitionRunnable(definition) || !HasRequiredUiReferences())
         {
             HidePanel();
             return false;

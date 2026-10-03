@@ -204,6 +204,12 @@ public class VNDialogueController : MonoBehaviour
     private DialogueReadHistory readHistory;
     private DialogueSceneData displayedLineScene;
     private DialogueLine displayedLine;
+    private bool interactiveFeedbackActive;
+    private string readingTextBeforeInteractiveFeedback;
+    private string readingVisibleTextBeforeInteractiveFeedback;
+    private string readingSpeakerBeforeInteractiveFeedback;
+    private bool readingNameBoxBeforeInteractiveFeedback;
+    private bool readingWasTypingBeforeInteractiveFeedback;
     private SpecialModeCoordinator specialModeCoordinator;
     private ChatController chatController;
     private InteractiveSceneController interactiveSceneController;
@@ -887,9 +893,8 @@ public class VNDialogueController : MonoBehaviour
     /// Presents one interactive-scene feedback line through the ordinary Reading dialogue
     /// shell: speaker name box, reading text styling, typing caret and advance cue are the
     /// accepted presentation. Presentation only — the normal dialogue flow state (scene
-    /// line, backlog, choices) is untouched, and checkpoint/read-history/auto-forward side
-    /// effects of the typing tail are already no-ops while an exclusive special mode holds
-    /// its lease.
+    /// line, backlog, choices) is untouched. The feedback typing tail must never mark the
+    /// interrupted Reading line seen; the original presentation is restored on exit.
     /// </summary>
     public bool TryShowInteractiveSceneFeedback(string speaker, string text)
     {
@@ -899,6 +904,16 @@ public class VNDialogueController : MonoBehaviour
         if (!isActiveAndEnabled || nameBox == null || speakerText == null || dialogueText == null)
         {
             return false;
+        }
+
+        if (!interactiveFeedbackActive)
+        {
+            readingTextBeforeInteractiveFeedback = currentFullText;
+            readingVisibleTextBeforeInteractiveFeedback = dialogueText.text;
+            readingSpeakerBeforeInteractiveFeedback = speakerText.text;
+            readingNameBoxBeforeInteractiveFeedback = nameBox.activeSelf;
+            readingWasTypingBeforeInteractiveFeedback = isTyping;
+            interactiveFeedbackActive = true;
         }
 
         bool hasSpeaker = !string.IsNullOrWhiteSpace(speaker);
@@ -911,6 +926,46 @@ public class VNDialogueController : MonoBehaviour
 
         ShowText(text ?? string.Empty);
         return true;
+    }
+
+    /// <summary>Ends Hotspot presentation without replaying the ordinary line or appending backlog.</summary>
+    public void RestoreReadingAfterInteractiveSceneFeedback()
+    {
+        if (!interactiveFeedbackActive) return;
+        if (typingCoroutine != null) StopCoroutine(typingCoroutine);
+        typingCoroutine = null;
+        interactiveFeedbackActive = false;
+        currentFullText = readingTextBeforeInteractiveFeedback ?? string.Empty;
+        // Scene unload may destroy the Reading UI before the Hotspot component receives OnDisable.
+        if (dialogueText == null || speakerText == null || nameBox == null)
+        {
+            isTyping = false;
+            readingTextBeforeInteractiveFeedback = null;
+            readingVisibleTextBeforeInteractiveFeedback = null;
+            readingSpeakerBeforeInteractiveFeedback = null;
+            return;
+        }
+        dialogueText.text = readingVisibleTextBeforeInteractiveFeedback ?? string.Empty;
+        speakerText.text = readingSpeakerBeforeInteractiveFeedback ?? string.Empty;
+        nameBox.SetActive(readingNameBoxBeforeInteractiveFeedback);
+        if (readingNameBoxBeforeInteractiveFeedback) ApplyNameBoxWidth(speakerText.text);
+        ApplyReadingShellContentHeight(currentFullText);
+        isTyping = readingWasTypingBeforeInteractiveFeedback;
+        SetTypingPresentationActive(isTyping);
+        if (isTyping && isActiveAndEnabled)
+        {
+            // Yield before the next character so exit itself preserves the interrupted prefix.
+            typingCoroutine = StartCoroutine(ResumeReadingTyping(currentFullText, dialogueText.text.Length));
+        }
+        readingTextBeforeInteractiveFeedback = null;
+        readingVisibleTextBeforeInteractiveFeedback = null;
+        readingSpeakerBeforeInteractiveFeedback = null;
+    }
+
+    private IEnumerator ResumeReadingTyping(string text, int visibleCharacters)
+    {
+        yield return null;
+        yield return TypeText(text, visibleCharacters);
     }
 
     public void CloseCharacterHub()
@@ -1475,7 +1530,7 @@ public class VNDialogueController : MonoBehaviour
 
     private void MarkDisplayedLineSeen()
     {
-        if (displayedLineScene == null || displayedLine == null
+        if (interactiveFeedbackActive || displayedLineScene == null || displayedLine == null
             || string.IsNullOrWhiteSpace(displayedLineScene.sceneId)
             || string.IsNullOrWhiteSpace(displayedLine.lineId))
         {
@@ -2153,6 +2208,7 @@ public class VNDialogueController : MonoBehaviour
             || !IsRuntimeReady
             || SceneFlowManager.IsReplayModeActive
             || HasActiveSpecialMode
+            || interactiveFeedbackActive
             || displayedLine == null
             || displayedLineScene == null
             || isTyping)
@@ -4876,10 +4932,10 @@ public class VNDialogueController : MonoBehaviour
         typingCoroutine = StartCoroutine(TypeText(text));
     }
 
-    private IEnumerator TypeText(string text)
+    private IEnumerator TypeText(string text, int visibleCharacters = 0)
     {
         isTyping = true;
-        dialogueText.text = string.Empty;
+        dialogueText.text = text.Substring(0, Mathf.Clamp(visibleCharacters, 0, text.Length));
 
         float textSpeed = 1f;
 
@@ -4891,14 +4947,14 @@ public class VNDialogueController : MonoBehaviour
         float charsPerSecond = GetCharactersPerSecond(textSpeed);
         float characterDelay = 1f / charsPerSecond;
 
-        foreach (char character in text)
+        for (int index = dialogueText.text.Length; index < text.Length; index++)
         {
             while (IsGameMenuOpen)
             {
                 yield return null;
             }
 
-            dialogueText.text += character;
+            dialogueText.text += text[index];
             UpdateTypingCaretPlacement();
             yield return new WaitForSecondsRealtime(characterDelay);
         }
