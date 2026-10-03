@@ -13,6 +13,7 @@ Google Drive остаётся удобным зеркалом для челов�
 - `05_Speaker_Dialogue_Target_v1.svg` — detail/state sheet; `02_Reading_Target_v1.png` remains the base Reading composition
 - `06_History_Target_v1.png`
 - `07_Hotspot_Showcase_Target_v1.png` — approved TECH DEMO ONLY / NOT CANON Hotspot showcase target; apartment-at-night composition with three interactive zones (`Ноутбук`, `Записки`, `Дверь`), cyan hotspot language, Menu access and Reading-aligned dialogue surface
+- `08_Hotspot_Showcase_Background_v1.png` — clean approved TECH DEMO ONLY / NOT CANON apartment-at-night background for implementation; no baked hotspot labels, Menu or dialogue UI
 
 Правила:
 - target фиксирует visual/UX направление, но не финальный art или будущий канон;
