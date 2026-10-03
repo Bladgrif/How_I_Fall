@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -20,13 +21,21 @@ public static class InteractiveHotspotSmokeTests
             VNDialogueController dialogue = controllerObject.AddComponent<VNDialogueController>();
             dialogue.dialogueUiRoot = new GameObject("InteractiveHotspotSmokeDialogueRoot");
             dialogue.dialogueUiRoot.transform.SetParent(canvasObject.transform, false);
+            dialogue.nameBox = new GameObject("InteractiveHotspotSmokeNameBox");
+            dialogue.nameBox.transform.SetParent(dialogue.dialogueUiRoot.transform, false);
+            dialogue.speakerText = new GameObject("InteractiveHotspotSmokeSpeakerText").AddComponent<TextMeshProUGUI>();
+            dialogue.speakerText.transform.SetParent(dialogue.nameBox.transform, false);
+            dialogue.dialogueText = new GameObject("InteractiveHotspotSmokeDialogueText").AddComponent<TextMeshProUGUI>();
+            dialogue.dialogueText.transform.SetParent(dialogue.dialogueUiRoot.transform, false);
             GameState state = GameState.EnsureInstance();
             int initialSuspicion = state.suspicion;
             int initialTrustMasha = state.trustMasha;
             InteractiveSceneData scene = CreateScene();
             Require(InteractiveSceneController.TryCreateRuntime(dialogue, out InteractiveSceneController interactive, out string createFailure), createFailure);
             Require(interactive.TryStart(scene, out string startFailure), startFailure);
-            Require(interactive.IsRuntimeUiActive && dialogue.IsDialogueShellSuppressed && !dialogue.CanAdvanceDialogue, "Interactive scene must own the normal dialogue shell and input.");
+            Require(interactive.IsRuntimeUiActive && !dialogue.IsDialogueShellSuppressed && !dialogue.CanAdvanceDialogue,
+                "Interactive scene must keep the accepted Reading dialogue shell visible and own the input.");
+            Require(!dialogue.nameBox.activeSelf, "Hotspot initial feedback without a speaker must present as narration in the Reading shell.");
             Require(interactive.IsHotspotAvailable("laptop"), "Laptop must start available.");
             Require(!interactive.IsHotspotAvailable("door"), "Door must start unavailable.");
             Click(interactive.GetHotspotButton("laptop"));

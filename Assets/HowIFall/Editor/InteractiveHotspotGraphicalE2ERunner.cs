@@ -13,9 +13,10 @@ using UnityEngine.UI;
 /// <summary>
 /// Automated graphical proof for the Interactive Hotspot readiness gate plus the
 /// polished TECH showcase: authored background display, deterministic keyboard
-/// focus ownership, locked-hotspot submit safety, Game Menu round-trip with
-/// disabled Save/Load, completion routing, clean re-entry, and the showcase
-/// flow (Ноутбук + Записки unlock Дверь; Menu button; return to Reading).
+/// focus ownership, locked-hotspot submit safety, Game Menu round-trip through the
+/// established Escape path with disabled Save/Load, completion routing, clean
+/// re-entry, and the showcase flow (Ноутбук + Записки unlock Дверь; feedback via
+/// the accepted Reading dialogue shell; return to Reading).
 /// TECH DEMO ONLY / NOT CANON fixtures only.
 /// </summary>
 [InitializeOnLoad]
@@ -164,6 +165,7 @@ public static class InteractiveHotspotGraphicalE2ERunner
         Require(displayed.sprite.name == "TECH_AuthoredHotspotBackground", "Unexpected displayed sprite: " + displayed.sprite.name);
         Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("test_laptop").gameObject,
             "Hotspot entry must own a deterministic usable focus on the first available hotspot.");
+        RequireShellPresentation(VNDialogueController.Instance, interactive, expectSpeaker: false);
         Capture("hotspot_initial_authored_background_1920x1080.png", "MoveFocusToLocked");
     }
 
@@ -262,7 +264,7 @@ public static class InteractiveHotspotGraphicalE2ERunner
         Require(!interactive.IsRunning, "Door completion must close the interactive runtime.");
         Require(!interactive.IsRuntimeUiActive, "Hotspot runtime root must be inactive after completion.");
         Require(dialogue.CanAdvanceDialogue, "Completion must restore normal dialogue eligibility.");
-        Require(!dialogue.IsDialogueShellSuppressed, "Completion must release the suppressed dialogue shell.");
+        Require(!dialogue.IsDialogueShellSuppressed, "Completion must leave the accepted Reading dialogue shell unsuppressed.");
         Require(GameState.Instance.currentSceneId == "interactive_hotspot_complete", "Completion must route to the registered completion scene.");
         GameObject stale = EventSystem.current.currentSelectedGameObject;
         Require(stale == null || (stale != interactive.GetHotspotButton("test_laptop").gameObject
@@ -338,12 +340,12 @@ public static class InteractiveHotspotGraphicalE2ERunner
         Require(dialogue.TryStartInteractiveScene(showcase, out string failure), "Showcase did not start: " + failure);
         InteractiveSceneController interactive = dialogue.ActiveInteractiveSceneController;
         Require(interactive.IsRunning, "Showcase is not running after start.");
-        Require(interactive.MenuButton != null && interactive.MenuButton.interactable, "The Hotspot Menu button must be present and usable.");
         Image displayed = interactive.DisplayedImageRect.GetComponent<Image>();
         Require(displayed != null && displayed.sprite == showcase.background, "The showcase must display the approved committed background sprite.");
         Require(!interactive.GetHotspotButton("showcase_door").interactable, "The Дверь must start locked in the showcase.");
         Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_laptop").gameObject,
             "Showcase entry must give the initial focus to the first available hotspot (Ноутбук).");
+        RequireShellPresentation(dialogue, interactive, expectSpeaker: true);
         Capture("hotspot_showcase_initial_1920x1080.png", "ShowcaseFocusNotes");
     }
 
@@ -394,10 +396,8 @@ public static class InteractiveHotspotGraphicalE2ERunner
 
     private static void ShowcaseGameMenuStage()
     {
-        InteractiveSceneController interactive = RequireRunningScene();
-        Button menu = interactive.MenuButton;
-        Require(menu != null && menu.interactable, "The Hotspot Menu button must be usable.");
-        ExecuteEvents.Execute<ISubmitHandler>(menu.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+        RequireRunningScene();
+        Require(VNDialogueController.Instance.HandleEscapePressed(), "The established Escape path must open the existing Game Menu during the showcase.");
         SessionState.SetString(StageKey, "ShowcaseMenuWait");
         ResetCounter();
         SetDelay(0.4d);
@@ -406,7 +406,7 @@ public static class InteractiveHotspotGraphicalE2ERunner
     private static void ShowcaseMenuWait()
     {
         VNDialogueController dialogue = VNDialogueController.Instance;
-        Require(dialogue.IsGameMenuOpen, "The Hotspot Menu button must open the existing Game Menu.");
+        Require(dialogue.IsGameMenuOpen, "The established Escape path must open the existing Game Menu over the showcase.");
         Require(!dialogue.CanSave && !dialogue.CanLoad, "Save/Load must stay blocked while the showcase is active.");
         Button save = dialogue.GameMenuController.View.GetButton(VNGameMenuAction.Save);
         Button load = dialogue.GameMenuController.View.GetButton(VNGameMenuAction.Load);
@@ -417,7 +417,7 @@ public static class InteractiveHotspotGraphicalE2ERunner
     private static void ShowcaseMenuReturn()
     {
         VNDialogueController dialogue = VNDialogueController.Instance;
-        Require(dialogue.GameMenuController.Close(), "Game Menu close must return to the active showcase.");
+        Require(dialogue.HandleEscapePressed() && !dialogue.IsGameMenuOpen, "Game Menu Esc close must return to the active showcase.");
         InteractiveSceneController interactive = RequireRunningScene();
         Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_door").gameObject,
             "Game Menu return must restore the unlocked Дверь focus owner.");
@@ -432,7 +432,7 @@ public static class InteractiveHotspotGraphicalE2ERunner
         Require(!interactive.IsRunning, "Door completion must close the showcase runtime.");
         Require(!interactive.IsRuntimeUiActive, "Showcase runtime root must be inactive after completion.");
         Require(dialogue.CanAdvanceDialogue, "Completion must restore normal dialogue eligibility.");
-        Require(!dialogue.IsDialogueShellSuppressed, "Completion must release the suppressed dialogue shell.");
+        Require(!dialogue.IsDialogueShellSuppressed, "Completion must leave the accepted Reading dialogue shell unsuppressed.");
         Require(GameState.Instance.currentSceneId == "interactive_hotspot_complete", "Completion must route to the registered completion scene.");
         Capture("hotspot_showcase_completion_reading_1920x1080.png", "ShowcaseReentry");
     }
@@ -484,6 +484,30 @@ public static class InteractiveHotspotGraphicalE2ERunner
         InteractiveSceneController interactive = dialogue.ActiveInteractiveSceneController;
         Require(interactive != null && interactive.IsRunning && interactive.IsRuntimeUiActive, "The interactive scene is not running.");
         return interactive;
+    }
+
+    /// <summary>
+    /// Hands-on integration correction invariants: the Hotspot presents no private Menu
+    /// button or feedback panel, and its feedback is presented by the accepted Reading
+    /// dialogue shell rendered above the Hotspot view.
+    /// </summary>
+    private static void RequireShellPresentation(VNDialogueController dialogue, InteractiveSceneController interactive, bool expectSpeaker)
+    {
+        Require(dialogue != null && !dialogue.IsDialogueShellSuppressed, "Hotspot mode must not suppress the accepted Reading dialogue shell.");
+        Transform shellBox = dialogue.dialogueUiRoot != null ? dialogue.dialogueUiRoot.transform : null;
+        RectTransform displayed = interactive.DisplayedImageRect;
+        Transform view = displayed != null && displayed.parent != null && displayed.parent.parent != null ? displayed.parent.parent : null;
+        Require(shellBox != null && view != null, "The Reading dialogue shell or the Hotspot runtime view is missing.");
+        Require(view.name == "Interactive Hotspot Runtime View", "Unexpected Hotspot runtime view root: " + view.name);
+        Require(view.parent == shellBox.parent && view.GetSiblingIndex() < shellBox.GetSiblingIndex(),
+            "The Hotspot view must render inside the Reading shell layer, directly below the ordinary Dialogue Box.");
+        Require(view.Find("Hotspot Menu Button") == null && view.Find("Feedback Panel") == null,
+            "Hotspot-specific Menu button and Feedback Panel must not exist on the runtime surface.");
+        Require(shellBox.gameObject.activeInHierarchy, "The Reading dialogue shell must stay visible during Hotspot mode.");
+        Require(!string.IsNullOrEmpty(dialogue.dialogueText != null ? dialogue.dialogueText.text : null),
+            "Hotspot feedback did not reach the Reading dialogue shell.");
+        bool hasSpeaker = dialogue.speakerText != null && !string.IsNullOrEmpty(dialogue.speakerText.text);
+        Require(hasSpeaker == expectSpeaker, "Hotspot speaker presentation mismatch in the Reading dialogue shell.");
     }
 
     private static void Submit(Button button)

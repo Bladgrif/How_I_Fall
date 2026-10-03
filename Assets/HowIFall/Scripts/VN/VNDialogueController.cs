@@ -883,6 +883,36 @@ public class VNDialogueController : MonoBehaviour
         dialogueShellWasVisibleBeforeSuppression = false;
     }
 
+    /// <summary>
+    /// Presents one interactive-scene feedback line through the ordinary Reading dialogue
+    /// shell: speaker name box, reading text styling, typing caret and advance cue are the
+    /// accepted presentation. Presentation only — the normal dialogue flow state (scene
+    /// line, backlog, choices) is untouched, and checkpoint/read-history/auto-forward side
+    /// effects of the typing tail are already no-ops while an exclusive special mode holds
+    /// its lease.
+    /// </summary>
+    public bool TryShowInteractiveSceneFeedback(string speaker, string text)
+    {
+        // Presentation guard: shell references plus an active component able to run the
+        // typing coroutine. Scene readiness is already enforced by the interactive-scene
+        // entry point, so batch smoke harnesses can exercise the presentation directly.
+        if (!isActiveAndEnabled || nameBox == null || speakerText == null || dialogueText == null)
+        {
+            return false;
+        }
+
+        bool hasSpeaker = !string.IsNullOrWhiteSpace(speaker);
+        nameBox.SetActive(hasSpeaker);
+        speakerText.text = hasSpeaker ? speaker : string.Empty;
+        if (hasSpeaker)
+        {
+            ApplyNameBoxWidth(speaker);
+        }
+
+        ShowText(text ?? string.Empty);
+        return true;
+    }
+
     public void CloseCharacterHub()
     {
         if (characterHubController == null || !characterHubController.Hide())

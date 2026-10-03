@@ -32,28 +32,19 @@ public sealed class InteractiveSceneController : MonoBehaviour
     private static readonly Color MarkerLockedEdgeColor = new Color(0.42f, 0.50f, 0.58f, 0.40f);
     private static readonly Color MarkerCompletedEdgeColor = new Color(0.30f, 0.52f, 0.58f, 0.35f);
     private static readonly Color AnchorDotColor = new Color(0.35f, 0.85f, 0.97f, 0.95f);
-    private static readonly Color PanelFillColor = new Color(0.048f, 0.10f, 0.165f, 0.84f);
-    private static readonly Color PanelEdgeColor = new Color(0.35f, 0.72f, 0.91f, 0.45f);
-    private static readonly Color SpeakerColor = new Color(0.31f, 0.70f, 0.91f, 1f);
-    private static readonly Color BodyColor = new Color(0.93f, 0.96f, 1f, 0.98f);
-    private static readonly Color ChevronColor = new Color(0.13f, 0.85f, 0.95f, 1f);
     private static readonly Color TechCaptionColor = new Color(0.75f, 0.84f, 0.92f, 0.72f);
     private static Sprite runtimeBackgroundSprite;
     private static TMP_FontAsset fallbackFont;
-    private static Sprite circleSprite, ringSprite, pillSprite, panelSprite, strokeSprite, laptopGlyphSprite, notesGlyphSprite, doorGlyphSprite, menuIconSprite;
+    private static Sprite circleSprite, ringSprite, pillSprite, strokeSprite, laptopGlyphSprite, notesGlyphSprite, doorGlyphSprite;
     private VNDialogueController dialogueController;
     private GameObject root;
     private RectTransform displayedImageRect;
     private Image backgroundImage;
-    private TextMeshProUGUI feedbackText;
-    private TextMeshProUGUI feedbackSpeakerText;
-    private Image feedbackSpeakerUnderline;
     private readonly Dictionary<string, Button> hotspotButtons = new Dictionary<string, Button>(StringComparer.Ordinal);
     private readonly Dictionary<string, MarkerVisuals> hotspotMarkers = new Dictionary<string, MarkerVisuals>(StringComparer.Ordinal);
     private readonly HashSet<string> completedHotspotIds = new HashSet<string>(StringComparer.Ordinal);
     private InteractiveSceneData activeScene;
     private SpecialModeLease activeLease;
-    private bool dialogueShellSuppressed;
     private int activationCount;
 
     public bool IsRunning => activeScene != null && activeLease != null;
@@ -61,7 +52,6 @@ public sealed class InteractiveSceneController : MonoBehaviour
     public int ActivationCount => activationCount;
     public RectTransform DisplayedImageRect => displayedImageRect;
     public InteractiveSceneData ActiveScene => activeScene;
-    public Button MenuButton { get; private set; }
 
     public static InteractiveSceneController TryCreateRuntime(VNDialogueController controller) => TryCreateRuntime(controller, out InteractiveSceneController result, out _) ? result : null;
     public static bool TryCreateRuntime(VNDialogueController controller, out InteractiveSceneController result, out string failureReason)
@@ -90,11 +80,12 @@ public sealed class InteractiveSceneController : MonoBehaviour
         if (root == null || displayedImageRect == null) { failureReason = "Canvas/UI unavailable"; return false; }
         if (!scene.TryValidate(dialogueController, out string diagnostic)) { failureReason = "interactive scene data invalid: " + diagnostic; return false; }
         if (!dialogueController.TryEnterSpecialMode(this, SpecialModePolicy.InteractiveScene, out SpecialModeLease lease)) { failureReason = dialogueController.HasActiveSpecialMode ? "another special mode active" : "lease rejected"; return false; }
-        if (!dialogueController.TrySuppressDialogueShell(this)) { dialogueController.ExitSpecialMode(lease); failureReason = "dialogue shell unavailable"; return false; }
-        activeScene = scene; activeLease = lease; dialogueShellSuppressed = true; activationCount = 0; completedHotspotIds.Clear();
+        string initialFeedback = string.IsNullOrWhiteSpace(scene.initialFeedback) ? "Select an available technical hotspot." : scene.initialFeedback;
+        if (!dialogueController.TryShowInteractiveSceneFeedback(scene.feedbackSpeaker, initialFeedback)) { dialogueController.ExitSpecialMode(lease); failureReason = "dialogue shell unavailable"; return false; }
+        activeScene = scene; activeLease = lease; activationCount = 0; completedHotspotIds.Clear();
         backgroundImage.sprite = scene.background != null ? scene.background : GetRuntimeBackgroundSprite();
-        BuildHotspots(); SetFeedback(string.IsNullOrWhiteSpace(scene.initialFeedback) ? "Select an available technical hotspot." : scene.initialFeedback, scene.feedbackSpeaker);
-        root.SetActive(true); root.transform.SetAsLastSibling(); Refresh(); SelectInitialHotspot(); return true;
+        BuildHotspots();
+        root.SetActive(true); Refresh(); SelectInitialHotspot(); return true;
     }
 
     public bool TryActivateHotspot(string hotspotId)
@@ -105,7 +96,8 @@ public sealed class InteractiveSceneController : MonoBehaviour
         if (hotspot == null || state == null || !hotspot.IsAvailable(state, completedHotspotIds) || hotspot.outcome == null || !hotspot.outcome.TryApply(state)) return false;
         activationCount++;
         completedHotspotIds.Add(hotspot.hotspotId);
-        SetFeedback(string.IsNullOrWhiteSpace(hotspot.outcome.feedbackText) ? hotspot.displayName + " completed." : hotspot.outcome.feedbackText, activeScene.feedbackSpeaker);
+        string feedback = string.IsNullOrWhiteSpace(hotspot.outcome.feedbackText) ? hotspot.displayName + " completed." : hotspot.outcome.feedbackText;
+        dialogueController.TryShowInteractiveSceneFeedback(activeScene.feedbackSpeaker, feedback);
         DialogueSceneData nextScene = hotspot.outcome.nextScene;
         bool completesScene = hotspot.outcome.completeScene || nextScene != null;
         Refresh();
@@ -196,7 +188,6 @@ public sealed class InteractiveSceneController : MonoBehaviour
         if (!IsRunning) return false;
         SpecialModeLease lease = activeLease; activeLease = null; activeScene = null; completedHotspotIds.Clear(); root.SetActive(false);
         ClearHotspotSelectionIfOwned();
-        if (dialogueShellSuppressed) { dialogueController.ReleaseDialogueShellSuppression(this); dialogueShellSuppressed = false; }
         if (lease != null) dialogueController.ExitSpecialMode(lease);
         return nextScene == null || dialogueController.TryRouteToScene(nextScene);
     }
@@ -221,56 +212,33 @@ public sealed class InteractiveSceneController : MonoBehaviour
 
     private void BuildRuntimeUi(Canvas canvas)
     {
-        root = CreateUiObject(canvas.transform, "Interactive Hotspot Runtime View"); Stretch(root.GetComponent<RectTransform>()); root.transform.SetAsLastSibling();
+        Transform host = ResolveShellHost(canvas, out int shellBoxSiblingIndex);
+        root = CreateUiObject(host, "Interactive Hotspot Runtime View"); Stretch(root.GetComponent<RectTransform>());
+        if (shellBoxSiblingIndex >= 0) root.transform.SetSiblingIndex(shellBoxSiblingIndex); else root.transform.SetAsLastSibling();
         Image backdrop = root.AddComponent<Image>(); backdrop.color = BackdropColor; backdrop.raycastTarget = true;
         GameObject imageContainer = CreateUiObject(root.transform, "Aspect Fit Image Container"); Stretch(imageContainer.GetComponent<RectTransform>());
         GameObject imageObject = CreateUiObject(imageContainer.transform, "Displayed Interactive Image"); displayedImageRect = imageObject.GetComponent<RectTransform>(); Stretch(displayedImageRect);
         backgroundImage = imageObject.AddComponent<Image>(); backgroundImage.sprite = GetRuntimeBackgroundSprite(); backgroundImage.preserveAspect = true; backgroundImage.raycastTarget = true;
         AspectRatioFitter fitter = imageObject.AddComponent<AspectRatioFitter>(); fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent; fitter.aspectRatio = 16f / 9f;
         Outline outline = imageObject.AddComponent<Outline>(); outline.effectColor = ImageFrameColor; outline.effectDistance = new Vector2(3f, -3f);
-        BuildFeedbackPanel();
-        BuildMenuButton();
         // Built last so the full-bleed background never covers the TECH caption.
         TextMeshProUGUI caption = CreateText(root.transform, "Tech Caption", "TECH DEMO ONLY / NOT CANON", 17f, FontStyles.Normal, TextAlignmentOptions.TopLeft, TechCaptionColor);
         SetAnchors(caption.rectTransform, new Vector2(0.012f, 0.966f), new Vector2(0.5f, 0.994f));
     }
 
-    /// <summary>Reading-aligned feedback surface (target 07): dark translucent rounded panel, cyan speaker accent, quiet advance chevron.</summary>
-    private void BuildFeedbackPanel()
+    /// <summary>
+    /// Hands-on integration correction: the Hotspot view renders inside the Reading shell
+    /// layer — above the reading background, directly below the ordinary Dialogue Box — so
+    /// hotspot feedback appears through the accepted Reading dialogue presentation instead
+    /// of a private panel. Unexpected shell structure falls back to the top canvas layer.
+    /// </summary>
+    private Transform ResolveShellHost(Canvas canvas, out int shellBoxSiblingIndex)
     {
-        GameObject panel = CreateUiObject(root.transform, "Feedback Panel"); SetAnchors(panel.GetComponent<RectTransform>(), new Vector2(0.1047f, 0.0701f), new Vector2(0.8941f, 0.2508f));
-        Image fill = panel.AddComponent<Image>(); fill.sprite = GetPanelSprite(); fill.type = Image.Type.Sliced; fill.color = PanelFillColor; fill.raycastTarget = true;
-        Image edge = CreateImage(panel.transform, "Panel Edge", GetStrokeSprite(), Vector2.zero, Vector2.zero, Vector2.zero, PanelEdgeColor); Stretch(edge.rectTransform, -2f, -2f, -2f, -2f); edge.type = Image.Type.Sliced;
-        feedbackSpeakerText = CreateText(panel.transform, "Speaker", string.Empty, 28f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, SpeakerColor);
-        SetAnchor(feedbackSpeakerText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(54f, -34f), new Vector2(420f, 44f));
-        feedbackSpeakerUnderline = CreateImage(panel.transform, "Speaker Underline", null, Vector2.zero, Vector2.one, Vector2.zero, SpeakerColor);
-        SetAnchor(feedbackSpeakerUnderline.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(56f, -94f), new Vector2(150f, 3f));
-        feedbackText = CreateText(panel.transform, "Feedback", string.Empty, 25f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, BodyColor);
-        feedbackText.rectTransform.anchorMin = new Vector2(0f, 0f); feedbackText.rectTransform.anchorMax = new Vector2(1f, 1f);
-        feedbackText.rectTransform.offsetMin = new Vector2(275f, 20f); feedbackText.rectTransform.offsetMax = new Vector2(-120f, -20f);
-        TextMeshProUGUI chevron = CreateText(panel.transform, "Advance Chevron", ">", 32f, FontStyles.Bold, TextAlignmentOptions.MidlineRight, ChevronColor);
-        SetAnchor(chevron.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-52f, -22f), new Vector2(40f, 48f));
-    }
-
-    /// <summary>Bounded Hotspot entry to the already accepted Game Menu; keyboard/controller keep using the existing Esc/RMB path.</summary>
-    private void BuildMenuButton()
-    {
-        GameObject menuObject = CreateUiObject(root.transform, "Hotspot Menu Button");
-        RectTransform rect = menuObject.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f); rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-52f, -24f); rect.sizeDelta = new Vector2(196f, 60f);
-        Image fill = menuObject.AddComponent<Image>(); fill.sprite = GetPillSprite(); fill.type = Image.Type.Sliced; fill.color = LabelFillColor; fill.raycastTarget = true;
-        Image edge = CreateImage(menuObject.transform, "Menu Edge", GetStrokeSprite(), Vector2.zero, Vector2.zero, Vector2.zero, MarkerEdgeColor); Stretch(edge.rectTransform, -3f, -3f, -3f, -3f); edge.type = Image.Type.Sliced;
-        Image icon = CreateImage(menuObject.transform, "Menu Icon", GetMenuIconSprite(), Vector2.zero, Vector2.zero, Vector2.zero, GlyphAvailableColor);
-        SetAnchor(icon.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(40f, 0f), new Vector2(30f, 28f));
-        TextMeshProUGUI label = CreateText(menuObject.transform, "Menu Label", "Меню", 32f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, LabelTextColor);
-        Stretch(label.rectTransform, 76f, 4f, 18f, 4f);
-        Button button = menuObject.AddComponent<Button>();
-        button.targetGraphic = fill;
-        ColorBlock colors = button.colors; colors.normalColor = Color.white; colors.highlightedColor = new Color(1.7f, 1.9f, 2f, 1f); colors.selectedColor = new Color(1.5f, 1.7f, 1.8f, 1f); colors.pressedColor = new Color(1.2f, 1.35f, 1.45f, 1f); colors.disabledColor = Color.white; colors.colorMultiplier = 1f; colors.fadeDuration = 0.1f; button.colors = colors;
-        Navigation navigation = button.navigation; navigation.mode = Navigation.Mode.Explicit; navigation.selectOnLeft = navigation.selectOnRight = navigation.selectOnUp = navigation.selectOnDown = null; button.navigation = navigation;
-        button.onClick.AddListener(() => { if (dialogueController != null) dialogueController.OpenGameMenu(); });
-        MenuButton = button;
+        shellBoxSiblingIndex = -1;
+        Transform shellBox = dialogueController != null && dialogueController.dialogueUiRoot != null ? dialogueController.dialogueUiRoot.transform : null;
+        if (shellBox == null || shellBox.parent == null || shellBox.parent == canvas.transform) return canvas.transform;
+        shellBoxSiblingIndex = shellBox.GetSiblingIndex();
+        return shellBox.parent;
     }
 
     private void BuildHotspots()
@@ -333,21 +301,12 @@ public sealed class InteractiveSceneController : MonoBehaviour
         return marker;
     }
 
-    private void SetFeedback(string message, string speaker)
-    {
-        if (feedbackText != null) feedbackText.text = message;
-        bool hasSpeaker = !string.IsNullOrWhiteSpace(speaker);
-        if (feedbackSpeakerText != null) { feedbackSpeakerText.text = hasSpeaker ? speaker : string.Empty; feedbackSpeakerText.gameObject.SetActive(hasSpeaker); }
-        if (feedbackSpeakerUnderline != null) feedbackSpeakerUnderline.gameObject.SetActive(hasSpeaker);
-    }
-
     private void OnDisable() { CleanupWithoutRouting(); }
     private void OnDestroy() { CleanupWithoutRouting(); }
     private void CleanupWithoutRouting()
     {
         if (activeLease == null) return;
         SpecialModeLease lease = activeLease; activeLease = null; activeScene = null; completedHotspotIds.Clear();
-        if (dialogueShellSuppressed && dialogueController != null) { dialogueController.ReleaseDialogueShellSuppression(this); dialogueShellSuppressed = false; }
         dialogueController?.ExitSpecialMode(lease); if (root != null) root.SetActive(false);
         ClearHotspotSelectionIfOwned();
     }
@@ -432,13 +391,6 @@ public sealed class InteractiveSceneController : MonoBehaviour
         });
     }
 
-    private static Sprite GetPanelSprite()
-    {
-        if (panelSprite != null) return panelSprite;
-        panelSprite = BuildMaskSprite("Runtime Hotspot Panel", 96, (x, y) => SdRoundRect(x, y, 0f, 0f, 48f, 48f, 24f));
-        return panelSprite;
-    }
-
     private static Sprite GetPillSprite()
     {
         if (pillSprite != null) return pillSprite;
@@ -507,13 +459,6 @@ public sealed class InteractiveSceneController : MonoBehaviour
         Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 64f, 64f), new Vector2(0.5f, 0.5f), 64f);
         sprite.name = name; sprite.hideFlags = HideFlags.HideAndDontSave;
         return sprite;
-    }
-
-    private static Sprite GetMenuIconSprite()
-    {
-        if (menuIconSprite != null) return menuIconSprite;
-        return menuIconSprite = BuildGlyphSprite("Runtime Hotspot Menu Icon", (x, y) =>
-            Mathf.Min(SdRoundRect(x, y, 0f, 10f, 15f, 2.6f, 1.8f), Mathf.Min(SdRoundRect(x, y, 0f, 0f, 15f, 2.6f, 1.8f), SdRoundRect(x, y, 0f, -10f, 15f, 2.6f, 1.8f))));
     }
 
     private static Sprite GetRuntimeBackgroundSprite()
