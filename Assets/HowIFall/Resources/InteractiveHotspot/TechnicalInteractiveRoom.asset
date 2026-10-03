@@ -15,9 +15,12 @@ MonoBehaviour:
   sceneId: interactive_room
   displayName: "Interactive Room \u2014 TECH DEMO ONLY / NOT CANON"
   background: {fileID: 0}
+  initialFeedback: Select an available technical hotspot.
+  feedbackSpeaker: 
   hotspots:
   - hotspotId: test_laptop
     displayName: TEST:Laptop
+    iconId: 
     normalizedRect:
       serializedVersion: 2
       x: 0.12
@@ -34,6 +37,7 @@ MonoBehaviour:
       nextScene: {fileID: 0}
   - hotspotId: test_door
     displayName: TEST:Door
+    iconId: 
     normalizedRect:
       serializedVersion: 2
       x: 0.67
@@ -51,6 +55,7 @@ MonoBehaviour:
       nextScene: {fileID: 0}
   - hotspotId: test_window
     displayName: TEST:Window
+    iconId: 
     normalizedRect:
       serializedVersion: 2
       x: 0.4

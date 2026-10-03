@@ -11,10 +11,12 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
-/// Automated graphical proof for the Interactive Hotspot readiness gate: authored
-/// background display, deterministic keyboard focus ownership, locked-hotspot
-/// submit safety, Game Menu round-trip with disabled Save/Load, completion routing
-/// and clean re-entry. TECH DEMO ONLY / NOT CANON fixtures only.
+/// Automated graphical proof for the Interactive Hotspot readiness gate plus the
+/// polished TECH showcase: authored background display, deterministic keyboard
+/// focus ownership, locked-hotspot submit safety, Game Menu round-trip with
+/// disabled Save/Load, completion routing, clean re-entry, and the showcase
+/// flow (Ноутбук + Записки unlock Дверь; Menu button; return to Reading).
+/// TECH DEMO ONLY / NOT CANON fixtures only.
 /// </summary>
 [InitializeOnLoad]
 public static class InteractiveHotspotGraphicalE2ERunner
@@ -109,6 +111,19 @@ public static class InteractiveHotspotGraphicalE2ERunner
                 case "SubmitDoor": SubmitDoor(); break;
                 case "ReenterHotspot": ReenterHotspot(); break;
                 case "ReentryResolution": ReentryResolution(); break;
+                case "CloseReentryRoom": CloseReentryRoom(); break;
+                case "ShowcaseResolution": ShowcaseResolution(); break;
+                case "StartShowcase": StartShowcase(); break;
+                case "ShowcaseFocusNotes": ShowcaseFocusNotes(); break;
+                case "ShowcaseFocusDoorLocked": ShowcaseFocusDoorLocked(); break;
+                case "ShowcaseSubmitLaptop": ShowcaseSubmitLaptop(); break;
+                case "ShowcaseSubmitNotes": ShowcaseSubmitNotes(); break;
+                case "ShowcaseGameMenu": ShowcaseGameMenuStage(); break;
+                case "ShowcaseMenuWait": ShowcaseMenuWait(); break;
+                case "ShowcaseMenuReturn": ShowcaseMenuReturn(); break;
+                case "ShowcaseCompleteDoor": ShowcaseCompleteDoor(); break;
+                case "ShowcaseReentry": ShowcaseReentry(); break;
+                case "ShowcaseReentryResolution": ShowcaseReentryResolution(); break;
                 case "WaitScreenshot": WaitScreenshot(); break;
             }
         }
@@ -285,7 +300,175 @@ public static class InteractiveHotspotGraphicalE2ERunner
             Retry("Game View did not switch to 1280x720 for the re-entry proof.");
             return;
         }
-        Capture("hotspot_reentry_fallback_background_1280x720.png", "Complete");
+        Capture("hotspot_reentry_fallback_background_1280x720.png", "CloseReentryRoom");
+    }
+
+    private static void CloseReentryRoom()
+    {
+        InteractiveSceneController interactive = RequireRunningScene();
+        Submit(interactive.GetHotspotButton("test_laptop"));
+        Submit(interactive.GetHotspotButton("test_door"));
+        Require(!interactive.IsRunning, "The re-entry room must close before the showcase phase.");
+        SessionState.SetString(StageKey, "ShowcaseResolution");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void ShowcaseResolution()
+    {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        Require(dialogue != null && dialogue.IsRuntimeReady, "VN runtime is unavailable before the showcase phase.");
+        ConfigureGameViewResolution(QaResolution);
+        if (Screen.width != QaResolution.x || Screen.height != QaResolution.y)
+        {
+            Retry("Game View did not switch back to 1920x1080 for the showcase proof.");
+            return;
+        }
+        SessionState.SetString(StageKey, "StartShowcase");
+        ResetCounter();
+        SetDelay(0.2d);
+    }
+
+    private static void StartShowcase()
+    {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        InteractiveSceneData showcase = AssetDatabase.LoadAssetAtPath<InteractiveSceneData>(InteractiveHotspotTechnicalContentBuilder.ShowcaseScenePath);
+        Require(showcase != null, "Hotspot showcase asset is missing.");
+        Require(showcase.background != null, "The showcase asset must carry the approved background sprite.");
+        Require(dialogue.TryStartInteractiveScene(showcase, out string failure), "Showcase did not start: " + failure);
+        InteractiveSceneController interactive = dialogue.ActiveInteractiveSceneController;
+        Require(interactive.IsRunning, "Showcase is not running after start.");
+        Require(interactive.MenuButton != null && interactive.MenuButton.interactable, "The Hotspot Menu button must be present and usable.");
+        Image displayed = interactive.DisplayedImageRect.GetComponent<Image>();
+        Require(displayed != null && displayed.sprite == showcase.background, "The showcase must display the approved committed background sprite.");
+        Require(!interactive.GetHotspotButton("showcase_door").interactable, "The Дверь must start locked in the showcase.");
+        Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_laptop").gameObject,
+            "Showcase entry must give the initial focus to the first available hotspot (Ноутбук).");
+        Capture("hotspot_showcase_initial_1920x1080.png", "ShowcaseFocusNotes");
+    }
+
+    private static void ShowcaseFocusNotes()
+    {
+        InteractiveSceneController interactive = RequireRunningScene();
+        Move(interactive.GetHotspotButton("showcase_laptop"), MoveDirection.Right);
+        Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_notes").gameObject,
+            "Keyboard navigation must reach the Записки marker.");
+        Capture("hotspot_showcase_notes_focus_1920x1080.png", "ShowcaseFocusDoorLocked");
+    }
+
+    private static void ShowcaseFocusDoorLocked()
+    {
+        InteractiveSceneController interactive = RequireRunningScene();
+        Button door = interactive.GetHotspotButton("showcase_door");
+        Require(door != null && !door.interactable, "The Дверь must be locked before both prerequisites.");
+        Move(interactive.GetHotspotButton("showcase_notes"), MoveDirection.Right);
+        Require(EventSystem.current.currentSelectedGameObject == door.gameObject, "Keyboard navigation must reach the locked Дверь marker.");
+        Capture("hotspot_showcase_door_locked_focus_1920x1080.png", "ShowcaseSubmitLaptop");
+    }
+
+    private static void ShowcaseSubmitLaptop()
+    {
+        InteractiveSceneController interactive = RequireRunningScene();
+        Move(interactive.GetHotspotButton("showcase_door"), MoveDirection.Left);
+        Move(interactive.GetHotspotButton("showcase_notes"), MoveDirection.Left);
+        Button laptop = interactive.GetHotspotButton("showcase_laptop");
+        Require(EventSystem.current.currentSelectedGameObject == laptop.gameObject, "Keyboard navigation must return to Ноутбук.");
+        Submit(laptop);
+        Require(interactive.IsHotspotCompleted("showcase_laptop"), "Ноутбук must complete as a one-shot.");
+        Require(!interactive.IsHotspotAvailable("showcase_door"), "Laptop alone must not unlock the Дверь.");
+        Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_notes").gameObject,
+            "A completed one-shot must hand focus to the next authored hotspot.");
+        Capture("hotspot_showcase_after_laptop_1920x1080.png", "ShowcaseSubmitNotes");
+    }
+
+    private static void ShowcaseSubmitNotes()
+    {
+        InteractiveSceneController interactive = RequireRunningScene();
+        Submit(interactive.GetHotspotButton("showcase_notes"));
+        Require(interactive.IsHotspotCompleted("showcase_notes"), "Записки must complete as a one-shot.");
+        Require(interactive.IsHotspotAvailable("showcase_door"), "Laptop + Notes must unlock the Дверь.");
+        Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_door").gameObject,
+            "Focus must move to the unlocked Дверь.");
+        Capture("hotspot_showcase_door_unlocked_1920x1080.png", "ShowcaseGameMenu");
+    }
+
+    private static void ShowcaseGameMenuStage()
+    {
+        InteractiveSceneController interactive = RequireRunningScene();
+        Button menu = interactive.MenuButton;
+        Require(menu != null && menu.interactable, "The Hotspot Menu button must be usable.");
+        ExecuteEvents.Execute<ISubmitHandler>(menu.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.submitHandler);
+        SessionState.SetString(StageKey, "ShowcaseMenuWait");
+        ResetCounter();
+        SetDelay(0.4d);
+    }
+
+    private static void ShowcaseMenuWait()
+    {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        Require(dialogue.IsGameMenuOpen, "The Hotspot Menu button must open the existing Game Menu.");
+        Require(!dialogue.CanSave && !dialogue.CanLoad, "Save/Load must stay blocked while the showcase is active.");
+        Button save = dialogue.GameMenuController.View.GetButton(VNGameMenuAction.Save);
+        Button load = dialogue.GameMenuController.View.GetButton(VNGameMenuAction.Load);
+        Require(!save.interactable && !load.interactable, "Game Menu Save/Load rows must be visibly disabled during the showcase.");
+        Capture("hotspot_showcase_game_menu_1920x1080.png", "ShowcaseMenuReturn");
+    }
+
+    private static void ShowcaseMenuReturn()
+    {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        Require(dialogue.GameMenuController.Close(), "Game Menu close must return to the active showcase.");
+        InteractiveSceneController interactive = RequireRunningScene();
+        Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_door").gameObject,
+            "Game Menu return must restore the unlocked Дверь focus owner.");
+        Capture("hotspot_showcase_menu_return_1920x1080.png", "ShowcaseCompleteDoor");
+    }
+
+    private static void ShowcaseCompleteDoor()
+    {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        InteractiveSceneController interactive = RequireRunningScene();
+        Submit(interactive.GetHotspotButton("showcase_door"));
+        Require(!interactive.IsRunning, "Door completion must close the showcase runtime.");
+        Require(!interactive.IsRuntimeUiActive, "Showcase runtime root must be inactive after completion.");
+        Require(dialogue.CanAdvanceDialogue, "Completion must restore normal dialogue eligibility.");
+        Require(!dialogue.IsDialogueShellSuppressed, "Completion must release the suppressed dialogue shell.");
+        Require(GameState.Instance.currentSceneId == "interactive_hotspot_complete", "Completion must route to the registered completion scene.");
+        Capture("hotspot_showcase_completion_reading_1920x1080.png", "ShowcaseReentry");
+    }
+
+    private static void ShowcaseReentry()
+    {
+        VNDialogueController dialogue = VNDialogueController.Instance;
+        InteractiveSceneData showcase = AssetDatabase.LoadAssetAtPath<InteractiveSceneData>(InteractiveHotspotTechnicalContentBuilder.ShowcaseScenePath);
+        Require(showcase != null, "Hotspot showcase asset disappeared before showcase re-entry.");
+        Require(dialogue.TryStartInteractiveScene(showcase, out string failure), "Showcase re-entry failed: " + failure);
+        InteractiveSceneController interactive = dialogue.ActiveInteractiveSceneController;
+        Require(interactive.IsRunning && interactive.ActivationCount == 0, "Showcase re-entry must start a clean run.");
+        Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_laptop").gameObject,
+            "Showcase re-entry must restore the initial focus owner.");
+        SessionState.SetString(StageKey, "ShowcaseReentryResolution");
+        ResetCounter();
+        SetDelay(0.3d);
+    }
+
+    private static void ShowcaseReentryResolution()
+    {
+        RequireRunningScene();
+        ConfigureGameViewResolution(ResponsiveQaResolution);
+        if (Screen.width != ResponsiveQaResolution.x || Screen.height != ResponsiveQaResolution.y)
+        {
+            Retry("Game View did not switch to 1280x720 for the showcase re-entry proof.");
+            return;
+        }
+        Capture("hotspot_showcase_1280x720.png", "Complete");
+    }
+
+    private static void Move(Button button, MoveDirection direction)
+    {
+        ExecuteEvents.Execute<IMoveHandler>(button.gameObject,
+            new AxisEventData(EventSystem.current) { moveDir = direction, moveVector = direction == MoveDirection.Left ? Vector2.left : Vector2.right },
+            ExecuteEvents.moveHandler);
     }
 
     private static void Complete()

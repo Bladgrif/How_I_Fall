@@ -40,13 +40,13 @@ public static class InteractiveHotspotQaLauncher
     {
         if (!EditorApplication.isPlaying || !SessionState.GetBool(ActiveKey, false)) { StopWaiting(); return; }
         VNDialogueController dialogue = VNDialogueController.Instance;
-        InteractiveSceneData room = AssetDatabase.LoadAssetAtPath<InteractiveSceneData>(InteractiveHotspotTechnicalContentBuilder.InteractiveScenePath);
-        if (dialogue != null && dialogue.IsRuntimeReady && room != null)
+        InteractiveSceneData showcase = AssetDatabase.LoadAssetAtPath<InteractiveSceneData>(InteractiveHotspotTechnicalContentBuilder.ShowcaseScenePath);
+        if (dialogue != null && dialogue.IsRuntimeReady && showcase != null)
         {
-            if (dialogue.TryStartInteractiveScene(room, out string failure)) { Debug.Log("[INTERACTIVE HOTSPOT QA] TECH Interactive Room is ready."); StopWaiting(); return; }
+            if (dialogue.TryStartInteractiveScene(showcase, out string failure)) { Debug.Log("[INTERACTIVE HOTSPOT QA] Hotspot showcase is ready (TECH DEMO ONLY / NOT CANON)."); StopWaiting(); return; }
             if (!string.IsNullOrEmpty(failure) && failure != "another special mode active") { Debug.LogError("[INTERACTIVE HOTSPOT QA] " + failure); StopWaiting(); return; }
         }
-        if (EditorApplication.timeSinceStartup - startedAt > 10d) { Debug.LogError("[INTERACTIVE HOTSPOT QA] Timed out while starting the technical room."); StopWaiting(); }
+        if (EditorApplication.timeSinceStartup - startedAt > 10d) { Debug.LogError("[INTERACTIVE HOTSPOT QA] Timed out while starting the hotspot showcase."); StopWaiting(); }
     }
 
     private static void StopWaiting() { EditorApplication.update -= TryOpen; SessionState.EraseBool(ActiveKey); }

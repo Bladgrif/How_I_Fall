@@ -360,6 +360,179 @@ namespace HowIFall.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator Showcase_LaptopAndNotesUnlockDoor_MenuRoundTrip_AndCleanReentry()
+        {
+            yield return LoadScene("VNPrototype");
+            yield return WaitFor(() => VNDialogueController.Instance != null && VNDialogueController.Instance.IsRuntimeReady, "VN runtime did not become ready.");
+            VNDialogueController dialogue = VNDialogueController.Instance;
+            InteractiveSceneData showcase = Resources.Load<InteractiveSceneData>("InteractiveHotspot/HotspotShowcaseRoom");
+            Assert.That(showcase, Is.Not.Null, "Hotspot showcase resource is missing.");
+
+            // Data contract: the approved background sprite, exactly three showcase
+            // hotspots with Russian labels, and the door behind both local prerequisites.
+            Assert.That(showcase.background, Is.Not.Null, "The showcase must reference the approved background sprite.");
+            Assert.That(showcase.background.name, Is.EqualTo("HotspotShowcaseRoom"));
+            Assert.That(showcase.hotspots.Count, Is.EqualTo(3), "The showcase contains exactly three visible actions.");
+            Assert.That(showcase.hotspots.Select(hotspot => hotspot.hotspotId), Is.EquivalentTo(new[] { "showcase_laptop", "showcase_notes", "showcase_door" }));
+            Assert.That(showcase.hotspots.Select(hotspot => hotspot.displayName), Is.EquivalentTo(new[] { "Ноутбук", "Записки", "Дверь" }));
+            InteractiveHotspotData doorData = showcase.hotspots.First(hotspot => hotspot.hotspotId == "showcase_door");
+            Assert.That(doorData.requiredCompletedHotspotIds, Is.EquivalentTo(new[] { "showcase_laptop", "showcase_notes" }),
+                "The Door must require both the Laptop and the Notes as local prerequisites.");
+            Assert.That(showcase.hotspots.Where(hotspot => hotspot.hotspotId != "showcase_door").All(hotspot => hotspot.outcome.stateChanges.Count == 0),
+                Is.True, "TECH showcase outcomes must not mutate canonical GameState.");
+
+            GameState state = GameState.EnsureInstance();
+            int initialSuspicion = state.suspicion;
+            int initialTrustMasha = state.trustMasha;
+            EnsureEventSystem();
+
+            Assert.That(dialogue.TryStartInteractiveScene(showcase, out string failure), Is.True, failure);
+            InteractiveSceneController interactive = dialogue.ActiveInteractiveSceneController;
+            Button laptop = interactive.GetHotspotButton("showcase_laptop");
+            Button notes = interactive.GetHotspotButton("showcase_notes");
+            Button door = interactive.GetHotspotButton("showcase_door");
+            Button[] ownedButtons = { laptop, notes, door };
+
+            // Presentation: the approved sprite is displayed, and the runtime surface
+            // carries compact markers, the Menu entry and the Reading-aligned feedback panel.
+            Image displayed = interactive.DisplayedImageRect.GetComponent<Image>();
+            Assert.That(displayed.sprite, Is.EqualTo(showcase.background), "The approved showcase background must be displayed instead of the fallback.");
+            Assert.That(interactive.MenuButton, Is.Not.Null, "The Hotspot Menu button must exist on the runtime surface.");
+            AssertMarkerPresentation(ownedButtons);
+
+            Assert.That(laptop.interactable, Is.True, "Ноутбук must start available.");
+            Assert.That(notes.interactable, Is.True, "Записки must start available.");
+            Assert.That(door.interactable, Is.False, "Дверь must start locked behind both prerequisites.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(laptop.gameObject),
+                "Initial focus must be the first available showcase hotspot.");
+
+            // Markers keep sitting over the artwork at standard QA resolutions.
+            foreach (Vector2Int resolution in new[] { new Vector2Int(1920, 1080), new Vector2Int(1280, 720) })
+            {
+                Screen.SetResolution(resolution.x, resolution.y, false);
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                AssertShowcaseMarkersInsideImage(interactive);
+            }
+
+            // Laptop alone is insufficient to unlock the Door.
+            Click(laptop);
+            yield return null;
+            Assert.That(interactive.IsHotspotCompleted("showcase_laptop"), Is.True);
+            Assert.That(interactive.IsHotspotAvailable("showcase_door"), Is.False, "Laptop alone must not unlock the Door.");
+            Assert.That(state.suspicion, Is.EqualTo(initialSuspicion), "Local showcase completion must not touch canonical GameState.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(notes.gameObject),
+                "A completed one-shot must hand focus to the next authored hotspot.");
+
+            // Keyboard navigation stays inside the showcase controls; the locked Door is reachable and safe.
+            yield return PressFrame(keyboard.rightArrowKey);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(door.gameObject), "Navigation must reach the locked Door.");
+            yield return PressFrame(keyboard.enterKey);
+            Assert.That(interactive.ActivationCount, Is.EqualTo(1), "Submit on the locked Door must be a no-op.");
+            Assert.That(interactive.IsHotspotCompleted("showcase_door"), Is.False);
+            yield return PressFrame(keyboard.leftArrowKey);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(notes.gameObject));
+
+            // Game Menu round-trip: Save/Load stay blocked and focus is restored on close.
+            Assert.That(dialogue.OpenGameMenu(), Is.True, "Interactive mode must permit the existing Game Menu round-trip.");
+            Assert.That(dialogue.IsGameMenuOpen, Is.True);
+            Assert.That(dialogue.CanSave, Is.False);
+            Assert.That(dialogue.CanLoad, Is.False);
+            Assert.That(dialogue.GameMenuController.View.GetButton(VNGameMenuAction.Save).interactable, Is.False);
+            Assert.That(dialogue.GameMenuController.View.GetButton(VNGameMenuAction.Load).interactable, Is.False);
+            Assert.That(dialogue.GameMenuController.Close(), Is.True);
+            Assert.That(interactive.IsRunning, Is.True, "Game Menu close must return to the active showcase.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(notes.gameObject),
+                "Game Menu return must restore the usable Hotspot focus owner without a mouse click.");
+
+            // Notes completes the prerequisite pair and unlocks the Door.
+            yield return PressFrame(keyboard.enterKey);
+            Assert.That(interactive.IsHotspotCompleted("showcase_notes"), Is.True);
+            Assert.That(interactive.IsHotspotAvailable("showcase_door"), Is.True, "Laptop + Notes must unlock the Door.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(door.gameObject),
+                "Focus must move to the unlocked Door.");
+
+            // Door completes the scene exactly once and routes back to Reading.
+            int activationsBeforeDoor = interactive.ActivationCount;
+            Click(door);
+            yield return null;
+            Assert.That(interactive.IsRunning, Is.False, "Door completion must close the interactive runtime.");
+            Assert.That(interactive.ActivationCount, Is.EqualTo(activationsBeforeDoor + 1), "Door must activate exactly once.");
+            Assert.That(dialogue.CanAdvanceDialogue, Is.True, "Completion must restore normal dialogue eligibility.");
+            Assert.That(dialogue.IsDialogueShellSuppressed, Is.False, "Completion must release the suppressed dialogue shell.");
+            Assert.That(GameState.Instance.currentSceneId, Is.EqualTo("interactive_hotspot_complete"));
+            Assert.That(state.suspicion, Is.EqualTo(initialSuspicion));
+            Assert.That(state.trustMasha, Is.EqualTo(initialTrustMasha));
+            GameObject staleSelection = EventSystem.current.currentSelectedGameObject;
+            Assert.That(staleSelection == null || ownedButtons.All(button => button.gameObject != staleSelection),
+                "Stale EventSystem selection must not keep pointing at hidden showcase controls.");
+
+            // Save/Load are restored after completion.
+            Assert.That(dialogue.OpenGameMenu(), Is.True);
+            Assert.That(dialogue.GameMenuController.View.GetButton(VNGameMenuAction.Save).interactable, Is.True);
+            Assert.That(dialogue.GameMenuController.View.GetButton(VNGameMenuAction.Load).interactable, Is.True);
+            Assert.That(dialogue.GameMenuController.Close(), Is.True);
+
+            // Clean re-entry with the approved background.
+            Assert.That(dialogue.TryStartInteractiveScene(showcase, out failure), Is.True, failure);
+            interactive = dialogue.ActiveInteractiveSceneController;
+            laptop = interactive.GetHotspotButton("showcase_laptop");
+            notes = interactive.GetHotspotButton("showcase_notes");
+            door = interactive.GetHotspotButton("showcase_door");
+            ownedButtons = new[] { laptop, notes, door };
+            Assert.That(interactive.ActivationCount, Is.EqualTo(0), "Repeated entry must start a clean run.");
+            Assert.That(interactive.IsHotspotAvailable("showcase_laptop"), Is.True, "One-shot hotspots must reset for the new run.");
+            Assert.That(interactive.IsHotspotAvailable("showcase_door"), Is.False, "Local prerequisites must reset for the new run.");
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(laptop.gameObject),
+                "Repeated entry must restore the initial focus owner.");
+            Image restarted = interactive.DisplayedImageRect.GetComponent<Image>();
+            Assert.That(restarted.sprite, Is.EqualTo(showcase.background), "Re-entry keeps the approved background.");
+
+            Click(laptop);
+            Click(notes);
+            Click(door);
+            yield return null;
+            Assert.That(interactive.IsRunning, Is.False, "Door completion must close the runtime on re-entry too.");
+            Assert.That(state.suspicion, Is.EqualTo(initialSuspicion));
+            Assert.That(state.trustMasha, Is.EqualTo(initialTrustMasha));
+        }
+
+        private static void AssertMarkerPresentation(Button[] ownedButtons)
+        {
+            foreach (Button button in ownedButtons)
+            {
+                Transform marker = button.transform.Find("Marker");
+                Assert.That(marker, Is.Not.Null, button.name + " must render a compact marker instead of a giant overlay rectangle.");
+                Image hitArea = button.GetComponent<Image>();
+                Assert.That(hitArea, Is.Not.Null);
+                Assert.That(hitArea.color.a, Is.LessThan(0.02f), "The hotspot hit region must stay invisible over the artwork.");
+                Image chipFill = marker.Find("Chip Fill")?.GetComponent<Image>();
+                Image ring = marker.Find("Chip Ring")?.GetComponent<Image>();
+                Assert.That(chipFill != null && chipFill.sprite != null, Is.True, button.name + " is missing its chip fill sprite.");
+                Assert.That(ring != null && ring.sprite != null, Is.True, button.name + " is missing its chip ring sprite.");
+                foreach (Image child in marker.GetComponentsInChildren<Image>(true))
+                    Assert.That(child.raycastTarget, Is.False, button.name + " marker visuals must not intercept pointer input.");
+            }
+        }
+
+        private static void AssertShowcaseMarkersInsideImage(InteractiveSceneController interactive)
+        {
+            RectTransform image = interactive.DisplayedImageRect;
+            Assert.That(image, Is.Not.Null);
+            Vector3[] imageCorners = new Vector3[4]; image.GetWorldCorners(imageCorners);
+            foreach (string id in new[] { "showcase_laptop", "showcase_notes", "showcase_door" })
+            {
+                RectTransform hotspot = interactive.GetHotspotButton(id).GetComponent<RectTransform>();
+                Vector3[] hotspotCorners = new Vector3[4]; hotspot.GetWorldCorners(hotspotCorners);
+                foreach (Vector3 corner in hotspotCorners)
+                {
+                    Assert.That(corner.x, Is.InRange(imageCorners[0].x - .1f, imageCorners[2].x + .1f), id + " left/right drifted outside the displayed image.");
+                    Assert.That(corner.y, Is.InRange(imageCorners[0].y - .1f, imageCorners[2].y + .1f), id + " top/bottom drifted outside the displayed image.");
+                }
+            }
+        }
+
+        [UnityTest]
         public IEnumerator VirtualMouseClick_ActivatesHotspot_BackdropClickDoesNotReachReading()
         {
             yield return LoadScene("VNPrototype");
