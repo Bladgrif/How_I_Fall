@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>Scene-local owner for a small authored interactive image scene. TECH fixtures remain non-canonical.</summary>
@@ -15,6 +16,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
     private VNDialogueController dialogueController;
     private GameObject root;
     private RectTransform displayedImageRect;
+    private Image backgroundImage;
     private TextMeshProUGUI feedbackText;
     private readonly Dictionary<string, Button> hotspotButtons = new Dictionary<string, Button>(StringComparer.Ordinal);
     private readonly HashSet<string> completedHotspotIds = new HashSet<string>(StringComparer.Ordinal);
@@ -58,7 +60,8 @@ public sealed class InteractiveSceneController : MonoBehaviour
         if (!dialogueController.TryEnterSpecialMode(this, SpecialModePolicy.InteractiveScene, out SpecialModeLease lease)) { failureReason = dialogueController.HasActiveSpecialMode ? "another special mode active" : "lease rejected"; return false; }
         if (!dialogueController.TrySuppressDialogueShell(this)) { dialogueController.ExitSpecialMode(lease); failureReason = "dialogue shell unavailable"; return false; }
         activeScene = scene; activeLease = lease; dialogueShellSuppressed = true; activationCount = 0; completedHotspotIds.Clear();
-        BuildHotspots(); feedbackText.text = "Select an available technical hotspot."; root.SetActive(true); root.transform.SetAsLastSibling(); Refresh(); return true;
+        backgroundImage.sprite = scene.background != null ? scene.background : GetRuntimeBackgroundSprite();
+        BuildHotspots(); feedbackText.text = "Select an available technical hotspot."; root.SetActive(true); root.transform.SetAsLastSibling(); Refresh(); SelectInitialHotspot(); return true;
     }
 
     public bool TryActivateHotspot(string hotspotId)
@@ -95,15 +98,68 @@ public sealed class InteractiveSceneController : MonoBehaviour
             TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label != null) label.text = completed ? hotspot.displayName + "\nCOMPLETED" : available ? hotspot.displayName : hotspot.displayName + "\nLOCKED";
         }
+        EnsureFocusOwner();
+    }
+
+    /// <summary>
+    /// Restores a usable keyboard/controller focus owner when EventSystem selection is
+    /// missing or stranded on a disabled hotspot (Game Menu close clears selection).
+    /// A currently selected interactable hotspot is preserved.
+    /// </summary>
+    public void EnsureFocusOwner()
+    {
+        if (!IsRunning || root == null || !root.activeInHierarchy) return;
+        if (dialogueController != null && dialogueController.IsGameMenuOpen) return;
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null) return;
+        GameObject selected = eventSystem.currentSelectedGameObject;
+        if (selected != null && selected.activeInHierarchy)
+        {
+            foreach (Button button in hotspotButtons.Values)
+            {
+                if (button != null && button.gameObject == selected)
+                {
+                    if (button.interactable) return;
+                    break;
+                }
+            }
+        }
+        SelectInitialHotspot();
+    }
+
+    private void SelectInitialHotspot()
+    {
+        if (activeScene == null || activeScene.hotspots == null) return;
+        EventSystem eventSystem = EventSystem.current;
+        if (eventSystem == null) return;
+        foreach (InteractiveHotspotData hotspot in activeScene.hotspots)
+        {
+            if (hotspot == null || !hotspotButtons.TryGetValue(hotspot.hotspotId, out Button button) || button == null || !button.interactable) continue;
+            button.Select();
+            return;
+        }
     }
 
     private bool Complete(DialogueSceneData nextScene)
     {
         if (!IsRunning) return false;
         SpecialModeLease lease = activeLease; activeLease = null; activeScene = null; completedHotspotIds.Clear(); root.SetActive(false);
+        ClearHotspotSelectionIfOwned();
         if (dialogueShellSuppressed) { dialogueController.ReleaseDialogueShellSuppression(this); dialogueShellSuppressed = false; }
         if (lease != null) dialogueController.ExitSpecialMode(lease);
         return nextScene == null || dialogueController.TryRouteToScene(nextScene);
+    }
+
+    /// <summary>EventSystem keeps a stale selection on deactivated hotspot buttons; mirror the Game Menu close cleanup.</summary>
+    private void ClearHotspotSelectionIfOwned()
+    {
+        EventSystem eventSystem = EventSystem.current;
+        GameObject selected = eventSystem != null ? eventSystem.currentSelectedGameObject : null;
+        if (selected == null) return;
+        foreach (Button button in hotspotButtons.Values)
+        {
+            if (button != null && button.gameObject == selected) { eventSystem.SetSelectedGameObject(null); return; }
+        }
     }
 
     private bool TryGetHotspot(string hotspotId, out InteractiveHotspotData hotspot)
@@ -120,7 +176,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
         SetAnchors(title.rectTransform, new Vector2(0.1f, 0.93f), new Vector2(0.9f, 0.985f));
         GameObject imageContainer = CreateUiObject(root.transform, "Aspect Fit Image Container"); SetAnchors(imageContainer.GetComponent<RectTransform>(), new Vector2(0.055f, 0.095f), new Vector2(0.945f, 0.90f));
         GameObject imageObject = CreateUiObject(imageContainer.transform, "Displayed Interactive Image"); displayedImageRect = imageObject.GetComponent<RectTransform>(); Stretch(displayedImageRect);
-        Image image = imageObject.AddComponent<Image>(); image.sprite = GetRuntimeBackgroundSprite(); image.preserveAspect = true; image.raycastTarget = true;
+        backgroundImage = imageObject.AddComponent<Image>(); backgroundImage.sprite = GetRuntimeBackgroundSprite(); backgroundImage.preserveAspect = true; backgroundImage.raycastTarget = true;
         AspectRatioFitter fitter = imageObject.AddComponent<AspectRatioFitter>(); fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent; fitter.aspectRatio = 16f / 9f;
         Outline outline = imageObject.AddComponent<Outline>(); outline.effectColor = ImageFrameColor; outline.effectDistance = new Vector2(3f, -3f);
         feedbackText = CreateText(root.transform, "Feedback", string.Empty, 20f, FontStyles.Normal, TextAlignmentOptions.Center, TextColor); SetAnchors(feedbackText.rectTransform, new Vector2(0.12f, 0.02f), new Vector2(0.88f, 0.075f));
@@ -130,6 +186,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
     {
         foreach (Button button in hotspotButtons.Values) if (button != null) Destroy(button.gameObject);
         hotspotButtons.Clear();
+        List<Button> builtButtons = new List<Button>(activeScene.hotspots.Count);
         foreach (InteractiveHotspotData hotspot in activeScene.hotspots)
         {
             GameObject objectRoot = CreateUiObject(displayedImageRect, "Hotspot " + hotspot.hotspotId); RectTransform rect = objectRoot.GetComponent<RectTransform>(); rect.anchorMin = hotspot.normalizedRect.min; rect.anchorMax = hotspot.normalizedRect.max; rect.offsetMin = Vector2.zero; rect.offsetMax = Vector2.zero;
@@ -137,6 +194,20 @@ public sealed class InteractiveSceneController : MonoBehaviour
             ColorBlock colors = button.colors; colors.normalColor = Color.white; colors.highlightedColor = new Color(1.30f, 1.38f, 1.32f, 1f); colors.selectedColor = new Color(1.30f, 1.38f, 1.32f, 1f); colors.pressedColor = new Color(0.72f, 0.88f, 0.98f, 1f); colors.disabledColor = new Color(0.48f, 0.54f, 0.60f, 0.70f); colors.colorMultiplier = 1f; button.colors = colors;
             TextMeshProUGUI label = CreateText(objectRoot.transform, "Label", hotspot.displayName, 18f, FontStyles.Bold, TextAlignmentOptions.Center, TextColor); Stretch(label.rectTransform, 8f, 8f, 8f, 8f);
             string hotspotId = hotspot.hotspotId; button.onClick.AddListener(() => TryActivateHotspot(hotspotId)); hotspotButtons.Add(hotspotId, button);
+            builtButtons.Add(button);
+        }
+        // Keyboard/controller navigation is confined to the scene's own controls:
+        // geometric auto-navigation can land on hidden scene UI (Preferences or
+        // Quick Menu rows stay interactable while inactive), so the hotspots are
+        // wired explicitly in authored order instead.
+        for (int i = 0; i < builtButtons.Count; i++)
+        {
+            Navigation navigation = builtButtons[i].navigation; navigation.mode = Navigation.Mode.Explicit;
+            navigation.selectOnLeft = i > 0 ? builtButtons[i - 1] : null;
+            navigation.selectOnUp = i > 0 ? builtButtons[i - 1] : null;
+            navigation.selectOnRight = i < builtButtons.Count - 1 ? builtButtons[i + 1] : null;
+            navigation.selectOnDown = i < builtButtons.Count - 1 ? builtButtons[i + 1] : null;
+            builtButtons[i].navigation = navigation;
         }
     }
 
@@ -148,6 +219,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
         SpecialModeLease lease = activeLease; activeLease = null; activeScene = null; completedHotspotIds.Clear();
         if (dialogueShellSuppressed && dialogueController != null) { dialogueController.ReleaseDialogueShellSuppression(this); dialogueShellSuppressed = false; }
         dialogueController?.ExitSpecialMode(lease); if (root != null) root.SetActive(false);
+        ClearHotspotSelectionIfOwned();
     }
 
     private static GameObject CreateUiObject(Transform parent, string name) { GameObject result = new GameObject(name, typeof(RectTransform)); result.transform.SetParent(parent, false); return result; }

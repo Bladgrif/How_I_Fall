@@ -125,3 +125,12 @@ Speaker/Dialogue target v1 pass 2026-10-02: состояние набора пр
 Core UI baseline-набор обновлён после двух визуальных итераций Main Menu, Preferences и Save/Load и финальных проходов `PlayerUi`, `ManualSave` и `SaveBackendV2` от 2026-09-15. Choices не перерабатывались: benchmark не дал наблюдаемой поверхности выбора, поэтому сохранены существующие HIF-контракты и baseline-состояния.
 
 Reading separator micro-correction 2026-09-24: четыре разделителя Quick Menu используют одинаковую ширину в 3 canvas px; свежие runtime-снимки подтверждают ровно 3 экранных px каждый при 1920×1080 и 2 экранных px каждый при 1280×720. По успешному PlayerUi graphical E2E (`playerPrefsRestored=true`) обновлены только `reading_standard.png`, `reading_quick_menu_hover.png`, `reading_quick_menu_rollback.png` и `reading_quick_menu_rollback_1280.png`. Общая мягкая полоса уже существовала и не менялась. `02_Reading_Target_v1.png` в доступном workspace отсутствует, поэтому прямое side-by-side сравнение и дополнительная правка полосы не выполнялись.
+
+## Interactive Hotspot (TECH)
+
+Техническая special-mode поверхность `Interactive Hotspot` (TECH DEMO ONLY / NOT CANON), доказательства — fresh `Hotspot` graphical E2E (`hotspot_graphical_result.txt`, proof в ignored `QAArtifacts/GraphicalE2E/Hotspot`).
+
+- `hotspot_technical_room.png` — вход в TECH-комнату при 1920×1080: назначенный non-null `InteractiveSceneData.background` отображается вместо технического fallback (яркое teal→amber превью), первый доступный hotspot владеет начальным клавиатурным/контроллерным фокусом, locked-объект явно помечен `LOCKED`.
+- `hotspot_game_menu_save_load_disabled.png` — Game Menu поверх активного Hotspot: разрешённый round-trip, `Сохранить`/`Загрузить` визуально disabled, фокус на `Вернуться в игру`, активная сцена читается позади меню.
+
+Остальные обязательные состояния readiness (фокус по навигации на locked/available объекты, after-unlock с `COMPLETED`, возврат из Game Menu с восстановленным фокусом, completion → Reading, повторный вход с fallback-фоном при 1280×720) — в proof-наборе E2E; базовые правила навигации: explicit authored-order цепочка между hotspot-кнопками, при завершении выбранного объекта фокус переходит на следующий валидный, при выходе из режима stale selection очищается. Это REVIEW CANDIDATE, не эстетическое approval технической поверхности.

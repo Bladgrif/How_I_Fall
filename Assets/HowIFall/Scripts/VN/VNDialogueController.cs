@@ -3887,6 +3887,12 @@ public class VNDialogueController : MonoBehaviour
         FindFirstObjectByType<VNQuickMenu>(FindObjectsInactive.Include)?.SetGameMenuModalHidden(false);
         StartAutoForwardDelayIfReady();
         StartSkipDelayIfReady();
+        if (interactiveSceneController != null && interactiveSceneController.IsRunning)
+        {
+            // Game Menu close clears EventSystem selection; the active Hotspot must
+            // hand keyboard/controller back a usable focus owner.
+            interactiveSceneController.EnsureFocusOwner();
+        }
     }
 
     public void ResetSettings()
