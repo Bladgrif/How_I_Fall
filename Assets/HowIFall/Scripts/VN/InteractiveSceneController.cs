@@ -188,6 +188,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
         if (!IsRunning) return false;
         SpecialModeLease lease = activeLease; activeLease = null; activeScene = null; completedHotspotIds.Clear(); root.SetActive(false);
         ClearHotspotSelectionIfOwned();
+        dialogueController.RestoreReadingAfterInteractiveSceneFeedback();
         if (lease != null) dialogueController.ExitSpecialMode(lease);
         return nextScene == null || dialogueController.TryRouteToScene(nextScene);
     }
@@ -307,6 +308,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
     {
         if (activeLease == null) return;
         SpecialModeLease lease = activeLease; activeLease = null; activeScene = null; completedHotspotIds.Clear();
+        dialogueController?.RestoreReadingAfterInteractiveSceneFeedback();
         dialogueController?.ExitSpecialMode(lease); if (root != null) root.SetActive(false);
         ClearHotspotSelectionIfOwned();
     }

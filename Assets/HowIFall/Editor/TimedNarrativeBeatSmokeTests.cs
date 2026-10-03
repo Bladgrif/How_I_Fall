@@ -58,6 +58,8 @@ public static class TimedNarrativeBeatSmokeTests
             Require(!fixture.dialogue.TryHideInterface(), "Clean view must be rejected during a beat.");
             Require(fixture.panel.activeSelf, "Running beat UI must be visible.");
             Require(!fixture.beat.TryStartBeat(fixture.ValidDefinition(5f)), "A second start while running must be rejected.");
+            Require(fixture.panel.activeSelf && fixture.beat.IsRunning && fixture.dialogue.HasActiveSpecialMode,
+                "Rejected duplicate must preserve the visible active beat and its lease.");
 
             Require(fixture.beat.ResolveFromManualAction(), "Manual action must resolve the beat.");
             Require(fixture.beat.State == TimedNarrativeBeatState.Resolved, "Manual action must resolve exactly once.");
