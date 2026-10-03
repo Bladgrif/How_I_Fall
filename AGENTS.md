@@ -32,6 +32,8 @@
 - Для player-facing работы переиспользуй ближайший существующий QA launcher из `How I Fall/QA/<Feature Name>`; не создавай новый launcher для каждой мелкой кнопки. Launcher не заменяет автоматические тесты.
 - Graphical/runtime E2E и скриншоты не должны запускаться с `-nographics`. Проверка coding-agent — автоматизированное доказательство, а не человеческий Manual QA PASS.
 - Проси ручной QA пользователя только для субъективного визуального вкуса/атмосферы, если визуальное доказательство недоступно или есть реальный пробел автоматизации. Объективные критерии должны проверяться автоматикой и runtime proof.
+- Если graphical/screenshots входят в evidence review candidate, reviewer должен получить **удалённо доступный proof**, а не только локальный путь coding-agent. Приоритет: существующий GitHub `visual-review` artifact для реально изменённых curated baselines; иначе Google Drive `03 — UI — implementation & QA proof`; если Drive-upload в среде недоступен — временная GitHub-ветка `evidence/<task>` с ограниченным набором релевантных PNG и manifest (`source PR/head SHA`, filenames, SHA-256). Evidence-ветка не мержится и удаляется после reviewer acceptance.
+- Локальные `C:\Temp`, `QAArtifacts` или agent-local archive не считаются достаточным reviewer visual proof, если доступен хотя бы один publish route. Если публикация реально не удалась после попытки, явно пиши `REVIEWER VISUAL PROOF NOT AVAILABLE` и причину. Не коммить весь `QAArtifacts`, build payload или массовый screenshot dump в task PR/master.
 
 ## Git и завершение задачи
 
