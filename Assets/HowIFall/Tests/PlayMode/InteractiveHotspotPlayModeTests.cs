@@ -581,13 +581,94 @@ namespace HowIFall.PlayModeTests
                 Image hitArea = button.GetComponent<Image>();
                 Assert.That(hitArea, Is.Not.Null);
                 Assert.That(hitArea.color.a, Is.LessThan(0.02f), "The hotspot hit region must stay invisible over the artwork.");
-                Image chipFill = marker.Find("Chip Fill")?.GetComponent<Image>();
-                Image ring = marker.Find("Chip Ring")?.GetComponent<Image>();
-                Assert.That(chipFill != null && chipFill.sprite != null, Is.True, button.name + " is missing its chip fill sprite.");
-                Assert.That(ring != null && ring.sprite != null, Is.True, button.name + " is missing its chip ring sprite.");
+                Assert.That(marker.Find("Chip Fill"), Is.Null, "Target 09 has no filled circular chip.");
+                Assert.That(marker.Find("Chip Ring"), Is.Null, "Target 09 uses open corner brackets, not a ring.");
+                Assert.That(marker.Find("Label/Label Fill"), Is.Null, "Labels must not regain a pill background.");
+                Assert.That(marker.Find("Label/Label Edge"), Is.Null);
+                foreach (string name in new[] { "Open Brackets", "Focus Glow", "Hollow Diamond", "Focus Chevron", "Locked Indicator", "Glyph" })
+                    Assert.That(marker.Find(name)?.GetComponent<Image>()?.sprite, Is.Not.Null, button.name + " is missing " + name);
+                RectTransform line = marker.Find("Attachment Line").GetComponent<RectTransform>();
+                Assert.That(line.sizeDelta.x, Is.InRange(1f, 2f), "Attachment stays thin.");
+                Assert.That(line.sizeDelta.y, Is.GreaterThan(0f));
                 foreach (Image child in marker.GetComponentsInChildren<Image>(true))
                     Assert.That(child.raycastTarget, Is.False, button.name + " marker visuals must not intercept pointer input.");
             }
+        }
+
+        private static void AssertMarkerState(Button button, bool focused, bool locked, bool completed = false)
+        {
+            Transform marker = button.transform.Find("Marker");
+            foreach (string name in new[] { "Focus Glow", "Focus Chevron" })
+                Assert.That(marker.Find(name).gameObject.activeSelf, Is.EqualTo(focused && !completed), name);
+            foreach (string name in new[] { "Open Brackets", "Attachment Line", "Hollow Diamond", "Label" })
+                Assert.That(marker.Find(name).gameObject.activeSelf, Is.EqualTo(!completed), name);
+            Assert.That(marker.Find("Locked Indicator").gameObject.activeSelf, Is.EqualTo(locked && !completed), "Locked focus must keep its padlock.");
+            Assert.That(marker.localScale, Is.EqualTo(Vector3.one), "Focus must not resize the semantic position or attachment.");
+            if (completed) Assert.That(marker.Find("Glyph").GetComponent<Image>().color.a, Is.LessThan(0.7f));
+        }
+
+        [UnityTest]
+        public IEnumerator Target09_FocusHoverLockAndCompletion_KeepAuthoredHitRegions()
+        {
+            yield return LoadScene("VNPrototype");
+            yield return WaitFor(() => VNDialogueController.Instance != null && VNDialogueController.Instance.IsRuntimeReady, "VN runtime did not become ready.");
+            EnsureEventSystem();
+            InteractiveSceneData showcase = Resources.Load<InteractiveSceneData>("InteractiveHotspot/HotspotShowcaseRoom");
+            Assert.That(VNDialogueController.Instance.TryStartInteractiveScene(showcase, out string failure), Is.True, failure);
+            InteractiveSceneController interactive = VNDialogueController.Instance.ActiveInteractiveSceneController;
+            Button laptop = interactive.GetHotspotButton("showcase_laptop");
+            Button notes = interactive.GetHotspotButton("showcase_notes");
+            Button door = interactive.GetHotspotButton("showcase_door");
+            InputState.Change(mouse.position, new Vector2(5f, 5f));
+            yield return null;
+            AssertMarkerPresentation(new[] { laptop, notes, door });
+            AssertMarkerState(laptop, focused: true, locked: false);
+            AssertMarkerState(notes, focused: false, locked: false);
+            AssertMarkerState(door, focused: false, locked: true);
+            Sprite idleBrackets = notes.transform.Find("Marker/Open Brackets").GetComponent<Image>().sprite;
+
+            yield return PressFrame(keyboard.rightArrowKey);
+            AssertMarkerState(laptop, focused: false, locked: false);
+            AssertMarkerState(notes, focused: true, locked: false);
+            Assert.That(notes.transform.Find("Marker/Open Brackets").GetComponent<Image>().sprite, Is.Not.EqualTo(idleBrackets), "Focus changes contour geometry, not just color.");
+            yield return PressFrame(gamepad.dpad.right);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(door.gameObject));
+            AssertMarkerState(notes, focused: false, locked: false);
+            AssertMarkerState(door, focused: true, locked: true);
+            yield return PressFrame(gamepad.buttonSouth);
+            Assert.That(interactive.ActivationCount, Is.Zero, "Locked controller Submit stays a no-op.");
+
+            // Real virtual mouse hover goes through the existing UI input module.
+            InputState.Change(mouse.position, GetScreenCenter(notes));
+            yield return null;
+            yield return null;
+            AssertMarkerState(notes, focused: true, locked: false);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(door.gameObject), "Hover must not steal the selected owner.");
+            AssertMarkerState(door, focused: false, locked: true);
+            Assert.That(new[] { laptop, notes, door }.Count(button => button.transform.Find("Marker/Focus Chevron").gameObject.activeSelf), Is.EqualTo(1),
+                "Pointer emphasis must not leave a second keyboard/controller marker visually focused.");
+            InputState.Change(mouse.position, new Vector2(5f, 5f));
+            yield return null;
+            yield return null;
+            AssertMarkerState(notes, focused: false, locked: false);
+            AssertMarkerState(door, focused: true, locked: true);
+
+            Click(laptop);
+            AssertMarkerState(laptop, focused: false, locked: false, completed: true);
+            Click(notes);
+            AssertMarkerState(notes, focused: false, locked: false, completed: true);
+            AssertMarkerState(door, focused: true, locked: false);
+            foreach (InteractiveHotspotData hotspot in showcase.hotspots)
+            {
+                RectTransform hit = interactive.GetHotspotButton(hotspot.hotspotId).GetComponent<RectTransform>();
+                Assert.That(hit.anchorMin, Is.EqualTo(hotspot.normalizedRect.min));
+                Assert.That(hit.anchorMax, Is.EqualTo(hotspot.normalizedRect.max));
+                Assert.That(hit.offsetMin, Is.EqualTo(Vector2.zero));
+                Assert.That(hit.offsetMax, Is.EqualTo(Vector2.zero));
+            }
+            Click(door);
+            yield return null;
+            Assert.That(interactive.IsRunning, Is.False);
         }
 
         private static void AssertShowcaseMarkersInsideImage(InteractiveSceneController interactive)

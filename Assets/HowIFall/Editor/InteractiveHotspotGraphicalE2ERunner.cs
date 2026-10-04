@@ -115,6 +115,8 @@ public static class InteractiveHotspotGraphicalE2ERunner
                 case "CloseReentryRoom": CloseReentryRoom(); break;
                 case "ShowcaseResolution": ShowcaseResolution(); break;
                 case "StartShowcase": StartShowcase(); break;
+                case "ShowcasePointerHover": ShowcasePointerHover(); break;
+                case "ShowcasePointerExit": ShowcasePointerExit(); break;
                 case "ShowcaseFocusNotes": ShowcaseFocusNotes(); break;
                 case "ShowcaseFocusDoorLocked": ShowcaseFocusDoorLocked(); break;
                 case "ShowcaseSubmitLaptop": ShowcaseSubmitLaptop(); break;
@@ -346,7 +348,28 @@ public static class InteractiveHotspotGraphicalE2ERunner
         Require(EventSystem.current.currentSelectedGameObject == interactive.GetHotspotButton("showcase_laptop").gameObject,
             "Showcase entry must give the initial focus to the first available hotspot (Ноутбук).");
         RequireShellPresentation(dialogue, interactive, expectSpeaker: true);
-        Capture("hotspot_showcase_initial_1920x1080.png", "ShowcaseFocusNotes");
+        Capture("hotspot_showcase_initial_1920x1080.png", "ShowcasePointerHover");
+    }
+
+    private static void ShowcasePointerHover()
+    {
+        Button notes = RequireRunningScene().GetHotspotButton("showcase_notes");
+        ExecuteEvents.Execute<IPointerEnterHandler>(notes.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+        Require(notes.transform.Find("Marker/Focus Chevron").gameObject.activeSelf, "Pointer hover must reveal the same non-color focus cue.");
+        Button laptop = RequireRunningScene().GetHotspotButton("showcase_laptop");
+        Require(!laptop.transform.Find("Marker/Focus Chevron").gameObject.activeSelf, "Hover must suppress the other selected marker's visual emphasis.");
+        Require(EventSystem.current.currentSelectedGameObject == laptop.gameObject, "Hover must preserve keyboard/controller Submit ownership.");
+        Capture("hotspot_showcase_pointer_hover_1920x1080.png", "ShowcasePointerExit");
+    }
+
+    private static void ShowcasePointerExit()
+    {
+        Button notes = RequireRunningScene().GetHotspotButton("showcase_notes");
+        ExecuteEvents.Execute<IPointerExitHandler>(notes.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerExitHandler);
+        Require(!notes.transform.Find("Marker/Focus Chevron").gameObject.activeSelf, "Pointer exit must remove the transient cue from an unselected marker.");
+        Require(RequireRunningScene().GetHotspotButton("showcase_laptop").transform.Find("Marker/Focus Chevron").gameObject.activeSelf,
+            "Pointer exit must restore the selected marker's visual emphasis.");
+        Capture("hotspot_showcase_pointer_exit_1920x1080.png", "ShowcaseFocusNotes");
     }
 
     private static void ShowcaseFocusNotes()
@@ -546,6 +569,14 @@ public static class InteractiveHotspotGraphicalE2ERunner
     private static void Capture(string fileName, string nextStage)
     {
         Require(Screen.width > 0 && Screen.height > 0, "Capture requires a valid Game View size.");
+        InteractiveSceneController interactive = VNDialogueController.Instance?.ActiveInteractiveSceneController;
+        if (interactive != null && interactive.IsRunning)
+        {
+            int focusedMarkers = 0;
+            foreach (InteractiveHotspotData hotspot in interactive.ActiveScene.hotspots)
+                if (interactive.GetHotspotButton(hotspot.hotspotId).transform.Find("Marker/Focus Chevron").gameObject.activeSelf) focusedMarkers++;
+            Require(focusedMarkers <= 1, "A captured Hotspot state must never have two visual focus owners.");
+        }
         string path = Path.Combine(Directory.GetCurrentDirectory(), "QAArtifacts", "GraphicalE2E", "Hotspot", fileName);
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         if (File.Exists(path)) File.Delete(path);
