@@ -19,6 +19,14 @@
 - Перед вопросом пользователю сначала проверь, можно ли безопасно продолжить из repository context. Спрашивай только если недостающая информация реально может изменить результат, затронуть защищённый contract или расширить scope.
 - Для длинного прохода можно вести один компактный mutable task-state/checklist; не превращай его в растущий дневник и не коммить без отдельной причины.
 
+## Модельный routing
+
+- Для **значимой HIF implementation** по умолчанию используй **Codex + GPT-6.1 Sol + High**, если модель доступна и пользовательский лимит позволяет: player-facing UI/visual polish, runtime C#, lifecycle/state, Save/Load, связанные multi-file изменения, ambiguous root cause и high-regression-risk work.
+- Оптимизируй не минимальное число токенов первого прохода, а **total cost of quality**: хороший первый implementation предпочтительнее дешёвого прохода, который затем приходится существенно переделывать.
+- **GLM-5.3-Flash** и **GPT-6 Luna** оставляй для low-risk routine/mechanical work: tests/docs/config, validators, CI/log investigation, deterministic fixes, evidence preparation и дешёвые bounded follow-up/correction tasks.
+- **GLM-5.3** и **GPT-6 Astra** — selective escalation/fallback, а не обязательная ступень: используй при конкретной причине, недоступности/неудаче Sol High или unusually high cost of error.
+- Полная policy выбора среды, reasoning и сессии находится в `docs/product/agent_orchestration.md`.
+
 ## Язык документации
 
 - Документация HIF, предназначенная для чтения человеком, должна быть написана по-русски.
