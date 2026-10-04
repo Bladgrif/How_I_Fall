@@ -81,11 +81,6 @@ diff/tests/report. Не давай нескольким агентам одно�
 scenes/prefabs/serialized assets. Не используй swarm для простой single-scope
 задачи.
 
-### J-Code
-Опциональная специализированная среда. Используй только когда её конкретное
-harness-поведение даёт реальное преимущество для этой задачи; сам факт
-multi-agent задачи причиной не является.
-
 ### Codex
 **Default implementation environment для значимых HIF production/player-facing
 задач**, потому что текущий preferred primary implementer — GPT-6.1 Sol High.
