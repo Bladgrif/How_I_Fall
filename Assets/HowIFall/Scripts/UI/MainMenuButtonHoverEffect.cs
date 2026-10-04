@@ -102,17 +102,14 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         if (focusAccent != null && accentNeedsInitialization)
         {
             RectTransform accentRect = focusAccent.rectTransform;
-            // UI Target v1 interaction language: a bright cyan bar as tall as the
-            // action row, sitting flush with the row's left edge — the target's
-            // luminous edge starts exactly where the highlighted row starts, so
-            // no wash may remain visible between the plate edge and the bar.
+            // Target v2 uses a thin local cyan cue, not a broad luminous edge.
             // The pivot stays in the vertical centre so the accent never reads
             // as lower than the label.
             accentRect.anchorMin = new Vector2(0f, 0.5f);
             accentRect.anchorMax = new Vector2(0f, 0.5f);
             accentRect.pivot = new Vector2(0f, 0.5f);
             accentRect.anchoredPosition = Vector2.zero;
-            accentRect.sizeDelta = new Vector2(7f, 76f);
+            accentRect.sizeDelta = new Vector2(3f, 60f);
             focusAccent.raycastTarget = false;
         }
     }
@@ -168,7 +165,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
         if (highlightImage != null)
         {
-            // UI Target v1: the selected row's plate is a left-weighted luminous
+            // UI Target v2: the selected row's plate is a short, local navy
             // ramp that evaporates toward the right, never a flat rectangle with
             // a hard end edge. The tint stays white so the sprite carries the hue.
             highlightImage.sprite = CreateNavSelectionRampSprite();
@@ -350,7 +347,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         bool active = interactionFadeTarget > 0f || amount > 0f;
         if (highlightImage != null)
         {
-            highlightImage.color = TargetV1SelectedPlate((isPointerPressed ? 0.58f : 0.40f) * amount);
+            highlightImage.color = TargetV2SelectedPlate((isPointerPressed ? 0.50f : 0.40f) * amount);
         }
         if (labelGraphic != null)
         {
@@ -365,8 +362,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         }
         if (selectionGlow != null)
         {
-            selectionGlow.color = new Color(1f, 1f, 1f, 0.06f * amount);
-            selectionGlow.gameObject.SetActive(active);
+            // v2 focus stays inside the short navy ribbon; no emitted halo.
+            selectionGlow.color = Color.clear;
+            selectionGlow.gameObject.SetActive(false);
         }
     }
 
@@ -403,9 +401,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     {
         if (mainMenuActions != null)
         {
-            // UI Target v1: hover/focus activates the left-weighted teal ramp
+            // UI Target v2: hover/focus activates the left-weighted navy ramp
             // behind the row; the sprite carries the falloff, the tint the depth.
-            Apply(TargetV1SelectedPlate(0.40f), new Color(0.88f, 0.96f, 1f, 1f));
+            Apply(TargetV2SelectedPlate(0.40f), new Color(0.88f, 0.96f, 1f, 1f));
             return;
         }
         // Modal confirmations carry selection on the button plate itself: one
@@ -413,9 +411,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         Apply(ModalSelectedBackground(), RoleHoverText());
     }
 
-    private static Color TargetV1SelectedPlate(float alpha)
+    private static Color TargetV2SelectedPlate(float alpha)
     {
-        // The ramp sprite owns the teal-blue luminance, so the tint stays white;
+        // The ramp sprite owns the local navy luminance, so the tint stays white;
         // alpha remains the single depth control for hover/pressed.
         return new Color(1f, 1f, 1f, alpha);
     }
@@ -424,13 +422,11 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
     private const string NavSelectionRampSpriteName = "HIF Nav Selection Ramp Runtime";
 
     /// <summary>
-    /// UI Target v1 selected-row ramp, built once: teal-blue luminance that is
+    /// UI Target v2 selected-row ramp, built once: quiet navy luminance that is
     /// strongest at the row's left edge and eases to transparent at the
     /// right edge, so the highlight has no hard rectangular end. A restrained
-    /// cyan lead near the accent bar fades into the base teal. The texture is created in
-    /// linear space, so the intended sRGB teal #1C789E (28, 120, 158) is
-    /// pre-converted with an inverse-gamma pow(2.2); storing the sRGB bytes
-    /// directly would render as a washed-out pastel blue.
+    /// cyan is confined to the separate accent; the ramp stays near-black navy.
+    /// The texture is created in linear space and fades into the authored scene.
     /// </summary>
     internal static Sprite CreateNavSelectionRampSprite()
     {
@@ -441,7 +437,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
             navSelectionRampTexture = new Texture2D(width, height, TextureFormat.RGBA32, false, true);
             navSelectionRampTexture.wrapMode = TextureWrapMode.Clamp;
             Color32[] pixels = new Color32[width * height];
-            Color32 baseTeal = new Color32(2, 49, 89, 255);
+            Color32 baseTeal = new Color32(2, 8, 18, 255);
             // Linear-space bytes for a hot cyan close to the accent hue
             // #02D9F9 (displays as ≈ #33DFF4 over the wash).
             Color32 hotCore = new Color32(7, 188, 231, 255);
@@ -450,14 +446,14 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
                 float t = x / (width - 1f);
                 float horizontal = 1f - Mathf.SmoothStep(0f, 1f, t);
                 float coreBlend = Mathf.Clamp01(1f - t / 0.12f);
-                Color ramp = Color.Lerp(baseTeal, hotCore, coreBlend * 0.25f);
+                Color ramp = Color.Lerp(baseTeal, hotCore, coreBlend * 0.03f);
                 for (int y = 0; y < height; y++)
                 {
                     // Fine cyan hairlines make the top/bottom plate edges read
                     // cleanly; their rightward fade shares the body's smooth tail.
                     bool rim = y == 0 || y == height - 1;
                     float edge = Mathf.Min(y, height - 1 - y);
-                    Color pixel = rim ? Color.Lerp(ramp, hotCore, 0.35f) : ramp;
+                    Color pixel = rim ? Color.Lerp(ramp, hotCore, 0.03f) : ramp;
                     pixel.a = rim ? horizontal
                         : horizontal * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(edge));
                     pixels[y * width + x] = pixel;
@@ -524,7 +520,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private void ApplyPressedState()
     {
-        Apply(mainMenuActions != null ? TargetV1SelectedPlate(0.58f) : RolePressedBackground(), Color.white);
+        Apply(mainMenuActions != null ? TargetV2SelectedPlate(0.50f) : RolePressedBackground(), Color.white);
     }
 
     private void ApplyDisabledState()
@@ -581,7 +577,7 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
         {
             // The taller glow plate shares the row's exact active state, so it
             // can never linger on a normal or disabled row.
-            selectionGlow.gameObject.SetActive(isPointerInside || isSelected);
+            selectionGlow.gameObject.SetActive(mainMenuActions == null && (isPointerInside || isSelected));
         }
     }
 
@@ -615,7 +611,9 @@ public sealed class MainMenuButtonHoverEffect : MonoBehaviour,
 
     private Color RoleNormalText()
     {
-        if (mainMenuActions != null) return new Color(0.88f, 0.91f, 0.95f, 0.98f);
+        if (mainMenuActions != null) return role == MainMenuButtonVisualRole.Destructive
+            ? new Color(0.64f, 0.70f, 0.77f, 0.98f)
+            : new Color(0.88f, 0.91f, 0.95f, 0.98f);
         return role switch
         {
             MainMenuButtonVisualRole.Primary => Color.white,

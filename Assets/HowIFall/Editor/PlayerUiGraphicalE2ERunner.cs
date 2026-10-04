@@ -204,6 +204,7 @@ public static class PlayerUiGraphicalE2ERunner
                 case "OpenMainLoad": OpenMainLoad(); break;
                 case "WaitMainLoad": WaitMainLoad(); break;
                 case "CloseMainLoad": CloseMainLoad(); break;
+                case "CaptureMainMenuQuitFocus": CaptureMainMenuQuitFocus(); break;
                 case "OpenMainQuitConfirmation": OpenMainQuitConfirmation(); break;
                 case "WaitMainQuitConfirmation": WaitMainQuitConfirmation(); break;
                 case "CaptureMainQuitYesFocus": CaptureMainQuitYesFocus(); break;
@@ -350,8 +351,8 @@ public static class PlayerUiGraphicalE2ERunner
             effect.OnDeselect(null);
         }
         SettleMainMenuEffects(menu);
-        Require(menu.PlayerFacingActionButtons.Select(b => b.GetComponent<MainMenuButtonHoverEffect>().CurrentLabelColor).Distinct().Count() == 1,
-            "Enabled normal actions must be visually equal.");
+        Require(menu.PlayerFacingActionButtons.Take(4).Select(b => b.GetComponent<MainMenuButtonHoverEffect>().CurrentLabelColor).Distinct().Count() == 1,
+            "The first four enabled normal actions must be visually equal.");
         Capture("main_menu_normal_enabled_1920x1080.png", "CaptureMainMenuHover");
     }
 
@@ -707,8 +708,20 @@ public static class PlayerUiGraphicalE2ERunner
         MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
         Require(menu != null && menu.manualSaveLoadPanel != null, "Main Menu Load panel disappeared before close.");
         menu.manualSaveLoadPanel.closeButton.onClick.Invoke();
-        SessionState.SetString(StageKey, "OpenMainQuitConfirmation");
+        SessionState.SetString(StageKey, "CaptureMainMenuQuitFocus");
         SetDelay(0.3d);
+    }
+
+    private static void CaptureMainMenuQuitFocus()
+    {
+        MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
+        Require(menu != null, "MainMenuController is unavailable before Quit focus proof.");
+        EventSystem.current.SetSelectedGameObject(menu.PlayerFacingActionButtons[4].gameObject);
+        SettleMainMenuEffects(menu);
+        Require(menu.PlayerFacingActionButtons[4].GetComponent<MainMenuButtonHoverEffect>().IsFocusAccentVisible
+            && menu.PlayerFacingActionButtons.Count(b => b.GetComponent<MainMenuButtonHoverEffect>().IsInteractionVisible) == 1,
+            "Quit navigation focus must have exactly one visible owner.");
+        Capture("main_menu_quit_focus_1920x1080.png", "OpenMainQuitConfirmation");
     }
 
     private static void OpenMainQuitConfirmation()
@@ -806,6 +819,9 @@ public static class PlayerUiGraphicalE2ERunner
         MainMenuController menu = UnityEngine.Object.FindFirstObjectByType<MainMenuController>();
         Require(menu != null, "MainMenuController disappeared before 1280x720 Main Menu proof.");
         menu.FocusDefaultAction();
+        SettleMainMenuEffects(menu);
+        Require(menu.PlayerFacingActionButtons.Count(b => b.GetComponent<MainMenuButtonHoverEffect>().IsFocusAccentVisible) == 1,
+            "Responsive root proof must show one settled focus owner, not a cross-fade frame.");
         Capture("main_menu_1280x720.png", "StartGameplay");
     }
 
@@ -2108,9 +2124,12 @@ public static class PlayerUiGraphicalE2ERunner
         // example 951px) while CaptureScreenshot writes the configured
         // standalone target (1080px). Validate against the QA target rather
         // than the editor chrome-adjusted viewport size.
-        Vector2Int captureTarget = Screen.width >= QaResolution.x
-            ? QaResolution
-            : ResponsiveQaResolution;
+        // A staged Screen Mode change can temporarily shrink the embedded
+        // viewport without changing the configured capture target. Use the
+        // explicit proof filename, not that transient viewport width.
+        Vector2Int captureTarget = fileName.EndsWith("_1280x720.png", StringComparison.Ordinal)
+            ? ResponsiveQaResolution
+            : QaResolution;
         SessionState.SetInt(CaptureWidthKey, captureTarget.x);
         SessionState.SetInt(CaptureHeightKey, captureTarget.y);
         SessionState.SetString(NextStageKey, nextStage);

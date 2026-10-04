@@ -31,7 +31,7 @@ public static class MainMenuVisualPassASmokeTests
         VerifyNavigationLayout(controller);
         VerifyNavigationPanel(controller);
         VerifySimpleButtonPresentation(controller);
-        VerifyTargetV1Presentation(controller);
+        VerifyTargetV2Presentation(controller);
         VerifyModalBoundsAndAboutWrapping(controller);
         VerifyLegacyPromptIsNotPlayerFacing();
         VerifyBackgroundMotionIsDisabled();
@@ -127,10 +127,10 @@ public static class MainMenuVisualPassASmokeTests
             }
         }
 
-        Require(gaps.All(gap => gap >= 4f && gap <= 14f),
-            "Main Menu actions must keep the approved target v1 tight typography rhythm without overlap.");
-        Require(Mathf.Abs(gaps[3] - gaps[0]) <= 2f,
-            "Target v1 uses one uniform vertical rhythm; Quit must not be extra separated.");
+        Require(gaps.Take(3).All(gap => Mathf.Abs(gap - 16f) <= 0.5f),
+            "Main Menu actions must keep the approved target v2 tight typography rhythm without overlap.");
+        Require(Mathf.Abs(gaps[3] - 44f) <= 0.5f,
+            "Target v2 adds deliberate extra separation before Quit.");
 
         foreach (RectTransform row in rows)
         {
@@ -151,7 +151,7 @@ public static class MainMenuVisualPassASmokeTests
             Require(image != null && image.type == Image.Type.Simple,
                 "Main Menu actions must not replace the authored menu art with decorative button sprites.");
             Require(image.sprite == null || image.sprite.name == "HIF Nav Selection Ramp Runtime",
-                "Main Menu actions may only carry the target v1 left-weighted selection ramp sprite.");
+                "Main Menu actions may only carry the target v2 left-weighted selection ramp sprite.");
             Require(image.color.a <= 0.01f,
                 "Main Menu normal navigation must not use permanent filled button rectangles.");
         }
@@ -169,6 +169,18 @@ public static class MainMenuVisualPassASmokeTests
         {
             Outline outline = button.GetComponent<Outline>();
             Require(outline == null || !outline.enabled, "Main Menu must not use text outlines.");
+            TextMeshProUGUI tmpLabel = button.GetComponentInChildren<TextMeshProUGUI>(true);
+            Text legacyLabel = button.GetComponentInChildren<Text>(true);
+            Require(tmpLabel != null
+                ? tmpLabel.fontSize == 36f && tmpLabel.fontStyle == FontStyles.Normal
+                    && tmpLabel.characterSpacing == 0f && !tmpLabel.enableAutoSizing
+                : legacyLabel != null && legacyLabel.fontSize == 36 && legacyLabel.fontStyle == FontStyle.Normal,
+                "Target v2 root labels must keep calm, fixed 36px typography.");
+            Graphic label = tmpLabel != null ? (Graphic)tmpLabel : legacyLabel;
+            Require(label.GetComponents<Shadow>().All(shadow => !shadow.enabled),
+                "Root labels must not carry heavy shadow or outline meshes.");
+            Require(label.rectTransform.offsetMin.x == 38f,
+                "Root labels must share the target v2 optical left axis.");
             MainMenuButtonHoverEffect effect = GetHoverEffect(button);
             effect.OnPointerExit(null);
             effect.OnDeselect(null);
@@ -176,12 +188,15 @@ public static class MainMenuVisualPassASmokeTests
             Color normal = effect.CurrentLabelColor;
             Require(!effect.IsFocusAccentVisible && !effect.IsInteractionVisible,
                 "Normal actions must not retain an interaction marker.");
-            if (button.interactable)
+            if (button.interactable && effect.Role != MainMenuButtonVisualRole.Destructive)
             {
                 Require(!normalEnabledColor.HasValue || normal == normalEnabledColor.Value,
                     "All enabled normal actions must have equal text treatment, including Primary.");
                 normalEnabledColor = normal;
             }
+            if (effect.Role == MainMenuButtonVisualRole.Destructive && normalEnabledColor.HasValue)
+                Require(normal.r < normalEnabledColor.Value.r && normal.a >= 0.95f,
+                    "Quit must be quieter, but readable and actionable in its normal state.");
             effect.OnPointerEnter(null);
             effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             Require(button.interactable ? effect.IsFocusAccentVisible : !effect.IsFocusAccentVisible,
@@ -190,7 +205,7 @@ public static class MainMenuVisualPassASmokeTests
                 "Only enabled actions may brighten on hover.");
             float hoverAlpha = ((Image)button.targetGraphic).color.a;
             Require(hoverAlpha >= 0.25f && hoverAlpha <= 0.55f,
-                "Hover must expose the target v1 translucent glass plate without becoming a heavy panel.");
+                "Hover must expose the target v2 translucent glass plate without becoming a heavy panel.");
             effect.OnPointerExit(null);
             effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             Require(effect.CurrentLabelColor == normal && !effect.IsInteractionVisible,
@@ -227,29 +242,29 @@ public static class MainMenuVisualPassASmokeTests
         RectTransform[] rows = controller.PlayerFacingActionButtons
             .Select(button => button.transform.parent as RectTransform)
             .ToArray();
-        Require(rows.All(row => row.anchoredPosition.x >= -45f && row.anchoredPosition.x <= -33f),
-            "Main Menu actions must stay in the target v1 left visual column.");
-        Require(rows.All(row => row.sizeDelta.x >= 372f && row.sizeDelta.x <= 388f
-                && row.sizeDelta.y >= 74f && row.sizeDelta.y <= 78f),
-            "Main Menu actions must use the approved target v1 1920x1080 row geometry.");
+        Require(rows.All(row => Mathf.Abs(row.anchoredPosition.x + 28f) <= 0.5f),
+            "Main Menu actions must stay in the target v2 left visual column.");
+        Require(rows.All(row => row.sizeDelta == new Vector2(324f, 64f)),
+            "Main Menu actions must use the approved target v2 1920x1080 row geometry.");
 
         CanvasScaler scaler = UnityEngine.Object.FindFirstObjectByType<CanvasScaler>(FindObjectsInactive.Include);
         Require(scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize,
             "Main Menu panel must scale with the screen.");
     }
 
-    private static void VerifyTargetV1Presentation(MainMenuController controller)
+    private static void VerifyTargetV2Presentation(MainMenuController controller)
     {
-        // Nav-side navy wash (UI Target v1): authored gradient overlay stays the
-        // visual source, widened and strengthened to cover the left composition.
+        // Nav-side navy wash (UI Target v2): authored gradient overlay stays the
+        // visual source, with a local depth plateau and a soft tail.
         Canvas canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
-        Require(canvas != null, "Main Menu Canvas is missing for the target v1 presentation check.");
+        Require(canvas != null, "Main Menu Canvas is missing for the target v2 presentation check.");
         Image gradient = canvas.transform.Find("Left Gradient Overlay")?.GetComponent<Image>();
-        Require(gradient != null && gradient.gameObject.activeSelf, "Target v1 requires the left navy wash overlay.");
+        Require(gradient != null && gradient.gameObject.activeSelf, "Target v2 requires the left navy wash overlay.");
         RectTransform gradientRect = gradient.rectTransform;
-        Require(gradientRect.sizeDelta.x >= 1000f && gradientRect.sizeDelta.x <= 1080f,
-            "Target v1 wash must fade out near 54% of the screen width, not the full width.");
-        Require(gradient.color.a >= 0.95f, "Target v1 wash must keep its full authored depth.");
+        Require(Mathf.Abs(gradientRect.sizeDelta.x - 1000f) <= 0.5f,
+            "Target v2 wash must fade out near 52% of the screen width, not the full width.");
+        Require(gradient.color.a >= 0.95f, "Target v2 wash must keep its full authored depth.");
+
 
         // Tagline closes the left composition under the navigation column.
         Transform firstRow = controller.PlayerFacingActionButtons[0].transform.parent;
@@ -257,18 +272,18 @@ public static class MainMenuVisualPassASmokeTests
         TextMeshProUGUI tagline = menuContent != null && menuContent.Find("Main Menu Tagline") != null
             ? menuContent.Find("Main Menu Tagline").GetComponent<TextMeshProUGUI>()
             : null;
-        Require(tagline != null, "Target v1 left composition must include the runtime tagline.");
+        Require(tagline != null, "Target v2 left composition must include the runtime tagline.");
         Require(tagline.text.Replace("\r\n", "\n") == "SAME HALLS\nDIFFERENT YOU",
-            "Tagline copy must match the approved target v1 composition.");
+            "Tagline copy must match the approved target v2 composition.");
         Require(!tagline.raycastTarget && tagline.fontSize <= 24f,
             "Tagline must be non-interactive supporting typography.");
         Image dash = menuContent.Find("Main Menu Tagline Dash") != null
             ? menuContent.Find("Main Menu Tagline Dash").GetComponent<Image>()
             : null;
         Require(dash != null && !dash.raycastTarget, "Tagline dash accent is missing.");
-        Require(dash.rectTransform.sizeDelta.x >= 54f && dash.rectTransform.sizeDelta.x <= 66f
+        Require(dash.rectTransform.sizeDelta == new Vector2(52f, 3f)
             && dash.color.b >= 0.8f && dash.color.g >= 0.7f && dash.color.r <= 0.2f,
-            "Tagline dash must be the target v1 cyan accent bar.");
+            "Tagline dash must be the target v2 cyan accent bar.");
         RectTransform taglineRect = tagline.rectTransform;
         foreach (Button button in controller.PlayerFacingActionButtons)
         {
@@ -282,29 +297,23 @@ public static class MainMenuVisualPassASmokeTests
         foreach (Button button in controller.PlayerFacingActionButtons)
         {
             MainMenuButtonHoverEffect effect = button.GetComponent<MainMenuButtonHoverEffect>();
-            Require(effect != null, "Main Menu action lost its hover effect for the target v1 check.");
+            Require(effect != null, "Main Menu action lost its hover effect for the target v2 check.");
             effect.OnPointerEnter(null);
             effect.AdvanceInteractionFade(MainMenuButtonHoverEffect.InteractionFadeDuration);
             if (button.interactable)
             {
                 Image plate = button.targetGraphic as Image;
                 Require(plate != null && plate.sprite != null && plate.sprite.name == "HIF Nav Selection Ramp Runtime",
-                    "Selected plate must use the target v1 left-weighted ramp sprite, not a flat rectangle.");
-                Require(effect.FocusAccentSize == new Vector2(7f, 76f),
-                    "Focus accent must use the target v1 full-height cyan bar geometry.");
+                    "Selected plate must use the target v2 left-weighted ramp sprite, not a flat rectangle.");
+                Require(effect.FocusAccentSize == new Vector2(3f, 60f),
+                    "Focus accent must use the target v2 full-height cyan bar geometry.");
                 Require(effect.FocusAccentAnchoredPosition == Vector2.zero,
                     "Focus accent bar must sit flush with the highlighted row's left edge, without a wash gap before it.");
                 Require(effect.FocusAccentColor.b >= 0.9f && effect.FocusAccentColor.g >= 0.75f
                     && effect.FocusAccentColor.r <= 0.2f,
-                    "Focus accent must be the bright target v1 cyan, never red.");
-                Require(effect.IsSelectionGlowVisible,
-                    "Selected row must expose the soft selection glow plate while active.");
-                // Stretch anchors with zero horizontal offsets: the glow spans
-                // exactly the row width (no left protrusion) and is only 4px
-                // taller than the 76px row, with a deliberately faint opacity.
-                Require(effect.SelectionGlowSizeDelta == new Vector2(0f, 80f)
-                    && effect.SelectionGlowColor.a <= 0.06f,
-                    "Selection glow must stay narrow and subdued.");
+                    "Focus accent must be the bright target v2 cyan, never red.");
+                Require(!effect.IsSelectionGlowVisible,
+                    "Target v2 uses a local navy ramp without a selection halo.");
             }
             effect.OnPointerExit(null);
             effect.OnDeselect(null);
@@ -313,14 +322,14 @@ public static class MainMenuVisualPassASmokeTests
 
         // Title block: the authored sprite carries transparent margins, so the
         // runtime rect is proportional to the authored frame; its centre puts
-        // the visible strokes in the top-left corner (≈ 98..488 x 54..388).
+        // the visible strokes in the top-left corner (approximately 140..464 x 126..378).
         RectTransform logo = UnityEngine.Object.FindObjectsByType<RectTransform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
             .FirstOrDefault(rect => rect.gameObject.name == "Game Logo");
-        Require(logo != null, "Game Logo is missing for the target v1 check.");
-        Require(Mathf.Abs(logo.anchoredPosition.x + 79f) <= 2f && Mathf.Abs(logo.anchoredPosition.y + 38.5f) <= 2f,
-            "Target v1 places the visible logo strokes in the top-left corner of the composition.");
-        Require(Mathf.Abs(logo.sizeDelta.y - 365f) <= 2f,
-            "Target v1 logo keeps the approved title-block scale.");
+        Require(logo != null, "Game Logo is missing for the target v2 check.");
+        Require(Mathf.Abs(logo.anchoredPosition.x + 8f) <= 2f && Mathf.Abs(logo.anchoredPosition.y + 112f) <= 2f,
+            "Target v2 places the visible logo strokes in the top-left corner of the composition.");
+        Require(Mathf.Abs(logo.sizeDelta.y - 300f) <= 2f,
+            "Target v2 logo keeps the approved title-block scale.");
     }
 
     private static void VerifyModalBoundsAndAboutWrapping(MainMenuController controller)

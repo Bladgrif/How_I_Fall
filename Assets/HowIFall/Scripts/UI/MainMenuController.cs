@@ -137,7 +137,7 @@ public sealed class MainMenuController : MonoBehaviour
         {
             return false;
         }
-        ApplyTargetV1Tagline(orderedRows[0]);
+        ApplyTargetV2Tagline(orderedRows[0]);
 
         RemoveObsoleteRuntimePresentation();
         ApplyActionPresentation(continueButton != null && continueButton.interactable);
@@ -150,11 +150,11 @@ public sealed class MainMenuController : MonoBehaviour
     {
         // Treat navigation as large title typography laid over the illustration,
         // rather than a stack of conventional Unity buttons. The approved
-        // UI Target v1 composition keeps one tight left-aligned column with a
-        // uniform vertical rhythm and leaves the bright centre/right quiet.
+        // UI Target v2 keeps the first four actions in one calm rhythm and
+        // separates Quit, leaving the bright centre/right quiet.
         // anchoredPosition lives in Menu Content space; the authored
         // MainMenuRoot adds a +140 canvas X offset on top of these values.
-        float[] verticalPositions = { 162f, 78f, -6f, -90f, -174f };
+        float[] verticalPositions = { 156f, 76f, -4f, -84f, -192f };
         for (int index = 0; index < orderedRows.Length; index++)
         {
             RectTransform row = orderedRows[index] as RectTransform;
@@ -165,8 +165,8 @@ public sealed class MainMenuController : MonoBehaviour
 
             row.anchorMin = row.anchorMax = new Vector2(0f, 0.5f);
             row.pivot = new Vector2(0f, 0.5f);
-            row.anchoredPosition = new Vector2(-39f, verticalPositions[index]);
-            row.sizeDelta = new Vector2(380f, 76f);
+            row.anchoredPosition = new Vector2(-28f, verticalPositions[index]);
+            row.sizeDelta = new Vector2(324f, 64f);
 
             RectTransform buttonRect = playerFacingActionButtons[index].transform as RectTransform;
             if (buttonRect != null)
@@ -223,11 +223,9 @@ public sealed class MainMenuController : MonoBehaviour
         {
             gradient.gameObject.SetActive(true);
             gradientImage.raycastTarget = false;
-            // UI Target v1: the nav-side wash reads as deep navy glass and keeps
-            // the left column readable over the bright daytime art. The authored
-            // gradient texture peaks at only ~0.56 alpha, which is far too faint
-            // against this art, so the overlay receives a runtime navy ramp with
-            // the approved depth baked into its alpha channel.
+            // UI Target v2: local navy support behind the left composition,
+            // smoothly fading before the bright key visual. Keep the authored
+            // background itself unchanged; only the runtime wash is adjusted.
             gradientImage.color = Color.white;
             gradientImage.type = Image.Type.Simple;
             if (gradientImage.sprite == null || gradientImage.sprite.name != WashSpriteName)
@@ -238,7 +236,7 @@ public sealed class MainMenuController : MonoBehaviour
             RectTransform gradientRect = gradient as RectTransform;
             if (gradientRect != null)
             {
-                gradientRect.sizeDelta = new Vector2(1040f, gradientRect.sizeDelta.y);
+                gradientRect.sizeDelta = new Vector2(1000f, gradientRect.sizeDelta.y);
             }
         }
 
@@ -283,9 +281,8 @@ public sealed class MainMenuController : MonoBehaviour
     private static Texture2D navyWashTexture;
 
     /// <summary>
-    /// Builds the UI Target v1 nav-side wash ramp once: deep navy that displays
-    /// as #101A28 with an ease-out alpha channel peaking at ~0.94 at the left
-    /// edge and reaching zero near 54% of the screen width.
+    /// Builds the UI Target v2 wash once: deep navy supporting the typography,
+    /// then a smooth tail with no hard rectangular edge over the artwork.
     /// </summary>
     private static Sprite CreateNavyWashSprite()
     {
@@ -299,7 +296,7 @@ public sealed class MainMenuController : MonoBehaviour
             for (int x = 0; x < width; x++)
             {
                 float t = x / (width - 1f);
-                byte alpha = (byte)Mathf.RoundToInt(240f * Mathf.Pow(1f - t, 1.5f));
+                byte alpha = (byte)Mathf.RoundToInt(240f * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 1f, t))));
                 for (int y = 0; y < height; y++)
                 {
                     // The texture is created in linear space, so the intended
@@ -348,15 +345,13 @@ public sealed class MainMenuController : MonoBehaviour
 
         logo.gameObject.SetActive(true);
         RectTransform logoRect = logo as RectTransform;
-        // UI Target v1: the visible logo strokes must land in the top-left corner
-        // (strokes bbox ≈ 98..488 x 54..388 at 1920x1080). The authored sprite
-        // carries wide transparent margins (texture aspect ≈ 2.04 vs ~1.17 for
-        // the strokes), so the rect is kept proportional to the authored
-        // 620x304 frame, scaled ~1.2x, and positioned by its centre.
+        // UI Target v2: compact visible strokes with more top breathing room.
+        // Account for the authored sprite's wide transparent margins instead
+        // of replacing or cropping the production logo.
         logoRect.anchorMin = logoRect.anchorMax = new Vector2(0f, 1f);
         logoRect.pivot = new Vector2(0f, 1f);
-        logoRect.anchoredPosition = new Vector2(-79f, -38.5f);
-        logoRect.sizeDelta = new Vector2(744f, 365f);
+        logoRect.anchoredPosition = new Vector2(-8f, -112f);
+        logoRect.sizeDelta = new Vector2(612f, 300f);
         logoRect.localRotation = Quaternion.identity;
         logoImage.color = Color.white;
         logoImage.preserveAspect = true;
@@ -364,9 +359,9 @@ public sealed class MainMenuController : MonoBehaviour
         return true;
     }
 
-    private void ApplyTargetV1Tagline(Transform firstRow)
+    private void ApplyTargetV2Tagline(Transform firstRow)
     {
-        // UI Target v1 closes the left composition with a letter-spaced tagline
+        // UI Target v2 closes the left composition with a letter-spaced tagline
         // under the navigation column. Runtime-built with final geometry so no
         // layout pass is required before bounds-dependent checks.
         Transform menuContent = firstRow != null ? firstRow.parent : null;
@@ -400,17 +395,17 @@ public sealed class MainMenuController : MonoBehaviour
             tagline.font = navFont;
         }
 
-        tagline.fontSize = 19f;
+        tagline.fontSize = 17f;
         tagline.enableAutoSizing = false;
         tagline.alignment = TextAlignmentOptions.Left;
         tagline.characterSpacing = 26f;
-        tagline.lineSpacing = 113f;
-        tagline.color = new Color(0.53f, 0.65f, 0.73f, 0.78f);
+        tagline.lineSpacing = 65f;
+        tagline.color = new Color(0.53f, 0.65f, 0.73f, 0.90f);
         tagline.raycastTarget = false;
         RectTransform taglineRect = tagline.rectTransform;
         taglineRect.anchorMin = taglineRect.anchorMax = new Vector2(0f, 0.5f);
         taglineRect.pivot = new Vector2(0f, 0.5f);
-        taglineRect.anchoredPosition = new Vector2(2f, -342f);
+        taglineRect.anchoredPosition = new Vector2(10f, -339f);
         taglineRect.sizeDelta = new Vector2(440f, 56f);
 
         Transform existingDash = menuContent.Find(TaglineDashName);
@@ -429,8 +424,8 @@ public sealed class MainMenuController : MonoBehaviour
         RectTransform dashRect = dash.rectTransform;
         dashRect.anchorMin = dashRect.anchorMax = new Vector2(0f, 0.5f);
         dashRect.pivot = new Vector2(0f, 0.5f);
-        dashRect.anchoredPosition = new Vector2(0f, -274f);
-        dashRect.sizeDelta = new Vector2(60f, 5f);
+        dashRect.anchoredPosition = new Vector2(10f, -284f);
+        dashRect.sizeDelta = new Vector2(52f, 3f);
 
         targetTagline = tagline;
         targetTaglineDash = dash;
@@ -968,12 +963,12 @@ public sealed class MainMenuController : MonoBehaviour
         if (tmpLabel != null)
         {
             tmpLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            tmpLabel.fontSize = 42f;
+            tmpLabel.fontSize = 36f;
             tmpLabel.fontStyle = FontStyles.Normal;
-            tmpLabel.characterSpacing = 1.5f;
-            Shadow textShadow = tmpLabel.GetComponent<Shadow>() ?? tmpLabel.gameObject.AddComponent<Shadow>();
-            textShadow.effectColor = new Color(0.005f, 0.012f, 0.02f, 0.66f);
-            textShadow.effectDistance = new Vector2(2f, -2f);
+            tmpLabel.characterSpacing = 0f;
+            // Root labels get local contrast from the wash, not duplicated
+            // shadow/outline meshes that soften the Cyrillic glyph edges.
+            foreach (Shadow textEffect in tmpLabel.GetComponents<Shadow>()) textEffect.enabled = false;
             tmpLabel.enableAutoSizing = false;
             ApplyLabelPadding(tmpLabel.rectTransform);
             return;
@@ -982,8 +977,22 @@ public sealed class MainMenuController : MonoBehaviour
         Text label = button.GetComponentInChildren<Text>(true);
         if (label != null)
         {
+            // Reuse the bundled Cyrillic-capable source font. Keeping root
+            // labels off the shared built-in Arial atlas avoids mixed raster
+            // sharpness when unrelated legacy UI requests other glyph sizes.
+            TMP_FontAsset source = TMP_Settings.defaultFontAsset?.fallbackFontAssetTable
+                ?.FirstOrDefault(font => font != null && font.sourceFontFile != null);
+            if (source != null) label.font = source.sourceFontFile;
             label.alignment = TextAnchor.MiddleLeft;
-            label.fontSize = 42;
+            label.fontSize = 36;
+            label.fontStyle = FontStyle.Normal;
+            // Populate the whole column before the first mesh is generated.
+            // Late atlas growth otherwise leaves untouched rows with stale UVs
+            // until hover/focus happens to rebuild their legacy Text mesh.
+            label.font.RequestCharactersInTexture(string.Concat(TargetActionLabels),
+                Mathf.Max(1, Mathf.RoundToInt(label.fontSize * label.pixelsPerUnit)), label.fontStyle);
+            label.SetAllDirty();
+            foreach (Shadow textEffect in label.GetComponents<Shadow>()) textEffect.enabled = false;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;
             ApplyLabelPadding(label.rectTransform);
@@ -999,7 +1008,7 @@ public sealed class MainMenuController : MonoBehaviour
 
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(41f, 0f);
+        labelRect.offsetMin = new Vector2(38f, 0f);
         labelRect.offsetMax = new Vector2(-18f, 0f);
     }
 
