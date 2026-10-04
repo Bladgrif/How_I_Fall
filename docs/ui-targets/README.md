@@ -7,7 +7,7 @@ Google Drive остаётся удобным зеркалом для челов�
 
 Текущий набор:
 - `01_Main_Menu_Target_v1.png`
-- `01_Main_Menu_Target_v2.png` — рекомендованный visual proposal; НЕ утверждён, только дизайн. До одобрения пользователя v1 остаётся действующей целью.
+- `01_Main_Menu_Target_v2.png` — **APPROVED** visual target для Main Menu; пользователь утвердил 2026-10-04. v1 сохранён только для истории/сравнения.
 - `02_Reading_Target_v1.png`
 - `03_Game_Menu_Target_v1.png`
 - `04_Choice_Target_v1.png`
@@ -26,8 +26,8 @@ Google Drive остаётся удобным зеркалом для челов�
 ## Main Menu v2 — design pass, 2026-10-04
 
 Исходный `master`: `2fdd662e4414c1da0dfa62fcc483342075da7d3e`.
-**Production runtime НЕ изменён. Перед любой реализацией требуется явное одобрение пользователя.**
-v1 сохранён без изменений для истории и сравнения; v2 не заменяет его автоматически.
+**Production runtime этим design-pass не изменялся. Пользователь утвердил v2 2026-10-04; последующая implementation должна соответствовать v2.**
+v1 сохранён без изменений только для истории и сравнения; действующая Main Menu visual goal — v2.
 
 Вывод сравнения — **A**: art-first направление v1 остаётся сильным. Свежий runtime уступает ему по чёткости текста и деликатности активной строки. v2 оправдан как уточнение этого направления, а не новый redesign:
 
@@ -45,7 +45,7 @@ v2 создан встроенным `imagegen`, просмотрен в исх�
 
 Runtime capture: существующий `PlayerUiGraphicalE2ERunner.StartAutomatedPlayMode`, Unity `6000.5.7f1`, `-batchmode` **с графикой, без `-nographics`**, exit 0, `status=PASS`, `playerPrefsRestored=true`, 77 PNG. Обычный launcher сначала заблокировался на Editor layout до старта QA; batchmode обошёл этот startup blocker. Лог не объявляется чистым: отдельно отмечены Editor Search `ArgumentOutOfRangeException` и TMP inconsistent-import diagnostic. Исправления runtime/importer вне scope. NUnit/regression suite и человеческий aesthetic QA — `NOT RUN`; baselines не заменялись.
 
-[Свежий proof и рекомендуемый target на Drive](https://drive.google.com/drive/folders/1W0gZW2E0dusap1KS2zwyFYgbAYxVKxnF) — папка в `03 — UI — implementation & QA proof`; manifest содержит source SHA, filenames и SHA-256. Reviewer проверяет реальные изображения; пользователь утверждает эстетическое направление до отдельной implementation-задачи.
+[Свежий proof и рекомендуемый target на Drive](https://drive.google.com/drive/folders/1W0gZW2E0dusap1KS2zwyFYgbAYxVKxnF) — папка в `03 — UI — implementation & QA proof`; manifest содержит source SHA, filenames и SHA-256. Reviewer проверил реальные изображения; пользователь утвердил эстетическое направление 2026-10-04. Implementation разрешена отдельной bounded задачей.
 
 Правила:
 - target фиксирует visual/UX направление, но не финальный art или будущий канон;
