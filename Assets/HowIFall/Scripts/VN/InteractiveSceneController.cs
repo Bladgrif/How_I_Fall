@@ -13,29 +13,20 @@ public sealed class InteractiveSceneController : MonoBehaviour
     private static readonly Color BackdropColor = new Color(0.012f, 0.028f, 0.055f, 0.96f);
     private static readonly Color ImageFrameColor = new Color(0.045f, 0.095f, 0.145f, 1f);
     private static readonly Color TextColor = new Color(0.89f, 0.96f, 1f, 1f);
-    private static readonly Color ChipFillColor = new Color(0.035f, 0.09f, 0.155f, 0.82f);
-    private static readonly Color ChipFocusedFillColor = new Color(0.06f, 0.14f, 0.22f, 0.9f);
-    private static readonly Color ChipDimFillColor = new Color(0.03f, 0.06f, 0.10f, 0.62f);
-    private static readonly Color RingAvailableColor = new Color(0.32f, 0.82f, 0.95f, 0.95f);
-    private static readonly Color RingFocusedColor = new Color(0.58f, 0.95f, 1f, 1f);
-    private static readonly Color RingLockedColor = new Color(0.50f, 0.58f, 0.66f, 0.55f);
-    private static readonly Color RingLockedFocusedColor = new Color(0.80f, 0.87f, 0.94f, 0.95f);
-    private static readonly Color RingCompletedColor = new Color(0.24f, 0.55f, 0.62f, 0.60f);
+    private static readonly Color MarkerIdleColor = new Color(0.58f, 0.80f, 0.87f, 0.90f);
+    private static readonly Color MarkerFocusedColor = new Color(0.40f, 0.92f, 1f, 1f);
+    private static readonly Color MarkerLockedColor = new Color(0.63f, 0.74f, 0.79f, 0.85f);
+    private static readonly Color MarkerLockedFocusedColor = new Color(0.72f, 0.87f, 0.92f, 1f);
     private static readonly Color GlyphAvailableColor = new Color(0.88f, 0.96f, 1f, 1f);
-    private static readonly Color GlyphLockedColor = new Color(0.56f, 0.64f, 0.72f, 0.75f);
+    private static readonly Color GlyphLockedColor = new Color(0.70f, 0.80f, 0.85f, 0.95f);
     private static readonly Color GlyphCompletedColor = new Color(0.52f, 0.68f, 0.74f, 0.65f);
-    private static readonly Color LabelTextColor = new Color(0.92f, 0.96f, 1f, 1f);
-    private static readonly Color LabelLockedColor = new Color(0.64f, 0.71f, 0.78f, 0.85f);
-    private static readonly Color LabelFillColor = new Color(0.035f, 0.09f, 0.155f, 0.78f);
-    private static readonly Color LabelFocusedFillColor = new Color(0.075f, 0.17f, 0.26f, 0.88f);
-    private static readonly Color MarkerEdgeColor = new Color(0.35f, 0.72f, 0.91f, 0.75f);
-    private static readonly Color MarkerLockedEdgeColor = new Color(0.42f, 0.50f, 0.58f, 0.40f);
-    private static readonly Color MarkerCompletedEdgeColor = new Color(0.30f, 0.52f, 0.58f, 0.35f);
-    private static readonly Color AnchorDotColor = new Color(0.35f, 0.85f, 0.97f, 0.95f);
+    private static readonly Color LabelTextColor = new Color(0.83f, 0.91f, 0.96f, 0.95f);
+    private static readonly Color LabelLockedColor = new Color(0.70f, 0.80f, 0.86f, 0.95f);
     private static readonly Color TechCaptionColor = new Color(0.75f, 0.84f, 0.92f, 0.72f);
     private static Sprite runtimeBackgroundSprite;
     private static TMP_FontAsset fallbackFont;
-    private static Sprite circleSprite, ringSprite, pillSprite, strokeSprite, laptopGlyphSprite, notesGlyphSprite, doorGlyphSprite;
+    private static Sprite bracketsSprite, focusedBracketsSprite, glowSprite, diamondSprite, chevronSprite, padlockSprite;
+    private static Sprite laptopGlyphSprite, notesGlyphSprite, doorGlyphSprite;
     private VNDialogueController dialogueController;
     private GameObject root;
     private RectTransform displayedImageRect;
@@ -43,6 +34,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
     private readonly Dictionary<string, Button> hotspotButtons = new Dictionary<string, Button>(StringComparer.Ordinal);
     private readonly Dictionary<string, MarkerVisuals> hotspotMarkers = new Dictionary<string, MarkerVisuals>(StringComparer.Ordinal);
     private readonly HashSet<string> completedHotspotIds = new HashSet<string>(StringComparer.Ordinal);
+    private string hoveredMarkerId;
     private InteractiveSceneData activeScene;
     private SpecialModeLease activeLease;
     private int activationCount;
@@ -167,20 +159,45 @@ public sealed class InteractiveSceneController : MonoBehaviour
         if (!hotspotMarkers.TryGetValue(hotspotId, out MarkerVisuals marker) || marker == null || marker.button == null) return;
         bool completed = IsHotspotCompleted(hotspotId);
         bool available = !completed && IsHotspotAvailable(hotspotId);
-        bool selected = EventSystem.current != null && EventSystem.current.currentSelectedGameObject == marker.button.gameObject;
-        bool emphasized = marker.driver != null && marker.driver.pointerOver || selected;
-        if (marker.chipFill != null) marker.chipFill.color = completed ? ChipDimFillColor : emphasized ? ChipFocusedFillColor : available ? ChipFillColor : ChipDimFillColor;
-        if (marker.ring != null) marker.ring.color = completed ? RingCompletedColor : available ? (emphasized ? RingFocusedColor : RingAvailableColor) : emphasized ? RingLockedFocusedColor : RingLockedColor;
-        if (marker.glyph != null) marker.glyph.color = completed ? GlyphCompletedColor : available || emphasized ? GlyphAvailableColor : GlyphLockedColor;
-        if (marker.dot != null) marker.dot.color = available ? AnchorDotColor : Color.clear;
+        // EventSystem sends OnDeselect before updating currentSelectedGameObject.
+        // Use the driver's selection event state so the old visual never stays focused.
+        bool selected = marker.driver != null && marker.driver.hasSelection;
+        // Hover owns presentation only; the selected keyboard/controller Submit owner is unchanged.
+        bool hasPointerOwner = hoveredMarkerId != null && hotspotMarkers.ContainsKey(hoveredMarkerId) && !IsHotspotCompleted(hoveredMarkerId);
+        bool emphasized = !completed && (hasPointerOwner ? hotspotId == hoveredMarkerId : selected);
+        Color contour = available ? (emphasized ? MarkerFocusedColor : MarkerIdleColor) : emphasized ? MarkerLockedFocusedColor : MarkerLockedColor;
+        marker.brackets.gameObject.SetActive(!completed);
+        marker.brackets.sprite = GetBracketsSprite(emphasized);
+        marker.brackets.color = contour;
+        marker.glow.gameObject.SetActive(emphasized);
+        // Locked focus still carries the lock and a muted glow; focus never implies availability.
+        marker.glow.color = available ? new Color(0.10f, 0.80f, 1f, 0.50f) : new Color(0.40f, 0.68f, 0.78f, 0.25f);
+        if (marker.glyph != null) marker.glyph.color = completed ? GlyphCompletedColor : emphasized ? Color.white : available ? GlyphAvailableColor : GlyphLockedColor;
+        marker.attachment.gameObject.SetActive(!completed);
+        marker.diamond.gameObject.SetActive(!completed);
+        marker.attachment.color = marker.diamond.color = contour;
+        marker.padlock.gameObject.SetActive(!completed && !available);
+        marker.padlock.color = emphasized ? GlyphAvailableColor : GlyphLockedColor;
+        marker.chevron.gameObject.SetActive(emphasized);
+        marker.chevron.color = available ? GlyphAvailableColor : GlyphLockedColor;
         if (marker.labelRoot != null) marker.labelRoot.SetActive(!completed);
         if (!completed && marker.label != null)
         {
-            marker.label.color = available ? LabelTextColor : LabelLockedColor;
-            if (marker.labelFill != null) marker.labelFill.color = emphasized && available ? LabelFocusedFillColor : LabelFillColor;
-            if (marker.labelEdge != null) marker.labelEdge.color = completed ? MarkerCompletedEdgeColor : available ? (emphasized ? RingFocusedColor : MarkerEdgeColor) : MarkerLockedEdgeColor;
+            marker.label.color = emphasized ? GlyphAvailableColor : available ? LabelTextColor : LabelLockedColor;
+            marker.labelRoot.GetComponent<RectTransform>().anchoredPosition = new Vector2(emphasized ? 63f : marker.idleLabelOffset, 3f);
         }
-        if (marker.markerRoot != null) marker.markerRoot.transform.localScale = emphasized && !completed ? new Vector3(1.06f, 1.06f, 1f) : Vector3.one;
+    }
+
+    private void RefreshMarkerStates()
+    {
+        foreach (string id in hotspotMarkers.Keys) ApplyMarkerState(id);
+    }
+
+    private void SetHoveredMarker(string hotspotId, bool pointerOver)
+    {
+        if (pointerOver) hoveredMarkerId = hotspotId;
+        else if (hoveredMarkerId == hotspotId) hoveredMarkerId = null;
+        RefreshMarkerStates();
     }
 
     private bool Complete(DialogueSceneData nextScene)
@@ -245,7 +262,7 @@ public sealed class InteractiveSceneController : MonoBehaviour
     private void BuildHotspots()
     {
         foreach (Button button in hotspotButtons.Values) if (button != null) Destroy(button.gameObject);
-        hotspotButtons.Clear(); hotspotMarkers.Clear();
+        hotspotButtons.Clear(); hotspotMarkers.Clear(); hoveredMarkerId = null;
         List<Button> builtButtons = new List<Button>(activeScene.hotspots.Count);
         foreach (InteractiveHotspotData hotspot in activeScene.hotspots)
         {
@@ -276,29 +293,35 @@ public sealed class InteractiveSceneController : MonoBehaviour
         }
     }
 
-    /// <summary>Compact marker per target 07: chip with ring and glyph above an anchor dot, label pill to the right. All parts are raycast-transparent.</summary>
+    /// <summary>Target 09 presentation only. Authored hit regions, callbacks and navigation remain on the untouched parent button.</summary>
     private MarkerVisuals BuildMarker(GameObject objectRoot, InteractiveHotspotData hotspot)
     {
         MarkerVisuals marker = new MarkerVisuals();
         marker.markerRoot = CreateUiObject(objectRoot.transform, "Marker");
         RectTransform markerRect = marker.markerRoot.GetComponent<RectTransform>();
-        markerRect.anchorMin = markerRect.anchorMax = new Vector2(0.5f, 1f); markerRect.pivot = new Vector2(0.5f, 1f); markerRect.sizeDelta = Vector2.zero; markerRect.anchoredPosition = Vector2.zero;
-        marker.chipFill = CreateImage(marker.markerRoot.transform, "Chip Fill", GetCircleSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -35f), new Vector2(80f, 80f), ChipFillColor);
-        marker.ring = CreateImage(marker.markerRoot.transform, "Chip Ring", GetRingSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -35f), new Vector2(80f, 80f), RingAvailableColor);
+        // Visual offsets reproduce the target's object attachment, not new semantic/hit positions.
+        bool laptop = string.Equals(hotspot.iconId, "laptop", StringComparison.OrdinalIgnoreCase);
+        bool door = string.Equals(hotspot.iconId, "door", StringComparison.OrdinalIgnoreCase);
+        marker.idleLabelOffset = door ? 51f : 47f;
+        float glyphY = laptop ? -49f : door ? -14f : -31f;
+        float tipY = laptop ? -112f : door ? -102f : -105f;
+        markerRect.anchorMin = markerRect.anchorMax = new Vector2(0.5f, 1f); markerRect.pivot = new Vector2(0.5f, 0.5f); markerRect.sizeDelta = Vector2.zero; markerRect.anchoredPosition = new Vector2(door ? 24f : laptop ? 0f : -2f, glyphY);
+        marker.glow = CreateImage(marker.markerRoot.transform, "Focus Glow", GetGlowSprite(), Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(96f, 96f), Color.clear);
+        marker.brackets = CreateImage(marker.markerRoot.transform, "Open Brackets", GetBracketsSprite(false), Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64f, 64f), MarkerIdleColor);
         Sprite glyphSprite = GetGlyphSprite(hotspot.iconId);
-        if (glyphSprite != null) marker.glyph = CreateImage(marker.markerRoot.transform, "Glyph", glyphSprite, Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -35f), new Vector2(46f, 46f), GlyphAvailableColor);
-        marker.dot = CreateImage(marker.markerRoot.transform, "Anchor Dot", GetCircleSprite(), Vector2.zero, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -105f), new Vector2(20f, 20f), AnchorDotColor);
+        if (glyphSprite != null) marker.glyph = CreateImage(marker.markerRoot.transform, "Glyph", glyphSprite, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 48f), GlyphAvailableColor);
+        float tipOffset = tipY - glyphY;
+        float lineBottom = tipOffset + 7f;
+        marker.attachment = CreateImage(marker.markerRoot.transform, "Attachment Line", null, Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), new Vector2(0f, (-33f + lineBottom) * 0.5f), new Vector2(1.4f, -33f - lineBottom), MarkerIdleColor);
+        marker.diamond = CreateImage(marker.markerRoot.transform, "Hollow Diamond", GetDiamondSprite(), Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), new Vector2(0f, tipOffset), new Vector2(16f, 16f), MarkerIdleColor);
+        marker.padlock = CreateImage(marker.markerRoot.transform, "Locked Indicator", GetPadlockSprite(), Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), new Vector2(21f, -17f), new Vector2(24f, 24f), GlyphLockedColor);
+        marker.chevron = CreateImage(marker.markerRoot.transform, "Focus Chevron", GetChevronSprite(), Vector2.zero, Vector2.zero, new Vector2(0.5f, 0.5f), new Vector2(48f, 0f), new Vector2(16f, 20f), GlyphAvailableColor);
         marker.labelRoot = CreateUiObject(marker.markerRoot.transform, "Label");
         RectTransform labelRect = marker.labelRoot.GetComponent<RectTransform>();
-        labelRect.anchorMin = labelRect.anchorMax = new Vector2(0f, 1f); labelRect.pivot = new Vector2(0f, 0.5f); labelRect.anchoredPosition = new Vector2(37f, -35f); labelRect.sizeDelta = new Vector2(130f, 54f);
-        marker.labelFill = CreateImage(marker.labelRoot.transform, "Label Fill", GetPillSprite(), Vector2.zero, Vector2.zero, Vector2.zero, LabelFillColor); Stretch(marker.labelFill.rectTransform); marker.labelFill.type = Image.Type.Sliced;
-        marker.labelEdge = CreateImage(marker.labelRoot.transform, "Label Edge", GetStrokeSprite(), Vector2.zero, Vector2.zero, Vector2.zero, MarkerEdgeColor); Stretch(marker.labelEdge.rectTransform, -2f, -2f, -2f, -2f); marker.labelEdge.type = Image.Type.Sliced;
-        marker.label = CreateText(marker.labelRoot.transform, "Label Text", hotspot.displayName, 30f, FontStyles.Normal, TextAlignmentOptions.Center, LabelTextColor);
-        Stretch(marker.label.rectTransform, 18f, 2f, 14f, 2f); marker.label.enableWordWrapping = false; marker.label.overflowMode = TextOverflowModes.Overflow;
-        // Deterministic pill width: TMP preferred-width measurement of Cyrillic labels
-        // on the not-yet-activated canvas undershoots and truncates the last glyph.
-        float labelWidth = Mathf.Clamp(hotspot.displayName.Length * 18f + 48f, 130f, 340f);
-        labelRect.sizeDelta = new Vector2(labelWidth, 54f);
+        labelRect.anchorMin = labelRect.anchorMax = Vector2.zero; labelRect.pivot = new Vector2(0f, 0.5f); labelRect.anchoredPosition = new Vector2(marker.idleLabelOffset, 3f); labelRect.sizeDelta = new Vector2(Mathf.Clamp(hotspot.displayName.Length * 16f, 100f, 340f), 36f);
+        marker.label = CreateText(marker.labelRoot.transform, "Label Text", hotspot.displayName, 26f, FontStyles.Normal, TextAlignmentOptions.Left, LabelTextColor);
+        Stretch(marker.label.rectTransform); marker.label.enableWordWrapping = false; marker.label.overflowMode = TextOverflowModes.Overflow;
+        Shadow shadow = marker.label.gameObject.AddComponent<Shadow>(); shadow.effectColor = new Color(0.01f, 0.025f, 0.05f, 0.75f); shadow.effectDistance = new Vector2(1f, -1f);
         return marker;
     }
 
@@ -318,9 +341,10 @@ public sealed class InteractiveSceneController : MonoBehaviour
         public Button button;
         public MarkerStateDriver driver;
         public GameObject markerRoot;
-        public Image chipFill, ring, glyph, dot, labelFill, labelEdge;
+        public Image brackets, glow, glyph, attachment, diamond, padlock, chevron;
         public TextMeshProUGUI label;
         public GameObject labelRoot;
+        public float idleLabelOffset;
     }
 
     /// <summary>Forwards pointer/selection changes so the marker can brighten without Selectable tint compounding.</summary>
@@ -328,11 +352,11 @@ public sealed class InteractiveSceneController : MonoBehaviour
     {
         public InteractiveSceneController owner;
         public string hotspotId;
-        public bool pointerOver;
-        public void OnSelect(BaseEventData eventData) => owner?.ApplyMarkerState(hotspotId);
-        public void OnDeselect(BaseEventData eventData) => owner?.ApplyMarkerState(hotspotId);
-        public void OnPointerEnter(PointerEventData eventData) { pointerOver = true; owner?.ApplyMarkerState(hotspotId); }
-        public void OnPointerExit(PointerEventData eventData) { pointerOver = false; owner?.ApplyMarkerState(hotspotId); }
+        public bool hasSelection;
+        public void OnSelect(BaseEventData eventData) { hasSelection = true; owner?.RefreshMarkerStates(); }
+        public void OnDeselect(BaseEventData eventData) { hasSelection = false; owner?.RefreshMarkerStates(); }
+        public void OnPointerEnter(PointerEventData eventData) => owner?.SetHoveredMarker(hotspotId, true);
+        public void OnPointerExit(PointerEventData eventData) => owner?.SetHoveredMarker(hotspotId, false);
     }
 
     private static GameObject CreateUiObject(Transform parent, string name) { GameObject result = new GameObject(name, typeof(RectTransform)); result.transform.SetParent(parent, false); return result; }
@@ -377,67 +401,68 @@ public sealed class InteractiveSceneController : MonoBehaviour
         return sprite;
     }
 
-    private static Sprite GetCircleSprite() => circleSprite != null ? circleSprite : circleSprite = BuildMaskSprite("Runtime Hotspot Chip Circle", 96, (x, y) => Mathf.Sqrt(x * x + y * y) - 46f);
-
-    private static Sprite GetRingSprite()
+    private static float BracketDistance(float x, float y, bool focused)
     {
-        if (ringSprite != null) return ringSprite;
-        const float ringRadius = 46f, strokeHalfWidth = 2.2f;
-        return ringSprite = BuildMaskSprite("Runtime Hotspot Chip Ring", 96, (x, y) =>
-        {
-            float distance = Mathf.Sqrt(x * x + y * y) - ringRadius;
-            float stroke = Mathf.Clamp01(strokeHalfWidth + 0.5f - Mathf.Abs(distance));
-            float outerGlow = distance > strokeHalfWidth ? Mathf.Clamp01(1f - (distance - strokeHalfWidth) / 4.5f) * 0.4f : 0f;
-            float innerGlow = distance < -strokeHalfWidth ? Mathf.Clamp01(1f - (-distance - strokeHalfWidth) / 5f) * 0.18f : 0f;
-            return 0.5f - Mathf.Max(stroke, Mathf.Max(outerGlow, innerGlow));
-        });
+        float edge = focused ? 28f : 27f;
+        float halfStroke = focused ? 1.15f : 0.65f;
+        x = Mathf.Abs(x); y = Mathf.Abs(y);
+        return Mathf.Min(SdRoundRect(x, y, edge - 4f, edge, 4.5f, halfStroke, 0f),
+            SdRoundRect(x, y, edge, edge - 4f, halfStroke, 4.5f, 0f));
     }
 
-    private static Sprite GetPillSprite()
+    private static Sprite GetBracketsSprite(bool focused)
     {
-        if (pillSprite != null) return pillSprite;
-        pillSprite = BuildMaskSprite("Runtime Hotspot Pill", 96, (x, y) => SdRoundRect(x, y, 0f, 0f, 48f, 48f, 44f));
-        return pillSprite;
+        if (focused) return focusedBracketsSprite != null ? focusedBracketsSprite : focusedBracketsSprite = BuildGlyphSprite("Runtime Hotspot Focus Brackets", (x, y) => BracketDistance(x, y, true));
+        return bracketsSprite != null ? bracketsSprite : bracketsSprite = BuildGlyphSprite("Runtime Hotspot Open Brackets", (x, y) => BracketDistance(x, y, false));
     }
 
-    private static Sprite GetStrokeSprite()
+    private static Sprite GetGlowSprite() => glowSprite != null ? glowSprite : glowSprite = BuildMaskSprite("Runtime Hotspot Local Glow", 96, (x, y) =>
     {
-        if (strokeSprite != null) return strokeSprite;
-        const float strokeHalfWidth = 0.85f;
-        strokeSprite = BuildMaskSprite("Runtime Hotspot Stroke", 96, (x, y) =>
-        {
-            float distance = SdRoundRect(x, y, 0f, 0f, 48f, 48f, 24f);
-            float stroke = Mathf.Clamp01(strokeHalfWidth + 0.5f - Mathf.Abs(distance));
-            float outerGlow = distance > strokeHalfWidth ? Mathf.Clamp01(1f - (distance - strokeHalfWidth) / 3.5f) * 0.35f : 0f;
-            float innerGlow = distance < -strokeHalfWidth ? Mathf.Clamp01(1f - (-distance - strokeHalfWidth) / 5f) * 0.16f : 0f;
-            return 0.5f - Mathf.Max(stroke, Mathf.Max(outerGlow, innerGlow));
-        });
-        return strokeSprite;
-    }
+        float distance = Mathf.Max(0f, BracketDistance(x, y, true));
+        float cornerGlow = Mathf.Exp(-distance * distance / 7f) * 0.65f;
+        float glyphGlow = Mathf.Exp(-(x * x + y * y) / 350f) * 0.22f;
+        return 0.5f - Mathf.Max(cornerGlow, glyphGlow);
+    });
 
-    /// <summary>Simple white line-art glyphs so showcase chips read like target 07; unknown ids keep a clean chip.</summary>
+    private static Sprite GetDiamondSprite() => diamondSprite != null ? diamondSprite : diamondSprite = BuildGlyphSprite("Runtime Hotspot Hollow Diamond", (x, y) => Mathf.Abs((Mathf.Abs(x) + Mathf.Abs(y) - 26f) / Mathf.Sqrt(2f)) - 3f);
+
+    private static Sprite GetChevronSprite() => chevronSprite != null ? chevronSprite : chevronSprite = BuildGlyphSprite("Runtime Hotspot Focus Chevron", (x, y) => Mathf.Max(Mathf.Abs(x + Mathf.Abs(y) * 1.15f - 14f) - 4.5f, Mathf.Abs(y) - 23f));
+
+    private static Sprite GetPadlockSprite() => padlockSprite != null ? padlockSprite : padlockSprite = BuildGlyphSprite("Runtime Hotspot Padlock", (x, y) =>
+    {
+        float shackle = Mathf.Abs(SdRoundRect(x, y, 0f, 11f, 12f, 15f, 10f)) - 3f;
+        float body = SdRoundRect(x, y, 0f, -9f, 19f, 17f, 3f);
+        float keyhole = Mathf.Min(SdRoundRect(x, y, 0f, -12f, 2.5f, 6f, 1f), Mathf.Sqrt(x * x + (y + 5f) * (y + 5f)) - 4f);
+        return Mathf.Min(shackle, Mathf.Max(body, -keyhole));
+    });
+
+    /// <summary>Local line-art primitives, never a baked target overlay or production texture asset.</summary>
     private static Sprite GetGlyphSprite(string iconId)
     {
         if (string.Equals(iconId, "laptop", StringComparison.OrdinalIgnoreCase)) return laptopGlyphSprite != null ? laptopGlyphSprite : laptopGlyphSprite = BuildGlyphSprite("Runtime Hotspot Laptop Glyph", (x, y) =>
             Mathf.Min(
-                Mathf.Abs(SdRoundRect(x, y, 0f, -3f, 15f, 11f, 2f)) - 1.6f,
-                SdRoundRect(x, y, 0f, -14f, 20f, 2.2f, 1.5f)));
+                Mathf.Abs(SdRoundRect(x, y, 0f, 1f, 18f, 13f, 1f)) - 1.6f,
+                SdRoundRect(x, y, 0f, -13f, 22f, 1.6f, 0.8f)));
         if (string.Equals(iconId, "notes", StringComparison.OrdinalIgnoreCase))
         {
             return notesGlyphSprite != null ? notesGlyphSprite : notesGlyphSprite = BuildGlyphSprite("Runtime Hotspot Notes Glyph", (x, y) =>
             {
-                float sheet = Mathf.Abs(SdRoundRect(x, y, 0f, 0f, 12.5f, 20f, 2f)) - 1.6f;
-                float line1 = SdRoundRect(x, y, 0f, 9f, 7f, 1.3f, 1f);
-                float line2 = SdRoundRect(x, y, 0f, 1.5f, 7f, 1.3f, 1f);
-                float line3 = SdRoundRect(x, y, 0f, -6f, 7f, 1.3f, 1f);
-                return Mathf.Min(sheet, Mathf.Min(line1, Mathf.Min(line2, line3)));
+                float sheet = Mathf.Abs(SdRoundRect(x, y, -1f, 0f, 15f, 20f, 2f)) - 1.6f;
+                // A second exposed sheet edge and four rules match the target's notes glyph.
+                float backSheet = Mathf.Abs(SdRoundRect(x, y, 3f, -3f, 15f, 20f, 2f)) - 1.2f;
+                backSheet = Mathf.Max(backSheet, -Mathf.Max(x - 15f, -y - 21f));
+                float line1 = SdRoundRect(x, y, -1f, 12f, 9f, 1f, 0.5f);
+                float line2 = SdRoundRect(x, y, -1f, 4f, 9f, 1f, 0.5f);
+                float line3 = SdRoundRect(x, y, -1f, -4f, 9f, 1f, 0.5f);
+                float line4 = SdRoundRect(x, y, -1f, -12f, 7f, 1f, 0.5f);
+                return Mathf.Min(Mathf.Min(sheet, backSheet), Mathf.Min(Mathf.Min(line1, line2), Mathf.Min(line3, line4)));
             });
         }
         if (string.Equals(iconId, "door", StringComparison.OrdinalIgnoreCase))
         {
             return doorGlyphSprite != null ? doorGlyphSprite : doorGlyphSprite = BuildGlyphSprite("Runtime Hotspot Door Glyph", (x, y) =>
             {
-                float slab = Mathf.Abs(SdRoundRect(x, y, 0f, 0f, 10.5f, 22f, 2f)) - 1.6f;
+                float slab = Mathf.Abs(SdRoundRect(x, y, 0f, 0f, 13f, 20f, 0f)) - 1.2f;
                 float handleX = x - 4.5f, handleY = y + 2f;
                 float handle = Mathf.Sqrt(handleX * handleX + handleY * handleY) - 2.6f;
                 return Mathf.Min(slab, handle);
