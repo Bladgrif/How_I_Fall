@@ -29,8 +29,30 @@ namespace HowIFall.PlayModeTests
                 system.SetSelectedGameObject(null);
                 foreach (var effect in effects) { effect.OnPointerExit(null); effect.OnDeselect(null); }
                 AdvanceAll(effects, MainMenuButtonHoverEffect.InteractionFadeDuration);
+                Image wash = Object.FindObjectsByType<Image>(FindObjectsInactive.Include, FindObjectsSortMode.None).Single(image => image.name == "Left Gradient Overlay");
+                Assert.That(wash.color.a, Is.EqualTo(1f), "The v2 readability wash must keep its full depth.");
                 Color normal = effects[1].CurrentLabelColor;
-                Assert.That(effects.All(e => e.CurrentLabelColor == normal && !e.IsFocusAccentVisible), Is.True);
+                Assert.That(effects.Take(4).All(e => e.CurrentLabelColor == normal && !e.IsFocusAccentVisible), Is.True);
+
+                Assert.That(effects[4].CurrentLabelColor.r, Is.LessThan(normal.r));
+                Assert.That(effects[4].IsFocusAccentVisible, Is.False);
+                Assert.That(menu.ApplyPlayerFacingPresentation(), Is.True, "Presentation must be idempotent.");
+                RectTransform[] rows = actions.Select(b => (RectTransform)b.transform.parent).ToArray();
+                for (int i = 0; i < rows.Length; i++)
+                {
+                    Assert.That(rows[i].sizeDelta, Is.EqualTo(new Vector2(324f, 64f)));
+                    Assert.That(rows[i].anchoredPosition.x, Is.EqualTo(-28f));
+                    Assert.That(effects[i].FocusAccentSize, Is.EqualTo(new Vector2(3f, 60f)));
+                    var tmpLabel = actions[i].GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                    var legacyLabel = actions[i].GetComponentInChildren<Text>();
+                    Assert.That(tmpLabel != null ? tmpLabel.fontSize : legacyLabel.fontSize, Is.EqualTo(36f));
+                    Graphic label = tmpLabel != null ? (Graphic)tmpLabel : legacyLabel;
+                    Assert.That(label.GetComponents<Shadow>().All(e => !e.enabled), Is.True);
+                    if (legacyLabel != null)
+                        Assert.That(legacyLabel.font, Is.EqualTo(actions[0].GetComponentInChildren<Text>().font));
+                    if (i > 0) Assert.That(rows[i - 1].anchoredPosition.y - rows[i].anchoredPosition.y,
+                        Is.EqualTo(i == 4 ? 108f : 80f));
+                }
 
                 float originalTimeScale = Time.timeScale;
                 try
@@ -64,9 +86,10 @@ namespace HowIFall.PlayModeTests
                     "Previous action must fade out when pointer moves to another row.");
                 AdvanceAll(effects, MainMenuButtonHoverEffect.InteractionFadeDuration);
                 Assert.That(effects[3].IsFocusAccentVisible, Is.False, "Old action retained a focus accent after fade-out.");
+                Assert.That(effects[1].IsSelectionGlowVisible, Is.False);
                 Assert.That(effects[1].CurrentLabelColor, Is.Not.EqualTo(normal));
                 Assert.That(((Image)actions[1].targetGraphic).color.a, Is.InRange(0.25f, 0.55f),
-                    "Hover must show the target v1 translucent glass plate.");
+                    "Hover must show the target v2 local navy plate.");
                 ExecuteEvents.Execute(actions[1].gameObject, new PointerEventData(system), ExecuteEvents.pointerDownHandler);
                 ExecuteEvents.Execute(actions[1].gameObject, new PointerEventData(system), ExecuteEvents.pointerUpHandler);
                 ExecuteEvents.Execute(actions[1].gameObject, new PointerEventData(system), ExecuteEvents.pointerExitHandler);
