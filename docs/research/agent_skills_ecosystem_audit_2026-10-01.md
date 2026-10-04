@@ -4,7 +4,7 @@
 
 Вопрос: нужен ли How I Fall более сильный agent/skill/tooling слой. Проверялись текущие repository-возможности и актуальная внешняя экосистема (официальные Unity skills, Scenario Unity expert skills). Гипотеза «внешние репозитории содержат skills, значит HIF нужны такие же» проверялась против реальных gaps. Отдельный research-документ оправдан: результат определяет agent-инфраструктуру проекта и к нему нужно будет возвращаться.
 
-Ограничения аудита: production Unity не менялся, внешние сервисы не подключались, платные API не использовались. Исследование выполнено J-Code: coordinator/writer + два read-only investigator.
+Ограничения аудита: production Unity не менялся, внешние сервисы не подключались, платные API не использовались. Исследование выполнено схемой coordinator/writer + два read-only investigator.
 
 ## Источники
 
@@ -72,11 +72,10 @@
 
 **Adoption mode: DEFER** до появления финальной арт-фазы и бюджета/аккаунта Scenario. Согласовано с `decision_log.md` от 2026-08-27: финальный арт подключается позже.
 
-## Codex vs Z-Code vs J-Code
+## Codex vs Z-Code
 
 - **Codex:** одна из сред с официальным plugin-путём для Unity skills (`codex plugin add unity@unity-agent-plugin`; тот же плагин официально ставится и в Claude Code, и в Grok). Опциональное усиление, не требование.
-- **Z-Code (default):** ничего из внешнего не требуется; существующие skills + документация покрывают default-работу — и single-agent bounded execution, и координированную multi-agent работу с read-only subagent'ами. Ручная установка skill-файлов в `~/.agents/skills` возможна, но сейчас не даёт того, чего нет в repository.
-- **J-Code:** многоагентная координация уже покрыта `agent_orchestration.md` (§4, §11) и сама по себе не требует новых skill'ов. Multi-agent работа по умолчанию выполняется в Z-Code; J-Code — опциональная специализированная среда, только когда её harness даёт конкретное преимущество для задачи. Постоянные agent-определения не нужны.
+- **Z-Code:** ничего из внешнего не требуется; существующие skills + документация покрывают routine/support single-agent работу и координированную multi-agent работу с read-only subagent'ами. Ручная установка skill-файлов в `~/.agents/skills` возможна, но сейчас не даёт того, чего нет в repository.
 
 Постоянные agent-определения (persistent roles) отклонены: в `AGENTS.md`/`agent_orchestration.md` уже есть ролевая модель Implementer/Reviewer/User, а swarm-использование описано как исключение. Роль должна задаваться brief'ом задачи, не репозиторием.
 
@@ -84,9 +83,9 @@
 
 1. **Ничего не менять** — отклонено: G1 реален, agents waste context на переоткрытие debug-карты.
 2. **Вендорить Unity skills в репозиторий** — отклонено: дублирование официального контента, лицензионный риск (Unity Companion License не позволяет свободное копирование текста), prompt bloat.
-3. **Постоянные J-Code agent-роли (implementation worker / reviewer / QA investigator)** — отклонено: дублирует существующую ролевую модель в source of truth; роли задаются brief'ом задачи независимо от среды.
+3. **Постоянные harness-specific agent-роли (implementation worker / reviewer / QA investigator)** — отклонено: дублирует существующую ролевую модель в source of truth; роли задаются brief'ом задачи независимо от среды.
 4. **Отдельный skill для каждой внешней концепции** — отклонено: создало бы 10+ мелких skill'ов против принципа минимальности.
-5. **Принято: минимальная архитектура** — один узкий repository-skill для G1, документация опционального Unity plugin для Codex, паттерны Scenario зафиксированы как уже-принятые-в-духе (sentinel verdict, numbers-before-pixels), генеративный Scenario — defer. Архитектура инструментов остаётся минимальной, но позднейший local HIF evidence обновил model routing: Codex + GPT-6.1 Sol High — primary path для значимой production/player-facing implementation; Z-Code сохраняется для routine/support и координированной multi-agent работы с read-only subagent'ами; J-Code — опционально, только при конкретном преимуществе её harness.
+5. **Принято: минимальная архитектура** — один узкий repository-skill для G1, документация опционального Unity plugin для Codex, паттерны Scenario зафиксированы как уже-принятые-в-духе (sentinel verdict, numbers-before-pixels), генеративный Scenario — defer. Архитектура инструментов остаётся минимальной, но позднейший local HIF evidence обновил model routing: Codex + GPT-6.1 Sol High — primary path для значимой production/player-facing implementation; Z-Code сохраняется для routine/support и координированной multi-agent работы с read-only subagent'ами.
 
 ## Рекомендация для HIF
 

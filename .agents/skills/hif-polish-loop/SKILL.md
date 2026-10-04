@@ -85,7 +85,7 @@ Budget remaining:
 - **GPT-6 Luna** — bounded/high-volume Codex work, automation, tests/docs и independent second pass.
 - **GLM-5.3 / GPT-6 Astra** — selective escalation/fallback при конкретной причине; Astra — только hardest/highest-stakes после Sol High или при unusually high cost of error.
 
-Multi-agent работа — default в Z-Code: coordinator/writer + read-only investigator'ы в количестве, оправданном независимыми workstreams (2/3/5+). J-Code — только когда его конкретное harness-поведение даёт преимущество для задачи, а не сам факт multi-agent. Обычно 2–3 агента и один coordinator.
+Multi-agent работа — в Z-Code: coordinator/writer + read-only investigator'ы в количестве, оправданном независимыми workstreams (2/3/5+). Используй её только когда параллельные независимые workstreams дают реальную ценность. Обычно 2–3 агента и один coordinator.
 
 Не давай нескольким агентам конкурирующе редактировать одну поверхность, scene/prefab или serialized asset. Worker output — proposal/evidence, не reviewer proof. Если реального routing/delegation нет, не имитируй его.
 
