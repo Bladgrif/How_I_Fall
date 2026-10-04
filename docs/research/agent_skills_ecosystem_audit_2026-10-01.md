@@ -86,7 +86,7 @@
 2. **Вендорить Unity skills в репозиторий** — отклонено: дублирование официального контента, лицензионный риск (Unity Companion License не позволяет свободное копирование текста), prompt bloat.
 3. **Постоянные J-Code agent-роли (implementation worker / reviewer / QA investigator)** — отклонено: дублирует существующую ролевую модель в source of truth; роли задаются brief'ом задачи независимо от среды.
 4. **Отдельный skill для каждой внешней концепции** — отклонено: создало бы 10+ мелких skill'ов против принципа минимальности.
-5. **Принято: минимальная архитектура** — один узкий repository-skill для G1, документация опционального Unity plugin для Codex, паттерны Scenario зафиксированы как уже-принятые-в-духе (sentinel verdict, numbers-before-pixels), генеративный Scenario — defer. Agent-архитектура не меняется: default Z-Code — и для single-agent bounded execution, и для координированной multi-agent работы с read-only subagent'ами; J-Code — опционально, только при конкретном преимуществе её harness.
+5. **Принято: минимальная архитектура** — один узкий repository-skill для G1, документация опционального Unity plugin для Codex, паттерны Scenario зафиксированы как уже-принятые-в-духе (sentinel verdict, numbers-before-pixels), генеративный Scenario — defer. Архитектура инструментов остаётся минимальной, но позднейший local HIF evidence обновил model routing: Codex + GPT-6.1 Sol High — primary path для значимой production/player-facing implementation; Z-Code сохраняется для routine/support и координированной multi-agent работы с read-only subagent'ами; J-Code — опционально, только при конкретном преимуществе её harness.
 
 ## Рекомендация для HIF
 
