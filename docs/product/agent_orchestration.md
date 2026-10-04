@@ -67,10 +67,10 @@ validation. Не микроменеджерь порядок шагов без �
 Среду и модель выбирай отдельно.
 
 ### Z-Code
-Default GLM-среда для HIF: и single-agent bounded implementation (routine
-Unity/C#/UI, fixes с ясным scope/root cause, tests/docs/validators, graphical
-E2E, screenshot QA, CI/log investigation, correction passes), и координированная
-multi-agent работа, когда параллельные независимые workstreams дают реальную
+GLM-среда для low-risk routine/support work: tests/docs/config, validators,
+deterministic fixes, CI/log investigation, evidence preparation и bounded
+follow-up/correction passes. Также используй Z-Code для координированной
+multi-agent работы, когда параллельные независимые workstreams дают реальную
 ценность: 2+ независимых направления, отдельный read-only reviewer, параллельное
 исследование production/tests/QA, длинное repo-wide investigation.
 
@@ -87,8 +87,9 @@ harness-поведение даёт реальное преимущество д
 multi-agent задачи причиной не является.
 
 ### Codex
-Используй для GPT-6 моделей, когда Codex harness удобнее или нужен независимый
-второй стек implementation/review.
+**Default implementation environment для значимых HIF production/player-facing
+задач**, потому что текущий preferred primary implementer — GPT-6.1 Sol High.
+Также используй Codex для GPT-6 Luna bounded work и independent second pass.
 
 ### Внешние agent-инструменты Unity
 
@@ -107,63 +108,70 @@ Editor-driving, CLI test/build, uGUI-гайды. Обоснование и гр�
 
 ## 5. Модель и budget
 
-Главный принцип: **самая дешёвая модель, стабильно проходящая quality bar**.
-
-### GLM-5.3-Flash
-Default для HIF. Weekly allowance пользователя ориентировочно ~292M tokens.
-Подходит для repo exploration, routine Unity/C#/UI, больших, но ясных bounded
-passes, fixes, tests/docs/validators, graphical QA, CI/log investigation и
-correction cycles.
-
-Default reasoning: Medium. Low — простая deterministic работа. High — если
-нужна дополнительная глубина. Перед эскалацией сначала рассмотри Flash + High.
-
-### GLM-5.3
-Weekly allowance ориентировочно ~97M tokens. Используй только когда Flash
-недостаточно надёжен: сложные interdependent systems, тяжёлый lifecycle/state
-debugging, ambiguous root cause, высокая цена ошибки или неудачная Flash
-попытка после уточнения scope.
-
-### GPT-6 Luna
-**Codex high-volume workhorse**, не только tiny fixes. Используй для focused,
-repeatable bounded work at scale: обычная Unity/C#/UI implementation,
-tests/docs/configs, correction passes и independent second implementation/check,
-когда Codex удобнее. Не эскалируй на Sol только из-за размера задачи.
+Главный принцип: **quality-first при разумном budget; оптимизируй total cost of
+quality, а не только токены первого прохода**. Для значимой HIF implementation
+лучший default — сильный первый проход, который уменьшает correction/rework.
 
 ### GPT-6.1 Sol
-Preferred Sol-tier для HIF, если модель доступна в Codex. GPT-6.1 Sol заменяет
-GPT-6 Sol как основной Codex escalation: сложный Unity lifecycle/state,
-Save/Load, ambiguous root cause, high regression-risk, high-visibility UI
-target-match/final correction и coordinated technical deliverables.
+**Primary HIF implementer в Codex.** Для значимых production/player-facing задач
+по умолчанию используй **GPT-6.1 Sol High**, если модель доступна и текущий
+пользовательский лимит позволяет.
 
-Default reasoning: Medium. High — visual finishing, lifecycle/state,
-нетривиальный debugging или когда нужен более надёжный final correction.
-Max — только после неудачной High-попытки или при действительно высокой цене
-ошибки. Не используй Sol автоматически для routine fixes/polish, если
-GLM-5.3-Flash стабильно проходит quality bar.
+Sol High — default для:
+- high-visibility UI, graphical polish и match-to-approved-target;
+- обычной, но значимой Unity/C# runtime implementation;
+- lifecycle/state, Save/Load и связанных multi-file систем;
+- ambiguous root cause, observation-first debugging и high regression-risk;
+- законченных implementation → validation → graphical proof deliverables.
 
-Официальное позиционирование OpenAI: near-Astra performance для complex work
-при существенно меньшей стоимости. Это API evidence, а не гарантия
-subscription allowance; поэтому HIF всё равно оптимизирует фактические лимиты
-пользователя. Старый GPT-6 Sol — fallback только если GPT-6.1 Sol недоступен.
+Причина — локальный HIF evidence: Sol High уже дал сильные bounded результаты в
+special-mode lifecycle/state и Save transaction/failed-load integrity passes,
+а также качественный visual target work, при приемлемом фактическом расходе
+пользовательского лимита. Это project-local routing evidence, а не обещание
+универсального превосходства модели.
+
+**Medium** допустим для ясной non-visual/low-risk задачи, когда High не даёт
+ожидаемой практической выгоды. **Max** — только после неудачной High-попытки или
+при действительно высокой цене ошибки. Старый GPT-6 Sol — fallback только если
+GPT-6.1 Sol недоступен.
+
+### GLM-5.3-Flash
+Routine/support worker, а не default significant implementer. Используй для
+tests/docs/config, validators, CI/log investigation, deterministic low-risk
+fixes, evidence preparation, механических repo-операций и дешёвых bounded
+follow-up/correction задач. Default reasoning Medium; Low — deterministic;
+High — только если есть конкретная причина не перейти на Sol.
+
+### GPT-6 Luna
+Codex bounded/high-volume worker для tests/docs/configs, повторяемой механики,
+standalone/desktop automation, evidence work и independent second pass.
+Используй, когда задача не требует качества/связности Sol High.
+
+### GLM-5.3
+Selective alternative/escalation для interdependent systems или длинной
+investigation, если Z-Code harness materially полезен либо Sol недоступен /
+не прошёл quality bar. Не вставляй GLM-5.3 автоматически между Flash и Sol.
 
 ### GPT-6 Astra
-Для hardest end-to-end work: неясная root cause, несколько неудачных попыток,
-architecture/system reasoning, крупные interdependent изменения и высокая
-стоимость ошибки.
+Hardest/highest-stakes escalation после неудачной Sol High попытки, unusually
+high cost of error или задачи, где reviewer явно хочет дополнительную модельную
+мощность. Не используй Astra только потому, что задача большая.
 
 Практический ориентир:
-`GLM-5.3-Flash / GPT-6 Luna → GLM-5.3 / GPT-6.1 Sol → GPT-6 Astra`
+`GPT-6.1 Sol High primary → ChatGPT review → GLM-5.3-Flash / GPT-6 Luna на bounded хвосты`
 
-Это не автоматическая лестница. Размер context, число файлов и длительность
-сами по себе не являются причиной эскалации.
+При необходимости:
+`Sol High → GLM-5.3 или GPT-6 Astra`
+
+Размер context, число файлов и длительность сами по себе не определяют модель.
 
 ## 6. Reasoning
 
 Project-facing уровни:
 - **Low** — deterministic/mechanical;
-- **Medium** — обычная implementation/UI;
-- **High** — сложный debugging/interdependent state;
+- **Medium** — low-risk обычная implementation/support work;
+- **High** — default для значимой Sol implementation: player-facing UI/visual,
+  runtime C#, lifecycle/state, Save/Load и сложный debugging;
 - **Max** — только когда High недостаточен и цена ошибки высока.
 
 Не дублируй reasoning словесными усилителями внутри prompt. Для GPT-6 runtime
