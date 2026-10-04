@@ -185,6 +185,29 @@ Project-facing уровни:
 Для длинного pass допустим один mutable task-state/checklist. Обновляй его,
 а не накапливай дневник. Не коммить task-state без отдельной причины.
 
+### Авторизованный удалённый запуск Codex CLI
+
+Если доступно авторизованное подключение Remote Desktop Commander,
+reviewer/ChatGPT может напрямую запускать Codex CLI и читать его отчёты. Не
+используй пользователя как copy/paste relay для prompt'ов или отчётов агента,
+если reviewer может сам вызвать и прочитать нужные инструменты.
+
+Для каждого запуска явно задавай среду, модель, reasoning, сессию и bounded
+scope задачи; не полагайся на устаревшие глобальные defaults Codex. Удалённый
+способ запуска меняет только транспорт и не ослабляет git/worktree safety,
+protected contracts, validation, reviewer-visible proof, exact-head CI или
+ответственность reviewer'а за merge. Сохраняй dirty `develop` и unrelated work;
+bounded worktree используй только при необходимости по разделу 9. Для обычной
+HIF-автоматизации не используй опасные режимы обхода ограничений.
+
+Такой запуск не является continuous/background autonomy: bounded pass
+останавливается на существующих gates, при завершении execution или когда
+требуется новое user/product decision. Если запуск блокируют quota или
+доступность модели, сообщи blocker. Z-Code остаётся отдельно и явно выбираемой
+fallback-средой, а не скрытым автоматическим failover. Reviewer независимо
+проверяет реальный diff, CI и evidence и выполняет merge только после чистого
+`GREEN` acceptance.
+
 ## 8. Prompt contract
 
 Paste-ready prompt обычно содержит:
