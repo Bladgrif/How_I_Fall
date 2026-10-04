@@ -7,6 +7,7 @@ Google Drive остаётся удобным зеркалом для челов�
 
 Текущий набор:
 - `01_Main_Menu_Target_v1.png`
+- `01_Main_Menu_Target_v2.png` — рекомендованный visual proposal; НЕ утверждён, только дизайн. До одобрения пользователя v1 остаётся действующей целью.
 - `02_Reading_Target_v1.png`
 - `03_Game_Menu_Target_v1.png`
 - `04_Choice_Target_v1.png`
@@ -21,6 +22,30 @@ Google Drive остаётся удобным зеркалом для челов�
 - Верхний правый элемент «Меню», изображённый на target 07, НЕ авторитетен и не должен появляться в runtime: доступ к Game Menu в Hotspot-режиме работает только через существующий установленный путь Esc/RMB.
 - Кастомная dialogue/feedback-панель, изображённая на target 07, НЕ авторитетна и не воспроизводится: Hotspot-режим не создаёт собственной панели диалога/фидбека.
 - Источник истины для подачи диалога/фидбека в Hotspot-режиме — существующая принятая Reading/dialogue UI игры (обычный Dialogue Box со спикером, текстом и typing-презентацией).
+
+## Main Menu v2 — design pass, 2026-10-04
+
+Исходный `master`: `2fdd662e4414c1da0dfa62fcc483342075da7d3e`.
+**Production runtime НЕ изменён. Перед любой реализацией требуется явное одобрение пользователя.**
+v1 сохранён без изменений для истории и сравнения; v2 не заменяет его автоматически.
+
+Вывод сравнения — **A**: art-first направление v1 остаётся сильным. Свежий runtime уступает ему по чёткости текста и деликатности активной строки. v2 оправдан как уточнение этого направления, а не новый redesign:
+
+- Чуть компактнее логотип, больше воздуха вокруг него; красно-белая brush-идентичность сохранена.
+- Чёткая единая типографика без тяжёлого shadow/outline и общая оптическая ось подписей.
+- Более тихая короткая navy-подсветка с тонким cyan-маркером вместо яркой широкой плашки.
+- Ровный ритм первых четырёх строк и дополнительный интервал перед `Выйти`.
+- Плавное поле читаемости слева; светлый key visual остаётся главным справа, tagline — вторичным.
+
+На v2 показан доступный `Продолжить` в активном состоянии. Hover и keyboard/controller focus используют один визуальный язык и одного владельца; это не новый default selection. Недоступный `Продолжить`, его visibility/availability, существующий набор из пяти действий, navigation/input, Esc/Quit и маршруты не меняются. PNG не задаёт анимацию или новые runtime-семантики.
+
+v2 создан встроенным `imagegen`, просмотрен в исходных **1672×941** (как v1). Это композиционный макет, не pixel-perfect спецификация размеров для 1920×1080. Генеративные отличия фона/логотипа НЕ являются предложением заменить production assets; при реализации используются существующие assets. Сценография остаётся `TECH DEMO ONLY / NOT CANON`, без нового сюжетного канона. Альтернативы не предлагаются.
+
+Сравнение: v1, `main_menu.png`, `main_menu_hover.png`, свежие 1920×1080 `normal_enabled`, `disabled_continue`, `hover`, `pointer_exit`, `keyboard_focus`, `settings_focus`, `quit_confirmation`. Ориентир согласованности с Hotspot — target 07 с его оговорками и `hotspot_showcase_initial.png` из exact base: читаемые подписи, navy-поле и локальный cyan-сигнал, но не круглые маркеры или HUD в Main Menu. Незавершённый Hotspot-runtime из защищённого `develop` не проверялся. Самостоятельно проверены читаемость, иерархия, единичный фокус, интервалы и отсутствие clipping/overlap на макете.
+
+Runtime capture: существующий `PlayerUiGraphicalE2ERunner.StartAutomatedPlayMode`, Unity `6000.5.7f1`, `-batchmode` **с графикой, без `-nographics`**, exit 0, `status=PASS`, `playerPrefsRestored=true`, 77 PNG. Обычный launcher сначала заблокировался на Editor layout до старта QA; batchmode обошёл этот startup blocker. Лог не объявляется чистым: отдельно отмечены Editor Search `ArgumentOutOfRangeException` и TMP inconsistent-import diagnostic. Исправления runtime/importer вне scope. NUnit/regression suite и человеческий aesthetic QA — `NOT RUN`; baselines не заменялись.
+
+[Свежий proof и рекомендуемый target на Drive](https://drive.google.com/drive/folders/1W0gZW2E0dusap1KS2zwyFYgbAYxVKxnF) — папка в `03 — UI — implementation & QA proof`; manifest содержит source SHA, filenames и SHA-256. Reviewer проверяет реальные изображения; пользователь утверждает эстетическое направление до отдельной implementation-задачи.
 
 Правила:
 - target фиксирует visual/UX направление, но не финальный art или будущий канон;
