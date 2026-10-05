@@ -52,7 +52,7 @@ try {
         Add-Content (Join-Path $C 'supervisor-loop.log') ((Get-Date).ToString('o')+' '+$_.Exception.Message) -Encoding UTF8
         try {
             $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-            $failures=[int]$s.transport_failures+1
+            $failures=if($s.status -eq 'PARTIAL_RETRY'){0}else{[int]$s.transport_failures+1}
             $s | Add-Member -NotePropertyName transport_failures -NotePropertyValue $failures -Force
             $s | Add-Member -NotePropertyName last_error -NotePropertyValue $_.Exception.Message -Force
             if($failures -ge 3){$s.status='BLOCKED'}

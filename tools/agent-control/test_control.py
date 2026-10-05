@@ -169,7 +169,7 @@ class ControlTests(unittest.TestCase):
             root=Path(directory)
             text=Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
             (root/"loop.ps1").write_text(text,encoding="utf-8-sig")
-            (root/"hif-worker.ps1").write_text('exit 1',encoding="utf-8-sig")
+            (root/"hif-worker.ps1").write_text('Write-Error usage_limit_exceeded; exit 1',encoding="utf-8-sig")
             (root/"state.json").write_text(json.dumps({"status":"PARTIAL_RETRY","active_task_id":"preserve"}),encoding="utf-8")
             (root/"queue.json").write_text(json.dumps({"tasks":[{"id":"preserve","status":"PARTIAL_RETRY","writer_engine":"Codex"}]}),encoding="utf-8")
             (root/"controller.json").write_text(json.dumps({"enabled":True}),encoding="utf-8")

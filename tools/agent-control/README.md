@@ -38,7 +38,7 @@
   Supervisor после успеха сразу вызывает GitHub merge plugin с
   `expected_head_sha`; устаревший receipt не является разрешением.
 
-`controller.json`: `enabled`, `supervisor_thread_id`, пути/модели.
+`controller.json`: `enabled`, `supervisor_thread_id`, версия runtime/scheduler.
 `queue.json`: tasks с `id`, `status`, `approved_source`, `base_sha`, `prompt`,
 `allowed_paths`, `validation` (включая acceptance), `risk`, `player_facing`.
 `state.json`: `status`, `active_task_id`, durable next action.
