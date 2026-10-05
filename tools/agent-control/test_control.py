@@ -18,7 +18,8 @@ class ControlTests(unittest.TestCase):
         self.task = {"id": "test", "base_sha": "a"*40, "head_sha": "b"*40}
         self.review = dict(task_id="test", base_sha="a"*40, head_sha="b"*40,
                            verdict="CLEAN", findings=[], validation_gaps=[], escalate=False,
-                           reviewer_model="gpt-6-luna", reviewer_reasoning="low")
+                           reviewer_model="gpt-6-luna", reviewer_reasoning="low", risk="low",
+                           summary="clean", visual_proof_verified=False, reviewed_at="2026-10-05T00:00:00Z")
         self.strong = dict(self.review, reviewer_model="gpt-6.1-sol", reviewer_reasoning="high")
         self.pr = dict(number=1, state="open", draft=False, mergeable=True,
                        head={"sha": "b"*40}, base={"ref": "master", "sha": "a"*40})
@@ -55,6 +56,18 @@ class ControlTests(unittest.TestCase):
         self.review["head_sha"] = "c"*40
         with self.assertRaises(ValueError):
             self.gate()
+
+    def test_malformed_review_cannot_bypass_gate(self):
+        for key, value in [("findings", None), ("findings", 0), ("validation_gaps", {}),
+                           ("validation_gaps", ""), ("visual_proof_verified", "true"), ("escalate", None)]:
+            with self.assertRaises(ValueError):
+                c.gate(self.task, dict(self.review, **{key:value}), self.strong, self.pr, self.checks, [])
+        with self.assertRaises(ValueError):
+            c.gate(self.task, dict(self.review, extra="not allowed"), self.strong, self.pr, self.checks, [])
+
+    def test_risk_paths_normalized_with_component_boundaries(self):
+        self.assertTrue(c.high_risk(["ProjectSettings\\file.asset"]))
+        self.assertFalse(c.high_risk(["PackagesEvil/file.asset", "tools/agent-control-evil/file.txt"]))
 
     def test_findings_and_validation_gaps_rejected(self):
         for key in ["findings", "validation_gaps"]:

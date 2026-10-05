@@ -100,6 +100,7 @@ def quota_result(raw):
 
 
 def high_risk(paths):
+    paths = [p.replace("\\", "/") for p in paths]
     return any(re.search(r"\.(cs|unity|prefab|uxml|uss|shader|shadergraph)$", p, re.I) or
                p.startswith(("Packages/", "ProjectSettings/", "tools/agent-control/", ".github/"))
                for p in paths)
@@ -124,6 +125,19 @@ def validate_worker_report(report):
 
 
 def review_ok(review, task, strong=False):
+    keys = {"verdict", "risk", "escalate", "summary", "findings", "validation_gaps", "visual_proof_verified",
+            "task_id", "base_sha", "head_sha", "reviewer_model", "reviewer_reasoning", "reviewed_at"}
+    if not isinstance(review, dict) or set(review) != keys:
+        raise ValueError("Independent review keys/schema mismatch")
+    if review["risk"] not in ("low", "medium", "high") or type(review["escalate"]) is not bool or type(review["visual_proof_verified"]) is not bool:
+        raise ValueError("Independent review enum/boolean types invalid")
+    if not isinstance(review["findings"], list) or not isinstance(review["validation_gaps"], list):
+        raise ValueError("Independent review findings/gaps must be arrays")
+    if not all(isinstance(gap, str) for gap in review["validation_gaps"]):
+        raise ValueError("Invalid validation gap type")
+    for key in ("summary", "task_id", "base_sha", "head_sha", "reviewer_model", "reviewer_reasoning", "reviewed_at"):
+        if not isinstance(review[key], str):
+            raise ValueError("Invalid review string field " + key)
     expected = (task["id"], task["base_sha"], task["head_sha"])
     actual = tuple(review.get(k) for k in ("task_id", "base_sha", "head_sha"))
     if actual != expected or review.get("verdict") != "CLEAN":
@@ -239,7 +253,7 @@ def main():
         state, tasks = load(c / "state.json"), load(c / "queue.json")["tasks"]
         task = next(t for t in tasks if t["id"] == state["active_task_id"])
         repo = task["writer_path"]
-        changed = subprocess.check_output(["git", "-c", "safe.directory=" + repo, "-C", repo, "diff", "--name-only", task["base_sha"] + "..." + task["head_sha"]], text=True).splitlines()
+        changed = subprocess.check_output(["git", "-c", "safe.directory=" + repo, "-C", repo, "diff", "--name-only", "-z", task["base_sha"] + "..." + task["head_sha"]], encoding="utf-8").rstrip("\0").split("\0")
         pr = github("pulls/" + str(task["pr_number"]))
         checks = github("commits/" + task["head_sha"] + "/check-runs?per_page=100")
         receipt = gate(task, load(c / "review-latest.json"), load(c / "strong-review-latest.json")

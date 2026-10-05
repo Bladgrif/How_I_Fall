@@ -20,9 +20,13 @@ function SetProp($o, $n, $v) {
 function SaveControl($q, $s) {
     SetProp $q 'updated_at' (NowIso)
     SetProp $s 'updated_at' (NowIso)
-    WriteJson $q $QueuePath
-    WriteJson $s $StatePath
-    try { $renderText = Get-Content -LiteralPath (Join-Path $ControlDir 'render-status.ps1') -Raw -Encoding UTF8; & ([ScriptBlock]::Create($renderText)) } catch {}
+    try {
+        WriteJson $q $QueuePath
+        WriteJson $s $StatePath
+    } catch {
+        try { Set-Content -LiteralPath (Join-Path $ControlDir 'STOP') -Value 'Durable control write failed; preserve partial diff and recover before dispatch' -Encoding UTF8 } catch { Write-Error 'STOP could not be persisted; scheduler must terminate on control-write failure' -ErrorAction Continue }
+        throw
+    }
 }
 function RunGit([string[]]$a) {
     & git -c ("safe.directory="+$Repo) -C $Repo @a
@@ -59,6 +63,7 @@ try {
     $id = [string]$task.id
     if ($id -notmatch '^[a-z0-9][a-z0-9-]{0,79}$') { throw 'Unsafe task ID' }
     if (-not $task.approved_source -or -not $task.base_sha -or -not $task.allowed_paths -or -not $task.validation -or -not $task.prompt) { throw 'Incomplete approved bounded task' }
+    if ([string]$task.base_sha -notmatch '^[a-f0-9]{40}$') { throw 'Exact 40-character base SHA required before claim' }
     if (@($task.allowed_paths | Where-Object { $_ -match '(^[/\\]|(^|/)\.\.(/|$)|:)' }).Count) { throw 'Unsafe allowed paths' }
     & $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $ControlDir | Out-Null
     if ($LASTEXITCODE) { throw 'Quota reader failed' }
@@ -121,10 +126,6 @@ try {
 
     SetProp $task 'resume_head_sha' ((& git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim())
     $base = [string]$task.base_sha
-    if (-not $base) {
-        $base = (& git -c ("safe.directory="+$Repo) -C $Repo merge-base HEAD origin/master).Trim()
-        SetProp $task 'base_sha' $base
-    }
 
     $allowedLines = (@($task.allowed_paths) | ForEach-Object { '- ' + $_ }) -join [Environment]::NewLine
     $extra = ''
