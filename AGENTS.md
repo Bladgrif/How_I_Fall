@@ -23,9 +23,11 @@
 
 - Для **значимой HIF implementation** по умолчанию используй **Codex + GPT-6.1 Sol + High**, если модель доступна и пользовательский лимит позволяет: player-facing UI/visual polish, runtime C#, lifecycle/state, Save/Load, связанные multi-file изменения, ambiguous root cause и high-regression-risk work.
 - Оптимизируй не минимальное число токенов первого прохода, а **total cost of quality**: хороший первый implementation предпочтительнее дешёвого прохода, который затем приходится существенно переделывать.
-- **GLM-5.3-Flash** и **GPT-6 Luna** оставляй для low-risk routine/mechanical work: tests/docs/config, validators, CI/log investigation, deterministic fixes, evidence preparation и дешёвые bounded follow-up/correction tasks.
+- **GPT-6 Luna Low** — default cheap independent reviewer для bounded exact-diff review и routine support; для high-risk C#/runtime/UI/lifecycle/Save/scene/prefab candidate после него нужен **GPT-6.1 Sol High** strong read-only review.
+- **GLM-5.3-Flash** используй как отдельный Z-Code support lane для independent audits/tests/docs/config/validators/CI-log investigation и других непересекающихся workstreams; не как скрытый significant-writer fallback.
 - **GLM-5.3** и **GPT-6 Astra** — selective escalation/fallback, а не обязательная ступень: используй при конкретной причине, недоступности/неудаче Sol High или unusually high cost of error.
-- Полная policy выбора среды, reasoning и сессии находится в `docs/product/agent_orchestration.md`.
+- В autonomous mode persistent **HIF Supervisor** в Codex владеет task selection, correction routing, PR/CI/proof gate, merge и roadmap sync; browser ChatGPT — manual reviewer/fallback, а не обязательное звено.
+- Полная policy выбора среды, reasoning, сессии и autonomous orchestration находится в `docs/product/agent_orchestration.md`.
 
 ## Язык документации
 
@@ -45,8 +47,9 @@
 
 ## Git и завершение задачи
 
-- Локально предпочитай **две постоянные папки**: `master` и `develop`. `master` — чистый exact `origin/master` и эталон; `develop` — единственная обычная рабочая Unity-папка с прогретой `Library`.
-- Имя папки `develop` **не означает постоянную git-ветку `develop`**. Под каждую задачу в этой папке создавай task branch от свежего `origin/master`; после merge синхронизируй папку с новым master и начинай следующую task branch там же.
+- Для обычной interactive работы предпочитай **две постоянные папки**: `master` и `develop`. `master` — чистый exact `origin/master` и эталон; `develop` — рабочая Unity-папка пользователя с прогретой `Library`.
+- Для локального autonomous loop разрешены отдельные постоянные checkout'ы `D:\How_I_Fall\agent` (Codex writer) и `D:\How_I_Fall\zagent` (Z-Code support). Это intentional isolation; `develop` остаётся protected user checkout.
+- Имя папки `develop` **не означает постоянную git-ветку `develop`**. Под каждую interactive задачу в этой папке создавай task branch от свежего `origin/master`; после merge синхронизируй папку с новым master и начинай следующую task branch там же.
 - Не создавай отдельный disposable worktree для каждой задачи по умолчанию. Используй его только как исключение, если постоянный `develop` реально заблокирован несвязанными/незакоммиченными изменениями или другой активной работой.
 - Не выбрасывай прогретую Unity `Library` и не запускай полный импорт свежей Library только потому, что другой checkout dirty. Для обычной работы переиспользуй warm `develop`.
 - Если `develop` dirty перед новой задачей, сначала выясни происхождение изменений и сохрани их; не reset/clean/overwrite. В нормальном завершённом цикле после merge `develop` должен вернуться к чистому состоянию.

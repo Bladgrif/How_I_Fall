@@ -2,10 +2,16 @@
 
 ## Назначение
 
-Этот документ — компактная policy для reviewer/ChatGPT: как выбирать среду,
-модель и brief coding-agent для How I Fall. Репозиторий — durable source of
-truth, а не память чата. Execution details принадлежат relevant skills,
-особенно `$hif-polish-loop` и `$hif-visual-qa`.
+Этот документ — единая orchestration policy для HIF Supervisor, reviewer'ов
+и coding-agent'ов: как выбирать среду, модель, bounded task и merge gate.
+Репозиторий — durable source of truth, а не память конкретного чата или
+приложения. Execution details принадлежат relevant skills, особенно
+`$hif-polish-loop` и `$hif-visual-qa`.
+
+Основной автономный контур живёт локально в Codex: persistent HIF Supervisor
+координирует writer/reviewer passes, GitHub/Drive и merge gates. Браузерный
+ChatGPT остаётся допустимым manual reviewer/fallback, но не является
+обязательным звеном обычного рабочего цикла.
 
 ## 1. Перед новой задачей
 
@@ -133,14 +139,17 @@ GPT-6.1 Sol недоступен.
 ### GLM-5.3-Flash
 Routine/support worker, а не default significant implementer. Используй для
 tests/docs/config, validators, CI/log investigation, deterministic low-risk
-fixes, evidence preparation, механических repo-операций и дешёвых bounded
-follow-up/correction задач. Default reasoning Medium; Low — deterministic;
-High — только если есть конкретная причина не перейти на Sol.
+fixes, evidence preparation, механических repo-операций и bounded
+follow-up/correction задач. В autonomous Z-Code support lane для независимого
+audit/review допустим **Max**, если лимит Flash не является practical
+ограничением; deterministic support всё равно не нужно искусственно усложнять.
 
 ### GPT-6 Luna
 Codex bounded/high-volume worker для tests/docs/configs, повторяемой механики,
-standalone/desktop automation, evidence work и independent second pass.
-Используй, когда задача не требует качества/связности Sol High.
+standalone/desktop automation и evidence work. В autonomous loop
+**GPT-6 Luna Low — default cheap independent reviewer** для exact-diff first
+pass; significant/high-risk candidate при необходимости эскалируется в
+Sol High strong read-only review.
 
 ### GLM-5.3
 Selective alternative/escalation для interdependent systems или длинной
@@ -152,11 +161,17 @@ Hardest/highest-stakes escalation после неудачной Sol High поп�
 high cost of error или задачи, где reviewer явно хочет дополнительную модельную
 мощность. Не используй Astra только потому, что задача большая.
 
-Практический ориентир:
-`GPT-6.1 Sol High primary → ChatGPT review → GLM-5.3-Flash / GPT-6 Luna на bounded хвосты`
+Практический автономный ориентир:
+`GPT-6.1 Sol High writer → GPT-6 Luna Low independent review → exact-head CI/proof → HIF Supervisor merge`
 
-При необходимости:
-`Sol High → GLM-5.3 или GPT-6 Astra`
+Для high-risk C#/runtime/UI/lifecycle/Save/scene/prefab work:
+`Sol High writer → Luna Low first pass → Sol High read-only strong review → CI/proof → merge`
+
+Независимый support lane:
+`Z-Code + GLM-5.3-Flash Max → audits/tests/docs/config/validators/log investigation`
+
+При необходимости hardest escalation:
+`Sol High → GPT-6 Astra`.
 
 Размер context, число файлов и длительность сами по себе не определяют модель.
 
@@ -185,28 +200,46 @@ Project-facing уровни:
 Для длинного pass допустим один mutable task-state/checklist. Обновляй его,
 а не накапливай дневник. Не коммить task-state без отдельной причины.
 
-### Авторизованный удалённый запуск Codex CLI
+### Локальный автономный HIF Supervisor
 
-Если доступно авторизованное подключение Remote Desktop Commander,
-reviewer/ChatGPT может напрямую запускать Codex CLI и читать его отчёты. Не
-используй пользователя как copy/paste relay для prompt'ов или отчётов агента,
-если reviewer может сам вызвать и прочитать нужные инструменты.
+Основной autonomous loop может работать полностью внутри локального Codex без
+браузерного ChatGPT в обязательной цепочке.
 
-Для каждого запуска явно задавай среду, модель, reasoning, сессию и bounded
-scope задачи; не полагайся на устаревшие глобальные defaults Codex. Удалённый
-способ запуска меняет только транспорт и не ослабляет git/worktree safety,
-protected contracts, validation, reviewer-visible proof, exact-head CI или
-ответственность reviewer'а за merge. Сохраняй dirty `develop` и unrelated work;
-bounded worktree используй только при необходимости по разделу 9. Для обычной
-HIF-автоматизации не используй опасные режимы обхода ограничений.
+Роли:
+- persistent **HIF Supervisor** — **GPT-6 Luna Low**; выбирает следующий bounded
+  pass, координирует writer/reviewer, GitHub/Drive, CI/proof и merge gates;
+- **Writer** — **GPT-6.1 Sol High**; делает одну production-задачу и validation;
+- fresh **cheap reviewer** — **GPT-6 Luna Low**, read-only на exact base/head;
+- fresh **strong reviewer** — **GPT-6.1 Sol High**, read-only для
+  C#/runtime/UI/lifecycle/Save/scene/prefab/high-risk work либо при escalation;
+- **Z-Code / GLM-5.3-Flash Max** — независимый support lane для audits,
+  tests/docs/config/validators/CI-log investigation и других непересекающихся
+  workstreams.
 
-Такой запуск не является continuous/background autonomy: bounded pass
-останавливается на существующих gates, при завершении execution или когда
-требуется новое user/product decision. Если запуск блокируют quota или
-доступность модели, сообщи blocker. Z-Code остаётся отдельно и явно выбираемой
-fallback-средой, а не скрытым автоматическим failover. Reviewer независимо
-проверяет реальный diff, CI и evidence и выполняет merge только после чистого
-`GREEN` acceptance.
+State machine:
+`IDLE → READY → RUNNING → REVIEW_CANDIDATE → REVIEWING`.
+Objective defect возвращает задачу в `CORRECTION_READY → RUNNING`; clean
+high-risk candidate проходит strong review; clean candidate затем проходит
+exact-head PR/CI/proof gate. Только после GREEN acceptance Supervisor делает
+merge, verify exact `master`, синхронизирует roadmap и выбирает следующий
+bounded pass. Quota/interruption → `PARTIAL_RETRY`; решение, которого нет в
+source of truth, → `WAIT_USER`.
+
+Scheduler/Automation — только wake-up mechanism: он не выбирает product direction
+сам, а просит persistent Supervisor продолжить из durable state.
+
+Codex Supervisor может использовать подключённые GitHub и Google Drive plugins
+напрямую. Remote Desktop Commander допустим как bootstrap/recovery transport, но
+пользователь не должен быть copy/paste relay между Supervisor, writer и reviewer.
+
+Каждый execution явно задаёт model/reasoning/sandbox/task scope. Не полагайся на
+глобальный model default Codex. Не используй dangerous bypass. Не ослабляй
+protected contracts, exact-head CI, reviewer-visible proof и merge gates ради
+автономности.
+
+Z-Code не является скрытым failover significant writer'а: если Sol упёрся в
+quota, production task остаётся `PARTIAL_RETRY`. GLM может продолжать только
+реально независимую support-работу.
 
 ## 8. Prompt contract
 
@@ -229,16 +262,26 @@ Task-specific protections важнее длинного пересказа об�
 
 ### Постоянная локальная схема
 
-Default workflow — **две постоянные папки**, а не новый worktree на каждый pass:
+Default human/interactive workflow — **две постоянные папки**, а не новый
+worktree на каждый pass:
 
 - `master` — чистый exact `origin/master`, reference/recovery checkout;
-- `develop` — единственная обычная рабочая Unity-папка с прогретой `Library`.
+- `develop` — обычная рабочая Unity-папка пользователя с прогретой `Library`.
 
 `develop` — имя папки, не постоянная git-ветка. Для каждой bounded задачи в
 этой папке создавай отдельную task branch от свежего `origin/master`. После
 review + merge синхронизируй `develop` с новым master и используй ту же папку
-для следующей задачи. Это сохраняет Unity Library/cache и не плодит копии
-проекта.
+для следующей задачи. Это сохраняет Unity Library/cache.
+
+Для локального autonomous loop разрешены две дополнительные постоянные
+изолированные папки:
+
+- `D:\How_I_Fall\agent` — Codex writer checkout;
+- `D:\How_I_Fall\zagent` — Z-Code support/review checkout.
+
+Это не generic правило «плодить worktree», а intentional isolation автоматизации:
+`develop` считается protected user checkout и не reset/clean/stash/overwrite.
+Writer и Z-Code не должны одновременно редактировать одну task surface.
 
 Не создавай disposable worktree по умолчанию. Он нужен только как исключение,
 если постоянный `develop` реально заблокирован unrelated/uncommitted work,
@@ -305,9 +348,15 @@ SHA. Если после реальной попытки ни один publish r
 ## 12. Delegation
 
 Subagents — не default. Используй их только при реально независимых
-workstreams — по умолчанию в Z-Code. Coordinator задаёт
-границы, собирает evidence и отвечает за финальный diff. Worker output —
-proposal/evidence, не reviewer proof.
+workstreams. Основной production writer остаётся один.
+
+Z-Code Workflows подходят для fan-out/fan-in support passes: несколько
+read-only investigator/reviewer веток → один synthesis. Z-Code Automations
+подходят для recurring/idle support sweep, но не должны самостоятельно выбирать
+новое product direction или параллельно редактировать writer scope.
+
+Coordinator/Supervisor задаёт границы, собирает evidence и отвечает за итоговый
+verdict. Worker/subagent output — proposal/evidence, не reviewer proof.
 
 Не поручай параллельно нескольким агентам редактировать одну serialized
 поверхность. Не используй delegation только потому, что задача «большая».
@@ -320,11 +369,23 @@ contract change или infrastructure блокирует обязательно�
 
 После достижения acceptance не трать остаток budget на дополнительный polish.
 
-**Implementer** владеет scoped implementation, local tests, graphical proof и
-коротким `REVIEW CANDIDATE`/`BLOCKED` report.
+**Writer / Implementer** владеет scoped implementation, local tests,
+graphical proof и коротким `REVIEW CANDIDATE`/`BLOCKED` report. Writer не
+merge'ит собственный candidate.
 
-**Reviewer/ChatGPT** владеет real diff/scope review, mandatory CI, repository +
-Drive comparison/sync, merge и verdict `DONE`/`NEEDS CORRECTION`.
+**Independent reviewer** — fresh read-only pass, по умолчанию Luna Low; для
+high-risk candidate добавляется Sol High strong review. Reviewer не принимает
+agent report автоматически и проверяет exact diff/gates.
 
-**User** нужен для genuinely subjective aesthetic approval или другого
-неавтоматизируемого решения вкуса.
+**HIF Supervisor** владеет durable state, выбором следующего bounded pass,
+GitHub PR/CI, repository + Drive comparison/sync, correction routing, merge и
+verdict `DONE`/`NEEDS CORRECTION`. В обычном autonomous mode Supervisor живёт
+в Codex; браузерный ChatGPT может выполнить ту же reviewer/supervisor роль как
+manual fallback.
+
+**Z-Code / GLM-5.3-Flash** владеет только явно выделенной independent support
+работой и не является скрытым significant-writer failover.
+
+**User** нужен для genuinely subjective aesthetic approval, нового product
+decision, необходимой authentication/permission или другого неавтоматизируемого
+реального blocker.
