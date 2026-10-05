@@ -38,7 +38,7 @@ Special modes, Hide UI и активные child modals имеют более в
 
 Текущий компактный strip для обычного demo:
 
-`Назад | История | Пропуск | Авто | Быстр. сох.`
+`Назад | История | Пропуск | Авто | Быстр. сохр.`
 
 Старые восьмиэлементный и четырёхэлементный варианты больше не являются текущим контрактом. `Назад` и колесо вниз используют guarded `TryRollback`; в Replay rollback скрыт/заблокирован. Underlying Save/Load/Settings/Menu APIs и hotkeys сохраняются. Evidence exact-base сверки см. в `docs/eternum_feature_tracker.md`.
 

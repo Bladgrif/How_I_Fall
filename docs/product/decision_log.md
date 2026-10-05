@@ -57,7 +57,7 @@
 
 ## 2026-08-31 — Текущий контракт быстрого меню
 
-**Решение:** player-facing нижняя полоса содержит `История | Пропуск | Авто | Быстр. сох.`. Обычные Save/Load/Preferences/Menu остаются доступны через существующие маршруты и hotkeys, но не дублируются в нижней полосе.
+**Решение:** player-facing нижняя полоса содержит `История | Пропуск | Авто | Быстр. сохр.`. Обычные Save/Load/Preferences/Menu остаются доступны через существующие маршруты и hotkeys, но не дублируются в нижней полосе.
 
 **Статус:** ACCEPTED
 
@@ -97,7 +97,7 @@
 
 Exact base: `40c8dd8881039f472fa578f1a76c02fe8dffb073`. Сверены production code, исходники тестов, full-demo audit 2026-10-02 и последующий release-candidate audit 2026-10-03. Evidence-index: `docs/eternum_feature_tracker.md`.
 
-- Ordinary Quick Menu: `Назад | История | Пропуск | Авто | Быстр. сох.`; rollback — `Назад` и колесо вниз через `TryRollback`, не History.
+- Ordinary Quick Menu: `Назад | История | Пропуск | Авто | Быстр. сохр.`; rollback — `Назад` и колесо вниз через `TryRollback`, не History.
 - Root Game Menu: `Сохранить / Загрузить / Настройки / Главное меню / Выйти` + отдельное `Вернуться в игру`; нет root `Назад`/`Откат`.
 - Rollback реализован как bounded in-memory state/backlog/presentation restore: 12 stable-line/pre-choice checkpoints, guard 65,536 UTF-16 code units, hard barriers Load/session/Replay/special modes; Auto/Skip останавливаются. `SaveData` остаётся v3, buffer не сериализуется.
 - Choice UI — принятая поверхность, target v1 уже реализован и вошёл в master (PR #37); не отсутствующий polish pass. Relationship deltas/classification сохраняются, но cue-глиф намеренно подавлен в demo-shell; это не незавершённая функция.

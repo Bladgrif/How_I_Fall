@@ -36,7 +36,7 @@
 - Auto, seen-aware Skip, History/backlog restore;
 - bounded in-memory Rollback по stable-line/pre-choice checkpoints с state/backlog/presentation restore;
 - Main Menu, Game Menu, Shared Preferences;
-- compact Quick Menu: `Назад / История / Пропуск / Авто / Быстр. сох.`;
+- compact Quick Menu: `Назад / История / Пропуск / Авто / Быстр. сохр.`;
 - ordinary root Game Menu: Сохранить / Загрузить / Настройки / Главное меню / Выйти + отдельное Вернуться в игру; без root Назад/Откат;
 - unified input/help;
 - notifications/confirmations;

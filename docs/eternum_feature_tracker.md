@@ -32,7 +32,7 @@
 | Save compatibility | `SaveData` v3; поддерживаемые старые данные мигрируют in-memory | ✅ DONE / HIGH RISK | Не менять format без явной миграции |
 | Главное меню | Продолжить / Новая игра / Загрузить / Настройки / Выйти; focus/hover и confirmation states скорректированы | ✅ DONE | Только конкретный воспроизведённый дефект |
 | Reading surface | нейтральная читаемая dialogue/name surface, temporary non-canon chrome скрыт, 125% читаем | ✅ DONE | — |
-| Quick Menu | ordinary player-facing: **Назад / История / Пропуск / Авто / Быстр. сох.**; `Назад` вызывает guarded `TryRollback` | ✅ DONE | Скрытые APIs/hotkeys сохраняются; не возвращать redundant actions без причины |
+| Quick Menu | ordinary player-facing: **Назад / История / Пропуск / Авто / Быстр. сохр.**; `Назад` вызывает guarded `TryRollback` | ✅ DONE | Скрытые APIs/hotkeys сохраняются; не возвращать redundant actions без причины |
 | Game Menu / Esc | root: Сохранить / Загрузить / Настройки / Главное меню / Выйти + отдельное Вернуться в игру; без rollback/Назад. Esc stack: confirmation → Save/Load → Game Menu → gameplay | ✅ DONE | Сохранять contract |
 | Save/Load IA | Save = Manual only; Load = Manual/Auto/Quick через compact family/page navigation | ✅ DONE | Не переписывать backend |
 | Player Journey E2E | continuous core player flow | ✅ DONE | Расширять только для новых concrete gaps |
