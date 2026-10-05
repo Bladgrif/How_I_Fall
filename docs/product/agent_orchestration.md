@@ -172,22 +172,22 @@ high cost of error или задачи, где reviewer явно хочет до
 
 ### Quota-save routing
 
-Autonomous Supervisor читает реальные Codex `rate_limits` из локальной session
-telemetry. Если в rolling 5-hour **или** weekly окне осталось **20% или меньше**,
-включается `QUOTA_SAVE`.
+Autonomous Supervisor читает свежий `account/rateLimits/read` из общего
+`CODEX_HOME=D:\Codex`, а не старый session-log. Если в rolling 5-hour **или**
+weekly окне осталось **25% или меньше**, включается `QUOTA_SAVE`.
 
-В `QUOTA_SAVE`:
-- не открывай новый дорогой Sol pass без необходимости;
-- routine/low-risk bounded work, docs/tests/config/validators/audits/logs/evidence
-  и безопасную непересекающуюся implementation предпочитай отдавать
-  **Z-Code + GLM-5.3-Flash Max**;
-- Codex используй прежде всего для дешёвого Supervisor/review;
-- не запускай Codex writer и Z-Code writer на одних файлах одновременно;
-- high-risk C#/runtime/UI/lifecycle/Save/scene/prefab work не передавай Flash
-  только ради экономии лимита: поставь задачу в retry/wait до Sol reset либо
-  используй отдельно обоснованный stronger fallback.
+В `QUOTA_SAVE` новые утверждённые bounded задачи выполняет
+**Z-Code + GLM-5.3-Flash Max**. По явному решению пользователя от 2026-10-05
+разрешены также runtime/UI/Save tasks, но high-risk candidate обязательно ждёт
+fresh independent **GPT-6.1 Sol High** review до merge. Если Sol quota исчерпана,
+candidate остаётся `WAIT_STRONG_REVIEW`; Luna/GLM не заменяют этот gate.
 
-Это явный routing mode, а не скрытая подмена модели.
+Это явный routing, не скрытая подмена качества. `UNKNOWN` quota — безопасное
+ожидание, не предположение «лимит ещё есть». Одна очередь и последовательный
+writer в `agent` или `zagent`; retries сохраняют исходный checkout/partial diff.
+Нельзя молча переносить незавершённый diff между engines. Полная недоступность
+Codex может остановить и Supervisor; GLM не гарантирует обход недоступного
+control/review transport.
 
 При необходимости hardest escalation:
 `Sol High → GPT-6 Astra`.
@@ -256,11 +256,16 @@ Codex Supervisor может использовать подключённые Gi
 protected contracts, exact-head CI, reviewer-visible proof и merge gates ради
 автономности.
 
-Z-Code не является скрытым failover significant writer'а. При quota pressure
-Supervisor использует явный `QUOTA_SAVE` из раздела 5: Flash может продолжать
-eligible low-risk bounded work, но high-risk Sol-class production task остаётся
-`PARTIAL_RETRY`/wait до reset либо требует отдельно обоснованного stronger
-fallback.
+Z-Code — явный quota-save fallback по разделу 5; reviewer/CI/proof contracts
+не ослабляются. После окончания approved queue Supervisor один раз сверяет
+утверждённый roadmap/подтверждённые defects. Если они исчерпаны, предлагает до
+трёх новых product-задач с acceptance и ставит `WAIT_USER`; не выполняет новые
+product proposals без согласования и не придумывает canon ради расхода токенов.
+
+Maintainable helpers находятся в `tools/agent-control`; локально остаются одна
+`queue.json`, `state.json`, `controller.json` и один startup scheduler. Подробная
+runtime wiring/проверки — `tools/agent-control/README.md`. Старые worker loops,
+вторая Z-Code очередь и recursive Supervisor helper не запускаются.
 
 ## 8. Prompt contract
 
@@ -404,8 +409,8 @@ verdict `DONE`/`NEEDS CORRECTION`. В обычном autonomous mode Supervisor 
 в Codex; браузерный ChatGPT может выполнить ту же reviewer/supervisor роль как
 manual fallback.
 
-**Z-Code / GLM-5.3-Flash** владеет только явно выделенной independent support
-работой и не является скрытым significant-writer failover.
+**Z-Code / GLM-5.3-Flash** выполняет independent support и явные quota-save
+implementation tasks по разделу 5; merge/strong-review gate остаётся у Codex.
 
 **User** нужен для genuinely subjective aesthetic approval, нового product
 decision, необходимой authentication/permission или другого неавтоматизируемого

@@ -1,0 +1,57 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "base_sha",
+    "summary",
+    "validation_complete",
+    "changed_files",
+    "validation",
+    "not_run",
+    "risks"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "REVIEW_CANDIDATE",
+        "NO_PRODUCTION_CHANGE",
+        "BLOCKED"
+      ]
+    },
+    "base_sha": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "validation_complete": {
+      "type": "boolean"
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "validation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "not_run": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
