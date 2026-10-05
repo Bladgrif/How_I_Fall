@@ -12,6 +12,8 @@ HIF уже имеет широкую VN-базу: Manual/Auto/Quick saves, Conti
 
 Исследование не разрешает implementation автоматически.
 
+Текущие статусы ниже сверены по exact base `40c8dd8881039f472fa578f1a76c02fe8dffb073`; evidence-index — `docs/eternum_feature_tracker.md`. Unity tests/runtime/graphical E2E **NOT RUN** в этой docs-сверке. Исторические full-demo/release-candidate audits сохраняют результаты только на своих SHA.
+
 ## Набор benchmark-референсов
 
 - **STEINS;GATE / STEINS;GATE 0** — read/unread Skip, зрелая навигация, Tips/glossary-style recall.
@@ -33,19 +35,20 @@ HIF уже имеет широкую VN-базу: Manual/Auto/Quick saves, Conti
 | Auto | DONE | Настраивать позже с реальным контентом |
 | Seen-aware Skip | DONE | Сохранять безопасную semantics |
 | Backlog / History | DONE, save-scoped restore | Сохранять; History не равно rollback |
-| Compact Quick Menu | DONE | `История | Пропуск | Авто | Быстр. сох.`; polish only |
+| Compact Quick Menu | DONE | `Назад / История / Пропуск / Авто / Быстр. сох.`; сохранить принятый reading contract |
+| Root Game Menu | DONE | Сохранить / Загрузить / Настройки / Главное меню / Выйти + отдельное Вернуться в игру; нет root Назад/Откат |
 | Shared Preferences | DONE | Одна общая implementation |
 | Keyboard/mouse/gamepad parity | Базовый контракт покрыт | Расширять только для конкретного gap |
 | Save/Load IA | DONE | Save=Manual; Load=Manual/Auto/Quick через compact navigation |
-| Choice UI | Поведение есть, presentation требует polish | Ближайший UX pass |
-| Relationship feedback | Технически есть, presentation PARTIAL | Заменить явный текст на короткий nonverbal cue |
+| Choice UI | DONE; принятый target v1 реализован и вошёл в master | До 4 visible choices, floating rows, focus/hover states; не переоткрывать без конкретного gap |
+| Relationship feedback | DONE backend; cue presentation suppressed by design | Deltas/classification сохраняются; demo-shell не показывает cue-глиф, текст или meters; не планировать замену как отсутствующую функцию |
 | Autosave policy вокруг важных choices | Infrastructure есть, policy content-dependent | LATER с реальной историей |
 | Suspend/resume | Исследован | DEFER; текущий Continue достаточно силён |
 | Story Flowchart / Story Chart | Не реализован | DEFER UNTIL STORY |
 | Chapter/scene replay authoring | Foundation есть | DEFER UNTIL STORY |
 | Glossary/Tips/Files | Нет canonical content | DEFER UNTIL CONTENT |
 | Ending/route completion | Нет canonical model | DEFER UNTIL STORY |
-| Rollback/Rewind | NOT IMPLEMENTED | **REOPENED FOR BOUNDED FEASIBILITY**; implementation пока не разрешён |
+| Rollback/Rewind | DONE; bounded in-memory state/backlog/presentation restore | 12 checkpoints, guard 65,536 UTF-16 code units; Назад в Quick Menu / колесо вниз; hard barriers, без persistence/History rewind |
 | Generic minigame/QTE framework | Не нужен сейчас | NOT PLANNED |
 
 ## Что полезно делать до сюжета
@@ -53,8 +56,8 @@ HIF уже имеет широкую VN-базу: Manual/Auto/Quick saves, Conti
 - улучшать качество и интеграцию уже существующих систем;
 - сохранять понятный Esc/Game Menu contract;
 - защищать focus/hover consistency;
-- довести Choice UI и subtle consequence feedback;
-- провести отдельный rollback feasibility audit, потому что запрос пользователя подтверждён и player sentiment поддерживает recovery value;
+- сохранять принятый Choice UI и намеренное подавление relationship cue в demo-shell;
+- сохранять реализованный bounded rollback; исторический feasibility audit не является новой задачей;
 - продолжать graphical E2E и regression coverage для значимых player-facing passes.
 
 ## Что должно ждать реального контента

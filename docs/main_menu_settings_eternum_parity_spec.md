@@ -26,6 +26,8 @@ Help/About/Gallery скрыты из обычной player-facing компози
 
 `Esc` из стабильного gameplay открывает Game Menu. Он остаётся отдельным от Quick Menu и использует существующие backend/actions.
 
+Обычный root: `Сохранить / Загрузить / Настройки / Главное меню / Выйти` и отдельное `Вернуться в игру`. Root `Назад`/`Откат` отсутствует; закрытие — Esc/RMB или Return. Reading остаётся видимым под меню, Quick Menu видим, но неинтерактивен, typewriter приостановлен.
+
 Back-stack:
 
 `confirmation → Save/Load → Game Menu → gameplay`.
@@ -34,11 +36,11 @@ Special modes, Hide UI и активные child modals имеют более в
 
 ## Текущий Quick Menu
 
-Финальный компактный strip для текущего demo:
+Текущий компактный strip для обычного demo:
 
-`История | Пропуск | Авто | Быстр. сохр.`
+`Назад | История | Пропуск | Авто | Быстр. сох.`
 
-Старый восьмиэлементный вариант из этой исторической спецификации больше не является текущим контрактом. Underlying Save/Load/Settings/Menu APIs и hotkeys сохраняются.
+Старые восьмиэлементный и четырёхэлементный варианты больше не являются текущим контрактом. `Назад` и колесо вниз используют guarded `TryRollback`; в Replay rollback скрыт/заблокирован. Underlying Save/Load/Settings/Menu APIs и hotkeys сохраняются. Evidence exact-base сверки см. в `docs/eternum_feature_tracker.md`.
 
 ## Preferences
 

@@ -61,6 +61,8 @@
 
 **Статус:** ACCEPTED
 
+**Историческая запись; SUPERSEDED для состава полосы.** Текущий пятиэлементный контракт зафиксирован в docs-сверке 2026-10-05 ниже; решение не дублировать Save/Load/Preferences/Menu сохраняется.
+
 ## 2026-08-31 — Текущий контракт Save/Load
 
 **Решение:** режим Save показывает только Manual. Режим Load позволяет просматривать Manual/Auto/Quick через компактную навигацию. `Quick Load` остаётся загрузкой самого нового валидного Quick-сохранения. `Continue` выбирает самое новое валидное сохранение среди Manual/Auto/Quick. `SaveData` v3 не меняется.
@@ -72,6 +74,8 @@
 **Решение:** прежнее «NOT PLANNED» больше не является окончательным. По явному запросу пользователя rollback/rewind открыт для отдельного ограниченного feasibility/product-contract исследования. Реализация пока не разрешена; визуальный переход назад без восстановления состояния запрещён.
 
 **Статус:** RESEARCH REQUIRED
+
+**Историческая запись; SUPERSEDED для статуса реализации.** Bounded rollback уже реализован на current master; запрет visual-only state-unsafe rewind сохраняется. Актуальные границы и route — в docs-сверке 2026-10-05 ниже.
 
 ## 2026-08-31 — Язык документации
 
@@ -88,3 +92,15 @@
 Начальный фокус — категория Экран; Submit выбирает категорию, Right переводит к её controls, Up/Down — между controls и footer. Left/Right на slider меняет значение. Cancel открытого TMP dropdown закрывает только список и возвращает фокус к полю.
 
 **Статус направления:** APPROVED пользователем; implementation требует automated proof и reviewer acceptance.
+
+## 2026-10-05 — Сверка текущих контрактов (не новое product decision)
+
+Exact base: `40c8dd8881039f472fa578f1a76c02fe8dffb073`. Сверены production code, исходники тестов, full-demo audit 2026-10-02 и последующий release-candidate audit 2026-10-03. Evidence-index: `docs/eternum_feature_tracker.md`.
+
+- Ordinary Quick Menu: `Назад | История | Пропуск | Авто | Быстр. сох.`; rollback — `Назад` и колесо вниз через `TryRollback`, не History.
+- Root Game Menu: `Сохранить / Загрузить / Настройки / Главное меню / Выйти` + отдельное `Вернуться в игру`; нет root `Назад`/`Откат`.
+- Rollback реализован как bounded in-memory state/backlog/presentation restore: 12 stable-line/pre-choice checkpoints, guard 65,536 UTF-16 code units, hard barriers Load/session/Replay/special modes; Auto/Skip останавливаются. `SaveData` остаётся v3, buffer не сериализуется.
+- Choice UI — принятая поверхность, target v1 уже реализован и вошёл в master (PR #37); не отсутствующий polish pass. Relationship deltas/classification сохраняются, но cue-глиф намеренно подавлен в demo-shell; это не незавершённая функция.
+- Готовность обычного demo-shell не равна полному release-readiness: ограничения historical audits сохраняются. Нового backlog, канона или разрешения на implementation эта сверка не создаёт.
+
+**Статус:** VERIFIED / source и исходники проверок; Unity tests/runtime/graphical E2E **NOT RUN** в docs-only проходе. Исторические результаты аудитов не объявляются PASS текущей базы.
