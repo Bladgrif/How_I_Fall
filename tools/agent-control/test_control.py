@@ -73,6 +73,15 @@ class ControlTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.gate()
 
+    def test_ci_poll_quiet_while_pending_and_uses_latest_head_gate(self):
+        self.assertEqual("WAIT_CI", c.ci_status({"check_runs":[]}, "b"*40))
+        self.assertEqual("WAIT_CI", c.ci_status(self.checks, "c"*40))
+        self.assertEqual("GREEN", c.ci_status(self.checks, "b"*40))
+        self.checks["check_runs"].append(dict(self.checks["check_runs"][0], id=2, status="in_progress", conclusion=None))
+        self.assertEqual("WAIT_CI", c.ci_status(self.checks, "b"*40))
+        self.checks["check_runs"][-1].update(status="completed", conclusion="failure")
+        self.assertEqual("FAILED", c.ci_status(self.checks, "b"*40))
+
     def test_master_head_draft_mergeability_changes_rejected(self):
         for key, value in [("base", {"ref":"master", "sha":"c"*40}), ("head", {"sha":"c"*40}), ("draft",True), ("mergeable",None)]:
             pr = dict(self.pr, **{key:value})

@@ -159,6 +159,14 @@ def gate(task, cheap, strong, pr, checks, changed):
             "checked_at": now(), "ci_check_id": latest["id"], "pr_number": pr["number"]}
 
 
+def ci_status(checks, head):
+    runs = [r for r in checks.get("check_runs", []) if r.get("name") == "CI Gate"
+            and r.get("head_sha") == head and r.get("app", {}).get("slug") == "github-actions"]
+    if not runs or max(runs, key=lambda r: r["id"]).get("status") != "completed":
+        return "WAIT_CI"
+    return "GREEN" if max(runs, key=lambda r: r["id"]).get("conclusion") == "success" else "FAILED"
+
+
 def github(path):
     req = urllib.request.Request("https://api.github.com/repos/Bladgrif/How_I_Fall/" + path,
                                  headers={"Accept": "application/vnd.github+json", "User-Agent": "HIF-gate"})
@@ -198,7 +206,7 @@ def zcode_run(repo, prompt, output, events):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report"])
+    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status"])
     parser.add_argument("--control", default="D:/How_I_Fall/agent-control")
     parser.add_argument("--method")
     parser.add_argument("--params", default="{}")
@@ -207,6 +215,7 @@ def main():
     parser.add_argument("--prompt")
     parser.add_argument("--output")
     parser.add_argument("--events")
+    parser.add_argument("--head")
     args = parser.parse_args()
     c = Path(args.control)
     if args.command == "rpc":
@@ -222,6 +231,10 @@ def main():
         zcode_run(args.repo, args.prompt, args.output, args.events)
     elif args.command == "validate-report":
         validate_worker_report(load(args.output))
+    elif args.command == "ci-status":
+        if not re.fullmatch(r"[a-f0-9]{40}", args.head or ""):
+            raise ValueError("Exact CI head SHA required")
+        print(ci_status(github("commits/" + args.head + "/check-runs?per_page=100"), args.head))
     else:
         state, tasks = load(c / "state.json"), load(c / "queue.json")["tasks"]
         task = next(t for t in tasks if t["id"] == state["active_task_id"])

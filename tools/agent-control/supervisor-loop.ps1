@@ -13,7 +13,13 @@ try {
             # Quiet while waiting on the user/auth/blocker. No repeated idle model bill.
             if($cfg.enabled -and $s.status -notin @('WAIT_USER','BLOCKED','MAINTENANCE')){
                 # Dispatch models outside the Supervisor tool sandbox; never nested exec.
-                $helper='wake-supervisor.ps1'; $helperArgs=@()
+                $helper='wake-supervisor.ps1'; $helperArgs=@(); $runHelper=$true
+                if($s.status -eq 'WAIT_CI'){
+                    $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+                    $ci=& $Python (Join-Path $PSScriptRoot 'hif-control.py') ci-status --head $s.head_sha
+                    if($LASTEXITCODE){throw 'CI poll transport failed'}
+                    if($ci -eq 'WAIT_CI'){$runHelper=$false} # No model wake on unchanged CI.
+                }
                 if($s.status -in @('READY','CORRECTION_READY','PARTIAL_RETRY')){
                     $q=Get-Content (Join-Path $C 'queue.json') -Raw -Encoding UTF8 | ConvertFrom-Json
                     $task=@($q.tasks | Where-Object {$_.status -in @('READY','CORRECTION_READY','PARTIAL_RETRY')} | Select-Object -First 1)
@@ -35,8 +41,11 @@ try {
                 } elseif($s.status -eq 'WAIT_STRONG_REVIEW'){
                     $helper='hif-reviewer.ps1'; $helperArgs=@('-Strong')
                 }
-                & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $helper) @helperArgs >> (Join-Path $C 'supervisor-loop.log') 2>&1
-                $code=$LASTEXITCODE
+                $code=0
+                if($runHelper){
+                    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $helper) @helperArgs >> (Join-Path $C 'supervisor-loop.log') 2>&1
+                    $code=$LASTEXITCODE
+                }
                 $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
                 $failures=if($code -and $s.status -ne 'PARTIAL_RETRY'){[int]$s.transport_failures+1}else{0}
                 $s | Add-Member -NotePropertyName transport_failures -NotePropertyValue $failures -Force
