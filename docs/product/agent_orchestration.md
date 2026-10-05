@@ -170,6 +170,25 @@ high cost of error или задачи, где reviewer явно хочет до
 Независимый support lane:
 `Z-Code + GLM-5.3-Flash Max → audits/tests/docs/config/validators/log investigation`
 
+### Quota-save routing
+
+Autonomous Supervisor читает реальные Codex `rate_limits` из локальной session
+telemetry. Если в rolling 5-hour **или** weekly окне осталось **20% или меньше**,
+включается `QUOTA_SAVE`.
+
+В `QUOTA_SAVE`:
+- не открывай новый дорогой Sol pass без необходимости;
+- routine/low-risk bounded work, docs/tests/config/validators/audits/logs/evidence
+  и безопасную непересекающуюся implementation предпочитай отдавать
+  **Z-Code + GLM-5.3-Flash Max**;
+- Codex используй прежде всего для дешёвого Supervisor/review;
+- не запускай Codex writer и Z-Code writer на одних файлах одновременно;
+- high-risk C#/runtime/UI/lifecycle/Save/scene/prefab work не передавай Flash
+  только ради экономии лимита: поставь задачу в retry/wait до Sol reset либо
+  используй отдельно обоснованный stronger fallback.
+
+Это явный routing mode, а не скрытая подмена модели.
+
 При необходимости hardest escalation:
 `Sol High → GPT-6 Astra`.
 
@@ -237,9 +256,11 @@ Codex Supervisor может использовать подключённые Gi
 protected contracts, exact-head CI, reviewer-visible proof и merge gates ради
 автономности.
 
-Z-Code не является скрытым failover significant writer'а: если Sol упёрся в
-quota, production task остаётся `PARTIAL_RETRY`. GLM может продолжать только
-реально независимую support-работу.
+Z-Code не является скрытым failover significant writer'а. При quota pressure
+Supervisor использует явный `QUOTA_SAVE` из раздела 5: Flash может продолжать
+eligible low-risk bounded work, но high-risk Sol-class production task остаётся
+`PARTIAL_RETRY`/wait до reset либо требует отдельно обоснованного stronger
+fallback.
 
 ## 8. Prompt contract
 
