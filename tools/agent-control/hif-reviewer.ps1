@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $C='D:\How_I_Fall\agent-control'
 $env:CODEX_HOME='D:\Codex'
 $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
-if(Test-Path (Join-Path $C 'MAINTENANCE')){throw 'Maintenance: reviewer disabled'}
+if((Test-Path (Join-Path $C 'MAINTENANCE')) -or (Test-Path (Join-Path $C 'STOP'))){throw 'Maintenance: reviewer disabled'}
 $mutex=New-Object Threading.Mutex($false,'Local\HowIFallWriter')
 if(-not $mutex.WaitOne(0)){throw 'Writer/reviewer already running'}
 try {
@@ -72,7 +72,7 @@ Return only JSON matching output schema.
     }
     $r | ConvertTo-Json -Depth 30 | Set-Content $Out -Encoding UTF8
     $s.status=if($Strong){'STRONG_REVIEW_READY'}else{'REVIEW_READY'}
-    $s.updated_at=(Get-Date).ToUniversalTime().ToString('o')
+    $s | Add-Member -NotePropertyName updated_at -NotePropertyValue (Get-Date).ToUniversalTime().ToString('o') -Force
     $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
     Write-Output ($s.status+' '+$Out)
 } finally {

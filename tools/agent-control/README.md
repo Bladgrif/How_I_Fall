@@ -71,3 +71,20 @@ no-op; снятие marker разрешено только после acceptance
 Тестовые fixtures не доказывают реальный autonomous PR→CI→merge→Drive цикл.
 Проверки Unity для инфраструктуры локально обычно `NOT RUN`; workflow классифицирует
 `tools` как mixed и требует обычный CI Gate, исключения не добавляются.
+
+## Если master сдвинулся после выбора задачи
+
+`MASTER_MOVED` не означает approval или вечное ожидание. Supervisor ставит
+`NEEDS_CORRECTION`, сохраняет старые base/head и в том же bounded task задаёт
+reconciliation с новым exact `origin/master`. Git transport готовится снаружи
+model turn, только в чистом task checkout: безопасное объединение с новым master,
+без reset/clean/force-push и без изменения `develop`. После reconciliation новая
+base/head identity записывается в brief; заново выполняются acceptance и свежие
+cheap/strong reviews, затем новый exact-head CI. Старые approvals непригодны.
+Конфликт вне task scope или unrelated dirty diff — `BLOCKED`, а не скрытый overwrite.
+
+Read-only reviewer не обязан повторно запускать fixtures, создающие временные
+файлы: sandbox может запрещать это. Для них writer прикладывает полный локальный
+лог с exact head, exit code и SHA-256; reviewer читает его и проверяет тесты/код.
+Ошибку записи temp в readonly sandbox не считать production failure, но явно
+отмечать независимый rerun `NOT RUN`/environment-blocked, без выдуманного PASS.

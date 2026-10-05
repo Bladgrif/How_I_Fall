@@ -2,7 +2,7 @@
 
 $ErrorActionPreference = 'Stop'
 $ControlDir = 'D:\How_I_Fall\agent-control'
-if (Test-Path (Join-Path $ControlDir 'MAINTENANCE')) { throw 'Maintenance: worker disabled' }
+if ((Test-Path (Join-Path $ControlDir 'MAINTENANCE')) -or (Test-Path (Join-Path $ControlDir 'STOP'))) { throw 'Maintenance: worker disabled' }
 $env:CODEX_HOME='D:\Codex'
 $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
 $Repo = if ($Engine -eq 'ZCode') { 'D:\How_I_Fall\zagent' } else { 'D:\How_I_Fall\agent' }
@@ -295,7 +295,10 @@ catch {
         SetProp $s 'status' 'BLOCKED'
         SetProp $s 'last_error' $_.Exception.Message
         SaveControl $q $s
-    } catch {}
+    } catch {
+        Set-Content -LiteralPath (Join-Path $ControlDir 'STOP') -Value ('Worker recovery persistence failed: '+$_.Exception.Message) -Encoding UTF8
+        Write-Error 'Control persistence failed; STOP written, partial diff preserved' -ErrorAction Continue
+    }
     throw
 }
 finally {
