@@ -35,7 +35,7 @@ HIF уже имеет широкую VN-базу: Manual/Auto/Quick saves, Conti
 | Auto | DONE | Настраивать позже с реальным контентом |
 | Seen-aware Skip | DONE | Сохранять безопасную semantics |
 | Backlog / History | DONE, save-scoped restore | Сохранять; History не равно rollback |
-| Compact Quick Menu | DONE | `Назад / История / Пропуск / Авто / Быстр. сох.`; сохранить принятый reading contract |
+| Compact Quick Menu | DONE | `Назад / История / Пропуск / Авто / Быстр. сохр.`; сохранить принятый reading contract |
 | Root Game Menu | DONE | Сохранить / Загрузить / Настройки / Главное меню / Выйти + отдельное Вернуться в игру; нет root Назад/Откат |
 | Shared Preferences | DONE | Одна общая implementation |
 | Keyboard/mouse/gamepad parity | Базовый контракт покрыт | Расширять только для конкретного gap |

@@ -8,7 +8,7 @@
 
 На exact base `40c8dd8881039f472fa578f1a76c02fe8dffb073` bounded rollback **реализован**: `RollbackCheckpoint`/`RollbackCheckpointBuffer` и `VNDialogueController.TryRollback` восстанавливают state, backlog и actual presentation. Capacity — 12 checkpoints, backlog guard — 65,536 UTF-16 code units без truncation; result beat не отдельный checkpoint. Seen-state остаётся monotonic, Auto/Skip останавливаются.
 
-Текущий route: `Назад` первым в Quick Menu (`Назад | История | Пропуск | Авто | Быстр. сох.`) и колесо вниз. В root Game Menu rollback отсутствует. `Backspace`/RMB/Left Shoulder не становятся rollback bindings; RMB закрывает/открывает меню существующим Esc-путём. History не предоставляет rewind.
+Текущий route: `Назад` первым в Quick Menu (`Назад | История | Пропуск | Авто | Быстр. сохр.`) и колесо вниз. В root Game Menu rollback отсутствует. `Backspace`/RMB/Left Shoulder не становятся rollback bindings; RMB закрывает/открывает меню существующим Esc-путём. History не предоставляет rewind.
 
 Hard barriers: accepted Load/Quick Load/Continue, New Game/Main Menu/Unity host lifecycle, Replay и успешный special-mode entry/exit; rejected entry buffer сохраняет. Character Hub/modal временно блокирует действие, не очищая history. Manual/Auto/Quick Save buffer не сериализует и сам по себе не очищает; `SaveData.CurrentVersion = 3`.
 
@@ -220,7 +220,7 @@ Evidence: `RollbackCheckpointEditModeTests`, `RollbackBackendPlayModeTests` (sta
 
 ## 11. UX route
 
-Rollback не добавляется пятой постоянной кнопкой в принятый compact strip `История | Пропуск | Авто | Быстр. сох.`: это ухудшит current compact contract, а History не должна выглядеть как rollback.
+Rollback не добавляется пятой постоянной кнопкой в принятый compact strip `История | Пропуск | Авто | Быстр. сохр.`: это ухудшит current compact contract, а History не должна выглядеть как rollback.
 
 Product-level contract после отдельного UI approval:
 
