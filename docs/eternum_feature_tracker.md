@@ -4,7 +4,7 @@
 
 Краткая карта того, **что реально существует в текущем HIF**, чтобы исследования и новые задачи не создавали дублирующие системы. При конфликте с этим файлом сначала проверить current master, production code и tests; затем обновить tracker.
 
-Трекер синхронизирован с состоянием проекта после UX audit на `e6a1da9d5ddad8d80a1844ee4486512788cd2b25`. Polished Functional Demo функционально собрана; новые работы начинаются только от воспроизведённого дефекта, явного product decision или предоставленного story/content need.
+Сводка контрактов сверена с production code и исходниками тестов на exact base `40c8dd8881039f472fa578f1a76c02fe8dffb073` (2026-10-05). Аудиты `docs/research/full_demo_readiness_audit_2026-10-02.md` и `demo_release_candidate_audit_2026-10-03.md` подтверждают готовность обычного функционального demo-shell на своих SHA, но не полный release-readiness gate и не runtime PASS текущей базы. Новые работы начинаются только от воспроизведённого дефекта, явного product decision или предоставленного story/content need.
 
 Текущая фаза: **Polished Functional Demo First**. Сюжет, canonical routes/flags, финальный art и final visual identity сейчас не являются приоритетом.
 
@@ -21,7 +21,7 @@
 | Система | Текущее состояние | Статус | Следующий реальный пробел |
 |---|---|---:|---|
 | Диалог / typewriter | `VNDialogueController`, стабильные scene/line IDs, переходы, завершение печати | ✅ DONE | Контентный tuning позже |
-| Обычные выборы | до 4 visible choices, stat deltas, result/transition и feedback последствий | ✅ DONE | Authoring только под реальный контент |
+| Обычные выборы / Choice UI | до 4 visible choices, stat deltas, result/transition; принятый target v1 реализован плавающими строками с focus/hover states | ✅ DONE | Authoring только под реальный контент; не переоткрывать polish без конкретного gap |
 | Typed conditional choices | typed numeric conditions, hidden unavailable options, safe fallback | ✅ DONE | Authoring только под реальный контент |
 | `GameState` | сохраняемые numeric axes/relationships/choice state | 🟡 PARTIAL by design | Нет generic story-flag registry и сейчас он не нужен |
 | Manual saves | 10 страниц × 6 = **60** Manual slots, JSON + PNG preview, overwrite/delete/load confirm | ✅ DONE | Сохранять совместимость |
@@ -32,16 +32,16 @@
 | Save compatibility | `SaveData` v3; поддерживаемые старые данные мигрируют in-memory | ✅ DONE / HIGH RISK | Не менять format без явной миграции |
 | Главное меню | Продолжить / Новая игра / Загрузить / Настройки / Выйти; focus/hover и confirmation states скорректированы | ✅ DONE | Только конкретный воспроизведённый дефект |
 | Reading surface | нейтральная читаемая dialogue/name surface, temporary non-canon chrome скрыт, 125% читаем | ✅ DONE | — |
-| Quick Menu | player-facing: **История / Пропуск / Авто / Быстр. сох.** | ✅ DONE | Скрытые APIs/hotkeys сохраняются; не возвращать redundant actions без причины |
-| Game Menu / Esc | Esc stack: confirmation → Save/Load → Game Menu → gameplay | ✅ DONE | Сохранять contract |
+| Quick Menu | ordinary player-facing: **Назад / История / Пропуск / Авто / Быстр. сох.**; `Назад` вызывает guarded `TryRollback` | ✅ DONE | Скрытые APIs/hotkeys сохраняются; не возвращать redundant actions без причины |
+| Game Menu / Esc | root: Сохранить / Загрузить / Настройки / Главное меню / Выйти + отдельное Вернуться в игру; без rollback/Назад. Esc stack: confirmation → Save/Load → Game Menu → gameplay | ✅ DONE | Сохранять contract |
 | Save/Load IA | Save = Manual only; Load = Manual/Auto/Quick через compact family/page navigation | ✅ DONE | Не переписывать backend |
 | Player Journey E2E | continuous core player flow | ✅ DONE | Расширять только для новых concrete gaps |
 | Auto | reader auto-advance, блокировки на choice/modal | ✅ DONE | Tuning с реальным текстом |
 | Seen-aware Skip | безопасный Skip без авто-выбора choices | ✅ DONE | Сохранять semantics |
 | Backlog / History | до 100 entries, save-scoped snapshot/restore; cleanup завершён | ✅ DONE | — |
-| Rollback / Rewind | bounded in-memory state restore по stable dialogue lines и choice checkpoints; player-facing action — `Откат` в Game Menu | ✅ DONE | Сохранять hard barriers и не превращать в save-system |
+| Rollback / Rewind | bounded in-memory state/backlog/presentation restore: 12 stable-line/pre-choice checkpoints, guard 65,536 UTF-16 code units; `Назад` в Quick Menu и колесо вниз | ✅ DONE | Сохранять hard barriers; не save-system и не rewind из History |
 | Notifications / confirmations | toast + safe modal confirmations | ✅ DONE technically | Presentation polish отдельных случаев |
-| Relationship consequence feedback | короткий non-text positive/negative/mixed cue после stat delta | ✅ DONE | Без чисел, текста и relationship meters |
+| Relationship consequence feedback | deltas и positive/negative/mixed classification реализованы; cue-глиф намеренно подавлен в demo-shell (`RelationshipCuePresentationEnabled = false`) | ✅ DONE backend / presentation suppressed by design | Не возвращать cue как якобы незавершённый polish; без visible meters |
 | Character Hub / bios | technical runtime foundation существует; ordinary launcher скрыт | ✅ DONE foundation / ⏸ content | Реальные characters/bios/art/unlocks позже |
 | Shared Preferences | одна общая runtime implementation из Main Menu/gameplay; staged Apply/Back и slider correction завершены | ✅ DONE | — |
 | Input / Help | единая `VNInputMap`, Help от неё, no rebinding by design | ✅ DONE | — |
@@ -56,6 +56,8 @@
 
 ## Последние принятые player-facing проходы
 
+Исторические проходы ниже сохранены. Более поздний Choice target v1 вошёл в master через PR #37 (`743d620`); `docs/visual-baselines/README.md` фиксирует его presentation и proof. Аудит release candidate 2026-10-03 уже перечисляет Choice среди принятых поверхностей; это не новое эстетическое одобрение в данной docs-сверке.
+
 - `91d4f3a7ac4d8c720a064bdd62c737c07e7902cf` — smoke принятого Windows standalone release.
 - `606cff442bcdeee0aea1fa10b9adaa0c933f54ab` — Player Journey и demo release-candidate proof.
 - `8184ea36f13e536e3b88e151784671fdfb8ae106` — correction Main Menu interaction states: focus/hover, marker и Quit confirmation.
@@ -68,7 +70,20 @@
 
 ## Текущий статус следующих продуктовых проходов
 
-Polished Functional Demo функционально завершена. Свежий аудит current master не подтвердил actionable product/UI gap, поэтому нового generic VN backlog нет. Следующая инженерная работа должна начинаться только от конкретного воспроизведённого дефекта или нового явного product decision. Story/content-dependent work остаётся в разделе ниже.
+Обычный функциональный demo-shell собран; новый generic VN backlog не требуется. Full-demo audit 2026-10-02 сохраняет исторические target/readiness рекомендации, а последующий release-candidate audit — отдельные ограничения release proof. Не превращать эти записи в новые задачи без сверки текущего master. Следующая инженерная работа должна начинаться только от конкретного воспроизведённого дефекта или нового явного product decision. Story/content-dependent work остаётся в разделе ниже.
+
+## Evidence текущей docs-сверки
+
+Это inspection на exact base выше, не запуск Unity: tests/runtime/graphical E2E **NOT RUN** в этой docs-only задаче. Результаты старых аудитов не переносятся на текущий SHA.
+
+| Контракт | Production source | Исходники проверок / repository evidence |
+|---|---|---|
+| Quick Menu / root Game Menu | `VNQuickMenu.ApplyPlayerFacingPresentation`, `RollbackOnce`; `VNGameMenuView.CreateNavigation` | `QuickMenuRollbackButtonEditModeTests`, `GameMenuSmokeTests`, `RollbackBackendPlayModeTests.GameMenuHasNoRollbackAction_AndQuickRollbackRequiresCheckpoint` |
+| Rollback / barriers | `RollbackCheckpoint.cs`, `VNDialogueController.TryRollback`, `IsRollbackRequestAllowed`, `TryEnterSpecialMode`; `SaveManager.ApplyAndRoute` | `RollbackCheckpointEditModeTests` (capacity/deep copy/guard), `RollbackBackendPlayModeTests` (choice/presentation/automation/load/barriers/failure); `VNInputMap` ReadingBack/ReadingForward |
+| Choice / demo relationship shell | `VNDialogueController.ApplyChoicePresentation`, `Choose`, `RelationshipCuePresentationEnabled`; `RelationshipFeedback.GetCueKind` | `PlayerUiGraphicalE2ERunner.VerifyFourthChoiceSlot`, `ConditionalChoicesSmokeTests`, `RelationshipFeedbackSmokeTests`, `RollbackBackendPlayModeTests.ChoiceRollback_RestoresAllState_ThenAppliesAlternativeExactlyOnce`; baselines README и release-candidate audit |
+| SaveData v3 / History | `SaveData.cs`, `SaveManager.ReadSlot`, `TryValidateChoiceState`; `DialogueBacklog` | `ManualSaveSystemV1SmokeTests`, `BacklogRestorationSmokeTests`; `docs/backlog_restoration_policy.md`, `docs/technical_plan.md` |
+
+Source paths: runtime — `Assets/HowIFall/Scripts/{UI,VN,Save}/`; smoke/E2E — `Assets/HowIFall/Editor/`; NUnit — `Assets/HowIFall/Tests/{EditMode,PlayMode}/`.
 
 ## Отложено до реальной истории
 

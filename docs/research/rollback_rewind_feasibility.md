@@ -1,8 +1,18 @@
 # How I Fall — feasibility contract Rollback / Rewind
 
-> **Статус:** docs-only reviewer correction на `origin/master` `732ce194bce36181f660f3b90b242b2c3e142cf6`; исходный audit base — `40c7549d7cac6c13b5a2f47089ff3a55a4b79237`.
+> **Исторический feasibility contract:** docs-only reviewer correction на `origin/master` `732ce194bce36181f660f3b90b242b2c3e142cf6`; исходный audit base — `40c7549d7cac6c13b5a2f47089ff3a55a4b79237`.
 >
-> Этот документ не разрешает production implementation. `SaveData` v3, scenes, prefabs и текущие saves не менялись.
+> На момент этого исследования документ не разрешал production implementation. `SaveData` v3, scenes, prefabs и текущие saves в том docs-pass не менялись. §§1–16 ниже сохранены как история; будущие планы/статусы и route из §11 не являются текущим backlog.
+
+## Актуальный статус — docs-сверка 2026-10-05
+
+На exact base `40c8dd8881039f472fa578f1a76c02fe8dffb073` bounded rollback **реализован**: `RollbackCheckpoint`/`RollbackCheckpointBuffer` и `VNDialogueController.TryRollback` восстанавливают state, backlog и actual presentation. Capacity — 12 checkpoints, backlog guard — 65,536 UTF-16 code units без truncation; result beat не отдельный checkpoint. Seen-state остаётся monotonic, Auto/Skip останавливаются.
+
+Текущий route: `Назад` первым в Quick Menu (`Назад | История | Пропуск | Авто | Быстр. сох.`) и колесо вниз. В root Game Menu rollback отсутствует. `Backspace`/RMB/Left Shoulder не становятся rollback bindings; RMB закрывает/открывает меню существующим Esc-путём. History не предоставляет rewind.
+
+Hard barriers: accepted Load/Quick Load/Continue, New Game/Main Menu/Unity host lifecycle, Replay и успешный special-mode entry/exit; rejected entry buffer сохраняет. Character Hub/modal временно блокирует действие, не очищая history. Manual/Auto/Quick Save buffer не сериализует и сам по себе не очищает; `SaveData.CurrentVersion = 3`.
+
+Evidence: `RollbackCheckpointEditModeTests`, `RollbackBackendPlayModeTests` (state/presentation/choice/automation/barriers/load/failure), `QuickMenuRollbackButtonEditModeTests`, `GameMenuSmokeTests`, `VNInputMap`; source-index и аудиты — в `docs/eternum_feature_tracker.md`. В этом docs-pass выполнен inspection исходников, Unity tests/runtime/graphical E2E **NOT RUN**. Это не новое разрешение расширять rollback или менять SaveData.
 
 ## 1. Executive summary
 
@@ -290,4 +300,4 @@ Product-level contract после отдельного UI approval:
 
 The current ordinary dialogue architecture already has stable scene/line IDs, an explicit `GameState` shape, deep-copyable backlog, capturable in-memory presentation references and validated in-place restore. That is sufficient for a narrow, in-memory recovery feature only when presentation snapshot restore is part of the same transaction. It is **not** sufficient to make all existing authored interactions rewindable. Any implementation that omits atomic state/backlog restore, buffer limits, Auto/Skip pause or special-mode barriers is out of contract and must not ship.
 
-**IMPLEMENTATION STATUS: NOT IMPLEMENTED**
+**Исторический IMPLEMENTATION STATUS: NOT IMPLEMENTED — SUPERSEDED.** Текущий реализованный bounded contract и route указаны над §1; исторические matrix/план не являются новыми задачами.

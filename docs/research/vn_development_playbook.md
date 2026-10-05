@@ -8,6 +8,8 @@
 
 Текущая фаза: **Polished Functional Demo First**. Сюжетные маршруты, канонические flags, финальный арт и финальная визуальная идентичность отложены до явного возвращения к ним.
 
+Контракты HIF ниже сверены по exact base `40c8dd8881039f472fa578f1a76c02fe8dffb073`; evidence-index — `docs/eternum_feature_tracker.md`. Это docs/source inspection, не повторный runtime QA: Unity tests и graphical E2E **NOT RUN**. Исторические исследования/аудиты не создают новый backlog.
+
 ## Классы evidence
 
 - **A — репозиторий HIF / продуктовая истина.** Текущий master, `docs/product/*`, `docs/research/*`, `docs/eternum_feature_tracker.md`, `AGENTS.md`.
@@ -90,15 +92,15 @@
 Игроки ценят Skip/Auto/History/save actions, но также любят интерфейсы, способные убирать лишний chrome. Summer Pockets часто приводят как пример сочетания полного набора действий и минимального режима чтения.
 
 **HIF:** текущий компактный player-facing strip:
-`История | Пропуск | Авто | Быстр. сох.`
+`Назад | История | Пропуск | Авто | Быстр. сох.`
 
-Обычная навигация остаётся в `Esc → Game Menu`. Не возвращать постоянные кнопки только ради ощущения «богатого» интерфейса.
+Обычная навигация остаётся в `Esc/RMB → Game Menu`: пять основных строк и отдельное `Вернуться в игру`, без root `Назад`/`Откат`. Не возвращать постоянные кнопки только ради ощущения «богатого» интерфейса.
 
 ### История — восстановление информации; rollback — более сильное восстановление состояния
 
 History/Backlog уже DONE и должен оставаться легко доступным. Но History не равно rollback.
 
-**Текущий rollback:** **ОТКРЫТ ДЛЯ FEASIBILITY**, но не реализован. Запрос пользователя и повторяющийся player sentiment усиливают ценность функции, однако нужна безопасная state restoration. Не добавлять визуальную кнопку «назад», оставляющую `GameState`/choices несинхронизированными.
+**Текущий rollback:** реализован bounded in-memory restore state/backlog/presentation по stable-line/pre-choice checkpoints (12, guard 65,536 UTF-16 code units). Route — `Назад` в Quick Menu и колесо вниз, не Game Menu/History. Hard barriers и `SaveData` v3 сохраняются; visual-only переход назад без согласованного `GameState`/choices запрещён. Старое feasibility-направление завершено, исторический contract сохранён в `rollback_rewind_feasibility.md`.
 
 ### Hover/focus должны быть согласованы
 
@@ -127,7 +129,8 @@ EventSystem focus может меняться, но mouse position остаёт�
 - согласованные hover/focus состояния mouse/keyboard/gamepad;
 - ясная семантика Save/Load: Manual Save только Manual;
 - минимальные task-scoped изменения;
-- Rollback/Rewind feasibility остаётся near-term research task.
+- реализованный bounded Rollback/Rewind с hard barriers;
+- принятый Choice UI target v1; relationship deltas/classification работают, но cue-глиф намеренно подавлен в demo-shell, не является незавершённым polish.
 
 ### ПОЗЖЕ, С РЕАЛЬНЫМ КОНТЕНТОМ
 
@@ -192,3 +195,5 @@ EventSystem focus может меняться, но mouse position остаёт�
 ## Решение
 
 **APPROVED AS REUSABLE RESEARCH GUIDANCE.** Исследование подтверждает текущий курс HIF и усиливает приоритет ограниченного Rollback/Rewind feasibility contract. Оно не добавляет автоматически новые implementation tasks вне упорядоченной roadmap.
+
+**Историческое решение; SUPERSEDED только для near-term приоритета rollback feasibility.** Он уже закрыт bounded implementation; актуальный contract указан выше. Остальное research guidance сохраняется, нового backlog нет.

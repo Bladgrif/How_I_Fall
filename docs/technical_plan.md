@@ -29,15 +29,18 @@
 
 Уже существуют и не должны повторно планироваться как отсутствующие:
 
-- dialogue/typewriter и choices;
+- dialogue/typewriter и принятый Choice UI target v1 (до 4 visible choices);
 - typed conditional choices;
 - Manual 60 / Auto 6 / Quick 6 saves;
 - Continue newest-valid;
 - Auto, seen-aware Skip, History/backlog restore;
+- bounded in-memory Rollback по stable-line/pre-choice checkpoints с state/backlog/presentation restore;
 - Main Menu, Game Menu, Shared Preferences;
-- compact Quick Menu;
+- compact Quick Menu: `Назад / История / Пропуск / Авто / Быстр. сох.`;
+- ordinary root Game Menu: Сохранить / Загрузить / Настройки / Главное меню / Выйти + отдельное Вернуться в игру; без root Назад/Откат;
 - unified input/help;
 - notifications/confirmations;
+- relationship deltas/classification; cue-глиф намеренно подавлен в demo-shell (`RelationshipCuePresentationEnabled = false`), а не ожидает обязательного polish;
 - Gallery/Replay technical foundation;
 - Character Hub technical foundation;
 - Chat/Phone technical foundation;
@@ -46,6 +49,14 @@
 ## Save compatibility
 
 `SaveData` v3 — защищённый контракт. Не менять schema, slot capacities, migration или ranking без отдельной причины, migration plan и regression coverage.
+
+- v1 принимается только из Manual paths, v2 — Manual/Auto/Quick; миграции in-memory не переписывают старый JSON, неизвестные версии отвергаются;
+- `sceneId`/`lineId` должны разрешаться через registry; legacy `lineIndex` fallback допускается только при пустом `lineId`, не при неизвестном непустом ID;
+- `selectedChoiceIndex` — исходный индекс choices, не visible slot; rename/delete released IDs и reorder released choices — compatibility risk;
+- Save-scoped backlog (до 100 entries) заменяет текущую History при Load, legacy v1/v2 используют пустой fallback;
+- rollback buffer и transient special-mode state не сериализуются. Save сохраняет текущий state/backlog, но не buffer; accepted Load/session/Replay/special-mode barriers очищают rollback. Save/Load guards special modes и Replay сохраняются.
+
+Evidence exact-base сверки `40c8dd8881039f472fa578f1a76c02fe8dffb073`: `SaveData`, `SaveManager.ReadSlot`/`TryValidateChoiceState`, `ManualSaveSystemV1SmokeTests`, `BacklogRestorationSmokeTests`, `RollbackBackendPlayModeTests`; общий source-index — `docs/eternum_feature_tracker.md`. Исходники проверены, Unity tests/runtime **NOT RUN** в этом docs-only проходе.
 
 ## UI и QA
 
@@ -77,4 +88,4 @@
 
 Перед добавлением новой механики сначала проверить, какую реальную player problem она решает. Для текущей фазы предпочтительнее polish/integration существующих систем, чем расширение feature count.
 
-Rollback/Rewind не реализован: он открыт только для отдельного feasibility contract с state-safe restoration и hard barriers. Flowchart/chapter/glossary/endings остаются отложенными до настоящего story graph.
+Rollback/Rewind реализован: 12 in-memory checkpoints, guard 65,536 UTF-16 code units; route — `Назад` в Quick Menu и колесо вниз, не Game Menu/History. Исторический feasibility contract сохранён с актуальной пометкой. Обычный функциональный demo-shell собран; full-demo audit 2026-10-02 и release-candidate audit 2026-10-03 не означают полного release-readiness или runtime PASS текущей базы. Flowchart/chapter/glossary/endings остаются отложенными до настоящего story graph.
