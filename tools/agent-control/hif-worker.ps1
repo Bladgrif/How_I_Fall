@@ -68,6 +68,7 @@ try {
         $requiredEngine=if($quota.mode -eq 'QUOTA_SAVE'){'ZCode'}else{'Codex'}
         if($Engine -ne $requiredEngine){throw ('Routing requires '+$requiredEngine)}
     } elseif ($task.writer_engine -and $task.writer_engine -ne $Engine) { throw 'Retry must preserve the original checkout/engine; no silent partial-diff transfer' }
+    if($Engine -eq 'Codex' -and ($quota.primary_remaining_percent -le 0 -or $quota.weekly_remaining_percent -le 0)){exit 0} # Expected quota wait: preserve original task/diff.
     SetProp $task 'writer_engine' $Engine
     SetProp $task 'writer_path' $Repo
     SetProp $task 'model' $(if($Engine -eq 'ZCode'){'GLM-5.3-Flash'}else{'gpt-6.1-sol'})

@@ -6,6 +6,7 @@ $mutex=New-Object Threading.Mutex($false,'Local\HowIFallSupervisorLoop')
 if(-not $mutex.WaitOne(0)){exit 0}
 try {
     do {
+      try {
         if(-not (Test-Path (Join-Path $C 'MAINTENANCE')) -and -not (Test-Path (Join-Path $C 'STOP'))){
             $cfg=Get-Content (Join-Path $C 'controller.json') -Raw -Encoding UTF8 | ConvertFrom-Json
             $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -37,7 +38,7 @@ try {
                 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $helper) @helperArgs >> (Join-Path $C 'supervisor-loop.log') 2>&1
                 $code=$LASTEXITCODE
                 $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-                $failures=if($code){[int]$s.transport_failures+1}else{0}
+                $failures=if($code -and $s.status -ne 'PARTIAL_RETRY'){[int]$s.transport_failures+1}else{0}
                 $s | Add-Member -NotePropertyName transport_failures -NotePropertyValue $failures -Force
                 if($failures -ge 3){
                     $s.status='BLOCKED'
@@ -46,6 +47,21 @@ try {
                 $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
             }
         }
+      } catch {
+        # A transient pre-dispatch failure must not kill the only scheduler.
+        Add-Content (Join-Path $C 'supervisor-loop.log') ((Get-Date).ToString('o')+' '+$_.Exception.Message) -Encoding UTF8
+        try {
+            $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            $failures=[int]$s.transport_failures+1
+            $s | Add-Member -NotePropertyName transport_failures -NotePropertyValue $failures -Force
+            $s | Add-Member -NotePropertyName last_error -NotePropertyValue $_.Exception.Message -Force
+            if($failures -ge 3){$s.status='BLOCKED'}
+            $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
+        } catch {
+            # Malformed state is preserved for recovery, never replaced with empty IDLE.
+            Set-Content (Join-Path $C 'STOP') 'Unreadable control state; recover from archive before resuming' -Encoding UTF8
+        }
+      }
         if(-not $Once){Start-Sleep -Seconds 900}
     } while(-not $Once)
 } finally {try{$mutex.ReleaseMutex()}catch{}; $mutex.Dispose()}

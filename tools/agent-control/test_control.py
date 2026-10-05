@@ -145,6 +145,41 @@ class ControlTests(unittest.TestCase):
             self.assertEqual(3, state["transport_failures"])
             self.assertEqual("preserve", state["active_task_id"])
 
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell fixture")
+    def test_scheduler_recovers_pre_dispatch_exception(self):
+        with tempfile.TemporaryDirectory(prefix="hif-dispatch-fixture-") as directory:
+            root = Path(directory)
+            text = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
+            (root/"loop.ps1").write_text(text, encoding="utf-8-sig")
+            (root/"state.json").write_text(json.dumps({"status":"READY", "active_task_id":"preserve"}), encoding="utf-8")
+            (root/"queue.json").write_text(json.dumps({"tasks":[{"id":"preserve","status":"READY"}]}), encoding="utf-8")
+            (root/"controller.json").write_text(json.dumps({"enabled":True}), encoding="utf-8")
+            # Missing fixture hif-control.py causes a local pre-dispatch failure, NO RPC.
+            for _ in range(4):
+                result = subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(root/"loop.ps1"),"-Once"], capture_output=True)
+                self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+            state=c.load(root/"state.json")
+            self.assertEqual("BLOCKED",state["status"])
+            self.assertEqual("preserve",state["active_task_id"])
+            self.assertEqual(3,state["transport_failures"])
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell fixture")
+    def test_scheduler_quota_retry_is_not_transport_blocker(self):
+        with tempfile.TemporaryDirectory(prefix="hif-quota-fixture-") as directory:
+            root=Path(directory)
+            text=Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
+            (root/"loop.ps1").write_text(text,encoding="utf-8-sig")
+            (root/"hif-worker.ps1").write_text('exit 1',encoding="utf-8-sig")
+            (root/"state.json").write_text(json.dumps({"status":"PARTIAL_RETRY","active_task_id":"preserve"}),encoding="utf-8")
+            (root/"queue.json").write_text(json.dumps({"tasks":[{"id":"preserve","status":"PARTIAL_RETRY","writer_engine":"Codex"}]}),encoding="utf-8")
+            (root/"controller.json").write_text(json.dumps({"enabled":True}),encoding="utf-8")
+            for _ in range(4):
+                result=subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(root/"loop.ps1"),"-Once"],capture_output=True)
+                self.assertEqual(0,result.returncode,result.stderr.decode(errors="replace"))
+            state=c.load(root/"state.json")
+            self.assertEqual("PARTIAL_RETRY",state["status"])
+            self.assertEqual(0,state["transport_failures"])
+
 
 if __name__ == "__main__":
     unittest.main()
