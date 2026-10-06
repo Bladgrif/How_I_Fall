@@ -336,6 +336,13 @@ class ControlTests(unittest.TestCase):
         for name in ["hif-worker.ps1", "hif-reviewer.ps1", "supervisor-loop.ps1"]:
             self.assertNotIn("approval_mode=", Path(__file__).with_name(name).read_text(encoding="utf-8-sig"))
 
+    def test_supervisor_reads_independent_review_not_stale_writer_stage(self):
+        source = Path(__file__).with_name("wake-supervisor.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("strong-review-latest.json", source)
+        self.assertIn("verify task_id/base_sha/head_sha", source)
+        self.assertIn("must NOT be rerun", source)
+        self.assertIn("set WAIT_CI, not REVIEW_CANDIDATE", source)
+
     @unittest.skipUnless(os.name == "nt", "Windows PowerShell auth-wait fixture")
     def test_auth_wait_is_quiet_without_model_dispatch(self):
         with tempfile.TemporaryDirectory(prefix="hif-auth-fixture-") as directory:

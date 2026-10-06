@@ -40,6 +40,10 @@ validation/acceptance, risk and player_facing in queue.json. Production tasks mu
 be supported by approved source. Set state.status=READY, then end this turn so the
 scheduler invokes the writer. At most ONE active task across both engines.
 Scheduler sends high-risk candidate DIRECTLY to fresh Sol High review; low-risk to Luna.
+Read independent results from D:\How_I_Fall\agent-control\strong-review-latest.json
+or review-latest.json and verify task_id/base_sha/head_sha. A matching CLEAN result
+must NOT be rerun just because the older writer report says review was pending.
+For a CLEAN reviewed candidate with pending CI, set WAIT_CI, not REVIEW_CANDIDATE.
 No mandatory cheap first pass for significant work. Read REVIEW_READY result:
 correction -> task AND state CORRECTION_READY on same checkout; high risk or
 escalation -> state WAIT_STRONG_REVIEW, end turn; STRONG_REVIEW_READY must be CLEAN.
