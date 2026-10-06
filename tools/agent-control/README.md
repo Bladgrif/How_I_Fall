@@ -312,6 +312,15 @@ Durable task/state/roadmap/review receipts — context каждой новой b
 
 ## Read-only dashboard
 
+Текущая задача показывает этап, шкалу семи этапов процесса, время от начала
+текущего прохода, последнюю активность и оставшиеся этапы. Проценты явно означают
+маршрут `подготовка → implementation → local checks → independent review → PR/CI
+→ merge/sync → roadmap`, НЕ готовность кода и НЕ равномерный расход времени.
+Correction может вернуть шкалу назад. Для blockers/unknown процент не вычисляется;
+ETA неизвестен до накопления сопоставимой истории. Время текущего прохода берётся
+из timestamp host log в timezone компьютера, не из количества строк/токенов.
+Исторический snapshot/пропавшая связь остаются `НЕ LIVE`.
+
 В repository включены ТОЛЬКО исходные `hif-dashboard.py`, `.html`,
 `test_dashboard.py` из `zagent/tools/agent-control`; parent zagent/живой экран не
 изменены. Нет installer/autostart/нового queue/loop, executable из task packet,

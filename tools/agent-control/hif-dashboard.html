@@ -163,6 +163,10 @@
   </div>
 </header>
 <main>
+  <section class="panel">
+    <h2>Прогресс текущей задачи</h2>
+    <div id="progressBody" aria-live="polite"></div>
+  </section>
   <div class="grid quota-grid">
     <article class="panel" id="quotaGptPanel"></article>
     <article class="panel" id="quotaGlmPanel"></article>
@@ -594,6 +598,7 @@ function render(data) {
   renderAgents(data.agents);
   renderSupport(data.support);
   renderState(data.state, data.controller);
+  renderProgress(data);
   renderBatch(data.batch);
   renderGroupChips(data.groups);
   renderTasks();
@@ -626,6 +631,72 @@ function renderBatch(batch) {
   if (!(batch.packets || []).length) { box.append(el("div", "muted", "Пакета ещё нет; legacy items не становятся READY автоматически.")); }
   box.append(el("div", null, "Следующая: " + (batch.next_task || "не выбрана") + " · " + (batch.wait_reason || "ожидаем durable facts")));
   box.append(el("div", "muted", batch.error || batch.note || "Native approval/dispatch guard обязателен."));
+}
+
+function progressDuration(seconds) {
+  if (typeof seconds !== "number" || !isFinite(seconds) || seconds < 0) { return "неизвестно"; }
+  var minutes = Math.floor(seconds / 60);
+  return minutes >= 60 ? Math.floor(minutes / 60) + " ч " + minutes % 60 + " мин" : minutes + " мин";
+}
+
+function deriveProgress(data) {
+  if (data.progress) { return data.progress; }
+  // Compatibility with the already-running older server; remove after full deployment.
+  var state = data.state || {}, tasks = data.tasks || [], id = state.active_task_id;
+  var task = tasks.filter(function (t) { return t.id === id; });
+  var steps = ["Подготовка", "Реализация", "Локальные проверки", "Независимое ревью", "PR и CI", "Merge и синхронизация", "Roadmap"];
+  var phases = { READY: 0, PREPARING: 0, RUNNING: 1, PARTIAL_RETRY: 1, CORRECTION_READY: 1,
+    REVIEW_CANDIDATE: 3, REVIEW_CANDIDATE_NO_CHANGE: 3, WAIT_STRONG_REVIEW: 3,
+    REVIEWING: 3, STRONG_REVIEWING: 3, REVIEW_READY: 3, STRONG_REVIEW_READY: 3,
+    WAIT_CI: 4, SYNC_MASTER_PENDING: 5, MERGED_LOCAL_SYNC_DONE: 6, ROADMAP_SYNC_READY: 6 };
+  var p = { active: !!id, title: task.length === 1 ? task[0].title || id : id,
+    phase: "Нет активной задачи", percent: null, completed_steps: null, total_steps: steps.length,
+    elapsed_seconds: null, remaining_steps: [], last_action: null, last_activity_age_seconds: null };
+  if (!id || task.length !== 1) { return p; }
+  var index = phases[state.status];
+  if (state.status === "DONE") { p.phase = "Завершено"; p.percent = 100; p.completed_steps = steps.length; }
+  else if (index !== undefined) {
+    p.phase = steps[index]; p.percent = Math.round(index * 100 / steps.length);
+    p.completed_steps = index; p.remaining_steps = steps.slice(index);
+  } else { p.phase = "Ожидание / остановка: " + (state.status || "UNKNOWN"); }
+  if (["REVIEW_CANDIDATE", "REVIEW_CANDIDATE_NO_CHANGE", "WAIT_STRONG_REVIEW"].indexOf(state.status) >= 0) { p.phase = "Ожидание независимого ревью"; }
+  if (state.status === "WAIT_CI") { p.phase = "Ожидание PR / CI"; }
+  var events = (data.activity || {}).task_events || {};
+  p.last_action = (events.last_step || {}).label || null;
+  p.last_activity_age_seconds = events.age_seconds;
+  var name = events.name || "", match = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-/.exec(name);
+  if (match && name.endsWith("-" + id + "-events.jsonl")) {
+    var date = new Date(+match[1], +match[2]-1, +match[3], +match[4], +match[5], +match[6]);
+    var valid = date.getFullYear() === +match[1] && date.getMonth() === +match[2]-1 && date.getDate() === +match[3]
+      && date.getHours() === +match[4] && date.getMinutes() === +match[5] && date.getSeconds() === +match[6];
+    var start = date.getTime()/1000;
+    var elapsed = data.generated_epoch - start;
+    if (valid && elapsed >= 0 && elapsed <= 30 * 86400) { p.elapsed_seconds = elapsed; }
+  }
+  p.eta_note = "Прогноз времени неизвестен: истории сопоставимых задач пока недостаточно.";
+  p.disclaimer = "Шкала этапов приблизительная: это НЕ процент готовности кода. Этапы занимают разное время; исправление может вернуть задачу назад.";
+  return p;
+}
+
+function renderProgress(data) {
+  var box = document.getElementById("progressBody"), p = deriveProgress(data);
+  box.replaceChildren();
+  if (!p.active) { box.append(el("div", "muted", "Нет активной задачи.")); return; }
+  box.append(el("div", null, p.title || p.task_id || "Текущая задача"));
+  box.append(el("div", null, "Сейчас: " + p.phase));
+  if (typeof p.percent === "number" && isFinite(p.percent) && p.percent >= 0 && p.percent <= 100) {
+    var bar = el("progress"); bar.max = 100; bar.value = p.percent;
+    bar.style.width = "100%"; bar.style.height = "16px"; bar.style.accentColor = "#35c4b5";
+    bar.setAttribute("aria-label", "Приблизительная шкала этапов процесса, не готовность кода");
+    box.append(bar);
+    box.append(el("div", "muted", "Пройдено этапов: " + p.completed_steps + "/" + p.total_steps + " · ≈" + p.percent + "% маршрута"));
+  } else { box.append(el("div", "muted", "Процент не определён: ожидание, блокер или недостаточно данных.")); }
+  box.append(el("div", null, "От начала текущего прохода: " + progressDuration(p.elapsed_seconds)));
+  box.append(el("div", null, "Последняя активность: " + (typeof p.last_activity_age_seconds === "number" ? fmtAge(p.last_activity_age_seconds) : "неизвестна")
+    + (p.last_action ? " · " + p.last_action : "")));
+  if (p.remaining_steps && p.remaining_steps.length) { box.append(el("div", null, "Осталось: " + p.remaining_steps.join(" → "))); }
+  box.append(el("div", "muted", p.eta_note || "Прогноз времени неизвестен."));
+  box.append(el("div", "muted", p.disclaimer || "Это шкала этапов, не оценка готовности кода."));
 }
 
 function updateFreshness() {

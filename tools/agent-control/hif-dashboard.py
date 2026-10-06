@@ -329,8 +329,15 @@ def classify_event(event):
     status = item.get("status")
     if itype == "command_execution":
         # Команда не раскрывается: только общая подпись проверки/команды.
-        label = "Проверки" if status == "completed" else "Команда"
-        level = "ok" if status == "completed" else "info"
+        command = item.get("command")
+        check = isinstance(command, str) and any(token in command.lower() for token in
+                ("test_control.py", "test_dashboard.py", "test_batch.py", "unittest", "--check", "parsefile", "run-unity-tests.ps1"))
+        finished = etype == "item.completed" or status == "completed"
+        failed = finished and isinstance(item.get("exit_code"), int) and item["exit_code"] != 0
+        label = ("Проверки" if check else "Команда") + (" завершены" if finished else " выполняются")
+        if failed:
+            label += " с ошибкой"
+        level = "error" if failed else ("ok" if finished and item.get("exit_code") == 0 else "info")
         return {"label": label, "level": level}
     if itype == "file_change":
         names = _item_file_names(item)
@@ -362,6 +369,72 @@ def _item_file_names(item):
         if name and name not in ordered:
             ordered.append(name)
     return ordered[:3]
+
+
+PROGRESS_STEPS = ("Подготовка", "Реализация", "Локальные проверки",
+                  "Независимое ревью", "PR и CI", "Merge и синхронизация", "Roadmap")
+PROGRESS_PHASE = {
+    "READY": 0, "PREPARING": 0, "RUNNING": 1, "PARTIAL_RETRY": 1,
+    "CORRECTION_READY": 1, "REVIEW_CANDIDATE": 3, "REVIEW_CANDIDATE_NO_CHANGE": 3,
+    "WAIT_STRONG_REVIEW": 3, "REVIEWING": 3, "STRONG_REVIEWING": 3,
+    "REVIEW_READY": 3, "STRONG_REVIEW_READY": 3, "WAIT_CI": 4,
+    "SYNC_MASTER_PENDING": 5, "MERGED_LOCAL_SYNC_DONE": 6, "ROADMAP_SYNC_READY": 6,
+}
+
+
+def progress_snapshot(state, tasks, events, now):
+    """Discrete pipeline milestones, NOT code completion or a predicted ETA."""
+    state = state if isinstance(state, dict) else {}
+    tasks = tasks if isinstance(tasks, list) else []
+    ident = state.get("active_task_id")
+    selected = [t for t in tasks if isinstance(t, dict) and t.get("id") == ident]
+    out = {"active": bool(ident), "task_id": _optional_str(ident, 80),
+           "title": None, "phase": "Нет активной задачи", "percent": None,
+           "completed_steps": None, "total_steps": len(PROGRESS_STEPS),
+           "remaining_steps": [], "started_epoch": None, "elapsed_seconds": None,
+           "elapsed_source": None, "last_activity_age_seconds": None,
+           "last_action": None, "eta_seconds": None,
+           "eta_note": "Прогноз времени неизвестен: истории сопоставимых задач пока недостаточно.",
+           "disclaimer": "Шкала этапов приблизительная: это НЕ процент готовности кода. Этапы занимают разное время; исправление может вернуть задачу назад."}
+    if not ident or len(selected) != 1:
+        if ident:
+            out["phase"] = "Состояние задачи неоднозначно"
+        return out
+    out["title"] = _optional_str(selected[0].get("title"), 200) or out["task_id"]
+    status = state.get("status")
+    phase = PROGRESS_PHASE.get(status)
+    if status == "DONE":
+        out.update(phase="Завершено", percent=100, completed_steps=len(PROGRESS_STEPS))
+    elif phase is not None:
+        out.update(phase=PROGRESS_STEPS[phase], percent=round(phase * 100 / len(PROGRESS_STEPS)),
+                   completed_steps=phase, remaining_steps=list(PROGRESS_STEPS[phase:]))
+        if status in ("REVIEW_CANDIDATE", "REVIEW_CANDIDATE_NO_CHANGE", "WAIT_STRONG_REVIEW"):
+            out["phase"] = "Ожидание независимого ревью"
+        elif status == "WAIT_CI":
+            out["phase"] = "Ожидание PR / CI"
+    else:
+        # Do not synthesize green progress for blockers, auth waits or unknown statuses.
+        out["phase"] = "Ожидание / остановка: " + str(status or "UNKNOWN")[:60]
+    if isinstance(events, dict):
+        age = events.get("age_seconds")
+        if isinstance(age, (int, float)) and age >= 0:
+            out["last_activity_age_seconds"] = age
+        step = events.get("last_step")
+        if isinstance(step, dict):
+            out["last_action"] = _optional_str(step.get("label"), 120)
+        # The existing host log name is a bounded timestamped execution artifact.
+        # Its timestamp is local host time. It is not a duration prediction.
+        name = events.get("name")
+        match = re.fullmatch(r"(\d{8}-\d{6})-" + re.escape(str(ident)) + r"-events\.jsonl", name or "")
+        if match:
+            try:
+                start = dt.datetime.strptime(match[1], "%Y%m%d-%H%M%S").timestamp()
+                if 0 <= now - start <= 30 * 86400:
+                    out.update(started_epoch=start, elapsed_seconds=round(now-start),
+                               elapsed_source="Время начала текущего прохода из host log; не весь срок задачи с повторами")
+            except (ValueError, OverflowError, OSError):
+                pass
+    return out
 
 
 def classify_tail(text):
@@ -910,6 +983,7 @@ class Dashboard:
                 "task_count": len(tasks),
             },
             "tasks": tasks,
+            "progress": progress_snapshot(state_value, tasks, task_events, now),
             "batch": batch_snapshot(queue_value, state_value),
             "groups": groups,
             "agents": self.agents_snapshot(processes, support),

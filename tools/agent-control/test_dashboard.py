@@ -749,5 +749,71 @@ class BatchDashboardTests(unittest.TestCase):
         self.assertIn("error", d.batch_snapshot({"batches": [{"tasks": [None]}], "tasks": []}, {}))
 
 
+class TaskProgressTests(unittest.TestCase):
+    def setUp(self):
+        self.state = {"active_task_id": "demo", "status": "RUNNING"}
+        self.tasks = [{"id": "demo", "title": "Тестовая задача"}]
+        self.start = d.dt.datetime(2026, 10, 6, 12, 0, 0).timestamp()
+        self.events = {"name": "20261006-120000-demo-events.jsonl", "age_seconds": 7,
+                       "last_step": {"label": "Проверки выполняются"}}
+
+    def result(self, **state):
+        return d.progress_snapshot(dict(self.state, **state), self.tasks, self.events, self.start+1800)
+
+    def test_running_is_stage_scale_not_code_percentage_or_eta(self):
+        result = self.result()
+        self.assertEqual("Реализация", result["phase"])
+        self.assertEqual(14, result["percent"])
+        self.assertEqual(1800, result["elapsed_seconds"])
+        self.assertIsNone(result["eta_seconds"])
+        self.assertIn("НЕ процент", result["disclaimer"])
+
+    def test_waiting_review_does_not_claim_done(self):
+        result = self.result(status="REVIEW_CANDIDATE")
+        self.assertEqual("Ожидание независимого ревью", result["phase"])
+        self.assertEqual(43, result["percent"])
+        self.assertIn("PR и CI", result["remaining_steps"])
+
+    def test_ci_merge_and_roadmap_are_distinct(self):
+        for status, percent in (("WAIT_CI", 57), ("SYNC_MASTER_PENDING", 71), ("ROADMAP_SYNC_READY", 86), ("DONE", 100)):
+            with self.subTest(status=status):
+                self.assertEqual(percent, self.result(status=status)["percent"])
+
+    def test_unknown_auth_blocker_has_no_fake_progress(self):
+        for status in ("WAIT_AUTH", "BLOCKED", "MALFORMED"):
+            self.assertIsNone(self.result(status=status)["percent"])
+
+    def test_correction_can_move_back(self):
+        self.assertLess(self.result(status="CORRECTION_READY")["percent"], self.result(status="WAIT_CI")["percent"])
+
+    def test_no_active_or_ambiguous_task_no_percentage(self):
+        self.assertFalse(self.result(active_task_id=None)["active"])
+        self.tasks *= 2
+        self.assertIsNone(self.result()["percent"])
+
+    def test_missing_wrong_and_future_log_start_is_unknown(self):
+        for name in (None, "20261006-120000-other-events.jsonl", "20261306-120000-demo-events.jsonl", "20261007-120000-demo-events.jsonl"):
+            self.events["name"] = name
+            self.assertIsNone(self.result()["elapsed_seconds"])
+
+    def test_activity_is_redacted_label_not_raw_output(self):
+        signature = d.classify_event({"type": "item.completed", "item": {"type": "command_execution",
+            "command": "python test_control.py SECRET", "aggregated_output": "SECRET-OUTPUT", "exit_code": 1}})
+        self.assertEqual("error", signature["level"])
+        self.assertIn("с ошибкой", signature["label"])
+        self.assertNotIn("SECRET", json.dumps(signature))
+
+    def test_completed_unknown_command_is_not_a_passed_test(self):
+        signature = d.classify_event({"type": "item.completed", "item": {"type": "command_execution", "status": "completed"}})
+        self.assertEqual("info", signature["level"])
+        self.assertNotIn("Проверки", signature["label"])
+
+    def test_html_has_safe_progress_and_unknown_eta(self):
+        html = Path(__file__).with_name("hif-dashboard.html").read_text(encoding="utf-8")
+        self.assertIn('id="progressBody"', html)
+        self.assertIn("НЕ процент готовности кода", html)
+        self.assertIn("Прогноз времени неизвестен", html)
+
+
 if __name__ == "__main__":
     unittest.main()
