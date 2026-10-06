@@ -1,0 +1,93 @@
+﻿param([switch]$Once)
+$ErrorActionPreference='Stop'
+$C='D:\How_I_Fall\agent-control'
+$env:CODEX_HOME='D:\Codex'
+$mutex=New-Object Threading.Mutex($false,'Local\HowIFallSupervisorLoop')
+if(-not $mutex.WaitOne(0)){exit 0}
+try {
+    do {
+      try {
+        if(-not (Test-Path (Join-Path $C 'MAINTENANCE')) -and -not (Test-Path (Join-Path $C 'STOP'))){
+            $cfg=Get-Content (Join-Path $C 'controller.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            # Quiet while waiting on the user/auth/blocker. No repeated idle model bill.
+            if($cfg.enabled -and $s.status -notin @('WAIT_USER','WAIT_AUTH','BLOCKED','MAINTENANCE')){
+                # Dispatch models outside the Supervisor tool sandbox; never nested exec.
+                $helper='wake-supervisor.ps1'; $helperArgs=@(); $runHelper=$true
+                if($s.status -eq 'WAIT_CI'){
+                    $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+                    $ci=& $Python (Join-Path $PSScriptRoot 'hif-control.py') ci-status --head $s.head_sha
+                    if($LASTEXITCODE){throw 'CI poll transport failed'}
+                    if($ci -eq 'WAIT_CI'){$runHelper=$false} # No model wake on unchanged CI.
+                }
+                if($s.status -in @('READY','CORRECTION_READY','PARTIAL_RETRY')){
+                    $q=Get-Content (Join-Path $C 'queue.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+                    $task=@($q.tasks | Where-Object {$_.status -in @('READY','CORRECTION_READY','PARTIAL_RETRY')} | Select-Object -First 1)
+                    if(-not $task.Count){throw 'State/queue mismatch: no eligible task'}
+                    $helper='hif-worker.ps1'
+                    $engine=[string]$task[0].writer_engine
+                    if($task[0].status -eq 'READY'){
+                        $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+                        & $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $C | Out-Null
+                        if($LASTEXITCODE){throw 'Quota transport failed'}
+                        $quota=Get-Content (Join-Path $C 'codex-quota.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+                        if($quota.mode -eq 'UNKNOWN'){throw 'Quota UNKNOWN: dispatch blocked'}
+                        $engine=if($quota.mode -eq 'QUOTA_SAVE'){'ZCode'}else{'Codex'}
+                    }
+                    if($engine -notin @('Codex','ZCode')){throw 'Missing original retry engine'}
+                    $helperArgs=@('-Engine',$engine)
+                } elseif($s.status -in @('REVIEW_CANDIDATE','REVIEW_CANDIDATE_NO_CHANGE')){
+                    $helper='hif-reviewer.ps1'
+                    $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+                    $tier=& $Python (Join-Path $PSScriptRoot 'hif-control.py') review-tier --control $C
+                    if($LASTEXITCODE -or $tier -notin @('cheap','strong')){throw 'Review routing failed'}
+                    if($tier -eq 'strong'){$helperArgs=@('-Strong')}
+                } elseif($s.status -eq 'WAIT_STRONG_REVIEW'){
+                    $helper='hif-reviewer.ps1'; $helperArgs=@('-Strong')
+                }
+                $code=0
+                if($runHelper){
+                    $savedPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'
+                    try {
+                        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $helper) @helperArgs 2>&1 | ForEach-Object {Add-Content (Join-Path $C 'supervisor-loop.log') $_ -Encoding UTF8}
+                        $code=$LASTEXITCODE
+                    } finally {$ErrorActionPreference=$savedPreference}
+                }
+                if($code -eq 78){
+                    # No further dispatch in this process, independent of disk/marker availability.
+                    try {
+                        $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+                        $s.status='BLOCKED'
+                        $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
+                        Set-Content (Join-Path $C 'STOP') 'Fatal control persistence failure; recover before resuming' -Encoding UTF8
+                    } catch {}
+                    break
+                }
+                $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+                $failures=if($code -and $code -ne 75){[int]$s.transport_failures+1}else{0}
+                $s | Add-Member -NotePropertyName transport_failures -NotePropertyValue $failures -Force
+                if($failures -ge 3){
+                    $s.status='BLOCKED'
+                    $s | Add-Member -NotePropertyName last_error -NotePropertyValue 'Supervisor transport failed three times; manual recovery needed' -Force
+                }
+                $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
+            }
+        }
+      } catch {
+        # A transient pre-dispatch failure must not kill the only scheduler.
+        Add-Content (Join-Path $C 'supervisor-loop.log') ((Get-Date).ToString('o')+' '+$_.Exception.Message) -Encoding UTF8
+        try {
+            $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            $failures=[int]$s.transport_failures+1
+            $s | Add-Member -NotePropertyName transport_failures -NotePropertyValue $failures -Force
+            $s | Add-Member -NotePropertyName last_error -NotePropertyValue $_.Exception.Message -Force
+            if($failures -ge 3){$s.status='BLOCKED'}
+            $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
+        } catch {
+            # Malformed state is preserved for recovery, never replaced with empty IDLE.
+            Set-Content (Join-Path $C 'STOP') 'Unreadable control state; recover from archive before resuming' -Encoding UTF8
+        }
+      }
+        if(-not $Once){Start-Sleep -Seconds 900}
+    } while(-not $Once)
+} finally {try{$mutex.ReleaseMutex()}catch{}; $mutex.Dispose()}
