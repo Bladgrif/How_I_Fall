@@ -158,16 +158,24 @@ def needs_strong(task, changed, cheap=None):
 
 def ci_latest(checks, head):
     names = {"CI Gate", "CI change classification", "Unity Test Framework", "Unity smoke tests"}
+    relevant = [run for run in checks.get("check_runs", [])
+                if run.get("name") in names and run.get("head_sha") == head
+                and run.get("app", {}).get("slug") == "github-actions"]
+    # A new suite without its own Gate must never inherit the previous suite's Gate.
+    if relevant:
+        suite = max(relevant, key=lambda run: run["id"]).get("check_suite", {}).get("id")
+        relevant = [run for run in relevant if run.get("check_suite", {}).get("id") == suite]
     latest = {}
-    for run in checks.get("check_runs", []):
-        if run.get("name") in names and run.get("head_sha") == head and run.get("app", {}).get("slug") == "github-actions":
-            if run["name"] not in latest or run["id"] > latest[run["name"]]["id"]:
-                latest[run["name"]] = run
+    for run in relevant:
+        if run["name"] not in latest or run["id"] > latest[run["name"]]["id"]:
+            latest[run["name"]] = run
     return latest
 
 
 def ci_pending(checks, head):
-    return any(run.get("status") != "completed" for run in ci_latest(checks, head).values())
+    workflow = checks.get("workflow_run", {})
+    return (workflow.get("head_sha") != head or workflow.get("status") != "completed"
+            or any(run.get("status") != "completed" for run in ci_latest(checks, head).values()))
 
 
 def gate(task, cheap, strong, pr, checks, changed):
@@ -182,32 +190,29 @@ def gate(task, cheap, strong, pr, checks, changed):
         raise ValueError("Master moved: update candidate, validate and re-review")
     if ci_pending(checks, task["head_sha"]):
         raise ValueError("Exact-head CI jobs are still running; old success cannot authorize merge")
-    if any(run.get("conclusion") not in ("success", "skipped") for run in ci_latest(checks, task["head_sha"]).values()):
+    if checks["workflow_run"].get("conclusion") != "success" or any(run.get("conclusion") not in ("success", "skipped") for run in ci_latest(checks, task["head_sha"]).values()):
         raise ValueError("A latest exact-head CI job failed; old success cannot authorize merge")
-    runs = [r for r in checks.get("check_runs", []) if r.get("name") == "CI Gate"
-            and r.get("head_sha") == task["head_sha"]
-            and r.get("app", {}).get("slug") == "github-actions"]
-    if not runs:
+    latest = ci_latest(checks, task["head_sha"]).get("CI Gate")
+    if not latest:
         raise ValueError("Exact-head CI Gate missing")
-    latest = max(runs, key=lambda r: r["id"])
     if latest.get("status") != "completed" or latest.get("conclusion") != "success":
         raise ValueError("Latest exact-head CI Gate is not GREEN")
     if task.get("player_facing") and not final_review.get("visual_proof_verified"):
         raise ValueError("Reviewer-visible graphical proof not verified")
     return {"status": "MERGE_ALLOWED", "task_id": task["id"], "head_sha": task["head_sha"],
-            "checked_at": now(), "ci_check_id": latest["id"], "pr_number": pr["number"]}
+            "checked_at": now(), "ci_check_id": latest["id"], "pr_number": pr["number"],
+            "ci_run_id": checks["workflow_run"]["id"], "ci_run_attempt": checks["workflow_run"]["run_attempt"]}
 
 
 def ci_status(checks, head):
     if ci_pending(checks, head):
         return "WAIT_CI"
-    if any(run.get("conclusion") not in ("success", "skipped") for run in ci_latest(checks, head).values()):
+    if checks["workflow_run"].get("conclusion") != "success" or any(run.get("conclusion") not in ("success", "skipped") for run in ci_latest(checks, head).values()):
         return "FAILED"
-    runs = [r for r in checks.get("check_runs", []) if r.get("name") == "CI Gate"
-            and r.get("head_sha") == head and r.get("app", {}).get("slug") == "github-actions"]
-    if not runs or max(runs, key=lambda r: r["id"]).get("status") != "completed":
+    latest = ci_latest(checks, head).get("CI Gate")
+    if not latest or latest.get("status") != "completed":
         return "WAIT_CI"
-    return "GREEN" if max(runs, key=lambda r: r["id"]).get("conclusion") == "success" else "FAILED"
+    return "GREEN" if latest.get("conclusion") == "success" else "FAILED"
 
 
 def github(path):
@@ -215,6 +220,26 @@ def github(path):
                                  headers={"Accept": "application/vnd.github+json", "User-Agent": "HIF-gate"})
     with urllib.request.urlopen(req, timeout=30) as response:
         return json.load(response)
+
+
+def ci_checks(head):
+    # Fetch jobs from ONE exact workflow attempt, not a mixed commit check collection.
+    runs = github("actions/runs?head_sha=" + head + "&event=pull_request&per_page=100")["workflow_runs"]
+    runs = [run for run in runs if run.get("head_sha") == head
+            and run.get("path") == ".github/workflows/unity-ci.yml"]
+    if not runs:
+        return {"check_runs": []}
+    run_id = max(runs, key=lambda run: run["id"])["id"]
+    before = github("actions/runs/" + str(run_id))
+    jobs = github("actions/runs/" + str(run_id) + "/attempts/" + str(before["run_attempt"]) + "/jobs?per_page=100")
+    after = github("actions/runs/" + str(run_id))
+    if jobs.get("total_count", 0) > 100:
+        raise ValueError("CI jobs exceed bounded page; cannot verify Gate")
+    if before["run_attempt"] != after["run_attempt"] or before["status"] != after["status"]:
+        return {"workflow_run": dict(after, status="in_progress"), "check_runs": []}
+    return {"workflow_run": after, "check_runs": [dict(job, head_sha=head,
+            app={"slug": "github-actions"}, check_suite={"id": after["check_suite_id"]})
+            for job in jobs["jobs"]]}
 
 
 def zcode_run(repo, prompt, output, events):
@@ -277,7 +302,7 @@ def main():
     elif args.command == "ci-status":
         if not re.fullmatch(r"[a-f0-9]{40}", args.head or ""):
             raise ValueError("Exact CI head SHA required")
-        print(ci_status(github("commits/" + args.head + "/check-runs?per_page=100"), args.head))
+        print(ci_status(ci_checks(args.head), args.head))
     else:
         state, tasks = load(c / "state.json"), load(c / "queue.json")["tasks"]
         task = next(t for t in tasks if t["id"] == state["active_task_id"])
@@ -288,7 +313,7 @@ def main():
             print("strong" if needs_strong(task, changed, cheap) else "cheap")
             return
         pr = github("pulls/" + str(task["pr_number"]))
-        checks = github("commits/" + task["head_sha"] + "/check-runs?per_page=100")
+        checks = ci_checks(task["head_sha"])
         receipt = gate(task, cheap, load(c / "strong-review-latest.json")
                        if (c / "strong-review-latest.json").exists() else None, pr, checks, changed)
         save(c / "merge-gate.json", receipt)

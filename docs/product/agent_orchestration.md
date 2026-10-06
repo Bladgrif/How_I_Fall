@@ -400,8 +400,8 @@ contract change или infrastructure блокирует обязательно�
 graphical proof и коротким `REVIEW CANDIDATE`/`BLOCKED` report. Writer не
 merge'ит собственный candidate.
 
-**Independent reviewer** — fresh read-only pass, по умолчанию Luna Low; для
-high-risk candidate добавляется Sol High strong review. Reviewer не принимает
+**Independent reviewer** — один fresh read-only pass: Sol High сразу для
+high-risk candidate, Luna Low только для low-risk. Reviewer не принимает
 agent report автоматически и проверяет exact diff/gates.
 
 **HIF Supervisor** владеет durable state, выбором следующего bounded pass,

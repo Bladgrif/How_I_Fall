@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("control", Path(__file__).with_name("hif-control.py"))
 c = importlib.util.module_from_spec(spec)
@@ -23,7 +24,7 @@ class ControlTests(unittest.TestCase):
         self.strong = dict(self.review, reviewer_model="gpt-6.1-sol", reviewer_reasoning="high")
         self.pr = dict(number=1, state="open", draft=False, mergeable=True,
                        head={"sha": "b"*40}, base={"ref": "master", "sha": "a"*40})
-        self.checks = {"check_runs": [dict(id=1, name="CI Gate", head_sha="b"*40,
+        self.checks = {"workflow_run": dict(id=100, run_attempt=1, head_sha="b"*40, status="completed", conclusion="success"), "check_runs": [dict(id=1, name="CI Gate", head_sha="b"*40,
                                          app={"slug": "github-actions"}, status="completed", conclusion="success")]}
 
     def gate(self, changed=()):
@@ -92,6 +93,49 @@ class ControlTests(unittest.TestCase):
         self.checks["check_runs"][0]["head_sha"] = "c"*40
         with self.assertRaises(ValueError):
             self.gate()
+
+    def test_new_suite_without_gate_cannot_inherit_old_gate(self):
+        self.checks["check_runs"][0]["check_suite"] = {"id": 10}
+        for name in ["CI change classification", "Unity Test Framework", "Unity smoke tests"]:
+            self.checks["check_runs"].append(dict(self.checks["check_runs"][0], id=len(self.checks["check_runs"])+10,
+                                                  name=name, check_suite={"id": 20}))
+        self.assertEqual("WAIT_CI", c.ci_status(self.checks, "b"*40))
+        with self.assertRaises(ValueError):
+            self.gate()
+
+    def test_active_workflow_with_completed_old_jobs_waits(self):
+        for status in ["queued", "in_progress"]:
+            self.checks["workflow_run"].update(status=status, run_attempt=2)
+            self.assertEqual("WAIT_CI", c.ci_status(self.checks, "b"*40))
+            with self.assertRaises(ValueError):
+                self.gate()
+
+    def test_ci_transport_binds_exact_attempt_and_detects_rerun_during_read(self):
+        run = dict(id=100, run_attempt=2, head_sha="b"*40, status="completed", conclusion="success",
+                   path=".github/workflows/unity-ci.yml", check_suite_id=20)
+        jobs = {"total_count": 1, "jobs": [dict(id=10, name="CI Gate", status="completed", conclusion="success")]}
+        for after, expected in [(run, "GREEN"), (dict(run, run_attempt=3), "WAIT_CI")]:
+            with patch.object(c, "github", side_effect=[{"workflow_runs": [run]}, run, jobs, after]) as fetch:
+                self.assertEqual(expected, c.ci_status(c.ci_checks("b"*40), "b"*40))
+                self.assertIn("/attempts/2/jobs", fetch.call_args_list[2].args[0])
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell UTF-8 fixture")
+    def test_worker_reads_russian_queue_and_state_without_bom(self):
+        with tempfile.TemporaryDirectory(prefix="hif-utf8-fixture-") as directory:
+            root = Path(directory)
+            value = {"prompt": "Завершить проверку и сохранить задачу"}
+            for name in ["queue.json", "state.json"]:
+                (root/name).write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+            worker = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
+            reads = [line.strip() for line in worker.splitlines() if "= Get-Content $QueuePath" in line or "= Get-Content $StatePath" in line]
+            self.assertEqual(4, len(reads))
+            script = "$ErrorActionPreference='Stop'\n$QueuePath='"+str(root/"queue.json")+"'\n$StatePath='"+str(root/"state.json")+"'\n"
+            for line in reads:
+                var = "$q" if "$QueuePath" in line else "$s"
+                script += line + "\nif("+var+".prompt -cne '"+value["prompt"]+"'){throw 'Russian text corrupted'}\n"
+            (root/"read.ps1").write_text(script, encoding="utf-8-sig")
+            result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(root/"read.ps1")], capture_output=True, timeout=15)
+            self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
 
     def test_ci_poll_quiet_while_pending_and_uses_latest_head_gate(self):
         self.assertEqual("WAIT_CI", c.ci_status({"check_runs":[]}, "b"*40))

@@ -53,8 +53,8 @@ if (-not $mutex.WaitOne(0)) { throw 'Writer/reviewer busy' }
 
 $claimed=$false
 try {
-    $q = Get-Content $QueuePath -Raw | ConvertFrom-Json
-    $s = Get-Content $StatePath -Raw | ConvertFrom-Json
+    $q = Get-Content $QueuePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $s = Get-Content $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
     $eligible = @('READY','CORRECTION_READY','PARTIAL_RETRY')
     $task = @($q.tasks | Where-Object { $eligible -contains $_.status } | Select-Object -First 1)
     if ($task.Count -eq 0) { exit 0 } # Never erase a pending candidate.
@@ -287,8 +287,8 @@ Missing required graphical proof or a required test is BLOCKED, not a success.
 catch {
     if (-not $claimed) { throw } # Preflight must not corrupt another active task.
     try {
-        $q = Get-Content $QueuePath -Raw | ConvertFrom-Json
-        $s = Get-Content $StatePath -Raw | ConvertFrom-Json
+        $q = Get-Content $QueuePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $s = Get-Content $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
         $id = [string]$s.active_task_id
         if ($id) {
             $x = @($q.tasks | Where-Object { $_.id -eq $id } | Select-Object -First 1)
