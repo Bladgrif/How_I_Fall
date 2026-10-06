@@ -47,6 +47,12 @@ class ControlTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.gate([path])
 
+    def test_existing_qa_automation_launchers_go_directly_to_strong(self):
+        for path in ["tools/run-unity-tests.ps1", "tools/run-graphical-e2e.ps1"]:
+            self.assertTrue(c.needs_strong(self.task, [path]))
+            with self.assertRaises(ValueError):
+                c.gate(self.task, self.review, None, self.pr, self.checks, [path])
+
     def test_strong_wrong_model_rejected(self):
         self.strong["reviewer_model"] = "GLM-5.3-Flash"
         with self.assertRaises(ValueError):
@@ -67,7 +73,8 @@ class ControlTests(unittest.TestCase):
 
     def test_risk_paths_normalized_with_component_boundaries(self):
         self.assertTrue(c.high_risk(["ProjectSettings\\file.asset"]))
-        self.assertFalse(c.high_risk(["PackagesEvil/file.asset", "tools/agent-control-evil/file.txt"]))
+        self.assertFalse(c.high_risk(["PackagesEvil/file.asset"]))
+        self.assertTrue(c.high_risk(["tools/agent-control-evil/file.txt"])) # All repository tooling is conservative strong scope.
 
     def test_findings_and_validation_gaps_rejected(self):
         for key in ["findings", "validation_gaps"]:

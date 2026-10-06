@@ -102,7 +102,7 @@ def quota_result(raw):
 def high_risk(paths):
     paths = [p.replace("\\", "/") for p in paths]
     return any(re.search(r"\.(cs|unity|prefab|uxml|uss|shader|shadergraph)$", p, re.I) or
-               p.startswith(("Packages/", "ProjectSettings/", "tools/agent-control/", ".github/"))
+               p.startswith(("Packages/", "ProjectSettings/", "tools/", ".github/"))
                for p in paths)
 
 
