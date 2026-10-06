@@ -28,6 +28,24 @@
 
 Ручной QA пользователя не заменяет эту автоматизацию. Субъективное эстетическое одобрение нужно только для вопросов вкуса, атмосферы и художественного направления.
 
+Для утверждённого GLM fallback ownership объективной инспекции screenshots явно
+передаётся независимому **Sol High reviewer**, если Flash не имеет image tools.
+Flash пишет bounded diff без shell; native worker выполняет только выбранные
+фиксированные HIF checks. Свежие XML/logs/sentinels/оригиналы и manifest — machine
+evidence, а не writer visual PASS. Missing/zero/stale local proof запрещает native
+commit/push; native implementation failure получает максимум два SAME-engine
+correction retry без переноса partial diff. Полный contract — orchestration/README.
+
+До objective review Supervisor публикует bounded оригиналы и manifest через
+существующий `visual-review` artifact (только реально изменённые curated baselines),
+иначе Drive `03 — UI — implementation & QA proof`, иначе `evidence/<task>`.
+`native_remote_proof` связывает route/URL с exact head и SHA-256 manifest; reviewer
+проверяет реальные доступные оригиналы, hashes и source identity. Local path или
+receipt без просмотра не дают `visual_proof_verified=true`. Без permitted route —
+`WAIT_VISUAL_PROOF`, после неуспешных попыток `BLOCKED`; merge запрещён.
+Evidence-ветка не мержится и удаляется после reviewer acceptance. Sol writer flow
+с самостоятельной объективной инспекцией остаётся прежним.
+
 ## Визуальные baseline-скриншоты
 
 После успешного graphical E2E для значимого player-facing visual pass Codex обновляет только релевантный небольшой набор в `docs/visual-baselines/`, а не копирует весь `QAArtifacts/`. `QAArtifacts/` остаётся временным gitignored proof.

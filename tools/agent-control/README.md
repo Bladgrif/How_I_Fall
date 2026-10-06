@@ -119,3 +119,76 @@ Read-only reviewer не обязан повторно запускать fixture
 процессе нет. Обычные transport failures ограничены тремя попытками.
 CI poll молчит, пока актуальные classification/Unity/Gate jobs не завершены;
 успех предыдущей попытки на том же head не заменяет текущую незавершённую.
+
+## Native GLM runtime/UI acceptance
+
+Это расширение существующего `hif-worker`, не новый scheduler/provider/QA launcher.
+У approved Flash brief обязателен `native_validation_profile`: `agent-control`
+сохраняет fixed fixtures + все четыре PS AST; `hif-runtime` получает только selection:
+
+```json
+{
+  "native_validation_profile": "hif-runtime",
+  "player_facing": true,
+  "native_qa": {
+    "unity": [{"mode": "PlayMode", "filter": "SaveLoadFocusOwnershipPlayModeTests"}],
+    "graphical": ["GameMenu"]
+  }
+}
+```
+
+Это пример schema, **не утверждение нового product pass**. Состояние реального
+GLM runtime/UI rollout после infrastructure acceptance — staged `NOT VERIFIED`.
+
+Whitelisted filters: `EditMode` → `InteractiveHotspotEditModeTests`,
+`SavePaginationEditModeTests`; `PlayMode` → `SaveLoadFocusOwnershipPlayModeTests`.
+Whitelisted graphical Scenario: `PlayerUi`, `GameMenu`, `SaveBackendV2`.
+До шести Unity selections и трёх Scenario, без duplicates. Player-facing обязательно
+имеет graphical selection. Ни пустой/all filter, ни regex/method/arg/command/executable,
+ни дополнительный ключ в `native_qa` не принимаются. `Smoke`, `ManualSave`, `Hotspot`
+пока закрыты: broad/unproven save isolation не обходится ради автономности.
+Расширять whitelist можно только отдельным inspected safety diff, не queue string.
+
+`native-plan` закрывает unknown/malformed profile до dispatch. `native-qa` читает
+одну active task identity из существующей queue/state, проверяет writer/branch/HEAD,
+неизменные approved launchers/isolation harnesses и отсутствие reparse escape.
+Native invocation использует fixed Windows PowerShell, fixed script и args;
+`UNITY_EDITOR_PATH` override не наследуется. Flash остаётся edit/no-shell без Bash/yolo.
+Процесс запускается только в `agent`/`zagent`, никогда `develop`/`master`.
+
+Exit code недостаточен: fresh XML с nonzero passed cases/согласованными totals,
+без failures; fresh logs; graphical preflight + sentinel + PlayerPrefs restoration,
+все оригиналы existing launcher list и PNG dimensions (обычно 1920x1080, без
+`-nographics`). Existing responsive proof 1280x720 сохраняется, новая multi-resolution
+автоматизация не добавляется. Изоляция saves переиспользует inspected temp directories
+существующих harnesses. Native worker не трогает real LocalLow и не создаёт свой
+backup/restore механизм; недоказанная/destructive selection не запускается.
+
+`evidence/<task>-<run>/manifest.json`: task/base/source head, source fingerprint,
+engine/path, timestamps, fixed invocations/exit codes, SHA-256 XML/logs/sentinels
+и до трёх curated оригиналов на Scenario. Это generated control evidence, не task
+PR payload. `bind-native-proof` после native commit проверяет unchanged source
+fingerprint и связывает manifest с точным candidate head до push.
+Missing/zero/stale proof → false completeness, `BLOCKED`, без stage/commit/push;
+implementation test/compile failure → `PARTIAL_RETRY` с correction brief/log.
+Не более двух correction попыток, SAME checkout/branch/engine/resume HEAD; drift
+или повторный failure → `BLOCKED`, реальные permission/auth failures → `WAIT_AUTH`.
+Ни reset/clean/stash, ни partial-diff transfer нет. Quota ≤25% меняет только
+следующий task; retry сохраняет исходный engine. Sol flow и `agent-control` сохранены.
+
+Machine `validation_complete=true` не означает objective visual PASS: Flash его не
+заявляет. Для GLM image inspection — обязательный независимый Sol High gate.
+`native-proof-status` перед reviewer направляет `WAIT_VISUAL_PROOF` в существующий
+Supervisor wake; Supervisor публикует bounded evidence по existing review routes и
+записывает `native_remote_proof={route,url,head_sha,manifest_sha256}` после readback.
+Недоступные routes после попыток → `BLOCKED`, no merge. Reviewer открывает remote
+оригиналы; receipt и local archive не заменяют inspection. `merge-gate` повторно
+проверяет manifest/hashes, matching canonical CLEAN Sol High, latest exact-head CI
+и возвращает `expected_head_sha`. Публикация/PR/merge/native sync — outer transport,
+не writer model. Исчерпанный approved product backlog → proposals/`WAIT_USER`.
+
+Fixtures мокируют native invocations и работают в temporary directories с собственными
+mutex names; модели, GitHub writes, Unity/user checkout/LocalLow не запускаются.
+Полный writer log и head-bound manifest хранить в `agent-control/evidence`; если
+writer sandbox не разрешает live control path, использовать gitignored
+`QAArtifacts/agent-control/evidence` и передать этот archive outer transport.

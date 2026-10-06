@@ -31,12 +31,18 @@ function SaveControl($q, $s) {
     }
 }
 function RunGit([string[]]$a) {
-    & git -c ("safe.directory="+$Repo) -C $Repo @a
-    if ($LASTEXITCODE -ne 0) { throw ('git failed: ' + ($a -join ' ')) }
+    # Windows 5.1 promotes native stderr (including harmless CRLF warnings)
+    # to ErrorRecord. The exit code, not that stream, determines Git failure.
+    $savedPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'
+    try {
+        & git -c ("safe.directory="+$Repo) -C $Repo @a
+        $gitCode=$LASTEXITCODE
+    } finally {$ErrorActionPreference=$savedPreference}
+    if ($gitCode -ne 0) { throw ('git failed: ' + ($a -join ' ')) }
 }
 function ChangedFiles {
-    $a = @(& git -c ("safe.directory="+$Repo) -C $Repo diff --name-only)
-    $b = @(& git -c ("safe.directory="+$Repo) -C $Repo ls-files --others --exclude-standard)
+    $a = @(RunGit @('diff','--name-only'))
+    $b = @(RunGit @('ls-files','--others','--exclude-standard'))
     @($a + $b | Where-Object { $_ } | Sort-Object -Unique)
 }
 function Allowed($p, $allowed) {
@@ -48,6 +54,28 @@ function Allowed($p, $allowed) {
         }
     }
     return $false
+}
+function RequestNativeCorrection([string]$message) {
+    $count=0
+    if($task.PSObject.Properties.Name -contains 'native_correction_attempts'){
+        if($task.native_correction_attempts -isnot [int] -or $task.native_correction_attempts -lt 0 -or $task.native_correction_attempts -gt 2){throw 'Invalid native correction counter'}
+        $count=$task.native_correction_attempts
+    }
+    $status='BLOCKED'
+    if($count -lt 2){
+        $status='PARTIAL_RETRY'
+        SetProp $task 'native_correction_attempts' ($count+1)
+        SetProp $task 'correction' ('Исправь implementation failure в SAME checkout/branch/engine/head; diff не переносить. '+$message+'; log: '+$testLog)
+    }
+    SetProp $task 'status' $status
+    SetProp $task 'native_validation_log' $testLog
+    SetProp $s 'status' $status
+    SetProp $s 'last_error' $message
+    $result.validation_complete=$false
+    $result.status='BLOCKED'
+    WriteJson $result $reportPath
+    SaveControl $q $s
+    exit 0 # Expected bounded correction, not an outer transport failure.
 }
 
 $mutex = New-Object Threading.Mutex($false, 'Local\HowIFallWriter')
@@ -74,7 +102,7 @@ try {
     if ($task.status -eq 'READY') {
         $requiredEngine=if($quota.mode -eq 'QUOTA_SAVE'){'ZCode'}else{'Codex'}
         if($Engine -ne $requiredEngine){throw ('Routing requires '+$requiredEngine)}
-    } elseif ($task.writer_engine -and $task.writer_engine -ne $Engine) { throw 'Retry must preserve the original checkout/engine; no silent partial-diff transfer' }
+    } elseif ($task.writer_engine -ne $Engine -or $task.writer_path -ne $Repo) { throw 'Retry must preserve the original checkout/engine; no silent partial-diff transfer' }
     if($Engine -eq 'Codex' -and ($quota.primary_remaining_percent -le 0 -or $quota.weekly_remaining_percent -le 0)){exit 0} # Expected quota wait: preserve original task/diff.
     SetProp $task 'writer_engine' $Engine
     SetProp $task 'writer_path' $Repo
@@ -85,6 +113,15 @@ try {
     $promptPath = Join-Path $LogDir ($stamp + '-' + $id + '-prompt.txt')
     $eventsPath = Join-Path $LogDir ($stamp + '-' + $id + '-events.jsonl')
     $reportPath = Join-Path $LogDir ($stamp + '-' + $id + '-report.json')
+
+    if($Engine -eq 'ZCode'){
+        # Fail closed BEFORE model dispatch. Selection is approved queue data,
+        # never an executable, shell string or argument supplied by a report.
+        $nativeTaskPath=Join-Path $LogDir ($stamp+'-'+$id+'-native-task.json')
+        WriteJson $task $nativeTaskPath
+        & $Python (Join-Path $PSScriptRoot 'hif-control.py') native-plan --output $nativeTaskPath
+        if($LASTEXITCODE){throw 'Unknown/malformed native QA profile: no model or QA launch'}
+    }
 
     $claimed=$true
     SetProp $s 'status' 'PREPARING'
@@ -119,11 +156,8 @@ try {
     }
     elseif ($mode -eq 'PARTIAL_RETRY') {
         $current = (& git -c ("safe.directory="+$Repo) -C $Repo branch --show-current).Trim()
-        if ($current -ne $branch) {
-            $dirty = @(& git -c ("safe.directory="+$Repo) -C $Repo status --porcelain)
-            if ($dirty.Count -gt 0) { throw ('Partial diff is on unexpected branch: ' + $current) }
-            RunGit @('switch',$branch)
-        }
+        if ($current -ne $branch) { throw ('Partial diff is on unexpected branch: ' + $current) }
+        if ((& git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim() -ne [string]$task.resume_head_sha) { throw 'Partial retry HEAD drift; preserve diff, no switch or transfer' }
     }
 
     SetProp $task 'resume_head_sha' ((& git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim())
@@ -158,6 +192,12 @@ $allowedLines
 
 Validation:
 $($task.validation)
+Native QA profile/selection (host-owned, not writer shell):
+$($task.native_validation_profile)
+$($task.native_qa | ConvertTo-Json -Depth 10 -Compress)
+For ZCode: do not fabricate test results. Report the bounded implementation;
+fixed host QA runs afterwards even when validation_complete=false. Objective
+image inspection for GLM belongs to independent Sol High before merge, not Flash.
 $extra
 
 Mandatory constraints:
@@ -176,6 +216,10 @@ changed_files (array), summary, validation_complete (boolean),
 validation (array of actually executed checks and results), not_run (array), risks (array).
 validation_complete=true only when ALL implementation acceptance checks are satisfied.
 Missing required graphical proof or a required test is BLOCKED, not a success.
+Host-owned ZCode exception: when implementation is ready and ONLY approved native
+QA is pending, return REVIEW_CANDIDATE with validation_complete=false and honest
+NOT RUN. Native worker runs those checks after the report; it never trusts a writer
+PASS. Real implementation/scope/auth blockers remain BLOCKED.
 "@
     Set-Content $promptPath $prompt -Encoding UTF8
 
@@ -227,7 +271,38 @@ Missing required graphical proof or a required test is BLOCKED, not a success.
     & $Python (Join-Path $PSScriptRoot 'hif-control.py') validate-report --output $reportPath
     if($LASTEXITCODE){throw 'Malformed implementation report: no transport'}
     $result=Get-Content $reportPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    if($Engine -eq 'ZCode' -and $task.native_validation_profile -eq 'agent-control' -and $result.status -eq 'REVIEW_CANDIDATE'){
+    if($Engine -eq 'ZCode' -and $task.native_validation_profile -eq 'hif-runtime' -and $result.status -in @('REVIEW_CANDIDATE','NO_PRODUCTION_CHANGE')){
+        $nativeChanged=@(ChangedFiles)
+        if(@($nativeChanged | Where-Object { -not (Allowed $_ $task.allowed_paths) }).Count){throw 'Out-of-scope changes before native QA'}
+        if($result.base_sha -ne $base){throw 'Native validation base mismatch'}
+        if((RunGit @('branch','--show-current')).Trim() -ne $branch -or (RunGit @('rev-parse','HEAD')).Trim() -ne $task.resume_head_sha){throw 'Writer identity drift before native QA'}
+        if(@(RunGit @('diff','--cached','--name-only')).Count){throw 'Writer staged files before native QA'}
+        $nativeOutput=Join-Path $LogDir ($stamp+'-'+$id+'-native-outcome.json')
+        & $Python (Join-Path $PSScriptRoot 'hif-control.py') native-qa --control $ControlDir --output $nativeOutput
+        if($LASTEXITCODE -eq 78){exit 78}
+        if($LASTEXITCODE){throw 'Native QA transport/safety failure; no commit'}
+        $outcome=Get-Content $nativeOutput -Raw -Encoding UTF8 | ConvertFrom-Json
+        $q = Get-Content $QueuePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $s = Get-Content $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $task=@($q.tasks | Where-Object {$_.id -eq $id})[0]
+        if($outcome.status -ne 'PASS'){
+            $result.validation_complete=$false
+            $result.status='BLOCKED'
+            $result.risks=@($result.risks)+@($outcome.error)
+            WriteJson $result $reportPath
+            # native-qa persisted bounded PARTIAL_RETRY/BLOCKED/WAIT_AUTH.
+            # Return without stage/commit; next tick retains SAME writer identity.
+            exit 0
+        }
+        $result.validation_complete=$true
+        $result.validation=@('Native existing HIF launchers: fresh nonzero XML/logs/sentinels/originals; manifest: '+$outcome.manifest_path)
+        $result.not_run=@()
+        if($task.native_qa.graphical.Count){
+            $result.not_run=@('GLM objective screenshot inspection: NOT VERIFIED; independent Sol High owns this pre-merge gate', 'Remote visual proof publication: NOT VERIFIED; outer Supervisor owns permitted routes before review/merge')
+        }
+        WriteJson $result $reportPath
+    }
+    if($Engine -eq 'ZCode' -and $task.native_validation_profile -eq 'agent-control' -and $result.status -in @('REVIEW_CANDIDATE','NO_PRODUCTION_CHANGE')){
         # Approved fixed infrastructure validation; model has no shell tool.
         # No caller-supplied commands, executables or production test selection.
         if(@($task.allowed_paths | Where-Object {$_ -notmatch '^(AGENTS\.md|docs/[^:]+\.md|tools/agent-control/[^/:]+)$'}).Count){throw 'Native profile is restricted to infrastructure scope'}
@@ -235,15 +310,19 @@ Missing required graphical proof or a required test is BLOCKED, not a success.
         if(@($nativeChanged | Where-Object { -not (Allowed $_ $task.allowed_paths) }).Count){throw 'Out-of-scope changes before native validation'}
         if($result.base_sha -ne $base){throw 'Native validation base mismatch'}
         $testLog=Join-Path $LogDir ($stamp+'-'+$id+'-native-validation.txt')
+        Set-Content -LiteralPath $testLog -Value '' -Encoding UTF8
         $oldPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'
-        try { & $Python (Join-Path $Repo 'tools/agent-control/test_control.py') 2>&1 | ForEach-Object {$_.ToString()} | Tee-Object -FilePath $testLog; $testExit=$LASTEXITCODE }
+        try { & $Python (Join-Path $Repo 'tools/agent-control/test_control.py') 2>&1 | ForEach-Object {$line=$_.ToString(); Add-Content -LiteralPath $testLog -Value $line -Encoding UTF8; $line}; $testExit=$LASTEXITCODE }
         finally {$ErrorActionPreference=$oldPreference}
-        if($testExit){throw 'Native infrastructure fixtures failed; diff preserved'}
+        if($testExit){
+            if(Select-String -LiteralPath $testLog -Pattern '^Ran [1-9][0-9]* tests? in ' -Quiet){RequestNativeCorrection 'Native infrastructure fixtures failed; diff preserved'}
+            throw 'Native fixture runner unavailable/incomplete; diff preserved'
+        }
         if(-not (Select-String -LiteralPath $testLog -Pattern '^Ran [1-9][0-9]* tests? in ' -Quiet) -or -not (Select-String -LiteralPath $testLog -Pattern '^OK$' -Quiet)){throw 'Native fixtures missing nonzero unittest result'}
         Get-ChildItem (Join-Path $Repo 'tools/agent-control') -Filter '*.ps1' | ForEach-Object {
             $tokens=$null; $errors=$null
             [System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors) | Out-Null
-            if($errors.Count){throw 'Native PowerShell AST failed'}
+            if($errors.Count){RequestNativeCorrection 'Native PowerShell AST failed'}
             Add-Content $testLog ('AST PASS: '+$_.Name) -Encoding UTF8
         }
         $result.validation_complete=$true
@@ -280,25 +359,25 @@ Missing required graphical proof or a required test is BLOCKED, not a success.
     $outside = @($changed | Where-Object { -not (Allowed $_ $task.allowed_paths) })
     if ($outside.Count -gt 0) { throw ('Out-of-scope changes: ' + ($outside -join ', ')) }
 
-    & git -c ("safe.directory="+$Repo) -C $Repo diff --check
-    if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed' }
+    RunGit @('diff','--check')
 
-    & git -c ("safe.directory="+$Repo) -C $Repo add -- $changed
-    if ($LASTEXITCODE -ne 0) { throw 'Exact-file git add failed' }
+    RunGit (@('add','--')+$changed)
 
-    & git -c ("safe.directory="+$Repo) -C $Repo diff --cached --check
-    if ($LASTEXITCODE -ne 0) { throw 'git diff --cached --check failed' }
+    RunGit @('diff','--cached','--check')
 
     $staged = @(& git -c ("safe.directory="+$Repo) -C $Repo diff --cached --name-only)
     $bad = @($staged | Where-Object { -not (Allowed $_ $task.allowed_paths) })
     if ($bad.Count -gt 0) { throw ('Unexpected staged files: ' + ($bad -join ', ')) }
 
-    & git -c ("safe.directory="+$Repo) -C $Repo commit -m ('agent: ' + $id)
-    if ($LASTEXITCODE -ne 0) { throw 'git commit failed' }
+    RunGit @('commit','-m',('agent: '+$id))
     $head = (& git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim()
 
-    & git -c ("safe.directory="+$Repo) -C $Repo push -u origin $branch
-    if ($LASTEXITCODE -ne 0) { throw 'git push failed' }
+    if($Engine -eq 'ZCode' -and $task.native_validation_profile -eq 'hif-runtime'){
+        & $Python (Join-Path $PSScriptRoot 'hif-control.py') bind-native-proof --control $ControlDir
+        if($LASTEXITCODE){throw 'Native proof head binding failed; no push'}
+    }
+
+    RunGit @('push','-u','origin',$branch)
 
     SetProp $task 'head_sha' $head
     SetProp $task 'status' 'REVIEW_CANDIDATE'

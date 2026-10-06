@@ -189,6 +189,46 @@ writer в `agent` или `zagent`; retries сохраняют исходный c
 Codex может остановить и Supervisor; GLM не гарантирует обход недоступного
 control/review transport.
 
+### Native runtime/UI QA для Flash
+
+Утверждённый bounded brief явно задаёт `native_validation_profile` и check selection;
+поддержаны `agent-control` (принятый fixed infrastructure profile) и `hif-runtime`
+с `native_qa={unity:[{mode,filter}],graphical:[Scenario]}`. Точный ограниченный список
+и пример — `tools/agent-control/README.md`. Unknown/malformed profile закрывается
+до model/QA launch; queue/report не могут задать executable, shell или произвольные
+arguments. Flash остаётся Z-Code edit/no-shell/Max, Sol writer flow не меняется.
+
+Native worker запускает только существующие `run-unity-tests.ps1` и
+`run-graphical-e2e.ps1` в bound `writer_path` (`agent`/`zagent`); launcher'ы и
+изолирующие QA harnesses не должны отличаться от approved base. `develop`/`master`
+не используются для QA. Только inspected temp-save harnesses включаются в whitelist;
+без доказанной isolation/backup/restore destructive selection блокируется.
+
+Exit 0 не proof: обязательны fresh log, XML с nonzero executed totals без failures,
+для graphical — preflight log, PASS sentinel, restoration evidence и все свежие
+оригиналы из списка существующего launcher'а. Standard proof — 1920x1080 без
+`-nographics`; existing responsive checks launcher'а не удаляются и не расширяются.
+Native manifest связывает task/base/head, source fingerprint, invocations и SHA-256;
+публикуется небольшой набор (до трёх оригиналов на Scenario), не весь `QAArtifacts`.
+
+`validation_complete` native manifest означает выполненные machine checks, НЕ
+visual PASS. При отсутствующем local proof он всегда false, transport запрещён.
+GLM не заявляет objective screenshot PASS: эту инспекцию, включая layout/focus/
+readability/runtime errors, обязательно выполняет независимый **Sol High** до merge.
+Это явное исключение ownership, не ослабление QA. Remote publication — existing
+Supervisor transport по review contract; до неё `WAIT_VISUAL_PROOF`, нет clean visual
+review/merge. Если разрешённые routes после попыток не работают — `BLOCKED` и
+`REVIEWER VISUAL PROOF NOT AVAILABLE`. Receipt не заменяет inspection/readback.
+
+Исправимый native implementation test/compile failure получает `PARTIAL_RETRY`
+и correction brief с manifest/log; не более **двух** автоматических correction
+попыток. Checkout/branch/engine/resume HEAD и partial diff сохраняются; drift,
+missing/zero/stale proof и повторный failure — `BLOCKED`, permission/auth —
+`WAIT_AUTH`. Нет reset/clean/stash или переноса diff. Новая quota применяется к
+СЛЕДУЮЩЕЙ задаче, не rerouting уже начатого retry. Настоящий GLM runtime/UI pass
+после infrastructure fixtures остаётся staged `NOT VERIFIED`, пока не выполнен
+на отдельно утверждённой product-задаче.
+
 При необходимости hardest escalation:
 `Sol High → GPT-6 Astra`.
 

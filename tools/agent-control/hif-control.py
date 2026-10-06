@@ -1,15 +1,19 @@
 """Локальные transport/gates HIF. Без сторонних пакетов и собственных model loops."""
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 from pathlib import Path
 import queue
 import re
 import subprocess
+import struct
 import sys
 import threading
+import time
 import urllib.request
+import xml.etree.ElementTree as ET
 
 
 def load(path):
@@ -124,6 +128,299 @@ def validate_worker_report(report):
         raise ValueError("Invalid worker base SHA")
 
 
+# Native QA extends the existing worker, not model-provided shell commands.
+# These harnesses were inspected for temp-save isolation. Unproven selections
+# (notably ManualSave, Hotspot and broad Smoke) fail closed, not 'probably safe'.
+NATIVE_FILTERS = {
+    "EditMode": ("InteractiveHotspotEditModeTests", "SavePaginationEditModeTests"),
+    "PlayMode": ("SaveLoadFocusOwnershipPlayModeTests",),
+}
+NATIVE_GRAPHICAL = {
+    "PlayerUi": ("PlayerUiGraphicalE2ERunner", "player_ui_graphical_result.txt", "PlayerUi",
+                 ("main_menu_normal_enabled_1920x1080.png", "main_menu_hover_1920x1080.png", "gameplay_dialogue_standard_1920x1080.png")),
+    "GameMenu": ("PlayerUiGraphicalE2ERunner", "player_ui_graphical_result.txt", "PlayerUi",
+                 ("game_menu_root_1920x1080.png", "game_menu_pointer_hover_quit_1920x1080.png", "game_menu_keyboard_focus_return_1920x1080.png")),
+    "SaveBackendV2": ("SaveBackendV2PlayModeE2ERunner", "save_backend_v2_playmode_result.txt", "SaveBackendV2",
+                      ("save_load_manual_1920x1080.png", "save_load_auto_1920x1080.png", "save_load_quick_1920x1080.png")),
+}
+
+
+def native_plan(task):
+    if not isinstance(task, dict) or not isinstance(task.get("writer_path"), str):
+        raise ValueError("Malformed native task/path")
+    profile = task.get("native_validation_profile")
+    if profile not in ("agent-control", "hif-runtime"):
+        raise ValueError("Unknown/missing native QA profile")
+    repo = task.get("writer_path", "").replace("\\", "/")
+    expected = {"Codex": "D:/How_I_Fall/agent", "ZCode": "D:/How_I_Fall/zagent"}
+    if repo != expected.get(task.get("writer_engine")):
+        raise ValueError("Native QA requires bound agent/zagent writer checkout and engine")
+    if not re.fullmatch(r"[a-f0-9]{40}", task.get("base_sha", "")):
+        raise ValueError("Native QA requires exact base")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,79}", task.get("id", "")):
+        raise ValueError("Unsafe native task ID")
+    if profile == "agent-control":
+        if task.get("native_qa") is not None:
+            raise ValueError("agent-control has no caller-supplied QA arguments")
+        return []
+    qa = task.get("native_qa")
+    if not isinstance(qa, dict) or set(qa) != {"unity", "graphical"}:
+        raise ValueError("Native QA accepts only unity/graphical selection, not commands")
+    unity, graphical = qa["unity"], qa["graphical"]
+    if not isinstance(unity, list) or not 1 <= len(unity) <= 6 or not isinstance(graphical, list) or len(graphical) > 3:
+        raise ValueError("Native QA check selection must be bounded and nonempty")
+    if type(task.get("player_facing")) is not bool or (task["player_facing"] and not graphical):
+        raise ValueError("Player-facing native QA requires graphical selection")
+    plan = []
+    for check in unity:
+        if not isinstance(check, dict) or set(check) != {"mode", "filter"}:
+            raise ValueError("Invalid native Unity arguments")
+        mode, test_filter = check["mode"], check["filter"]
+        if not isinstance(mode, str) or not isinstance(test_filter, str) or test_filter not in NATIVE_FILTERS.get(mode, ()):
+            raise ValueError("Unknown or unproven save isolation for Mode/TestFilter")
+        plan.append(("tools/run-unity-tests.ps1", ["-Mode", mode, "-TestFilter", test_filter]))
+    for scenario in graphical:
+        if not isinstance(scenario, str) or scenario not in NATIVE_GRAPHICAL:
+            raise ValueError("Unknown or unproven save isolation for Scenario")
+        plan.append(("tools/run-graphical-e2e.ps1", ["-Scenario", scenario]))
+    if len({tuple(args) for _, args in plan}) != len(plan):
+        raise ValueError("Duplicate native QA selection")
+    return plan
+
+
+class NativeQaError(ValueError):
+    def __init__(self, message, retryable=False):
+        super().__init__(message)
+        self.retryable = retryable
+
+
+def bounded_path(root, relative):
+    root = Path(root)
+    path = root / relative
+    if not path.resolve().is_relative_to(root.resolve()):
+        raise NativeQaError("QA path escapes bound checkout")
+    # Reject junctions/reparse points too, even when they resolve inside root.
+    for part in (path, *path.parents):
+        if part.exists() and (part.is_symlink() or getattr(part.lstat(), "st_file_attributes", 0) & 0x400):
+            raise NativeQaError("QA path contains reparse point")
+        if part == root:
+            break
+    return path
+
+
+def sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def source_fingerprint(repo, base):
+    names = subprocess.check_output(["git", "-c", "safe.directory=" + str(repo), "-C", str(repo),
+                                     "diff", "--name-only", "-z", base], stderr=subprocess.PIPE).decode("utf-8").split("\0")
+    names += subprocess.check_output(["git", "-c", "safe.directory=" + str(repo), "-C", str(repo),
+                                      "ls-files", "--others", "--exclude-standard", "-z"], stderr=subprocess.PIPE).decode("utf-8").split("\0")
+    values = [(name, sha256(bounded_path(repo, name)) if bounded_path(repo, name).is_file() else "DELETED")
+              for name in sorted(set(names) - {""})]
+    return hashlib.sha256(json.dumps(values, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def unchanged_harness(repo, base, relative):
+    path = bounded_path(repo, relative)
+    approved = subprocess.check_output(["git", "-c", "safe.directory=" + str(repo), "-C", str(repo), "show", base + ":" + relative])
+    # Git working-tree CRLF conversion is not a harness change.
+    if path.read_bytes().replace(b"\r\n", b"\n") != approved.replace(b"\r\n", b"\n"):
+        raise NativeQaError("QA harness/isolation changed since approved base: " + relative)
+    return path
+
+
+def fresh_artifact(repo, relative, started):
+    path = bounded_path(repo, relative)
+    if not path.is_file() or not path.stat().st_size or path.stat().st_mtime_ns < started:
+        raise NativeQaError("MISSING/empty/stale native proof: " + relative)
+    return path
+
+
+def unity_xml_ok(path):
+    root = ET.parse(path).getroot()
+    cases = list(root.iter("test-case"))
+    if root.tag != "test-run" or int(root.get("total", "0")) <= 0 or not cases:
+        raise NativeQaError("Zero/malformed Unity XML totals")
+    if int(root.get("failed", "0")) or int(root.get("errors", "0")) or root.get("result") != "Passed" or any(case.get("result") == "Failed" for case in cases):
+        raise NativeQaError("Unity test failure", retryable=True)
+    if (int(root.get("passed", "0")) <= 0 or int(root.get("passed", "0")) != sum(case.get("result") == "Passed" for case in cases)
+            or int(root.get("total", "0")) != len(cases)):
+        raise NativeQaError("Zero/inconsistent executed Unity XML totals")
+
+
+def native_qa(task, control):
+    plan = native_plan(task)  # Before ANY subprocess, fail closed on queue input.
+    if task["native_validation_profile"] != "hif-runtime":
+        raise ValueError("agent-control retains existing PowerShell fixture gate")
+    repo = Path(task["writer_path"])
+    head = task["resume_head_sha"]
+    if not re.fullmatch(r"[a-f0-9]{40}", head):
+        raise ValueError("Native QA missing resume HEAD")
+    if git_output(repo, "rev-parse", "HEAD") != head or git_output(repo, "branch", "--show-current") != task["branch"]:
+        raise ValueError("Native QA branch/HEAD mismatch")
+    if Path(git_output(repo, "rev-parse", "--show-toplevel")).resolve() != repo.resolve():
+        raise ValueError("Native QA writer is not repository root")
+    evidence = bounded_path(control, "evidence/" + task["id"] + "-" + str(time.time_ns()))
+    evidence.mkdir(parents=True)
+    manifest = dict(task_id=task["id"], base_sha=task["base_sha"], source_head_sha=head,
+                    writer_engine=task["writer_engine"], writer_path=str(repo), started_at=now(),
+                    source_fingerprint=source_fingerprint(repo, task["base_sha"]),
+                    status="BLOCKED", validation_complete=False, invocations=[], files=[],
+                    visual_inspection="NOT VERIFIED: independent Sol High owns inspection", remote_proof="NOT VERIFIED")
+    manifest_path = evidence / "manifest.json"
+
+    def archive(path, name):
+        dest = evidence / name
+        dest.write_bytes(path.read_bytes())
+        manifest["files"].append(dict(filename=name, sha256=sha256(dest), bytes=dest.stat().st_size))
+
+    try:
+        # Validate every harness before the first launch. No execution of modified
+        # scripts or isolation harnesses supplied by the writer.
+        for script, args in plan:
+            unchanged_harness(repo, task["base_sha"], script)
+            if args[0] == "-Mode":
+                unchanged_harness(repo, task["base_sha"], "Assets/HowIFall/Tests/" + args[1] + "/" + args[3] + ".cs")
+            else:
+                runner = NATIVE_GRAPHICAL[args[1]][0]
+                unchanged_harness(repo, task["base_sha"], "Assets/HowIFall/Editor/" + runner + ".cs")
+        for index, (script, args) in enumerate(plan):
+            label = str(index) + "-" + args[1]
+            started = time.time_ns()
+            exe = str(Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe")
+            argv = [exe, "-NoProfile", "-NonInteractive", "-File", str(bounded_path(repo, script)), *args]
+            # Existing launchers resolve the installed Editor; no model executable.
+            env = {k: v for k, v in os.environ.items() if k.upper() != "UNITY_EDITOR_PATH"}
+            run = subprocess.run(argv, cwd=repo, env=env, capture_output=True, timeout=1800)
+            output = evidence / (label + "-transport.log")
+            output.write_bytes(run.stdout + b"\nSTDERR:\n" + run.stderr)
+            manifest["invocations"].append(dict(launcher=script, arguments=args, exit_code=run.returncode))
+            manifest["files"].append(dict(filename=output.name, sha256=sha256(output), bytes=output.stat().st_size))
+            if re.search(rb"(?i)access (?:is )?denied|unauthorized|authentication failed", run.stdout + run.stderr):
+                raise PermissionError("Native launcher permission/auth failure; see transport log")
+            if args[0] == "-Mode":
+                stem = args[1] + "_" + args[3]
+                log = fresh_artifact(repo, "Temp/CodexTests/" + stem + ".log", started)
+                archive(log, label + ".log")
+                if re.search(r"error CS\d+:", log.read_text(encoding="utf-8-sig", errors="replace")):
+                    raise NativeQaError("Unity implementation compilation failure", retryable=True)
+                xml = fresh_artifact(repo, "Temp/CodexTests/" + stem + "_results.xml", started)
+                archive(xml, label + ".xml")
+                unity_xml_ok(xml)
+            else:
+                scenario = args[1]
+                _, sentinel_name, directory, curated = NATIVE_GRAPHICAL[scenario]
+                preflight = fresh_artifact(repo, "Temp/CodexTests/graphical_preflight.log", started)
+                archive(preflight, label + "-preflight.log")
+                if re.search(r"error CS\d+:", preflight.read_text(encoding="utf-8-sig", errors="replace")):
+                    raise NativeQaError("Unity graphical preflight compilation failure", retryable=True)
+                log = fresh_artifact(repo, "Temp/CodexTests/graphical_" + scenario + ".log", started)
+                sentinel = fresh_artifact(repo, sentinel_name, started)
+                archive(log, label + ".log")
+                archive(sentinel, label + "-result.txt")
+                value = sentinel.read_text(encoding="utf-8-sig")
+                # Existing PlayerUi/Hotspot sentinels are not all gitignored.
+                # Remove ONLY the fresh generated sentinel after archiving its
+                # original; never let it become task diff or source fingerprint.
+                sentinel.unlink()
+                if not re.search(r"(?m)^status=PASS\s*$", value):
+                    raise NativeQaError("Graphical sentinel failed", retryable=True)
+                if scenario in ("PlayerUi", "GameMenu") and "playerPrefsRestored=true" not in value:
+                    raise NativeQaError("PlayerPrefs restoration proof missing")
+                # Use ALL required names from the unchanged existing launcher,
+                # not a model claim or a universal screenshot proof platform.
+                source = bounded_path(repo, script).read_text(encoding="utf-8-sig")
+                line = next(line for line in source.splitlines() if line.strip().startswith(scenario + " = @{"))
+                names = re.findall(r"'([^'/\\]+\.png)'", line)
+                if not names:
+                    raise NativeQaError("Graphical launcher proof list missing")
+                for name in names:
+                    png = fresh_artifact(repo, "QAArtifacts/GraphicalE2E/" + directory + "/" + name, started)
+                    data = png.read_bytes()
+                    size = (1920, 1080) if "1920x1080" in name else (1280, 720)
+                    if data[:8] != b"\x89PNG\r\n\x1a\n" or len(data) < 24 or struct.unpack(">II", data[16:24]) != size:
+                        raise NativeQaError("Malformed/wrong-size graphical original: " + name)
+                    if name in curated:
+                        archive(png, label + "-" + name)
+            if run.returncode:
+                raise NativeQaError("Native launcher exit failure", retryable=True)
+        if (git_output(repo, "rev-parse", "HEAD") != head or git_output(repo, "branch", "--show-current") != task["branch"]
+                or source_fingerprint(repo, task["base_sha"]) != manifest["source_fingerprint"]):
+            raise NativeQaError("HEAD/branch drift during QA")
+        manifest.update(status="PASS", validation_complete=True)
+    except PermissionError as error:
+        manifest.update(status="WAIT_AUTH", error=str(error))
+    except NativeQaError as error:
+        manifest.update(status="PARTIAL_RETRY" if error.retryable else "BLOCKED", error=str(error))
+    except (OSError, ValueError, ET.ParseError, subprocess.SubprocessError) as error:
+        manifest.update(status="BLOCKED", error=str(error))
+    manifest["finished_at"] = now()
+    save(manifest_path, manifest)
+    return dict(manifest, manifest_path=str(manifest_path))
+
+
+def native_retry(task, outcome):
+    """Only implementation failures get two corrections, retaining exact identity."""
+    count = task.get("native_correction_attempts", 0)
+    if type(count) is not int or count < 0 or count > 2:
+        raise ValueError("Invalid native correction counter")
+    if outcome["status"] == "PARTIAL_RETRY" and count < 2:
+        task["native_correction_attempts"] = count + 1
+        task["correction"] = "Исправь implementation failure в SAME checkout/branch/engine/head; не меняй QA harness/selection. " + outcome["error"] + "; manifest: " + outcome["manifest_path"]
+        return "PARTIAL_RETRY"
+    return "WAIT_AUTH" if outcome["status"] == "WAIT_AUTH" else "BLOCKED"
+
+
+def native_proof_ok(task, require_remote=True, control="D:/How_I_Fall/agent-control"):
+    if task.get("writer_engine") != "ZCode" or task.get("native_validation_profile") != "hif-runtime":
+        return
+    native_plan(task)
+    path = Path(task["native_validation_manifest"])
+    relative = path.resolve().relative_to(Path(control).resolve()).as_posix()
+    if not re.fullmatch(r"evidence/" + re.escape(task["id"]) + r"-[0-9]+/manifest\.json", relative):
+        raise ValueError("Native manifest path is not bound task evidence")
+    path = bounded_path(control, relative)
+    proof = load(path)
+    if (proof.get("status") != "PASS" or proof.get("validation_complete") is not True
+            or proof.get("task_id") != task["id"] or proof.get("base_sha") != task["base_sha"]
+            or proof.get("source_head_sha") != task["head_sha"] or proof.get("writer_engine") != "ZCode"
+            or proof.get("source_fingerprint") != source_fingerprint(task["writer_path"], task["base_sha"])):
+        raise ValueError("Missing/stale/incomplete native QA manifest")
+    if not proof.get("files") or not proof.get("invocations"):
+        raise ValueError("Missing native originals/invocations")
+    for entry in proof["files"]:
+        original = bounded_path(path.parent, entry["filename"])
+        if sha256(original) != entry["sha256"]:
+            raise ValueError("Native original hash mismatch")
+    if task["native_qa"]["graphical"] and require_remote:
+        receipt = task.get("native_remote_proof", {})
+        if (receipt.get("head_sha") != task["head_sha"] or receipt.get("manifest_sha256") != sha256(path)
+                or receipt.get("route") not in ("visual-review", "drive", "evidence-branch")):
+            raise ValueError("REVIEWER VISUAL PROOF NOT AVAILABLE: publication receipt missing/stale")
+        url = receipt.get("url", "")
+        patterns = {
+            "visual-review": r"https://github\.com/Bladgrif/How_I_Fall/actions/runs/[0-9]+/artifacts/[0-9]+",
+            "drive": r"https://drive\.google\.com/(?:file/d/|drive/folders/)[A-Za-z0-9_-]+(?:/view)?",
+            "evidence-branch": r"https://github\.com/Bladgrif/How_I_Fall/tree/evidence/[a-z0-9-]+",
+        }
+        if not isinstance(url, str) or not re.fullmatch(patterns[receipt["route"]], url):
+            raise ValueError("Unpermitted remote proof route")
+
+
+def native_proof_status(task, control="D:/How_I_Fall/agent-control"):
+    try:
+        native_proof_ok(task, require_remote=False, control=control)
+    except (ValueError, OSError, KeyError) as error:
+        return dict(status="BLOCKED", error=str(error))
+    try:
+        native_proof_ok(task, control=control)
+    except (ValueError, OSError, KeyError) as error:
+        return dict(status="WAIT_VISUAL_PROOF", error=str(error))
+    return dict(status="READY")
+
+
 def review_ok(review, task, strong=False):
     keys = {"verdict", "risk", "escalate", "summary", "findings", "validation_gaps", "visual_proof_verified",
             "task_id", "base_sha", "head_sha", "reviewer_model", "reviewer_reasoning", "reviewed_at"}
@@ -149,7 +446,7 @@ def review_ok(review, task, strong=False):
 
 
 def needs_strong(task, changed, cheap=None):
-    if high_risk(changed) or task.get("risk") == "high" or task.get("player_facing"):
+    if high_risk(changed) or task.get("risk") == "high" or task.get("player_facing") or (task.get("native_qa") or {}).get("graphical"):
         return True
     bound = cheap and all(cheap.get(k) == task.get(t) for k, t in
                          (("task_id", "id"), ("base_sha", "base_sha"), ("head_sha", "head_sha")))
@@ -178,7 +475,7 @@ def ci_pending(checks, head):
             or any(run.get("status") != "completed" for run in ci_latest(checks, head).values()))
 
 
-def gate(task, cheap, strong, pr, checks, changed):
+def gate(task, cheap, strong, pr, checks, changed, control="D:/How_I_Fall/agent-control"):
     strong_required = needs_strong(task, changed, cheap)
     final_review = strong if strong_required else cheap
     review_ok(final_review or {}, task, strong=strong_required)
@@ -199,7 +496,11 @@ def gate(task, cheap, strong, pr, checks, changed):
         raise ValueError("Latest exact-head CI Gate is not GREEN")
     if task.get("player_facing") and not final_review.get("visual_proof_verified"):
         raise ValueError("Reviewer-visible graphical proof not verified")
+    if (task.get("native_qa") or {}).get("graphical") and not final_review.get("visual_proof_verified"):
+        raise ValueError("GLM graphical proof requires independent Sol High inspection")
+    native_proof_ok(task, control=control)
     return {"status": "MERGE_ALLOWED", "task_id": task["id"], "head_sha": task["head_sha"],
+            "expected_head_sha": task["head_sha"],
             "checked_at": now(), "ci_check_id": latest["id"], "pr_number": pr["number"],
             "ci_run_id": checks["workflow_run"]["id"], "ci_run_attempt": checks["workflow_run"]["run_attempt"]}
 
@@ -265,6 +566,9 @@ def merged_review_ok(control, task):
     strong = load(control / "strong-review-latest.json") if (control / "strong-review-latest.json").exists() else None
     strong_required = needs_strong(task, task_changed_files(task), cheap)
     review_ok(strong if strong_required else cheap or {}, task, strong=strong_required)
+    if task.get("player_facing") and not (strong if strong_required else cheap or {}).get("visual_proof_verified"):
+        raise ValueError("Merged candidate visual proof not verified")
+    native_proof_ok(task, control=control)
 
 
 def git_output(repo, *args):
@@ -387,7 +691,7 @@ def zcode_run(repo, prompt, output, events):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier", "sync-master"])
+    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier", "sync-master", "native-plan", "native-qa", "bind-native-proof", "native-proof-status"])
     parser.add_argument("--control", default="D:/How_I_Fall/agent-control")
     parser.add_argument("--method")
     parser.add_argument("--params", default="{}")
@@ -412,6 +716,42 @@ def main():
         zcode_run(args.repo, args.prompt, args.output, args.events)
     elif args.command == "validate-report":
         validate_worker_report(load(args.output))
+    elif args.command == "native-plan":
+        native_plan(load(args.output))
+    elif args.command in ("native-qa", "bind-native-proof", "native-proof-status"):
+        state, queue = load(c / "state.json"), load(c / "queue.json")
+        matches = [t for t in queue["tasks"] if t["id"] == state["active_task_id"]]
+        if len(matches) != 1:
+            raise ValueError("Native QA active task missing/ambiguous")
+        task = matches[0]
+        native_plan(task)
+        if args.command == "native-proof-status":
+            print(json.dumps(native_proof_status(task, control=c)))
+            return
+        if args.command == "bind-native-proof":
+            path = Path(task["native_validation_manifest"])
+            relative = path.resolve().relative_to(c.resolve()).as_posix()
+            if not re.fullmatch(r"evidence/" + re.escape(task["id"]) + r"-[0-9]+/manifest\.json", relative):
+                raise ValueError("Native manifest write path escapes bound task evidence")
+            path = bounded_path(c, relative)
+            proof = load(path)
+            head = git_output(task["writer_path"], "rev-parse", "HEAD")
+            if proof["status"] != "PASS" or source_fingerprint(task["writer_path"], task["base_sha"]) != proof["source_fingerprint"]:
+                raise ValueError("Cannot bind incomplete/drifted native QA to committed head")
+            proof["source_head_sha"] = head
+            save(path, proof)
+        else:
+            outcome = native_qa(task, c)
+            task["native_validation_manifest"] = outcome["manifest_path"]
+            if outcome["status"] != "PASS":
+                task["status"] = state["status"] = native_retry(task, outcome)
+                state["last_error"] = outcome["error"]
+            try:
+                save(c / "queue.json", queue)
+                save(c / "state.json", state)
+                save(args.output, outcome)
+            except OSError:
+                sys.exit(78)
     elif args.command == "ci-status":
         if not re.fullmatch(r"[a-f0-9]{40}", args.head or ""):
             raise ValueError("Exact CI head SHA required")
@@ -432,7 +772,7 @@ def main():
         pr = github("pulls/" + str(task["pr_number"]))
         checks = ci_checks(task["head_sha"])
         receipt = gate(task, cheap, load(c / "strong-review-latest.json")
-                       if (c / "strong-review-latest.json").exists() else None, pr, checks, changed)
+                       if (c / "strong-review-latest.json").exists() else None, pr, checks, changed, control=c)
         save(c / "merge-gate.json", receipt)
         print(json.dumps(receipt))
 

@@ -39,6 +39,21 @@ exact base_sha from current remote master, bounded prompt, allowed_paths,
 validation/acceptance, risk and player_facing in queue.json. Production tasks must
 be supported by approved source. Set state.status=READY, then end this turn so the
 scheduler invokes the writer. At most ONE active task across both engines.
+Each approved Flash task MUST explicitly select native_validation_profile:
+agent-control (existing fixed infrastructure fixtures) or hif-runtime with native_qa
+{unity:[{mode,filter}],graphical:[Scenario]}. Use ONLY hif-control.py's fixed whitelist;
+never commands/executables/extra arguments. Unproven save isolation blocks selection.
+PARTIAL_RETRY after native implementation failure retains SAME writer_path/engine/
+branch/resume_head_sha and existing diff; at most 2 native correction attempts.
+Do not reroute a retry when fresh quota crosses 25%; fallback applies to NEXT task.
+WAIT_VISUAL_PROOF: publish native manifest + at most 3 originals per Scenario via
+existing visual-review artifact (only actually changed curated baselines), otherwise
+Drive proof folder, otherwise small evidence/<task> branch. You own this transport,
+not Flash. Record native_remote_proof={route,url,head_sha,manifest_sha256} in task;
+verify upload/readback hashes and exact candidate head. Never stage QAArtifacts/build
+payload in task PR. On success restore state/task REVIEW_CANDIDATE for Sol High;
+if permitted routes fail after attempts: BLOCKED, REVIEWER VISUAL PROOF NOT AVAILABLE,
+no merge. Missing local proof is BLOCKED, never bypass native QA via writer report.
 Scheduler sends high-risk candidate DIRECTLY to fresh Sol High review; low-risk to Luna.
 Read independent results from D:\How_I_Fall\agent-control\strong-review-latest.json
 or review-latest.json and verify task_id/base_sha/head_sha. A matching CLEAN result
