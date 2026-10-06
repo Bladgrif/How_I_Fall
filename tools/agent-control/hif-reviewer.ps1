@@ -1,5 +1,7 @@
 ﻿param([switch]$Strong)
 $ErrorActionPreference='Stop'
+$OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $OutputEncoding
 $C='D:\How_I_Fall\agent-control'
 $env:CODEX_HOME='D:\Codex'
 $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'

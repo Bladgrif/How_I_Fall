@@ -1,6 +1,8 @@
 ﻿param([ValidateSet('Codex','ZCode')][string]$Engine='Codex')
 
 $ErrorActionPreference = 'Stop'
+$OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $OutputEncoding
 $ControlDir = 'D:\How_I_Fall\agent-control'
 if ((Test-Path (Join-Path $ControlDir 'MAINTENANCE')) -or (Test-Path (Join-Path $ControlDir 'STOP'))) { throw 'Maintenance: worker disabled' }
 $env:CODEX_HOME='D:\Codex'

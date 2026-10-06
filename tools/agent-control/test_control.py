@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -136,6 +137,23 @@ class ControlTests(unittest.TestCase):
             (root/"read.ps1").write_text(script, encoding="utf-8-sig")
             result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(root/"read.ps1")], capture_output=True, timeout=15)
             self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell native stdin fixture")
+    def test_all_model_helpers_preserve_russian_native_stdin(self):
+        with tempfile.TemporaryDirectory(prefix="hif-stdin-fixture-") as directory:
+            root = Path(directory)
+            value = "Завершить проверку и сохранить задачу"
+            for name in ["hif-worker.ps1", "hif-reviewer.ps1", "wake-supervisor.ps1"]:
+                source = Path(__file__).with_name(name).read_text(encoding="utf-8-sig")
+                setup = [line for line in source.splitlines() if line.startswith("$OutputEncoding =")
+                         or line.startswith("[Console]::OutputEncoding =")]
+                self.assertEqual(2, len(setup), name)
+                script = "$ErrorActionPreference='Stop'\n" + "\n".join(setup)
+                script += "\n'"+value+"' | & '"+sys.executable+"' -c 'import sys; sys.stdout.buffer.write(sys.stdin.buffer.read())'\n"
+                (root/"stdin.ps1").write_text(script, encoding="utf-8-sig")
+                result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(root/"stdin.ps1")], capture_output=True, timeout=15)
+                self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+                self.assertEqual(value, result.stdout.decode("utf-8").strip(), name)
 
     def test_ci_poll_quiet_while_pending_and_uses_latest_head_gate(self):
         self.assertEqual("WAIT_CI", c.ci_status({"check_runs":[]}, "b"*40))
