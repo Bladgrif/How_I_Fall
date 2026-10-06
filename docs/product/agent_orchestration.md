@@ -147,9 +147,9 @@ audit/review допустим **Max**, если лимит Flash не являе
 ### GPT-6 Luna
 Codex bounded/high-volume worker для tests/docs/configs, повторяемой механики,
 standalone/desktop automation и evidence work. В autonomous loop
-**GPT-6 Luna Low — default cheap independent reviewer** для exact-diff first
-pass; significant/high-risk candidate при необходимости эскалируется в
-Sol High strong read-only review.
+**GPT-6 Luna Low** — independent reviewer только для low-risk exact-diff
+проходов. Significant/high-risk candidate сразу получает отдельный fresh
+**Sol High** review, без обязательной промежуточной дешёвой ступени.
 
 ### GLM-5.3
 Selective alternative/escalation для interdependent systems или длинной
@@ -162,10 +162,10 @@ high cost of error или задачи, где reviewer явно хочет до
 мощность. Не используй Astra только потому, что задача большая.
 
 Практический автономный ориентир:
-`GPT-6.1 Sol High writer → GPT-6 Luna Low independent review → exact-head CI/proof → HIF Supervisor merge`
+`Writer → один независимый reviewer по риску → exact-head CI/proof → HIF Supervisor merge`
 
 Для high-risk C#/runtime/UI/lifecycle/Save/scene/prefab work:
-`Sol High writer → Luna Low first pass → Sol High read-only strong review → CI/proof → merge`
+`Sol High или явный Flash fallback writer → fresh Sol High read-only review → CI/proof → merge`
 
 Независимый support lane:
 `Z-Code + GLM-5.3-Flash Max → audits/tests/docs/config/validators/log investigation`
@@ -228,7 +228,7 @@ Project-facing уровни:
 - persistent **HIF Supervisor** — **GPT-6 Luna Low**; выбирает следующий bounded
   pass, координирует writer/reviewer, GitHub/Drive, CI/proof и merge gates;
 - **Writer** — **GPT-6.1 Sol High**; делает одну production-задачу и validation;
-- fresh **cheap reviewer** — **GPT-6 Luna Low**, read-only на exact base/head;
+- fresh **cheap reviewer** — **GPT-6 Luna Low**, read-only только для low-risk exact base/head;
 - fresh **strong reviewer** — **GPT-6.1 Sol High**, read-only для
   C#/runtime/UI/lifecycle/Save/scene/prefab/high-risk work либо при escalation;
 - **Z-Code / GLM-5.3-Flash Max** — независимый support lane для audits,
@@ -238,7 +238,8 @@ Project-facing уровни:
 State machine:
 `IDLE → READY → RUNNING → REVIEW_CANDIDATE → REVIEWING`.
 Objective defect возвращает задачу в `CORRECTION_READY → RUNNING`; clean
-high-risk candidate проходит strong review; clean candidate затем проходит
+high-risk candidate сразу проходит strong review без обязательного cheap first pass;
+clean candidate затем проходит
 exact-head PR/CI/proof gate. Только после GREEN acceptance Supervisor делает
 merge, verify exact `master`, синхронизирует roadmap и выбирает следующий
 bounded pass. Quota/interruption → `PARTIAL_RETRY`; решение, которого нет в

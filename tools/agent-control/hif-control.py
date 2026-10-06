@@ -148,17 +148,42 @@ def review_ok(review, task, strong=False):
         raise ValueError("Sol High strong review required")
 
 
+def needs_strong(task, changed, cheap=None):
+    if high_risk(changed) or task.get("risk") == "high" or task.get("player_facing"):
+        return True
+    bound = cheap and all(cheap.get(k) == task.get(t) for k, t in
+                         (("task_id", "id"), ("base_sha", "base_sha"), ("head_sha", "head_sha")))
+    return bool(bound and (cheap.get("risk") == "high" or cheap.get("escalate")))
+
+
+def ci_latest(checks, head):
+    names = {"CI Gate", "CI change classification", "Unity Test Framework", "Unity smoke tests"}
+    latest = {}
+    for run in checks.get("check_runs", []):
+        if run.get("name") in names and run.get("head_sha") == head and run.get("app", {}).get("slug") == "github-actions":
+            if run["name"] not in latest or run["id"] > latest[run["name"]]["id"]:
+                latest[run["name"]] = run
+    return latest
+
+
+def ci_pending(checks, head):
+    return any(run.get("status") != "completed" for run in ci_latest(checks, head).values())
+
+
 def gate(task, cheap, strong, pr, checks, changed):
-    review_ok(cheap, task)
-    if (high_risk(changed) or task.get("risk") == "high" or cheap.get("risk") == "high"
-            or cheap.get("escalate") or task.get("player_facing")):
-        review_ok(strong or {}, task, strong=True)
+    strong_required = needs_strong(task, changed, cheap)
+    final_review = strong if strong_required else cheap
+    review_ok(final_review or {}, task, strong=strong_required)
     if pr.get("state") != "open" or pr.get("draft") or pr.get("head", {}).get("sha") != task["head_sha"]:
         raise ValueError("PR is not an open exact-head candidate")
     if pr.get("base", {}).get("ref") != "master" or pr.get("mergeable") is not True:
         raise ValueError("PR mergeability/base not verified")
     if pr.get("base", {}).get("sha") != task["base_sha"]:
         raise ValueError("Master moved: update candidate, validate and re-review")
+    if ci_pending(checks, task["head_sha"]):
+        raise ValueError("Exact-head CI jobs are still running; old success cannot authorize merge")
+    if any(run.get("conclusion") not in ("success", "skipped") for run in ci_latest(checks, task["head_sha"]).values()):
+        raise ValueError("A latest exact-head CI job failed; old success cannot authorize merge")
     runs = [r for r in checks.get("check_runs", []) if r.get("name") == "CI Gate"
             and r.get("head_sha") == task["head_sha"]
             and r.get("app", {}).get("slug") == "github-actions"]
@@ -167,13 +192,17 @@ def gate(task, cheap, strong, pr, checks, changed):
     latest = max(runs, key=lambda r: r["id"])
     if latest.get("status") != "completed" or latest.get("conclusion") != "success":
         raise ValueError("Latest exact-head CI Gate is not GREEN")
-    if task.get("player_facing") and not cheap.get("visual_proof_verified"):
+    if task.get("player_facing") and not final_review.get("visual_proof_verified"):
         raise ValueError("Reviewer-visible graphical proof not verified")
     return {"status": "MERGE_ALLOWED", "task_id": task["id"], "head_sha": task["head_sha"],
             "checked_at": now(), "ci_check_id": latest["id"], "pr_number": pr["number"]}
 
 
 def ci_status(checks, head):
+    if ci_pending(checks, head):
+        return "WAIT_CI"
+    if any(run.get("conclusion") not in ("success", "skipped") for run in ci_latest(checks, head).values()):
+        return "FAILED"
     runs = [r for r in checks.get("check_runs", []) if r.get("name") == "CI Gate"
             and r.get("head_sha") == head and r.get("app", {}).get("slug") == "github-actions"]
     if not runs or max(runs, key=lambda r: r["id"]).get("status") != "completed":
@@ -220,7 +249,7 @@ def zcode_run(repo, prompt, output, events):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status"])
+    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier"])
     parser.add_argument("--control", default="D:/How_I_Fall/agent-control")
     parser.add_argument("--method")
     parser.add_argument("--params", default="{}")
@@ -254,9 +283,13 @@ def main():
         task = next(t for t in tasks if t["id"] == state["active_task_id"])
         repo = task["writer_path"]
         changed = subprocess.check_output(["git", "-c", "safe.directory=" + repo, "-C", repo, "diff", "--name-only", "-z", task["base_sha"] + "..." + task["head_sha"]], encoding="utf-8").rstrip("\0").split("\0")
+        cheap = load(c / "review-latest.json") if (c / "review-latest.json").exists() else None
+        if args.command == "review-tier":
+            print("strong" if needs_strong(task, changed, cheap) else "cheap")
+            return
         pr = github("pulls/" + str(task["pr_number"]))
         checks = github("commits/" + task["head_sha"] + "/check-runs?per_page=100")
-        receipt = gate(task, load(c / "review-latest.json"), load(c / "strong-review-latest.json")
+        receipt = gate(task, cheap, load(c / "strong-review-latest.json")
                        if (c / "strong-review-latest.json").exists() else None, pr, checks, changed)
         save(c / "merge-gate.json", receipt)
         print(json.dumps(receipt))

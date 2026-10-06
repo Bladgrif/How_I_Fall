@@ -28,8 +28,9 @@
   acceptance. Exit 0 без validation не разрешает commit/push. Partial diff
   сохраняется в исходном checkout; автоматического переноса между engines нет.
 - `hif-reviewer.ps1` / `-Strong`: новый независимый read-only Luna Low / Sol High
-  для exact head; отчёт привязан к task/base/head. Для runtime/UI/Save и
-  automation/workflow нужен сильный review независимо от writer.
+  для exact head; отчёт привязан к task/base/head. Значимые/runtime/UI/Save и
+  automation/workflow задачи сразу идут одному Sol High reviewer. Luna остаётся
+  только low-risk reviewer; escalation — исключение при новом риске, не лестница.
 - `hif-control.py quota`: свежий `account/rateLimits/read`; ≤25% в любом окне
   направляет новые tasks в Flash Max, включая runtime/UI. Неизвестная квота
   блокирует автоматический выбор. Недоступен Sol reviewer → `WAIT_STRONG_REVIEW`.
@@ -88,3 +89,10 @@ Read-only reviewer не обязан повторно запускать fixture
 лог с exact head, exit code и SHA-256; reviewer читает его и проверяет тесты/код.
 Ошибку записи temp в readonly sandbox не считать production failure, но явно
 отмечать независимый rerun `NOT RUN`/environment-blocked, без выдуманного PASS.
+
+Коды helpers: `75` — ожидаемое ожидание квоты; `78` — fatal persistence failure.
+При `78` единственный scheduler немедленно завершается даже если запись `STOP`
+невозможна. Состояние/marker сохраняются best-effort; повторного dispatch в этом
+процессе нет. Обычные transport failures ограничены тремя попытками.
+CI poll молчит, пока актуальные classification/Unity/Gate jobs не завершены;
+успех предыдущей попытки на том же head не заменяет текущую незавершённую.

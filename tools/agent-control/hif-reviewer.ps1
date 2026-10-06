@@ -48,10 +48,13 @@ Do not edit, stage, commit, push, switch branch, create PR or merge.
 If no-change, prove acceptance; an empty diff is not acceptance.
 CI is a later Supervisor gate: missing future PR CI alone is not a correction.
 Set escalate=true for runtime/C#/UI/lifecycle/Save/scenes/prefabs/Packages/
-ProjectSettings/workflow or automation tooling. Strong pass is the escalation.
+ProjectSettings/workflow or automation tooling. Strong=$Strong. In the strong pass, set escalate=false: this IS the strong review.
 Set visual_proof_verified=true ONLY for relevant fresh remotely accessible screenshots
 that YOU inspected, bound to this head; otherwise false. Every required missing
 implementation-side check/proof is validation_gaps, never silently waive it.
+validation_gaps contains ONLY unmet implementation-side acceptance requirements.
+Accepted read-only rerun restrictions, later PR CI, and staged rollout NOT VERIFIED
+belong in summary, not blockers, unless the brief actually requires them now.
 Task brief:
 $brief
 Writer report (verify claims independently):

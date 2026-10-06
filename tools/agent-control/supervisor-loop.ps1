@@ -38,16 +38,33 @@ try {
                     $helperArgs=@('-Engine',$engine)
                 } elseif($s.status -in @('REVIEW_CANDIDATE','REVIEW_CANDIDATE_NO_CHANGE')){
                     $helper='hif-reviewer.ps1'
+                    $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+                    $tier=& $Python (Join-Path $PSScriptRoot 'hif-control.py') review-tier --control $C
+                    if($LASTEXITCODE -or $tier -notin @('cheap','strong')){throw 'Review routing failed'}
+                    if($tier -eq 'strong'){$helperArgs=@('-Strong')}
                 } elseif($s.status -eq 'WAIT_STRONG_REVIEW'){
                     $helper='hif-reviewer.ps1'; $helperArgs=@('-Strong')
                 }
                 $code=0
                 if($runHelper){
-                    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $helper) @helperArgs >> (Join-Path $C 'supervisor-loop.log') 2>&1
-                    $code=$LASTEXITCODE
+                    $savedPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'
+                    try {
+                        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $helper) @helperArgs 2>&1 | ForEach-Object {Add-Content (Join-Path $C 'supervisor-loop.log') $_ -Encoding UTF8}
+                        $code=$LASTEXITCODE
+                    } finally {$ErrorActionPreference=$savedPreference}
+                }
+                if($code -eq 78){
+                    # No further dispatch in this process, independent of disk/marker availability.
+                    try {
+                        $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+                        $s.status='BLOCKED'
+                        $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
+                        Set-Content (Join-Path $C 'STOP') 'Fatal control persistence failure; recover before resuming' -Encoding UTF8
+                    } catch {}
+                    break
                 }
                 $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-                $failures=if($code -and $s.status -ne 'PARTIAL_RETRY'){[int]$s.transport_failures+1}else{0}
+                $failures=if($code -and $code -ne 75){[int]$s.transport_failures+1}else{0}
                 $s | Add-Member -NotePropertyName transport_failures -NotePropertyValue $failures -Force
                 if($failures -ge 3){
                     $s.status='BLOCKED'
@@ -61,7 +78,7 @@ try {
         Add-Content (Join-Path $C 'supervisor-loop.log') ((Get-Date).ToString('o')+' '+$_.Exception.Message) -Encoding UTF8
         try {
             $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-            $failures=if($s.status -eq 'PARTIAL_RETRY'){0}else{[int]$s.transport_failures+1}
+            $failures=[int]$s.transport_failures+1
             $s | Add-Member -NotePropertyName transport_failures -NotePropertyValue $failures -Force
             $s | Add-Member -NotePropertyName last_error -NotePropertyValue $_.Exception.Message -Force
             if($failures -ge 3){$s.status='BLOCKED'}

@@ -105,8 +105,33 @@ class ControlTests(unittest.TestCase):
         self.task["player_facing"] = True
         with self.assertRaises(ValueError):
             self.gate(["Assets/X.cs"])
-        self.review["visual_proof_verified"] = True
+        self.strong["visual_proof_verified"] = True
         self.assertEqual("MERGE_ALLOWED", self.gate(["Assets/X.cs"])["status"])
+
+    def test_high_risk_uses_one_fresh_strong_review(self):
+        self.task["risk"] = "high"
+        self.assertEqual("MERGE_ALLOWED", c.gate(self.task, None, self.strong, self.pr, self.checks, ["Assets/X.cs"])["status"])
+        stale_cheap = dict(self.review, head_sha="c"*40, verdict="CORRECTION_NEEDED")
+        self.assertEqual("MERGE_ALLOWED", c.gate(self.task, stale_cheap, self.strong, self.pr, self.checks, ["Assets/X.cs"])["status"])
+        with self.assertRaises(ValueError):
+            c.gate(self.task, self.review, None, self.pr, self.checks, ["Assets/X.cs"])
+
+    def test_old_success_does_not_cover_active_classification_or_unity(self):
+        for name in ["CI change classification", "Unity Test Framework", "Unity smoke tests"]:
+            checks = copy.deepcopy(self.checks)
+            checks["check_runs"].append(dict(self.checks["check_runs"][0], id=10, name=name, status="in_progress", conclusion=None))
+            self.assertEqual("WAIT_CI", c.ci_status(checks, "b"*40))
+            with self.assertRaises(ValueError):
+                c.gate(self.task, self.review, self.strong, self.pr, checks, [])
+            checks["check_runs"][-1].update(status="completed", conclusion="failure")
+            self.assertEqual("FAILED", c.ci_status(checks, "b"*40))
+            with self.assertRaises(ValueError):
+                c.gate(self.task, self.review, self.strong, self.pr, checks, [])
+
+    def test_stale_escalation_does_not_affect_other_task(self):
+        stale = dict(self.review, task_id="old", risk="high", escalate=True)
+        self.assertFalse(c.needs_strong(self.task, ["docs/x.md"], stale))
+        self.assertTrue(c.needs_strong(self.task, ["Assets/X.cs"], stale))
 
     def test_ui_and_reviewer_risk_require_strong(self):
         self.strong = None
@@ -191,7 +216,7 @@ class ControlTests(unittest.TestCase):
             root=Path(directory)
             text=Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
             (root/"loop.ps1").write_text(text,encoding="utf-8-sig")
-            (root/"hif-worker.ps1").write_text('Write-Error usage_limit_exceeded; exit 1',encoding="utf-8-sig")
+            (root/"hif-worker.ps1").write_text('Write-Error usage_limit_exceeded; exit 75',encoding="utf-8-sig")
             (root/"state.json").write_text(json.dumps({"status":"PARTIAL_RETRY","active_task_id":"preserve"}),encoding="utf-8")
             (root/"queue.json").write_text(json.dumps({"tasks":[{"id":"preserve","status":"PARTIAL_RETRY","writer_engine":"Codex"}]}),encoding="utf-8")
             (root/"controller.json").write_text(json.dumps({"enabled":True}),encoding="utf-8")
@@ -201,6 +226,38 @@ class ControlTests(unittest.TestCase):
             state=c.load(root/"state.json")
             self.assertEqual("PARTIAL_RETRY",state["status"])
             self.assertEqual(0,state["transport_failures"])
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell fixture")
+    def test_fatal_persistence_stops_process_without_writable_marker(self):
+        with tempfile.TemporaryDirectory(prefix="hif-fatal-fixture-") as directory:
+            root = Path(directory)
+            text = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
+            text = text.replace("$ErrorActionPreference='Stop'", "$ErrorActionPreference='Stop'\nfunction Set-Content { throw 'Simulated control and STOP write failure' }", 1)
+            (root/"loop.ps1").write_text(text, encoding="utf-8-sig")
+            (root/"hif-worker.ps1").write_text("Add-Content -LiteralPath '"+str(root/"dispatches.txt")+"' 'dispatch'; Write-Error persistence_failed; exit 78", encoding="utf-8-sig")
+            (root/"controller.json").write_text(json.dumps({"enabled": True}), encoding="utf-8")
+            (root/"state.json").write_text(json.dumps({"status":"PARTIAL_RETRY", "active_task_id":"preserve"}), encoding="utf-8")
+            (root/"queue.json").write_text(json.dumps({"tasks":[{"id":"preserve","status":"PARTIAL_RETRY","writer_engine":"Codex"}]}), encoding="utf-8")
+            result = subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(root/"loop.ps1")], capture_output=True, timeout=15)
+            self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+            self.assertEqual(1, len((root/"dispatches.txt").read_text().splitlines()))
+            self.assertFalse((root/"STOP").exists())
+            self.assertEqual("preserve", c.load(root/"state.json")["active_task_id"])
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell fixture")
+    def test_actual_worker_save_failure_returns_fatal_without_resume(self):
+        with tempfile.TemporaryDirectory(prefix="hif-save-fixture-") as directory:
+            root = Path(directory)
+            worker = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
+            functions = worker[worker.index("function NowIso"):worker.index("function RunGit")]
+            text = "$ErrorActionPreference='Stop'\n$ControlDir='"+directory+"'\n"+functions
+            text += "\nfunction WriteJson { throw 'Simulated durable write failure' }\nfunction Set-Content { throw 'Simulated STOP write failure' }\n"
+            text += "try { SaveControl ([pscustomobject]@{}) ([pscustomobject]@{}); Add-Content '"+str(root/"unsafe-resume.txt")+"' 'bad' } finally { Add-Content '"+str(root/"cleanup.txt")+"' 'finally' }"
+            (root/"save.ps1").write_text(text, encoding="utf-8-sig")
+            result = subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(root/"save.ps1")], capture_output=True, timeout=15)
+            self.assertEqual(78, result.returncode, result.stderr.decode(errors="replace"))
+            self.assertFalse((root/"unsafe-resume.txt").exists())
+            self.assertTrue((root/"cleanup.txt").exists())
 
 
 if __name__ == "__main__":

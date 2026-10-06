@@ -25,7 +25,7 @@ function SaveControl($q, $s) {
         WriteJson $s $StatePath
     } catch {
         try { Set-Content -LiteralPath (Join-Path $ControlDir 'STOP') -Value 'Durable control write failed; preserve partial diff and recover before dispatch' -Encoding UTF8 } catch { Write-Error 'STOP could not be persisted; scheduler must terminate on control-write failure' -ErrorAction Continue }
-        throw
+        exit 78 # Fatal control persistence failure: caller must stop even if STOP cannot be written.
     }
 }
 function RunGit([string[]]$a) {
@@ -218,6 +218,7 @@ Missing required graphical proof or a required test is BLOCKED, not a success.
             SetProp $s 'last_error' ('Codex failed. Exit=' + $code + '. See ' + $eventsPath)
         }
         SaveControl $q $s
+        if($quota){exit 75} # Expected quota wait, not a transport/persistence failure.
         exit $code
     }
 
