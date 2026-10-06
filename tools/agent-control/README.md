@@ -119,3 +119,99 @@ Read-only reviewer не обязан повторно запускать fixture
 процессе нет. Обычные transport failures ограничены тремя попытками.
 CI poll молчит, пока актуальные classification/Unity/Gate jobs не завершены;
 успех предыдущей попытки на том же head не заменяет текущую незавершённую.
+
+## Native GLM runtime/UI acceptance
+
+Это расширение существующего `hif-worker`, не новый scheduler/provider/QA launcher.
+У approved Flash brief обязателен `native_validation_profile`: `agent-control`
+сохраняет fixed fixtures + все четыре PS AST; `hif-runtime` получает только selection:
+
+```json
+{
+  "native_validation_profile": "hif-runtime",
+  "player_facing": false,
+  "native_qa": {
+    "unity": [{"mode": "EditMode", "filter": "InteractiveHotspotEditModeTests"}],
+    "graphical": []
+  }
+}
+```
+
+Это пример schema, **не утверждение нового product pass**. Состояние реального
+GLM runtime/UI rollout после infrastructure acceptance — staged `NOT VERIFIED`.
+
+Whitelisted filters: только `EditMode` → `InteractiveHotspotEditModeTests`,
+`SavePaginationEditModeTests`. До шести Unity selections без duplicates.
+`PlayMode` и ВСЕ graphical Scenario (`PlayerUi`, `SaveBackendV2`, `GameMenu`,
+`ManualSave`, `Hotspot`) закрыты до доказанной save isolation **перед первым**
+runtime access. `SaveManager.Awake` обращается к реальному save root раньше
+`ConfigureSaveDirectoryForTests`; поздний override не является startup isolation.
+Поэтому player-facing selection сейчас fail closed: `REVIEWER VISUAL PROOF NOT AVAILABLE`,
+не запускать Unity и не выдавать candidate с неполным QA. `Smoke` также закрыт.
+Ни пустой/all filter, ни regex/method/arg/command/executable, ни дополнительный ключ
+в `native_qa` не принимаются. Открытие selections требует отдельного inspected
+safety diff с startup isolation и bounded proof affected-state coverage, не queue string.
+Это ограничение текущего staged rollout, а не утверждение GLM runtime/UI PASS.
+
+`native-plan` закрывает unknown/malformed profile до dispatch. `native-qa` читает
+одну active task identity из существующей queue/state, проверяет writer/branch/HEAD,
+неизменные approved launchers/isolation harnesses и `ProjectVersion.txt`, который
+определяет installed Editor executable. До первого launcher и перед
+каждым следующим проверяются ВСЕ Unity write roots (`Assets`, `Packages`,
+`ProjectSettings`, `Library`, `Temp`, `Logs`, `UserSettings`, `obj`, `.vs`, `QAArtifacts`),
+их существующие поддеревья, root-level entries (включая IDE project files), selected
+outputs/sentinels и ancestor reparse points.
+Junction/reparse escape блокирует запуск; существующий sentinel не перезаписывается.
+Native invocation использует fixed Windows PowerShell, fixed script и args;
+`UNITY_EDITOR_PATH` override не наследуется. Flash остаётся edit/no-shell без Bash/yolo.
+Процесс запускается только в `agent`/`zagent`, никогда `develop`/`master`.
+
+Exit code недостаточен: fresh XML с nonzero passed cases/согласованными totals,
+без failures; fresh logs; graphical preflight + sentinel + PlayerPrefs restoration,
+все оригиналы existing launcher list и PNG dimensions (обычно 1920x1080, без
+`-nographics`). Existing responsive proof 1280x720 сохраняется, новая multi-resolution
+автоматизация не добавляется. Изоляция saves переиспользует inspected temp directories
+существующих harnesses. Native worker не трогает real LocalLow и не создаёт свой
+backup/restore механизм; недоказанная/destructive selection не запускается.
+
+`evidence/<task>-<run>/manifest.json`: task/base/source head, source fingerprint,
+engine/path, timestamps, fixed invocations/exit codes, SHA-256 XML/logs/sentinels
+и все relevant оригиналы на Scenario (не более трёх). Произвольная выборка
+первых/фиксированных трёх кадров из broad launcher не допускается: если весь
+required proof list не помещается в bound, launch блокируется заранее.
+Оригиналы архивируются сразу после invocation, до очистки следующего launcher.
+Это generated control evidence, не task PR payload.
+`bind-native-proof` после native commit проверяет unchanged source
+fingerprint, task/base/engine/path, точный текущий `native-plan`, successful invocations
+с exit code 0 и required originals/hashes; затем связывает manifest с точным
+candidate head до push. Эти проверки повторяются перед review/merge; изменение
+approved check selection делает старый PASS manifest непригодным.
+Проверка текущего `native-plan` обязательна для КАЖДОГО Z-Code candidate,
+до любого non-runtime bypass и reviewer dispatch. Для `agent-control` повторно
+проверяются явные infrastructure `allowed_paths` и exact base/head diff на
+review/merge boundary; сохранённый runtime manifest/remote receipt запрещён.
+Missing/unknown profile или downgrade со старым proof не дают `READY`/
+`MERGE_ALLOWED`, даже при совпадающем canonical exact-head `CLEAN` review.
+Missing/zero/stale proof → false completeness, `BLOCKED`, без stage/commit/push;
+implementation test/compile failure → `PARTIAL_RETRY` с correction brief/log.
+Не более двух correction попыток, SAME checkout/branch/engine/resume HEAD; drift
+или повторный failure → `BLOCKED`, реальные permission/auth failures → `WAIT_AUTH`.
+Ни reset/clean/stash, ни partial-diff transfer нет. Quota ≤25% меняет только
+следующий task; retry сохраняет исходный engine. Sol flow и `agent-control` сохранены.
+
+Machine `validation_complete=true` не означает objective visual PASS: Flash его не
+заявляет. Для GLM image inspection — обязательный независимый Sol High gate.
+`native-proof-status` перед reviewer направляет `WAIT_VISUAL_PROOF` в существующий
+Supervisor wake; Supervisor публикует bounded evidence по existing review routes и
+записывает `native_remote_proof={route,url,head_sha,manifest_sha256}` после readback.
+Недоступные routes после попыток → `BLOCKED`, no merge. Reviewer открывает remote
+оригиналы; receipt и local archive не заменяют inspection. `merge-gate` повторно
+проверяет manifest/hashes, matching canonical CLEAN Sol High, latest exact-head CI
+и возвращает `expected_head_sha`. Публикация/PR/merge/native sync — outer transport,
+не writer model. Исчерпанный approved product backlog → proposals/`WAIT_USER`.
+
+Fixtures мокируют native invocations и работают в temporary directories с собственными
+mutex names; модели, GitHub writes, Unity/user checkout/LocalLow не запускаются.
+Полный writer log и head-bound manifest хранить в `agent-control/evidence`; если
+writer sandbox не разрешает live control path, использовать gitignored
+`QAArtifacts/agent-control/evidence` и передать этот archive outer transport.

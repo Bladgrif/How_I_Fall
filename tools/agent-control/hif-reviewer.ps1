@@ -21,6 +21,20 @@ try {
     if($base -notmatch '^[a-f0-9]{40}$' -or $head -notmatch '^[a-f0-9]{40}$'){throw 'Missing exact SHA'}
     if(@(git -c ("safe.directory="+$Repo) -C $Repo status --porcelain).Count){throw 'Dirty checkout before review'}
     if((git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim() -ne $head){throw 'Reviewer HEAD mismatch'}
+    if($t.writer_engine -eq 'ZCode'){
+        & $Python (Join-Path $PSScriptRoot 'hif-control.py') native-proof-status --control $C | Tee-Object -Variable proofStatusJson | Out-Null
+        if($LASTEXITCODE){throw 'Native proof safety check failed'}
+        $proofStatus=($proofStatusJson -join "`n") | ConvertFrom-Json
+        if($proofStatus.status -ne 'READY'){
+            $s.status=$proofStatus.status
+            $s | Add-Member -NotePropertyName last_error -NotePropertyValue $proofStatus.error -Force
+            $tmp=Join-Path $C 'state.json.tmp'
+            $s | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $tmp -Encoding UTF8
+            Move-Item -LiteralPath $tmp -Destination (Join-Path $C 'state.json') -Force
+            exit 0 # Outer Supervisor publishes permitted proof before independent inspection.
+        }
+        if($t.native_validation_profile -eq 'hif-runtime' -and $t.native_qa.graphical.Count -and -not $Strong){throw 'GLM objective graphical inspection requires Sol High'}
+    }
     $suffix=if($Strong){'strong-review-latest'}else{'review-latest'}
     $model=if($Strong){'gpt-6.1-sol'}else{'gpt-6-luna'}
     $reasoning=if($Strong){'high'}else{'low'}
@@ -54,6 +68,11 @@ ProjectSettings/workflow or automation tooling. Strong=$Strong. In the strong pa
 Set visual_proof_verified=true ONLY for relevant fresh remotely accessible screenshots
 that YOU inspected, bound to this head; otherwise false. Every required missing
 implementation-side check/proof is validation_gaps, never silently waive it.
+For GLM runtime/UI: YOU (independent Sol High) own objective screenshot inspection:
+clipping, overlap, anchors/spacing/visibility, missing assets, malformed controls,
+focus/hover/readability and runtime errors. Flash/native capture is NOT visual PASS.
+Verify native_validation_manifest originals/hashes and native_remote_proof delivery;
+open the actual remote originals. Publication receipt alone is NOT proof of access.
 validation_gaps contains ONLY unmet implementation-side acceptance requirements.
 Accepted read-only rerun restrictions, later PR CI, and staged rollout NOT VERIFIED
 belong in summary, not blockers, unless the brief actually requires them now.

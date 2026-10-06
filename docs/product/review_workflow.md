@@ -28,6 +28,24 @@
 
 Ручной QA пользователя не заменяет эту автоматизацию. Субъективное эстетическое одобрение нужно только для вопросов вкуса, атмосферы и художественного направления.
 
+Для утверждённого GLM fallback ownership объективной инспекции screenshots явно
+передаётся независимому **Sol High reviewer**, если Flash не имеет image tools.
+Flash пишет bounded diff без shell; native worker выполняет только выбранные
+фиксированные HIF checks. Свежие XML/logs/sentinels/оригиналы и manifest — machine
+evidence, а не writer visual PASS. Missing/zero/stale local proof запрещает native
+commit/push; native implementation failure получает максимум два SAME-engine
+correction retry без переноса partial diff. Полный contract — orchestration/README.
+
+До objective review Supervisor публикует bounded оригиналы и manifest через
+существующий `visual-review` artifact (только реально изменённые curated baselines),
+иначе Drive `03 — UI — implementation & QA proof`, иначе `evidence/<task>`.
+`native_remote_proof` связывает route/URL с exact head и SHA-256 manifest; reviewer
+проверяет реальные доступные оригиналы, hashes и source identity. Local path или
+receipt без просмотра не дают `visual_proof_verified=true`. Без permitted route —
+`WAIT_VISUAL_PROOF`, после неуспешных попыток `BLOCKED`; merge запрещён.
+Evidence-ветка не мержится и удаляется после reviewer acceptance. Sol writer flow
+с самостоятельной объективной инспекцией остаётся прежним.
+
 ## Визуальные baseline-скриншоты
 
 После успешного graphical E2E для значимого player-facing visual pass Codex обновляет только релевантный небольшой набор в `docs/visual-baselines/`, а не копирует весь `QAArtifacts/`. `QAArtifacts/` остаётся временным gitignored proof.
@@ -81,6 +99,20 @@ Google Drive хранит историю benchmark-driven проходов; не
 6. только после этого формировать следующую задачу coding-agent.
 
 Следующая задача не выбирается только по памяти чата. При расхождении repository и Drive предпочитается repository, после чего Drive приводится в соответствие при доступной записи; недоступная запись фиксируется как stale и не блокирует `DONE`.
+
+Native GLM acceptance сейчас разрешает только whitelisted `EditMode` checks;
+`PlayMode` и все graphical selections fail closed до доказанной изоляции saves
+перед первым runtime access. Поздний test override не доказывает startup safety.
+Недоказанное bounded affected-state coverage также означает
+`REVIEWER VISUAL PROOF NOT AVAILABLE`, без запуска/merge. Старый PASS manifest
+непригоден при изменении approved `native-plan` или отсутствии exact successful
+invocations/required originals. Synthetic fixture images не являются visual proof
+настоящей production-задачи; staged runtime/UI rollout остаётся `NOT VERIFIED`.
+
+Все Z-Code candidates проходят текущий `native-plan` до reviewer dispatch и
+merge, включая `agent-control`. Missing/unknown profile, выход exact base/head
+diff за явный infrastructure scope или смена profile с сохранённым runtime proof
+закрывают gate. Даже exact-head canonical `CLEAN` не разрешает этот bypass.
 
 ## Разделение ролей
 

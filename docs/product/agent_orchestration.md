@@ -189,6 +189,63 @@ writer в `agent` или `zagent`; retries сохраняют исходный c
 Codex может остановить и Supervisor; GLM не гарантирует обход недоступного
 control/review transport.
 
+### Native runtime/UI QA для Flash
+
+Утверждённый bounded brief явно задаёт `native_validation_profile` и check selection;
+поддержаны `agent-control` (принятый fixed infrastructure profile) и `hif-runtime`
+с `native_qa={unity:[{mode,filter}],graphical:[Scenario]}`. Точный ограниченный список
+и пример — `tools/agent-control/README.md`. Unknown/malformed profile закрывается
+до model/QA launch; queue/report не могут задать executable, shell или произвольные
+arguments. Flash остаётся Z-Code edit/no-shell/Max, Sol writer flow не меняется.
+
+Для каждого Z-Code candidate текущий `native-plan` проверяется перед любым
+profile bypass, reviewer dispatch и merge. `agent-control` допускает только
+явный infrastructure scope; на review/merge boundary повторно проверяется
+реальный exact base/head diff. Missing/unknown profile и переход на
+`agent-control` с сохранённым runtime manifest/remote receipt блокируются,
+даже если canonical `CLEAN` review всё ещё совпадает с head.
+
+Native worker запускает только существующие `run-unity-tests.ps1` и
+`run-graphical-e2e.ps1` в bound `writer_path` (`agent`/`zagent`); launcher'ы и
+изолирующие QA harnesses не должны отличаться от approved base. `develop`/`master`
+не используются для QA. Сейчас whitelist открыт только для двух `EditMode`
+filters. `PlayMode` и все
+graphical Scenario закрыты: temp-save override после `SaveManager.Awake` не
+изолирует первый runtime access. Без доказанной startup isolation/backup/restore
+selection не запускается; player-facing proof явно unavailable. Открывать эти
+selections можно только отдельным inspected safety diff, не строкой из queue.
+
+Exit 0 не proof: обязательны fresh log, XML с nonzero executed totals без failures,
+для graphical — preflight log, PASS sentinel, restoration evidence и все свежие
+оригиналы из списка существующего launcher'а. Standard proof — 1920x1080 без
+`-nographics`; existing responsive checks launcher'а не удаляются и не расширяются.
+Native manifest связывает task/base/head, source fingerprint, invocations и SHA-256;
+manifest обязан совпадать с текущим `native-plan` и exact successful invocations
+(exit 0), в том числе при binding после commit. Перед любым launch проверяются все
+Unity write roots/subtrees, outputs, sentinels и ancestors на containment/reparse.
+Публикуются все relevant оригиналы bounded launcher (до трёх на Scenario), не
+произвольная выборка из broad proof list и не весь `QAArtifacts`. Если bound и
+coverage невозможно обеспечить, `REVIEWER VISUAL PROOF NOT AVAILABLE`, no launch;
+оригиналы архивируются до последующей launcher cleanup.
+
+`validation_complete` native manifest означает выполненные machine checks, НЕ
+visual PASS. При отсутствующем local proof он всегда false, transport запрещён.
+GLM не заявляет objective screenshot PASS: эту инспекцию, включая layout/focus/
+readability/runtime errors, обязательно выполняет независимый **Sol High** до merge.
+Это явное исключение ownership, не ослабление QA. Remote publication — existing
+Supervisor transport по review contract; до неё `WAIT_VISUAL_PROOF`, нет clean visual
+review/merge. Если разрешённые routes после попыток не работают — `BLOCKED` и
+`REVIEWER VISUAL PROOF NOT AVAILABLE`. Receipt не заменяет inspection/readback.
+
+Исправимый native implementation test/compile failure получает `PARTIAL_RETRY`
+и correction brief с manifest/log; не более **двух** автоматических correction
+попыток. Checkout/branch/engine/resume HEAD и partial diff сохраняются; drift,
+missing/zero/stale proof и повторный failure — `BLOCKED`, permission/auth —
+`WAIT_AUTH`. Нет reset/clean/stash или переноса diff. Новая quota применяется к
+СЛЕДУЮЩЕЙ задаче, не rerouting уже начатого retry. Настоящий GLM runtime/UI pass
+после infrastructure fixtures остаётся staged `NOT VERIFIED`, пока не выполнен
+на отдельно утверждённой product-задаче.
+
 При необходимости hardest escalation:
 `Sol High → GPT-6 Astra`.
 

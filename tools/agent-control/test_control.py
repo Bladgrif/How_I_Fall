@@ -5,8 +5,10 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -129,7 +131,7 @@ class ControlTests(unittest.TestCase):
                 (root/name).write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
             worker = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
             reads = [line.strip() for line in worker.splitlines() if "= Get-Content $QueuePath" in line or "= Get-Content $StatePath" in line]
-            self.assertEqual(4, len(reads))
+            self.assertEqual(6, len(reads))
             script = "$ErrorActionPreference='Stop'\n$QueuePath='"+str(root/"queue.json")+"'\n$StatePath='"+str(root/"state.json")+"'\n"
             for line in reads:
                 var = "$q" if "$QueuePath" in line else "$s"
@@ -598,9 +600,9 @@ class ControlTests(unittest.TestCase):
             worker = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
             # The fixed native validation gate runs before any commit/push transport.
             self.assertLess(worker.index("native_validation_profile -eq 'agent-control'"),
-                            worker.index("'git commit failed'"))
+                            worker.index("RunGit @('commit'"))
             self.assertLess(worker.index("'Native infrastructure fixtures failed; diff preserved'"),
-                            worker.index("'git commit failed'"))
+                            worker.index("RunGit @('commit'"))
             scope = next(line.strip() for line in worker.splitlines() if "Native profile is restricted" in line)
             for paths, expected_code in [(["Assets/Scripts/X.cs"], 1),
                                          (["AGENTS.md", "docs/product/plan.md", "tools/agent-control/test_control.py"], 0)]:
@@ -719,6 +721,602 @@ class ControlTests(unittest.TestCase):
             self.assertEqual(1, len((root/"sync-log.txt").read_text().splitlines()))
             self.assertFalse((root/"wake-log.txt").exists())
             self.assertEqual("BLOCKED", c.load(root/"state.json")["status"])
+
+    # --- Fixed native runtime QA: all invocations are mocked, no Unity/LocalLow. ---
+    def native_task(self, **overrides):
+        return dict(dict(id="native", base_sha="a"*40, resume_head_sha="a"*40,
+                         head_sha="b"*40, branch="codex/native", writer_engine="ZCode",
+                         writer_path="D:/How_I_Fall/zagent", native_validation_profile="hif-runtime",
+                         allowed_paths=["tools/agent-control/test_control.py"],
+                         player_facing=False, native_qa={"unity": [{"mode": "EditMode", "filter": "InteractiveHotspotEditModeTests"}], "graphical": []}), **overrides)
+
+    def test_native_known_profiles_and_fixed_selection(self):
+        self.assertEqual([], c.native_plan(self.native_task(native_validation_profile="agent-control", native_qa=None)))
+        for mode, filters in c.NATIVE_FILTERS.items():
+            for name in filters:
+                task = self.native_task(native_qa={"unity": [{"mode": mode, "filter": name}], "graphical": []})
+                self.assertEqual([("tools/run-unity-tests.ps1", ["-Mode", mode, "-TestFilter", name])], c.native_plan(task))
+        for scenario in c.NATIVE_GRAPHICAL:
+            task = self.native_task(player_facing=True)
+            task["native_qa"]["graphical"] = [scenario]
+            self.assertEqual(("tools/run-graphical-e2e.ps1", ["-Scenario", scenario]), c.native_plan(task)[-1])
+
+    def assert_native_candidate_rejected(self, task, control="unused"):
+        review = dict(self.strong, task_id=task["id"])
+        self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+        with self.assertRaises(ValueError):
+            c.gate(task, review, review, self.pr, self.checks,
+                   ["tools/agent-control/test_control.py"], control=control)
+
+    def test_native_candidate_missing_profile_rejects_ready_and_merge(self):
+        task = self.native_task(native_qa=None)
+        del task["native_validation_profile"]
+        with patch.object(c.subprocess, "check_output") as git, patch.object(c.subprocess, "run") as process:
+            self.assert_native_candidate_rejected(task)
+            git.assert_not_called()
+            process.assert_not_called()
+
+    def test_native_candidate_unknown_profile_rejects_ready_and_merge(self):
+        for profile in (None, "", "unknown", [], {}):
+            with self.subTest(profile=profile), patch.object(c.subprocess, "check_output") as git:
+                self.assert_native_candidate_rejected(self.native_task(native_validation_profile=profile, native_qa=None))
+                git.assert_not_called()
+
+    def test_native_candidate_profile_downgrade_with_clean_review_and_retained_proof_rejected(self):
+        task, _, run, control = self.native_fixture()
+        proof = run()
+        task["writer_path"] = "D:/How_I_Fall/zagent"
+        task["native_validation_manifest"] = proof["manifest_path"]
+        proof.update(source_head_sha=task["head_sha"], writer_path=task["writer_path"])
+        c.save(proof["manifest_path"], proof)
+        review = dict(self.strong, task_id=task["id"])
+        with patch.object(c, "source_fingerprint", return_value="fingerprint"):
+            self.assertEqual("READY", c.native_proof_status(task, control=control)["status"])
+            self.assertEqual("MERGE_ALLOWED", c.gate(task, review, review, self.pr, self.checks,
+                             ["tools/agent-control/test_control.py"], control=control)["status"])
+            # Exact-head canonical CLEAN is unchanged; only queue selection drifts.
+            task.update(native_validation_profile="agent-control", native_qa=None)
+            with patch.object(c.subprocess, "check_output") as git:
+                self.assert_native_candidate_rejected(task, control)
+                git.assert_not_called()
+            del task["native_validation_manifest"]
+            task["native_remote_proof"] = {"head_sha": task["head_sha"]}
+            self.assert_native_candidate_rejected(task, control)
+
+    def test_native_agent_control_scope_checked_at_plan_review_and_merge_boundaries(self):
+        valid = self.native_task(native_validation_profile="agent-control", native_qa=None)
+        for allowed in (None, [], "tools/agent-control/test_control.py",
+                        ["Assets/X.cs"], ["docs/../Assets/X.md"], ["tools/agent-control/../X.py"],
+                        ["docs/"], [None]):
+            with self.subTest(allowed=allowed), patch.object(c.subprocess, "check_output") as git:
+                task = dict(valid, allowed_paths=allowed)
+                with self.assertRaises(ValueError):
+                    c.native_plan(task)
+                self.assert_native_candidate_rejected(task)
+                git.assert_not_called()
+        for changed in (["Assets/X.cs"], ["docs/unapproved.md"], ["tools/agent-control/../X.py"]):
+            with self.subTest(changed=changed), patch.object(c, "task_changed_files", return_value=changed):
+                self.assert_native_candidate_rejected(valid)
+
+    def test_native_agent_control_valid_scope_preserves_ready_and_merge(self):
+        task = self.native_task(native_validation_profile="agent-control", native_qa=None)
+        review = dict(self.strong, task_id=task["id"])
+        with patch.object(c, "task_changed_files", return_value=task["allowed_paths"]) as changed:
+            self.assertEqual("READY", c.native_proof_status(task)["status"])
+            self.assertEqual("MERGE_ALLOWED", c.gate(task, review, review, self.pr, self.checks,
+                             task["allowed_paths"])["status"])
+            self.assertGreaterEqual(changed.call_count, 3)
+
+    def test_native_agent_control_scope_includes_renamed_production_source(self):
+        task = self.native_task(native_validation_profile="agent-control", native_qa=None)
+        def renamed_diff(argv, **kwargs):
+            # --name-only with rename detection normally exposes only destination.
+            destination = "tools/agent-control/test_control.py\0"
+            return "Assets/Old.cs\0"+destination if "--no-renames" in argv else destination
+        with patch.object(c.subprocess, "check_output", side_effect=renamed_diff) as git:
+            self.assert_native_candidate_rejected(task)
+            for call in git.call_args_list:
+                self.assertIn("--no-renames", call.args[0])
+                self.assertIn(task["base_sha"]+"..."+task["head_sha"], call.args[0])
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell reviewer profile fixture")
+    def test_actual_reviewer_blocks_all_invalid_zcode_profiles_before_dispatch(self):
+        source = Path(__file__).with_name("hif-reviewer.ps1").read_text(encoding="utf-8-sig")
+        valid = self.native_task(native_validation_profile="agent-control", native_qa=None,
+                                 writer_path="D:\\How_I_Fall\\zagent")
+        missing = dict(valid)
+        del missing["native_validation_profile"]
+        invalid = [missing, dict(valid, native_validation_profile="unknown"),
+                   dict(valid, allowed_paths=["Assets/X.cs"]),
+                   dict(valid, native_validation_manifest="retained-runtime-manifest.json")]
+        for task in invalid:
+            with self.subTest(task=task), tempfile.TemporaryDirectory(prefix="hif-review-profile-fixture-") as directory:
+                root = Path(directory)
+                script = source.replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
+                script = script.replace("Local\\HowIFallWriter", "Local\\HowIFallFixture-"+root.name)
+                script = script.replace("C:\\Users\\roman\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe", sys.executable)
+                # No real Git checkout reads/writes, quota RPC or model dispatch.
+                script = script.replace("try {", "function git { if($args -contains 'status'){return}; if($args -contains 'rev-parse'){'"+task["head_sha"]+"';return}; throw 'Unexpected Git probe' }\ntry {", 1)
+                script = script.replace("    $suffix=", "    Set-Content (Join-Path $C 'unexpected-dispatch.txt') 'DISPATCH'; exit 99\n    $suffix=", 1)
+                (root/"reviewer.ps1").write_text(script, encoding="utf-8-sig")
+                (root/"hif-control.py").write_bytes(Path(__file__).with_name("hif-control.py").read_bytes())
+                c.save(root/"queue.json", {"tasks": [task]})
+                c.save(root/"state.json", {"status": "REVIEW_CANDIDATE", "active_task_id": task["id"],
+                                           "head_sha": task["head_sha"]})
+                review_path = root/"strong-review-latest.json"
+                c.save(review_path, dict(self.strong, task_id=task["id"]))
+                before = review_path.read_bytes()
+                result = subprocess.run(["powershell.exe", "-NoProfile", "-File", str(root/"reviewer.ps1"), "-Strong"],
+                                        capture_output=True, timeout=15)
+                self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+                self.assertEqual("BLOCKED", c.load(root/"state.json")["status"])
+                self.assertEqual(task["head_sha"], c.load(root/"state.json")["head_sha"])
+                self.assertFalse((root/"unexpected-dispatch.txt").exists())
+                self.assertEqual(before, review_path.read_bytes())
+
+    def test_native_unknown_malformed_or_command_arguments_fail_before_process(self):
+        bad = [self.native_task(native_validation_profile=p) for p in (None, "", "shell", {}, [])]
+        for qa in ({}, {"unity": [], "graphical": []}, {"executable": "cmd.exe"},
+                   {"unity": [{"mode":"EditMode", "filter":"InteractiveHotspotEditModeTests", "args":["-nographics"]}], "graphical":[]},
+                   {"unity": [{"mode":"EditMode", "filter":"X; Start-Process cmd"}], "graphical":[]},
+                   {"unity": [{"mode":"Smoke", "filter":""}], "graphical":[]},
+                   {"unity": [{"mode":"PlayMode", "filter":"../MainMenu"}], "graphical":[]},
+                   {"unity": "-Mode EditMode", "graphical":[]},
+                   {"unity": [{"mode":{}, "filter":[]}], "graphical":[]}):
+            bad.append(self.native_task(native_qa=qa))
+        for task in bad:
+            with patch.object(c.subprocess, "run") as process, patch.object(c.subprocess, "check_output") as git:
+                with self.assertRaises((ValueError, TypeError)):
+                    c.native_qa(task, "unused")
+                process.assert_not_called()
+                git.assert_not_called()
+
+    def test_native_protected_path_engine_and_unproven_isolation_rejected(self):
+        for repo in ("D:/How_I_Fall/develop", "D:/How_I_Fall/master", "D:/How_I_Fall/zagent/../develop", "D:/How_I_Fall/zagent-extra", "D:/How_I_Fall/agent"):
+            with self.assertRaises(ValueError):
+                c.native_plan(self.native_task(writer_path=repo))
+        for scenario in ("PlayerUi", "SaveBackendV2", "GameMenu", "ManualSave", "Hotspot", "Unknown", "PlayerUi -nographics", "../PlayerUi"):
+            task = self.native_task()
+            task["native_qa"]["graphical"] = [scenario]
+            with self.assertRaises(ValueError):
+                c.native_plan(task)
+        with self.assertRaises(ValueError):
+            c.native_plan(self.native_task(player_facing=True))
+
+    def test_native_xml_failure_zero_missing_cases_and_all_skipped(self):
+        with tempfile.TemporaryDirectory(prefix="hif-xml-fixture-") as directory:
+            path = Path(directory) / "result.xml"
+            for total, passed, failed, result, cases in [(0,0,0,"Passed",""), (1,0,0,"Passed",'<test-case result="Skipped"/>'),
+                                                        (1,1,0,"Passed",""), (1,0,1,"Failed",'<test-case result="Failed"/>')]:
+                path.write_text(f'<test-run total="{total}" passed="{passed}" failed="{failed}" result="{result}">{cases}</test-run>')
+                with self.assertRaises(c.NativeQaError) as caught:
+                    c.unity_xml_ok(path)
+                if failed:
+                    self.assertTrue(caught.exception.retryable)
+
+    def test_native_late_save_overrides_fail_closed_before_any_process(self):
+        self.assertEqual({}, c.NATIVE_GRAPHICAL)
+        tasks = [self.native_task(native_qa={"unity": [{"mode": "PlayMode", "filter": "SaveLoadFocusOwnershipPlayModeTests"}], "graphical": []})]
+        for scenario in ("PlayerUi", "SaveBackendV2", "GameMenu"):
+            task = self.native_task(player_facing=True)
+            task["native_qa"]["graphical"] = [scenario]
+            tasks.append(task)
+        for task in tasks:
+            with patch.object(c.subprocess, "run") as process, patch.object(c.subprocess, "check_output") as git:
+                with self.assertRaises(ValueError):
+                    c.native_qa(task, "unused")
+                process.assert_not_called()
+                git.assert_not_called()
+
+    def native_fixture(self, *, graphical=False, fault=None, repeat_graphical=False):
+        directory = tempfile.TemporaryDirectory(prefix="hif-native-fixture-")
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        repo = root / "writer"
+        repo.mkdir()
+        task = self.native_task(player_facing=graphical)
+        if graphical:
+            task["native_qa"]["graphical"] = ["GameMenu"]
+        graphical_fixture = {"GameMenu": ("PlayerUiGraphicalE2ERunner", "player_ui_graphical_result.txt", "PlayerUi")}
+        with patch.object(c, "NATIVE_GRAPHICAL", graphical_fixture):
+            plan = c.native_plan(task)
+        if repeat_graphical:
+            # Fixture-only replay simulates later launcher cleanup of shared output.
+            # Duplicate selection is still prohibited by the real native_plan.
+            plan.append(plan[-1])
+        task["writer_path"] = str(repo)  # Fixture-only path injection AFTER real policy check.
+        (repo / "tools").mkdir()
+        # Fixture-only bounded list, NEVER a production startup isolation claim.
+        mock_source = "GameMenu = @{ ProofFiles = @('game_menu_root_1920x1080.png', 'game_menu_pointer_hover_quit_1920x1080.png', 'game_menu_keyboard_focus_return_1920x1080.png') }"
+        (repo / "tools/run-graphical-e2e.ps1").write_text(mock_source)
+        calls = []
+
+        def process(argv, **kwargs):
+            calls.append((argv, kwargs))
+            self.assertEqual(repo, kwargs["cwd"])
+            self.assertNotIn("UNITY_EDITOR_PATH", kwargs["env"])
+            self.assertNotIn("-nographics", argv)
+            def write(relative, data):
+                path = repo / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+                if fault == "stale":
+                    os.utime(path, (1, 1))
+                return path
+            if "-Mode" in argv:
+                stem = "Temp/CodexTests/EditMode_InteractiveHotspotEditModeTests"
+                write(stem + ".log", b"error CS1234: broken" if fault == "compile" else b"Unity test log")
+                if fault not in ("missing-xml", "compile"):
+                    total = "0" if fault == "zero" else "1"
+                    failed = "1" if fault == "failed" else "0"
+                    result = "Failed" if failed == "1" else "Passed"
+                    write(stem + "_results.xml", f'<test-run total="{total}" passed="1" failed="{failed}" result="{result}"><test-case result="{result}"/></test-run>'.encode())
+            else:
+                proof_dir = repo / "QAArtifacts/GraphicalE2E/PlayerUi"
+                if proof_dir.exists():
+                    for previous in proof_dir.iterdir():
+                        previous.unlink()  # Only generated fixture originals.
+                write("Temp/CodexTests/graphical_GameMenu.log", b"Graphical log")
+                write("Temp/CodexTests/graphical_preflight.log", b"Preflight")
+                if fault != "missing-sentinel":
+                    write("player_ui_graphical_result.txt", b"status=PASS\nplayerPrefsRestored=true\n")
+                import re
+                line = next(line for line in mock_source.splitlines() if line.strip().startswith("GameMenu = @{"))
+                for i, name in enumerate(re.findall(r"'([^'/\\]+\.png)'", line)):
+                    if fault == "missing-png" and i == 0:
+                        continue
+                    size = (1920, 1080) if "1920x1080" in name else (1280, 720)
+                    if fault == "wrong-size":
+                        size = (2, 2)
+                    write("QAArtifacts/GraphicalE2E/PlayerUi/" + name, b"\x89PNG\r\n\x1a\n" + b"\0"*8 + struct.pack(">II", *size) + str(len(calls)).encode())
+            return subprocess.CompletedProcess(argv, 1 if fault == "exit" else 0, b"native fixture", b"")
+
+        def git(_, *args):
+            return {("rev-parse", "HEAD"):"a"*40, ("branch", "--show-current"):"codex/native",
+                    ("rev-parse", "--show-toplevel"):str(repo)}[args]
+
+        def harness(_, base, relative):
+            if fault == "version" and relative == "ProjectSettings/ProjectVersion.txt":
+                raise c.NativeQaError("Unapproved Unity executable version input")
+
+        def run():
+            with patch.object(c, "NATIVE_GRAPHICAL", graphical_fixture), patch.object(c, "native_plan", return_value=plan), patch.object(c, "git_output", side_effect=git), \
+                 patch.object(c, "source_fingerprint", return_value="fingerprint"), \
+                 patch.object(c, "unchanged_harness", side_effect=harness), patch.object(c.subprocess, "run", side_effect=process), \
+                 patch.dict(os.environ, SystemRoot="C:/Windows", UNITY_EDITOR_PATH="evil.exe"):
+                return c.native_qa(task, root)
+        return task, calls, run, root
+
+    def test_native_safe_invocations_fresh_xml_and_head_bound_archive(self):
+        task, calls, run, _ = self.native_fixture()
+        outcome = run()
+        self.assertEqual("PASS", outcome["status"])
+        self.assertIs(True, outcome["validation_complete"])
+        self.assertEqual(task["resume_head_sha"], outcome["source_head_sha"])
+        self.assertEqual("ZCode", outcome["writer_engine"])
+        self.assertEqual(1, len(calls))
+        self.assertEqual(["-Mode", "EditMode", "-TestFilter", "InteractiveHotspotEditModeTests"], calls[0][0][-4:])
+        for entry in outcome["files"]:
+            self.assertEqual(entry["sha256"], c.sha256(Path(outcome["manifest_path"]).parent / entry["filename"]))
+
+    def test_native_failed_zero_stale_or_missing_xml_never_complete(self):
+        for fault in ("failed", "zero", "stale", "missing-xml", "exit", "compile"):
+            _, _, run, _ = self.native_fixture(fault=fault)
+            outcome = run()
+            self.assertIs(False, outcome["validation_complete"])
+            self.assertEqual("PARTIAL_RETRY" if fault in ("failed", "exit", "compile") else "BLOCKED", outcome["status"], fault)
+            self.assertTrue(Path(outcome["manifest_path"]).is_file())
+
+    def test_native_graphical_originals_logs_sentinel_and_curated_manifest(self):
+        _, calls, run, _ = self.native_fixture(graphical=True)
+        outcome = run()
+        self.assertEqual("PASS", outcome["status"])
+        self.assertEqual(2, len(calls))
+        self.assertEqual(["-Scenario", "GameMenu"], calls[-1][0][-2:])
+        self.assertEqual(3, sum(f["filename"].endswith(".png") for f in outcome["files"]))
+        self.assertIn("NOT VERIFIED", outcome["visual_inspection"])
+        self.assertEqual("NOT VERIFIED", outcome["remote_proof"])
+
+    def test_native_missing_fresh_graphical_proof_blocks(self):
+        for fault in ("missing-sentinel", "missing-png", "wrong-size"):
+            _, _, run, _ = self.native_fixture(graphical=True, fault=fault)
+            outcome = run()
+            self.assertEqual("BLOCKED", outcome["status"], fault)
+            self.assertIs(False, outcome["validation_complete"])
+
+    def test_native_originals_archived_before_later_shared_launcher_cleanup(self):
+        task, calls, run, _ = self.native_fixture(graphical=True, repeat_graphical=True)
+        outcome = run()
+        self.assertEqual("PASS", outcome["status"])
+        self.assertEqual(3, len(calls))
+        evidence = Path(outcome["manifest_path"]).parent
+        originals = [entry for entry in outcome["files"] if entry["filename"].endswith(".png")]
+        self.assertEqual(6, len(originals))
+        for entry in originals:
+            expected_run = b"2" if entry["filename"].startswith("1-") else b"3"
+            self.assertTrue((evidence / entry["filename"]).read_bytes().endswith(expected_run))
+            self.assertEqual(entry["sha256"], c.sha256(evidence / entry["filename"]))
+        live = Path(task["writer_path"]) / "QAArtifacts/GraphicalE2E/PlayerUi/game_menu_root_1920x1080.png"
+        self.assertTrue(live.read_bytes().endswith(b"3"))
+
+    def test_native_changed_harness_rejected_and_path_escape_rejected(self):
+        with tempfile.TemporaryDirectory(prefix="hif-harness-fixture-") as directory:
+            root = Path(directory)
+            (root/"launcher.ps1").write_bytes(b"evil")
+            with patch.object(c.subprocess, "check_output", return_value=b"approved"):
+                with self.assertRaises(c.NativeQaError):
+                    c.unchanged_harness(root, "a"*40, "launcher.ps1")
+            with self.assertRaises(c.NativeQaError):
+                c.bounded_path(root, "../escape")
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction escape preflight")
+    def test_native_all_write_roots_and_later_graphical_outputs_preflight_zero_launches(self):
+        paths = list(c.UNITY_WRITE_ROOTS) + ["Library/nested", "Temp/CodexTests", "QAArtifacts/GraphicalE2E/PlayerUi"]
+        for relative in paths:
+            task, calls, run, control = self.native_fixture(graphical=True)
+            repo = Path(task["writer_path"])
+            link = repo / relative
+            target = control / "outside-writer"
+            target.mkdir()
+            link.parent.mkdir(parents=True, exist_ok=True)
+            result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(link), str(target)], capture_output=True)
+            self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+            try:
+                outcome = run()
+                self.assertEqual("BLOCKED", outcome["status"], relative)
+                self.assertFalse(outcome["validation_complete"])
+                self.assertEqual([], calls, relative)
+                self.assertEqual([], list(target.iterdir()))
+            finally:
+                link.rmdir()  # Remove the fixture junction itself, NEVER its target.
+
+    def test_native_reparse_output_files_and_sentinel_preflight_zero_launches(self):
+        from types import SimpleNamespace
+        for relative in ("Temp/CodexTests/EditMode_InteractiveHotspotEditModeTests_results.xml",
+                         "Temp/CodexTests/EditMode_InteractiveHotspotEditModeTests.log",
+                         "Temp/CodexTests/graphical_preflight.log", "player_ui_graphical_result.txt", "Assembly-CSharp.csproj"):
+            task, calls, run, _ = self.native_fixture(graphical=True)
+            file = Path(task["writer_path"]) / relative
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(b"preserved fixture")
+            original_lstat = Path.lstat
+            def lstat(path):
+                result = original_lstat(path)
+                return SimpleNamespace(st_file_attributes=0x400, st_mode=result.st_mode) if path == file else result
+            with patch.object(Path, "lstat", lstat):
+                outcome = run()
+            self.assertEqual("BLOCKED", outcome["status"], relative)
+            self.assertEqual([], calls)
+            self.assertEqual(b"preserved fixture", file.read_bytes())
+
+    def test_native_version_executable_input_must_match_approved_base_before_launch(self):
+        _, calls, run, _ = self.native_fixture(fault="version")
+        outcome = run()
+        self.assertEqual("BLOCKED", outcome["status"])
+        self.assertFalse(outcome["validation_complete"])
+        self.assertEqual([], calls)
+
+    def test_native_existing_sentinel_and_unbounded_graphical_coverage_zero_launches(self):
+        for fault in ("existing-sentinel", "broad-coverage"):
+            task, calls, run, _ = self.native_fixture(graphical=True)
+            repo = Path(task["writer_path"])
+            if fault == "existing-sentinel":
+                (repo / "player_ui_graphical_result.txt").write_bytes(b"do not overwrite")
+            else:
+                # Actual existing broad launcher cannot be sampled arbitrarily.
+                (repo / "tools/run-graphical-e2e.ps1").write_bytes((Path(__file__).parents[1] / "run-graphical-e2e.ps1").read_bytes())
+            outcome = run()
+            self.assertEqual("BLOCKED", outcome["status"])
+            self.assertEqual([], calls)
+            self.assertFalse(outcome["validation_complete"])
+            if fault == "broad-coverage":
+                self.assertIn("REVIEWER VISUAL PROOF NOT AVAILABLE", outcome["error"])
+
+    def test_native_stale_pass_rejected_when_current_selection_or_invocation_changes(self):
+        task, _, run, control = self.native_fixture()
+        outcome = run()
+        path = Path(outcome["manifest_path"])
+        outcome["source_head_sha"] = task["head_sha"]
+        task["native_validation_manifest"] = str(path)
+        original_plan = [(entry["launcher"], entry["arguments"]) for entry in outcome["selection"]]
+        with patch.object(c, "native_plan", return_value=original_plan) as planner, \
+             patch.object(c, "source_fingerprint", return_value="fingerprint"):
+            c.save(path, outcome)
+            c.native_proof_ok(task, control=control)
+            changed_plan = [("tools/run-unity-tests.ps1", ["-Mode", "EditMode", "-TestFilter", "SavePaginationEditModeTests"])]
+            for plan in (changed_plan, original_plan + changed_plan, []):
+                planner.return_value = plan
+                self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+            planner.return_value = original_plan
+            for invocations in ([], [dict(outcome["invocations"][0], exit_code=1)],
+                                [dict(outcome["invocations"][0], exit_code=False)],
+                                [dict(outcome["invocations"][0], arguments=["-Mode", "Smoke"])],
+                                outcome["invocations"] * 2):
+                c.save(path, dict(outcome, invocations=invocations))
+                self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+            c.save(path, dict(outcome, selection=[]))
+            self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+
+    def test_native_bind_rejects_changed_plan_failure_or_missing_originals_before_write(self):
+        task, _, run, control = self.native_fixture()
+        outcome = run()
+        path = Path(outcome["manifest_path"])
+        task["native_validation_manifest"] = str(path)
+        c.save(control/"queue.json", {"tasks": [task]})
+        c.save(control/"state.json", {"active_task_id": task["id"]})
+        plan = [(entry["launcher"], entry["arguments"]) for entry in outcome["selection"]]
+        with patch.object(sys, "argv", ["hif-control.py", "bind-native-proof", "--control", str(control)]), \
+             patch.object(c, "native_plan", return_value=plan), \
+             patch.object(c, "source_fingerprint", return_value="fingerprint"), \
+             patch.object(c, "git_output", return_value=task["head_sha"]):
+            for change in ({"selection": []}, {"validation_complete": False},
+                           {"invocations": [dict(outcome["invocations"][0], exit_code=1)]},
+                           {"files": outcome["files"][:1]}):
+                c.save(path, dict(outcome, **change))
+                before = path.read_bytes()
+                with self.assertRaises((ValueError, OSError)):
+                    c.main()
+                self.assertEqual(before, path.read_bytes())
+            c.save(path, outcome)
+            c.main()
+            self.assertEqual(task["head_sha"], c.load(path)["source_head_sha"])
+
+    def test_native_two_corrections_then_block_exact_identity_retained(self):
+        task = self.native_task()
+        identity = {k:task[k] for k in ("writer_engine", "writer_path", "base_sha", "branch", "resume_head_sha")}
+        outcome = dict(status="PARTIAL_RETRY", error="implementation test failed", manifest_path="fixture/manifest.json")
+        self.assertEqual("PARTIAL_RETRY", c.native_retry(task, outcome))
+        self.assertEqual("PARTIAL_RETRY", c.native_retry(task, outcome))
+        self.assertEqual("BLOCKED", c.native_retry(task, outcome))
+        self.assertEqual(2, task["native_correction_attempts"])
+        self.assertEqual(identity, {k:task[k] for k in identity})
+        self.assertIn("SAME checkout/branch/engine/head", task["correction"])
+        self.assertEqual("WAIT_AUTH", c.native_retry(task, dict(outcome, status="WAIT_AUTH")))
+        self.assertEqual("BLOCKED", c.native_retry(task, dict(outcome, status="BLOCKED")))
+
+    def test_native_cli_persists_correction_limit_and_never_transports_git(self):
+        with tempfile.TemporaryDirectory(prefix="hif-native-cli-fixture-") as directory:
+            root = Path(directory)
+            task = self.native_task(status="RUNNING")
+            c.save(root/"queue.json", {"tasks":[task]})
+            c.save(root/"state.json", {"active_task_id":"native", "status":"RUNNING"})
+            outcome = dict(status="PARTIAL_RETRY", error="test failure", validation_complete=False,
+                           manifest_path=str(root/"evidence/native-1/manifest.json"))
+            for expected in ("PARTIAL_RETRY", "PARTIAL_RETRY", "BLOCKED"):
+                with patch.object(sys, "argv", ["hif-control.py", "native-qa", "--control", directory, "--output", str(root/"outcome.json")]), \
+                     patch.object(c, "native_qa", return_value=outcome), patch.object(c.subprocess, "check_output") as git:
+                    c.main()
+                    git.assert_not_called()
+                persisted = c.load(root/"queue.json")["tasks"][0]
+                self.assertEqual(expected, persisted["status"])
+                self.assertEqual(expected, c.load(root/"state.json")["status"])
+                self.assertIs(False, c.load(root/"outcome.json")["validation_complete"])
+                for key in ("writer_engine", "writer_path", "base_sha", "branch", "resume_head_sha"):
+                    self.assertEqual(task[key], persisted[key])
+
+    def test_native_proof_wait_or_block_is_not_clean_visual_acceptance(self):
+        task, _, run, control = self.native_fixture(graphical=True)
+        outcome = run()
+        path = Path(outcome["manifest_path"])
+        outcome["source_head_sha"] = task["head_sha"]
+        c.save(path, outcome)
+        task["native_validation_manifest"] = str(path)
+        plan = [(entry["launcher"], entry["arguments"]) for entry in outcome["selection"]]
+        with patch.object(c, "native_plan", return_value=plan), patch.object(c, "source_fingerprint", return_value="fingerprint"):
+            self.assertEqual("WAIT_VISUAL_PROOF", c.native_proof_status(task, control=control)["status"])
+            outcome["validation_complete"] = False
+            c.save(path, outcome)
+            self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+            with self.assertRaises(ValueError):
+                c.native_proof_ok(task, control=control.parent)
+
+    @unittest.skipUnless(os.name == "nt", "Windows 5.1 infrastructure correction fixture")
+    def test_native_infrastructure_corrections_persist_twice_then_block(self):
+        source = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
+        start = source.index("function RequestNativeCorrection(")
+        body = source[start:source.index("$mutex =", start)]
+        with tempfile.TemporaryDirectory(prefix="hif-native-infra-retry-fixture-") as directory:
+            root = Path(directory)
+            c.save(root/"task.json", self.native_task())
+            for expected, count in [("PARTIAL_RETRY", 1), ("PARTIAL_RETRY", 2), ("BLOCKED", 2)]:
+                prelude = "$ErrorActionPreference='Stop';$C='"+directory+"';$task=Get-Content (Join-Path $C 'task.json') -Raw|ConvertFrom-Json;$s=[pscustomobject]@{};$q=[pscustomobject]@{}\n"
+                prelude += "$testLog='fixture.log';$reportPath=Join-Path $C 'report.json';$result=[pscustomobject]@{status='REVIEW_CANDIDATE';validation_complete=$true}\n"
+                prelude += "function SetProp($o,$n,$v){$o|Add-Member -NotePropertyName $n -NotePropertyValue $v -Force};function WriteJson($v,$p){$v|ConvertTo-Json -Depth 10|Set-Content $p -Encoding UTF8}\n"
+                prelude += "function SaveControl($q,$s){WriteJson $task (Join-Path $C 'task.json');WriteJson $s (Join-Path $C 'state.json')}\n"
+                (root/"retry.ps1").write_text(prelude+body+"\nRequestNativeCorrection 'implementation failure'\nthrow 'Commit reached'", encoding="utf-8-sig")
+                result = subprocess.run(["powershell.exe", "-NoProfile", "-File", str(root/"retry.ps1")], capture_output=True, timeout=15)
+                self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+                persisted = c.load(root/"task.json")
+                self.assertEqual(expected, persisted["status"])
+                self.assertEqual(count, persisted["native_correction_attempts"])
+                self.assertEqual("ZCode", persisted["writer_engine"])
+                self.assertIs(False, c.load(root/"report.json")["validation_complete"])
+
+    @unittest.skipUnless(os.name == "nt", "Windows 5.1 native stderr Git transport fixture")
+    def test_native_git_warning_is_not_failure_but_nonzero_exit_is(self):
+        source = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
+        start = source.index("function RunGit(")
+        body = source[start:source.index("function ChangedFiles", start)]
+        with tempfile.TemporaryDirectory(prefix="hif-native-stderr-fixture-") as directory:
+            root = Path(directory)
+            for exit_code in (0, 1):
+                (root/"native.py").write_text("import sys\nprint('warning: fixture CRLF',file=sys.stderr)\nprint('actual output')\nsys.exit("+str(exit_code)+")\n")
+                script = "$ErrorActionPreference='Stop';$Repo='fixture'\n"
+                script += "function git { & '"+sys.executable+"' '"+str(root/"native.py")+"' }\n"
+                script += body + "\nRunGit @('diff','--check')\n"
+                (root/"transport.ps1").write_text(script, encoding="utf-8-sig")
+                result = subprocess.run(["powershell.exe", "-NoProfile", "-File", str(root/"transport.ps1")], capture_output=True, timeout=15)
+                self.assertEqual(exit_code, result.returncode, result.stderr.decode(errors="replace"))
+                if exit_code == 0:
+                    self.assertIn("actual output", result.stdout.decode("utf-8"))
+
+    def test_native_remote_publication_required_and_tampering_rejected(self):
+        task, _, run, control = self.native_fixture(graphical=True)
+        outcome = run()
+        manifest = Path(outcome["manifest_path"])
+        outcome["source_head_sha"] = task["head_sha"]
+        c.save(manifest, outcome)
+        task["native_validation_manifest"] = str(manifest)
+        plan = [(entry["launcher"], entry["arguments"]) for entry in outcome["selection"]]
+        with patch.object(c, "native_plan", return_value=plan), patch.object(c, "source_fingerprint", return_value="fingerprint"):
+            with self.assertRaises(ValueError):
+                c.native_proof_ok(task, control=control)
+            for route, url in [("drive", "https://drive.google.com/file/d/fixture/view"),
+                               ("evidence-branch", "https://github.com/Bladgrif/How_I_Fall/tree/evidence/native"),
+                               ("visual-review", "https://github.com/Bladgrif/How_I_Fall/actions/runs/1/artifacts/2")]:
+                task["native_remote_proof"] = dict(route=route, url=url, head_sha=task["head_sha"], manifest_sha256=c.sha256(manifest))
+                c.native_proof_ok(task, control=control)
+            task["native_remote_proof"]["head_sha"] = "c"*40
+            with self.assertRaises(ValueError):
+                c.native_proof_ok(task, control=control)
+            task["native_remote_proof"]["head_sha"] = task["head_sha"]
+            task["native_remote_proof"]["url"] = "file:///C:/local.png"
+            with self.assertRaises(ValueError):
+                c.native_proof_ok(task, control=control)
+            original = manifest.parent / outcome["files"][0]["filename"]
+            original.write_bytes(b"tampered")
+            with self.assertRaises(ValueError):
+                c.native_proof_ok(task, control=control)
+
+    @unittest.skipUnless(os.name == "nt", "Windows 5.1 actual native worker gate fixture")
+    def test_native_worker_incomplete_qa_cannot_reach_commit(self):
+        source = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
+        start = source.index("    if($Engine -eq 'ZCode' -and $task.native_validation_profile -eq 'hif-runtime' -and $result.status")
+        gate = source[start:source.index("    if($Engine -eq 'ZCode' -and $task.native_validation_profile -eq 'agent-control'", start)]
+        with tempfile.TemporaryDirectory(prefix="hif-native-worker-fixture-") as directory:
+            root = Path(directory)
+            task = self.native_task(status="RUNNING", allowed_paths=["docs/test.md"])
+            outcome = dict(status="PARTIAL_RETRY", error="fixture failure")
+            c.save(root/"queue.json", {"tasks":[dict(task, status="PARTIAL_RETRY")]})
+            c.save(root/"state.json", {"status":"PARTIAL_RETRY"})
+            c.save(root/"fixture-native-native-outcome.json", outcome)
+            stub = root/"hif-control.py"
+            stub.write_text("# native gate fixture: no real QA\n")
+            prelude = "$ErrorActionPreference='Stop'; $Engine='ZCode';$id='native';$stamp='fixture';$base='" + "a"*40 + "';$branch='codex/native'\n"
+            prelude += "$ControlDir='"+directory+"';$LogDir=$ControlDir;$QueuePath=Join-Path $ControlDir 'queue.json';$StatePath=Join-Path $ControlDir 'state.json';$reportPath=Join-Path $ControlDir 'report.json'\n"
+            prelude += "$Python='"+sys.executable+"'; $task=(Get-Content $QueuePath -Raw|ConvertFrom-Json).tasks[0]\n"
+            prelude += "$result=[pscustomobject]@{status='REVIEW_CANDIDATE';base_sha=$base;validation_complete=$true;risks=@()}\n"
+            prelude += "function ChangedFiles {'docs/test.md'};function Allowed {$true};function WriteJson($v,$p){$v|ConvertTo-Json -Depth 10|Set-Content $p -Encoding UTF8}\n"
+            prelude += "function RunGit($a){if($a[0] -eq 'branch'){'codex/native'}elseif($a[0] -eq 'rev-parse'){'"+"a"*40+"'}}\n"
+            (root/"worker-gate.ps1").write_text(prelude + gate + "\nthrow 'UNSAFE: commit reached'\n", encoding="utf-8-sig")
+            result = subprocess.run(["powershell.exe", "-NoProfile", "-File", str(root/"worker-gate.ps1")], capture_output=True, timeout=20)
+            self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+            self.assertIs(False, c.load(root/"report.json")["validation_complete"])
+            self.assertEqual("PARTIAL_RETRY", c.load(root/"state.json")["status"])
+
+    @unittest.skipUnless(os.name == "nt", "Windows 5.1 actual retry identity guard fixture")
+    def test_native_partial_retry_never_switches_or_transfers_head(self):
+        source = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
+        start = source.index("    elseif ($mode -eq 'PARTIAL_RETRY') {")
+        body = source[start:source.index("    SetProp $task 'resume_head_sha'", start)].replace("elseif", "if", 1)
+        with tempfile.TemporaryDirectory(prefix="hif-native-identity-fixture-") as directory:
+            root = Path(directory)
+            for branch, head, expected in [("codex/native", "a"*40, 0), ("other", "a"*40, 1), ("codex/native", "b"*40, 1)]:
+                prelude = "$ErrorActionPreference='Stop';$mode='PARTIAL_RETRY';$branch='codex/native';$Repo='fixture';$task=[pscustomobject]@{resume_head_sha='"+"a"*40+"'}\n"
+                prelude += "function git {if($args -contains 'branch'){'"+branch+"'}else{'"+head+"'}};function RunGit {throw 'No switch permitted'}\n"
+                (root/"identity.ps1").write_text(prelude + body, encoding="utf-8-sig")
+                result = subprocess.run(["powershell.exe", "-NoProfile", "-File", str(root/"identity.ps1")], capture_output=True, timeout=15)
+                self.assertEqual(expected, result.returncode, result.stderr.decode(errors="replace"))
 
 
 if __name__ == "__main__":
