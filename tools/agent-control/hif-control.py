@@ -242,12 +242,125 @@ def ci_checks(head):
             for job in jobs["jobs"]]}
 
 
+class FatalPersistence(Exception):
+    """Control state persistence failed; the scheduler must stop with exit 78."""
+
+
+# Native post-merge transport: fixed target, fixed origin, never develop,
+# no caller-supplied repo argument. Invoked ONLY by the outer scheduler.
+MASTER_CHECKOUT = "D:/How_I_Fall/master"
+MASTER_ORIGIN = "https://github.com/Bladgrif/How_I_Fall.git"
+
+
+def task_changed_files(task):
+    repo = task["writer_path"]
+    return subprocess.check_output(["git", "-c", "safe.directory=" + repo, "-C", repo,
+                                    "diff", "--name-only", "-z", task["base_sha"] + "..." + task["head_sha"]],
+                                   encoding="utf-8").rstrip("\0").split("\0")
+
+
+def merged_review_ok(control, task):
+    control = Path(control)
+    cheap = load(control / "review-latest.json") if (control / "review-latest.json").exists() else None
+    strong = load(control / "strong-review-latest.json") if (control / "strong-review-latest.json").exists() else None
+    strong_required = needs_strong(task, task_changed_files(task), cheap)
+    review_ok(strong if strong_required else cheap or {}, task, strong=strong_required)
+
+
+def git_output(repo, *args):
+    return subprocess.check_output(["git", "-c", "safe.directory=" + str(repo), "-C", str(repo), *args],
+                                   encoding="utf-8").strip()
+
+
+def sync_master(control):
+    control = Path(control)
+    controller = load(control / "controller.json")
+    if controller.get("enabled") is not True or (control / "STOP").exists() or (control / "MAINTENANCE").exists():
+        raise ValueError("Master sync disabled or in maintenance")
+    if controller.get("native_master_sync_enabled") is not True:
+        raise ValueError("Native master sync requires controller.native_master_sync_enabled=true")
+    state, queue = load(control / "state.json"), load(control / "queue.json")
+    if state.get("status") != "SYNC_MASTER_PENDING":
+        raise ValueError("Master sync requires durable SYNC_MASTER_PENDING state")
+    matches = [t for t in queue["tasks"] if t.get("id") == state.get("active_task_id")]
+    if len(matches) != 1:
+        raise ValueError("Master sync requires exactly one active task identity")
+    task = matches[0]
+    if task.get("status") != "SYNC_MASTER_PENDING" or any(
+            t.get("id") != task["id"] and t.get("status") not in ("DONE", "WAIT_USER", "READY", "CANCELLED")
+            for t in queue["tasks"]):
+        raise ValueError("Master sync requires one pending task and no other active task")
+    for key in ("base_sha", "head_sha", "merge_sha"):
+        if not isinstance(task.get(key), str) or not re.fullmatch(r"[a-f0-9]{40}", task[key]):
+            raise ValueError("Invalid exact 40-hex " + key)
+    if any(state.get(key) != task[key] for key in ("base_sha", "head_sha")):
+        raise ValueError("State/queue base or head identity mismatch")
+    if str(task.get("writer_path", "")).replace("\\", "/") not in ("D:/How_I_Fall/agent", "D:/How_I_Fall/zagent"):
+        raise ValueError("Unexpected writer checkout for master sync")
+    if type(task.get("pr_number")) is not int or task["pr_number"] <= 0:
+        raise ValueError("Integer PR id required for master sync")
+    pr = github("pulls/" + str(task["pr_number"]))
+    if pr.get("state") != "closed" or pr.get("merged") is not True or pr.get("base", {}).get("ref") != "master":
+        raise ValueError("GitHub PR is not a merged master candidate")
+    if pr.get("merge_commit_sha") != task["merge_sha"] or pr.get("head", {}).get("sha") != task["head_sha"]:
+        raise ValueError("Merged PR head/merge SHA mismatch")
+    if github("branches/master").get("commit", {}).get("sha") != task["merge_sha"]:
+        raise ValueError("Fresh remote master does not match expected merge SHA")
+    if ci_status(ci_checks(task["head_sha"]), task["head_sha"]) != "GREEN":
+        raise ValueError("Exact-head CI is not GREEN for master sync")
+    merged_review_ok(control, task)
+
+    repo = Path(MASTER_CHECKOUT)
+    if Path(git_output(repo, "rev-parse", "--show-toplevel")).resolve() != repo.resolve():
+        raise ValueError("Fixed master path is not the repository root")
+    if git_output(repo, "branch", "--show-current") != "master":
+        raise ValueError("Fixed master checkout is not on branch master")
+    if git_output(repo, "status", "--porcelain"):
+        raise ValueError("master checkout is dirty; user diff preserved, sync refused")
+    if git_output(repo, "remote", "get-url", "origin") != MASTER_ORIGIN:
+        raise ValueError("master checkout origin mismatch; sync refused")
+    head = git_output(repo, "rev-parse", "HEAD")
+    if head == task["merge_sha"]:
+        # Already-synced expected master: idempotent success, no fetch/merge.
+        already = True
+    else:
+        already = False
+        if head != task["base_sha"]:
+            raise ValueError("master HEAD is neither task base nor expected merge; sync refused")
+        git_output(repo, "fetch", "origin", "master")
+        if git_output(repo, "branch", "--show-current") != "master" or git_output(repo, "remote", "get-url", "origin") != MASTER_ORIGIN:
+            raise ValueError("master branch/origin changed during fetch; sync refused")
+        if git_output(repo, "status", "--porcelain"):
+            raise ValueError("master checkout became dirty during fetch; sync refused")
+        if git_output(repo, "rev-parse", "HEAD") != task["base_sha"]:
+            raise ValueError("master HEAD changed during fetch; sync refused")
+        if git_output(repo, "rev-parse", "FETCH_HEAD") != task["merge_sha"]:
+            raise ValueError("Fetched master does not match expected merge SHA")
+        git_output(repo, "merge", "--ff-only", task["merge_sha"])
+        if git_output(repo, "rev-parse", "HEAD") != task["merge_sha"] or git_output(repo, "status", "--porcelain"):
+            raise ValueError("Post-merge master verification failed")
+    task["status"] = "MERGED_LOCAL_SYNC_DONE"
+    task["local_sync_done"] = True
+    state["status"] = "ROADMAP_SYNC_READY"
+    try:
+        save(control / "queue.json", queue)
+        save(control / "state.json", state)
+    except Exception as error:
+        try:
+            (control / "STOP").write_text("Master sync persistence failed: " + str(error), encoding="utf-8")
+        except OSError:
+            pass
+        raise FatalPersistence(str(error)) from error
+    return {"status": "MASTER_SYNCED", "task_id": task["id"], "merge_sha": task["merge_sha"],
+            "already_synced": already, "checked_at": now()}
+
+
 def zcode_run(repo, prompt, output, events):
     config = load(Path.home() / ".zcode/cli/config.json")
     if config.get("model") != "account:zai-individual-coding-plan/GLM-5.3-Flash" or config.get("thoughtLevel") != "max":
         raise ValueError("Z-Code model drift: expected Flash/Max")
     cli = "D:/Users/roman/AppData/Local/Programs/ZCode/resources/glm/zcode.cjs"
-    result = subprocess.run([str(Path.home() / ".cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe"), cli, "--cwd", repo, "--mode", "build", "--surface", "terminal",
+    result = subprocess.run([str(Path.home() / ".cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe"), cli, "--cwd", repo, "--mode", "edit", "--disallowed-tools", "Bash,Agent,Task", "--surface", "terminal",
                              "--prompt", Path(prompt).read_text(encoding="utf-8-sig"), "--no-color", "--json"],
                             capture_output=True, encoding="utf-8", errors="replace",
                             env=dict(os.environ, NODE_USE_SYSTEM_CA="1"))
@@ -274,7 +387,7 @@ def zcode_run(repo, prompt, output, events):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier"])
+    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier", "sync-master"])
     parser.add_argument("--control", default="D:/How_I_Fall/agent-control")
     parser.add_argument("--method")
     parser.add_argument("--params", default="{}")
@@ -303,11 +416,15 @@ def main():
         if not re.fullmatch(r"[a-f0-9]{40}", args.head or ""):
             raise ValueError("Exact CI head SHA required")
         print(ci_status(ci_checks(args.head), args.head))
+    elif args.command == "sync-master":
+        try:
+            print(json.dumps(sync_master(c), ensure_ascii=False))
+        except FatalPersistence:
+            sys.exit(78)
     else:
         state, tasks = load(c / "state.json"), load(c / "queue.json")["tasks"]
         task = next(t for t in tasks if t["id"] == state["active_task_id"])
-        repo = task["writer_path"]
-        changed = subprocess.check_output(["git", "-c", "safe.directory=" + repo, "-C", repo, "diff", "--name-only", "-z", task["base_sha"] + "..." + task["head_sha"]], encoding="utf-8").rstrip("\0").split("\0")
+        changed = task_changed_files(task)
         cheap = load(c / "review-latest.json") if (c / "review-latest.json").exists() else None
         if args.command == "review-tier":
             print("strong" if needs_strong(task, changed, cheap) else "cheap")

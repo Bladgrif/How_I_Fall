@@ -54,7 +54,14 @@ Drive не заменяет repository baseline, tests, graphical E2E или CI.
 
 ## Живая reviewer-дорожная карта
 
-Google Drive используется reviewer'ом как живой tracker benchmark-driven проходов, но не заменяет репозиторий как источник истины.
+Основной roadmap/approved-task entrypoint в репозитории — `docs/technical_plan.md`
+(SourceRepoPlan); repository — источник истины. Документы Drive `02`/`03`
+остаются research/history и необязательным зеркалом: reviewer синхронизирует их
+при доступном Drive write, а при недоступности явно фиксирует stale-статус.
+Отсутствие Drive write не блокирует `DONE` после остальных обязательных gates
+(commit/diff review, tests, graphical proof, `CI Gate`).
+
+Google Drive хранит историю benchmark-driven проходов; необязательное зеркало не является вторым обязательным tracker.
 
 Основная папка:
 `How I Fall/Исследования и дорожная карта/Бенчмарк UI UX визуальных новелл 2026-08-31/`
@@ -67,18 +74,18 @@ Google Drive используется reviewer'ом как живой tracker be
 
 После каждого review-candidate push reviewer обязан до выбора следующей задачи:
 1. проверить реальный GitHub commit/diff, scope, tests, graphical proof, visual baselines и обязательный CI;
-2. открыть актуальные `02` и `03`; при необходимости сверить `01`/`05`;
-3. сравнить commit с capability map, benchmark decisions и roadmap;
-4. обновить `03`: SHA, статус CI, статус прохода (`DONE`, `PARTIAL`, `BLOCKED`, `NEEDS CORRECTION`) и следующий ограниченный pass;
-5. если возможности проекта материально изменились, синхронизировать `02`;
-6. только после этого формировать следующую задачу Codex.
+2. прочитать актуальный `docs/technical_plan.md` и relevant product contracts; при доступных Drive tools дополнительно сверить `02`/`03` и relevant research;
+3. сравнить commit с repository capability source-index, утверждёнными решениями и roadmap; обновления repository roadmap включаются в scoped candidate diff до independent review;
+4. обновить `03` при доступном Drive write: SHA, статус CI, статус прохода (`DONE`, `PARTIAL`, `BLOCKED`, `NEEDS CORRECTION`) и следующий ограниченный pass; иначе явно пометить Drive stale;
+5. если возможности проекта материально изменились, обновить repository source-index в candidate diff; `02` синхронизировать только при доступной записи;
+6. только после этого формировать следующую задачу coding-agent.
 
-Следующая задача не выбирается только по памяти чата. При расхождении repository и Drive предпочитается repository, после чего Drive приводится в соответствие.
+Следующая задача не выбирается только по памяти чата. При расхождении repository и Drive предпочитается repository, после чего Drive приводится в соответствие при доступной записи; недоступная запись фиксируется как stale и не блокирует `DONE`.
 
 ## Разделение ролей
 
 - **Codex:** implementation, автоматические тесты, объективный graphical QA и screenshot proof; при доступном настроенном канале — доставка review screenshots на Drive.
-- **Reviewer (ChatGPT):** review diff/scope/risks, проверка test evidence, baselines, Drive screenshots, внешних references при необходимости, GitHub CI, синхронизация capability map/roadmap и решение о correction/следующей задаче.
+- **Независимый reviewer и HIF Supervisor в Codex (ChatGPT только manual fallback):** review diff/scope/risks, проверка test evidence, baselines, Drive screenshots, внешних references при необходимости, GitHub CI, синхронизация capability map/roadmap и решение о correction/следующей задаче.
 - **Пользователь:** финальное субъективное эстетическое одобрение там, где оно действительно необходимо.
 
 ## Research-first
@@ -95,4 +102,4 @@ Google Drive используется reviewer'ом как живой tracker be
 
 ## Стандартный поток
 
-`Задача` → исследование/решение при необходимости → implementation → targeted tests → regression/smoke → graphical E2E для player-facing UI → просмотр screenshots → обновление baselines → при возможности зеркало на Drive → scoped review-candidate commit/push → review реального commit → синхронизация roadmap/capability → correction при необходимости → PR `CI Gate` `GREEN` → субъективное одобрение пользователя, если действительно нужно → merge → verify exact `master` → `DONE` → следующий ограниченный pass из синхронизированного состояния.
+`Задача` → исследование/решение при необходимости → implementation → targeted tests → regression/smoke → graphical E2E для player-facing UI → просмотр screenshots → обновление baselines → при возможности зеркало на Drive → scoped review-candidate commit/push → review реального commit → синхронизация roadmap/capability → correction при необходимости → PR `CI Gate` `GREEN` → субъективное одобрение пользователя, если действительно нужно → merge → `SYNC_MASTER_PENDING` → native scheduler verify/fetch/ff-only exact `master` → `ROADMAP_SYNC_READY` → optional Drive mirror (`NOT SYNCED`, если недоступно) → `DONE` → следующий ограниченный pass из синхронизированного состояния.
