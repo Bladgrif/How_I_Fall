@@ -51,6 +51,13 @@
 `WAIT_USER`/`BLOCKED` молчат до действия пользователя; quota/CI waits можно
 перепроверять. Не запускать пустые research loops ради расходования токенов.
 
+Пользователь явно разрешил autonomous merge 2026-10-06. Только процесс HIF
+Supervisor получает per-tool `approval_mode=approve` для GitHub `merge_pull_request`
+через CLI override; глобальный `config.toml` и другие tools не расширяются.
+Это разрешение инструмента, не новый GitHub repository scope: Supervisor по-прежнему
+работает только с HIF и требует свежий exact-head merge gate, review и CI.
+При `WAIT_AUTH` scheduler не повторяет model wake до ручного восстановления.
+
 Scheduler запускается скрыто из единственного Windows Startup shortcut.
 Нужны включённый PC, вошедший пользователь, сеть и доступные аккаунты; это не
 облачный сервис. При полной недоступности Codex Supervisor тоже не может работать:

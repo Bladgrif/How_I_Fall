@@ -63,7 +63,9 @@ Finish with concise real progress and durable next action. Never report unrun PA
     $codex=(Get-ChildItem "$env:LOCALAPPDATA\OpenAI\Codex\bin" -Recurse -Filter codex.exe | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
     if(-not $codex){throw 'Bundled Codex CLI missing'}
     $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
-    $prompt | & $codex -C 'D:\How_I_Fall\master' -a never -s workspace-write -c 'sandbox_workspace_write.network_access=true' --add-dir $C --add-dir 'D:\How_I_Fall\agent' --add-dir 'D:\How_I_Fall\zagent' -m 'gpt-6-luna' -c 'model_reasoning_effort="low"' exec resume $cfg.supervisor_thread_id - 2>&1 | Tee-Object -FilePath (Join-Path $C 'supervisor-wake.log') -Append
+    # User explicitly authorized autonomous HIF merge. Override only this tool,
+    # only in this Supervisor process; no global app/default permission change.
+    $prompt | & $codex -C 'D:\How_I_Fall\master' -a never -s workspace-write -c 'sandbox_workspace_write.network_access=true' -c 'apps.connector_76869538009648d5b282a4bb21c3d157.tools.merge_pull_request.approval_mode="approve"' --add-dir $C --add-dir 'D:\How_I_Fall\agent' --add-dir 'D:\How_I_Fall\zagent' -m 'gpt-6-luna' -c 'model_reasoning_effort="low"' exec resume $cfg.supervisor_thread_id - 2>&1 | Tee-Object -FilePath (Join-Path $C 'supervisor-wake.log') -Append
     $code=$LASTEXITCODE; $ErrorActionPreference=$old
     if($code){throw ('Supervisor transport failed: '+$code)}
 } finally {try{$mutex.ReleaseMutex()}catch{}; $mutex.Dispose()}

@@ -328,6 +328,29 @@ class ControlTests(unittest.TestCase):
             self.assertFalse((root/"unsafe-resume.txt").exists())
             self.assertTrue((root/"cleanup.txt").exists())
 
+    def test_merge_approval_override_is_supervisor_tool_scoped(self):
+        expected = 'apps.connector_76869538009648d5b282a4bb21c3d157.tools.merge_pull_request.approval_mode="approve"'
+        wake = Path(__file__).with_name("wake-supervisor.ps1").read_text(encoding="utf-8-sig")
+        self.assertEqual(1, wake.count(expected))
+        self.assertNotIn("default_tools_approval_mode", wake)
+        for name in ["hif-worker.ps1", "hif-reviewer.ps1", "supervisor-loop.ps1"]:
+            self.assertNotIn("approval_mode=", Path(__file__).with_name(name).read_text(encoding="utf-8-sig"))
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell auth-wait fixture")
+    def test_auth_wait_is_quiet_without_model_dispatch(self):
+        with tempfile.TemporaryDirectory(prefix="hif-auth-fixture-") as directory:
+            root = Path(directory)
+            source = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig")
+            source = source.replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
+            (root/"loop.ps1").write_text(source, encoding="utf-8-sig")
+            (root/"controller.json").write_text(json.dumps({"enabled":True}), encoding="utf-8")
+            (root/"state.json").write_text(json.dumps({"status":"WAIT_AUTH", "active_task_id":"preserve"}), encoding="utf-8")
+            (root/"wake-supervisor.ps1").write_text("throw 'Unexpected auth-wait wake'", encoding="utf-8-sig")
+            result = subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(root/"loop.ps1"),"-Once"], capture_output=True, timeout=15)
+            self.assertEqual(0,result.returncode,result.stderr.decode(errors="replace"))
+            self.assertFalse((root/"supervisor-loop.log").exists())
+            self.assertEqual("WAIT_AUTH",c.load(root/"state.json")["status"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,7 +11,7 @@ try {
             $cfg=Get-Content (Join-Path $C 'controller.json') -Raw -Encoding UTF8 | ConvertFrom-Json
             $s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
             # Quiet while waiting on the user/auth/blocker. No repeated idle model bill.
-            if($cfg.enabled -and $s.status -notin @('WAIT_USER','BLOCKED','MAINTENANCE')){
+            if($cfg.enabled -and $s.status -notin @('WAIT_USER','WAIT_AUTH','BLOCKED','MAINTENANCE')){
                 # Dispatch models outside the Supervisor tool sandbox; never nested exec.
                 $helper='wake-supervisor.ps1'; $helperArgs=@(); $runHelper=$true
                 if($s.status -eq 'WAIT_CI'){
