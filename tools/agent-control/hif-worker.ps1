@@ -227,6 +227,31 @@ Missing required graphical proof or a required test is BLOCKED, not a success.
     & $Python (Join-Path $PSScriptRoot 'hif-control.py') validate-report --output $reportPath
     if($LASTEXITCODE){throw 'Malformed implementation report: no transport'}
     $result=Get-Content $reportPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if($Engine -eq 'ZCode' -and $task.native_validation_profile -eq 'agent-control' -and $result.status -eq 'REVIEW_CANDIDATE'){
+        # Approved fixed infrastructure validation; model has no shell tool.
+        # No caller-supplied commands, executables or production test selection.
+        if(@($task.allowed_paths | Where-Object {$_ -notmatch '^(AGENTS\.md|docs/[^:]+\.md|tools/agent-control/[^/:]+)$'}).Count){throw 'Native profile is restricted to infrastructure scope'}
+        $nativeChanged=@(ChangedFiles)
+        if(@($nativeChanged | Where-Object { -not (Allowed $_ $task.allowed_paths) }).Count){throw 'Out-of-scope changes before native validation'}
+        if($result.base_sha -ne $base){throw 'Native validation base mismatch'}
+        $testLog=Join-Path $LogDir ($stamp+'-'+$id+'-native-validation.txt')
+        $oldPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'
+        try { & $Python (Join-Path $Repo 'tools/agent-control/test_control.py') 2>&1 | ForEach-Object {$_.ToString()} | Tee-Object -FilePath $testLog; $testExit=$LASTEXITCODE }
+        finally {$ErrorActionPreference=$oldPreference}
+        if($testExit){throw 'Native infrastructure fixtures failed; diff preserved'}
+        if(-not (Select-String -LiteralPath $testLog -Pattern '^Ran [1-9][0-9]* tests? in ' -Quiet) -or -not (Select-String -LiteralPath $testLog -Pattern '^OK$' -Quiet)){throw 'Native fixtures missing nonzero unittest result'}
+        Get-ChildItem (Join-Path $Repo 'tools/agent-control') -Filter '*.ps1' | ForEach-Object {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors) | Out-Null
+            if($errors.Count){throw 'Native PowerShell AST failed'}
+            Add-Content $testLog ('AST PASS: '+$_.Name) -Encoding UTF8
+        }
+        $result.validation_complete=$true
+        $result.validation=@($result.validation)+@('Native fixed agent-control fixtures and PowerShell AST PASS; log: '+$testLog)
+        $result.not_run=@($result.not_run)+@('Writer model has no shell; validation executed by native worker, not model')
+        WriteJson $result $reportPath
+        SetProp $task 'native_validation_log' $testLog
+    }
     if ($result.status -notin @('REVIEW_CANDIDATE','NO_PRODUCTION_CHANGE') -or $result.base_sha -ne $base -or $result.validation_complete -ne $true -or -not $result.validation) { throw 'Implementation BLOCKED or missing required validation; diff preserved, no commit/push' }
     if ((& git -c ("safe.directory="+$Repo) -C $Repo branch --show-current).Trim() -ne $branch) { throw 'Agent changed branch' }
     $expectedHead=if($mode -eq 'READY'){$base}else{[string]$task.resume_head_sha}

@@ -38,13 +38,29 @@
   GREEN `CI Gate`, matching clean reviews, неизменный master, graphical proof.
   Supervisor после успеха сразу вызывает GitHub merge plugin с
   `expected_head_sha`; устаревший receipt не является разрешением.
+- `hif-control.py sync-master`: native post-merge transport, вызываемый ТОЛЬКО
+  внешним scheduler'ом до любого model wake. Fixed checkout `D:\How_I_Fall\master`,
+  fixed origin, `controller.native_master_sync_enabled=true`, аргумента repo нет.
+  До любых git-записей: один active task identity, exact 40-hex base/head/merge SHA,
+  integer PR id, live merged PR с matching head/merge SHA, свежий remote master,
+  GREEN exact-head CI, matching CLEAN review нужного уровня. Только чистый
+  `master` на task base или expected merge HEAD; после fetch recheck clean/head и
+  ff-only exact merge SHA, затем verify HEAD/clean. Пользовательский diff
+  сохраняется; reset/clean/stash не выполняются. Успех атомарно переводит
+  task/state в `MERGED_LOCAL_SYNC_DONE`/`ROADMAP_SYNC_READY`; уже
+  синхронизированный master идемпотентен; persistence failure — fatal exit 78.
 
 `controller.json`: `enabled`, `supervisor_thread_id`, версия runtime/scheduler.
 `queue.json`: tasks с `id`, `status`, `approved_source`, `base_sha`, `prompt`,
 `allowed_paths`, `validation` (включая acceptance), `risk`, `player_facing`.
 `state.json`: `status`, `active_task_id`, durable next action.
 Статусы candidate/review/WAIT_CI/WAIT_STRONG_REVIEW не означают `DONE`.
-После merge проверяется новый master и синхронизируется repository/Drive roadmap.
+После merge state идёт через `SYNC_MASTER_PENDING` (native scheduler sync,
+модельные сессии не выполняют git-записи в `master`) → `ROADMAP_SYNC_READY`:
+repository roadmap (`docs/technical_plan.md` — единственный основной
+approved-task entrypoint) уже покрыт candidate diff; Drive roadmap —
+research/history и необязательное зеркало, stale помечается явно и не блокирует
+`DONE` после остальных gates.
 
 `MAINTENANCE` или `STOP` в control запрещает новые wakes; `enabled=false` также
 останавливает scheduler. Они не прерывают уже исполняющийся model turn.

@@ -18,8 +18,8 @@ ChatGPT остаётся допустимым manual reviewer/fallback, но н�
 Reviewer:
 1. определяет актуальный `master` и accepted base SHA;
 2. читает только relevant repository docs/skills;
-3. при доступных tools сверяет Drive capability map/roadmap;
-4. при конфликте предпочитает repository и затем синхронизирует Drive;
+3. основной roadmap/approved-task entrypoint — repository `docs/technical_plan.md`; Drive capability map/roadmap — research/history и необязательное зеркало, сверяется при доступных tools;
+4. при конфликте предпочитает repository; Drive приводится в соответствие при доступной записи, иначе stale-статус фиксируется явно и не блокирует работу;
 5. не открывает новый pass, пока предыдущий review candidate не принят,
    исправлен или явно закрыт.
 
@@ -241,9 +241,13 @@ Objective defect возвращает задачу в `CORRECTION_READY → RUNN
 high-risk candidate сразу проходит strong review без обязательного cheap first pass;
 clean candidate затем проходит
 exact-head PR/CI/proof gate. Только после GREEN acceptance Supervisor делает
-merge, verify exact `master`, синхронизирует roadmap и выбирает следующий
-bounded pass. Quota/interruption → `PARTIAL_RETRY`; решение, которого нет в
-source of truth, → `WAIT_USER`.
+merge, через GitHub plugin подтверждает remote master/merge SHA и ставит
+`SYNC_MASTER_PENDING`; внешний scheduler нативно синхронизирует чистый `master`
+(`hif-control.py sync-master`, fixed checkout/origin, `native_master_sync_enabled`)
+и переводит task/state в `MERGED_LOCAL_SYNC_DONE`/`ROADMAP_SYNC_READY`; затем
+Supervisor синхронизирует roadmap и выбирает следующий bounded pass. Quota/
+interruption → `PARTIAL_RETRY`; решение, которого нет в source of truth,
+→ `WAIT_USER`.
 
 Scheduler/Automation — только wake-up mechanism: он не выбирает product direction
 сам, а просит persistent Supervisor продолжить из durable state.
@@ -264,7 +268,9 @@ Z-Code — явный quota-save fallback по разделу 5; reviewer/CI/pro
 product proposals без согласования и не придумывает canon ради расхода токенов.
 
 Maintainable helpers находятся в `tools/agent-control`; локально остаются одна
-`queue.json`, `state.json`, `controller.json` и один startup scheduler. Подробная
+`queue.json`, `state.json`, `controller.json` и один startup scheduler. Git
+transport после merge (fetch + ff-only чистого `master`) выполняет только внешний
+scheduler нативно; модельные сессии не делают git-записи в `master`. Подробная
 runtime wiring/проверки — `tools/agent-control/README.md`. Старые worker loops,
 вторая Z-Code очередь и recursive Supervisor helper не запускаются.
 
@@ -405,7 +411,9 @@ high-risk candidate, Luna Low только для low-risk. Reviewer не при
 agent report автоматически и проверяет exact diff/gates.
 
 **HIF Supervisor** владеет durable state, выбором следующего bounded pass,
-GitHub PR/CI, repository + Drive comparison/sync, correction routing, merge и
+GitHub PR/CI, repository roadmap sync (`docs/technical_plan.md` entrypoint) и
+optional Drive mirror — stale/недоступное зеркало явно фиксируется и не блокирует
+`DONE` после остальных gates, correction routing, merge и
 verdict `DONE`/`NEEDS CORRECTION`. В обычном autonomous mode Supervisor живёт
 в Codex; браузерный ChatGPT может выполнить ту же reviewer/supervisor роль как
 manual fallback.

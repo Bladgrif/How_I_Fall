@@ -17,10 +17,10 @@ try {
     $prompt=@"
 HIF SUPERVISOR WAKE. Continue from durable state, do not restart completed work.
 Read D:\How_I_Fall\master\AGENTS.md and docs/product/agent_orchestration.md.
-Repository is source of truth; compare the connected Drive roadmap before selection.
+Repository docs/technical_plan.md is the approved roadmap; compare optional Drive mirror when tools are available. Missing mirror access never blocks selection.
 Preserve protected D:\How_I_Fall\develop: NO edits, reset, clean, stash, tests or import there.
 Use ONE queue.json and state.json in D:\How_I_Fall\agent-control.
-Do NOT invoke writer/reviewer helpers or spawn model processes from your sandbox.
+Do NOT invoke writer/reviewer helpers, git transport or model processes from your sandbox.
 The ONE outer scheduler dispatches them after this turn ends. Your job is durable
 selection/routing and connected PR/CI/merge/roadmap tools, not nested exec.
 Helpers (same directory):
@@ -49,8 +49,16 @@ MUST specify expected_head_sha from receipt (receipt <=5 minutes old). Any head 
 master change invalidates gate. CI cannot be replaced with local tests/docs-only proof. Set state.status=WAIT_CI
 and preserve exact head_sha while current CI jobs are pending; never treat an old
 failure/success as current if a rerun is in progress.
-After merge verify GitHub master and merge SHA, ff-only synchronize clean master,
-update repository roadmap if needed and connected Drive roadmap; DONE only after sync.
+After merge verify GitHub master and merge SHA via plugin, record task.merge_sha,
+set task AND state SYNC_MASTER_PENDING, then end this turn: the outer scheduler
+runs native hif-control.py sync-master outside your sandbox (fixed clean master
+checkout, controller.native_master_sync_enabled). Never run git writes yourself.
+In ROADMAP_SYNC_READY keep the repository roadmap current - docs/technical_plan.md
+is the single approved-task entrypoint (SourceRepoPlan), repository roadmap updates
+belong to the merged candidate diff. Drive roadmap is an optional research/history
+mirror: sync it when Drive write works; if unavailable explicitly mark Drive stale
+and set task DONE with a durable next action. Missing/stale Drive sync never blocks
+DONE after the other gates. Never silently claim a synced Drive.
 If queue ends: check approved roadmap/confirmed defects once. If exhausted, propose
 at most 3 new product tasks with acceptance in proposals.md, set WAIT_USER, stop.
 Do not execute unapproved product proposals or invent features/canon to burn tokens.

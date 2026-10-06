@@ -10,6 +10,10 @@
 
 Сюжет, routes, canonical flags, финальный art и final visual identity отложены до явного возвращения к актуальному story material.
 
+## Roadmap entrypoint (SourceRepoPlan)
+
+Этот документ — единственный основной roadmap/approved-task entrypoint автономного контура. Документы Drive `02`/`03` остаются research/history и необязательным зеркалом; при конфликте источник истины — репозиторий. Отсутствие Drive write не блокирует `DONE` после остальных обязательных gates, но stale-зеркало помечается явно. Новые product features/canon без user approval здесь не добавляются; существующие принятые решения и защищённые UI/Save контракты сохраняются.
+
 ## Базовая архитектура
 
 Сохраняется существующая простая структура:
@@ -70,7 +74,7 @@ Evidence exact-base сверки `40c8dd8881039f472fa578f1a76c02fe8dffb073`: `Sa
 6. небольшой curated `docs/visual-baselines/` set;
 7. review-candidate push;
 8. GitHub diff/CI review;
-9. Drive capability/roadmap sync.
+9. repository roadmap в candidate diff; Drive capability/roadmap — необязательное зеркало с честным статусом записи.
 
 Стандартная QA resolution — 1920×1080, если задача явно не требует responsive coverage.
 
@@ -89,3 +93,9 @@ Evidence exact-base сверки `40c8dd8881039f472fa578f1a76c02fe8dffb073`: `Sa
 Перед добавлением новой механики сначала проверить, какую реальную player problem она решает. Для текущей фазы предпочтительнее polish/integration существующих систем, чем расширение feature count.
 
 Rollback/Rewind реализован: 12 in-memory checkpoints, guard 65,536 UTF-16 code units; route — `Назад` в Quick Menu и колесо вниз, не Game Menu/History. Исторический feasibility contract сохранён с актуальной пометкой. Обычный функциональный demo-shell собран; full-demo audit 2026-10-02 и release-candidate audit 2026-10-03 не означают полного release-readiness или runtime PASS текущей базы. Flowchart/chapter/glossary/endings остаются отложенными до настоящего story graph.
+
+## Утверждённая очередь после настройки автономного контура
+
+- Infrastructure: один `HIF Supervisor`, одна очередь, quota fallback, независимое review, exact-head CI/merge и нативная ff-only синхронизация чистого `master`. PR #66 принят; текущий finalization pass проверяется отдельно. Оперативные head/PR/CI/статусы принадлежат `agent-control/queue.json` и `state.json`, а не дублирующему дневнику.
+- Новых универсальных production/product-задач сейчас не утверждено. Принятые Main Menu v2 и Hotspot marker polish не переоткрывать без reproduced defect.
+- После принятия infrastructure pass: один bounded анализ repository/подтверждённых дефектов, до трёх product-предложений с acceptance, затем `WAIT_USER`. Новые features, визуальное направление и story canon выполняются только после согласования пользователя.

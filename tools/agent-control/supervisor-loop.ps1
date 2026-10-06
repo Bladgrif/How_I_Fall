@@ -13,7 +13,7 @@ try {
             # Quiet while waiting on the user/auth/blocker. No repeated idle model bill.
             if($cfg.enabled -and $s.status -notin @('WAIT_USER','WAIT_AUTH','BLOCKED','MAINTENANCE')){
                 # Dispatch models outside the Supervisor tool sandbox; never nested exec.
-                $helper='wake-supervisor.ps1'; $helperArgs=@(); $runHelper=$true
+                $helper='wake-supervisor.ps1'; $helperArgs=@(); $runHelper=$true; $nativeSync=$false
                 if($s.status -eq 'WAIT_CI'){
                     $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
                     $ci=& $Python (Join-Path $PSScriptRoot 'hif-control.py') ci-status --head $s.head_sha
@@ -44,9 +44,19 @@ try {
                     if($tier -eq 'strong'){$helperArgs=@('-Strong')}
                 } elseif($s.status -eq 'WAIT_STRONG_REVIEW'){
                     $helper='hif-reviewer.ps1'; $helperArgs=@('-Strong')
+                } elseif($s.status -eq 'SYNC_MASTER_PENDING'){
+                    # Native post-merge git transport runs BEFORE any model wake; no model sandbox git writes.
+                    $runHelper=$false; $nativeSync=$true
                 }
                 $code=0
-                if($runHelper){
+                if($nativeSync){
+                    $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+                    $savedPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'
+                    try {
+                        & $Python (Join-Path $PSScriptRoot 'hif-control.py') sync-master --control $C 2>&1 | ForEach-Object {Add-Content (Join-Path $C 'supervisor-loop.log') $_ -Encoding UTF8}
+                        $code=$LASTEXITCODE
+                    } finally {$ErrorActionPreference=$savedPreference}
+                } elseif($runHelper){
                     $savedPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'
                     try {
                         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot $helper) @helperArgs 2>&1 | ForEach-Object {Add-Content (Join-Path $C 'supervisor-loop.log') $_ -Encoding UTF8}
@@ -69,6 +79,11 @@ try {
                 if($failures -ge 3){
                     $s.status='BLOCKED'
                     $s | Add-Member -NotePropertyName last_error -NotePropertyValue 'Supervisor transport failed three times; manual recovery needed' -Force
+                }
+                if($nativeSync -and $code -and $code -ne 78){
+                    # A failed native sync blocks durably instead of spinning model wakes or retries.
+                    $s.status='BLOCKED'
+                    $s | Add-Member -NotePropertyName last_error -NotePropertyValue ('Native master sync failed exit '+$code) -Force
                 }
                 $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
             }
