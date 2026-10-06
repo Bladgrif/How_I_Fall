@@ -69,7 +69,19 @@ Return only JSON matching output schema.
     $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
     $prompt | & $codex -C $Repo -a never -s read-only -m $model -c $configArg exec --output-schema (Join-Path $PSScriptRoot 'review-schema.json') --json -o $Out - 2>&1 | Tee-Object -FilePath $Events
     $code=$LASTEXITCODE; $ErrorActionPreference=$old
-    if($code){throw ('Reviewer failed: '+$code)}
+    if($code){
+        if($Strong -and (Test-Path $Events) -and (Select-String -LiteralPath $Events -Pattern 'usage_limit_exceeded|hit your usage limit|usage limit' -Quiet)){
+            # No partial/stale approval; quota exhaustion is an expected wait, not a transport failure.
+            if(Test-Path $Out){Remove-Item -LiteralPath $Out}
+            $s.status='WAIT_STRONG_REVIEW'
+            $s | Add-Member -NotePropertyName last_error -NotePropertyValue 'Strong reviewer quota exhausted; merge waits for Sol' -Force
+            $tmp=Join-Path $C 'state.json.tmp'
+            $s | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $tmp -Encoding UTF8
+            Move-Item -LiteralPath $tmp -Destination (Join-Path $C 'state.json') -Force
+            exit 75
+        }
+        throw ('Reviewer failed: '+$code)
+    }
     if(@(git -c ("safe.directory="+$Repo) -C $Repo status --porcelain).Count -or (git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim() -ne $head){throw 'Read-only reviewer changed checkout'}
     $r=Get-Content $Out -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach($entry in @(@('task_id',$t.id),@('base_sha',$base),@('head_sha',$head),@('reviewer_model',$model),@('reviewer_reasoning',$reasoning),@('reviewed_at',(Get-Date).ToUniversalTime().ToString('o')))){

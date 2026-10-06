@@ -626,6 +626,27 @@ class ControlTests(unittest.TestCase):
         (root/"queue.json").write_text(json.dumps({"tasks": [{"id": "sync", "status": "MERGED_LOCAL_SYNC"}]}), encoding="utf-8")
         return root
 
+    @unittest.skipUnless(os.name == "nt", "Windows reviewer quota fixture")
+    def test_actual_strong_reviewer_usage_limit_preserves_candidate_and_waits(self):
+        source = Path(__file__).with_name("hif-reviewer.ps1").read_text(encoding="utf-8-sig")
+        guard = source[source.index("    if($code){"):source.index("    if(@(git", source.index("    if($code){"))]
+        with tempfile.TemporaryDirectory(prefix="hif-review-quota-fixture-") as directory:
+            root = Path(directory)
+            state = {"status": "REVIEW_CANDIDATE", "active_task_id": "same", "head_sha": "b"*40}
+            c.save(root / "state.json", state)
+            (root / "events.jsonl").write_text('{"error":"You have hit your usage limit"}', encoding="utf-8")
+            (root / "review.json").write_text('{"verdict":"CLEAN"}', encoding="utf-8")
+            prelude = "$ErrorActionPreference='Stop'; $Strong=$true; $code=1; $C='" + directory + "'\n"
+            prelude += "$Events=Join-Path $C 'events.jsonl';$Out=Join-Path $C 'review.json';$s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8|ConvertFrom-Json\n"
+            (root / "quota.ps1").write_text(prelude + guard, encoding="utf-8-sig")
+            result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(root / "quota.ps1")], capture_output=True, timeout=15)
+            self.assertEqual(75, result.returncode, result.stderr.decode(errors="replace"))
+            persisted = c.load(root / "state.json")
+            self.assertEqual("WAIT_STRONG_REVIEW", persisted["status"])
+            self.assertEqual(state["active_task_id"], persisted["active_task_id"])
+            self.assertEqual(state["head_sha"], persisted["head_sha"])
+            self.assertFalse((root / "review.json").exists())
+
     @unittest.skipUnless(os.name == "nt", "Windows native validation fixture")
     def test_actual_native_validation_gate_requires_nonzero_pass_and_preserves_failed_report(self):
         worker = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
