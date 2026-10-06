@@ -140,6 +140,18 @@ UNITY_WRITE_ROOTS = ("Assets", "Packages", "ProjectSettings", "Library", "Temp",
                      "Logs", "UserSettings", "obj", ".vs", "QAArtifacts")
 
 
+def native_infrastructure_scope(task, changed=()):
+    allowed = task.get("allowed_paths")
+    if not isinstance(allowed, list) or not allowed:
+        raise ValueError("Native agent-control requires explicit infrastructure scope")
+    for path in [*allowed, *changed]:
+        if (not isinstance(path, str) or any(part in ("", ".", "..") for part in path.split("/"))
+                or not re.fullmatch(r"AGENTS\.md|docs/[^:\\]+\.md|tools/agent-control/[^/:\\]+", path, re.I)):
+            raise ValueError("Native agent-control is restricted to infrastructure scope")
+    if any(path.casefold() not in {p.casefold() for p in allowed} for path in changed):
+        raise ValueError("Out-of-scope changes at native agent-control boundary")
+
+
 def native_plan(task):
     if not isinstance(task, dict) or not isinstance(task.get("writer_path"), str):
         raise ValueError("Malformed native task/path")
@@ -157,6 +169,9 @@ def native_plan(task):
     if profile == "agent-control":
         if task.get("native_qa") is not None:
             raise ValueError("agent-control has no caller-supplied QA arguments")
+        native_infrastructure_scope(task)
+        if "native_validation_manifest" in task or "native_remote_proof" in task:
+            raise ValueError("agent-control cannot retain proof from another native profile")
         return []
     qa = task.get("native_qa")
     if not isinstance(qa, dict) or set(qa) != {"unity", "graphical"}:
@@ -455,9 +470,13 @@ def native_retry(task, outcome):
 
 
 def native_proof_ok(task, require_remote=True, control="D:/How_I_Fall/agent-control"):
-    if task.get("writer_engine") != "ZCode" or task.get("native_validation_profile") != "hif-runtime":
+    if task.get("writer_engine") != "ZCode":
         return
+    # Every ZCode candidate must validate its current profile BEFORE any bypass.
     native_plan(task)
+    if task["native_validation_profile"] == "agent-control":
+        native_infrastructure_scope(task, [p for p in task_changed_files(task, no_renames=True) if p])
+        return
     path = Path(task["native_validation_manifest"])
     relative = path.resolve().relative_to(Path(control).resolve()).as_posix()
     if not re.fullmatch(r"evidence/" + re.escape(task["id"]) + r"-[0-9]+/manifest\.json", relative):
@@ -631,10 +650,12 @@ MASTER_CHECKOUT = "D:/How_I_Fall/master"
 MASTER_ORIGIN = "https://github.com/Bladgrif/How_I_Fall.git"
 
 
-def task_changed_files(task):
+def task_changed_files(task, *, no_renames=False):
     repo = task["writer_path"]
+    # Infrastructure scope must include BOTH sides of a move from production.
+    rename_args = ["--no-renames"] if no_renames else []
     return subprocess.check_output(["git", "-c", "safe.directory=" + repo, "-C", repo,
-                                    "diff", "--name-only", "-z", task["base_sha"] + "..." + task["head_sha"]],
+                                    "diff", *rename_args, "--name-only", "-z", task["base_sha"] + "..." + task["head_sha"]],
                                    encoding="utf-8").rstrip("\0").split("\0")
 
 
@@ -802,10 +823,10 @@ def main():
         if len(matches) != 1:
             raise ValueError("Native QA active task missing/ambiguous")
         task = matches[0]
-        native_plan(task)
         if args.command == "native-proof-status":
             print(json.dumps(native_proof_status(task, control=c)))
             return
+        native_plan(task)
         if args.command == "bind-native-proof":
             path = Path(task["native_validation_manifest"])
             relative = path.resolve().relative_to(c.resolve()).as_posix()

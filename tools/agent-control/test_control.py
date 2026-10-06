@@ -727,6 +727,7 @@ class ControlTests(unittest.TestCase):
         return dict(dict(id="native", base_sha="a"*40, resume_head_sha="a"*40,
                          head_sha="b"*40, branch="codex/native", writer_engine="ZCode",
                          writer_path="D:/How_I_Fall/zagent", native_validation_profile="hif-runtime",
+                         allowed_paths=["tools/agent-control/test_control.py"],
                          player_facing=False, native_qa={"unity": [{"mode": "EditMode", "filter": "InteractiveHotspotEditModeTests"}], "graphical": []}), **overrides)
 
     def test_native_known_profiles_and_fixed_selection(self):
@@ -739,6 +740,119 @@ class ControlTests(unittest.TestCase):
             task = self.native_task(player_facing=True)
             task["native_qa"]["graphical"] = [scenario]
             self.assertEqual(("tools/run-graphical-e2e.ps1", ["-Scenario", scenario]), c.native_plan(task)[-1])
+
+    def assert_native_candidate_rejected(self, task, control="unused"):
+        review = dict(self.strong, task_id=task["id"])
+        self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+        with self.assertRaises(ValueError):
+            c.gate(task, review, review, self.pr, self.checks,
+                   ["tools/agent-control/test_control.py"], control=control)
+
+    def test_native_candidate_missing_profile_rejects_ready_and_merge(self):
+        task = self.native_task(native_qa=None)
+        del task["native_validation_profile"]
+        with patch.object(c.subprocess, "check_output") as git, patch.object(c.subprocess, "run") as process:
+            self.assert_native_candidate_rejected(task)
+            git.assert_not_called()
+            process.assert_not_called()
+
+    def test_native_candidate_unknown_profile_rejects_ready_and_merge(self):
+        for profile in (None, "", "unknown", [], {}):
+            with self.subTest(profile=profile), patch.object(c.subprocess, "check_output") as git:
+                self.assert_native_candidate_rejected(self.native_task(native_validation_profile=profile, native_qa=None))
+                git.assert_not_called()
+
+    def test_native_candidate_profile_downgrade_with_clean_review_and_retained_proof_rejected(self):
+        task, _, run, control = self.native_fixture()
+        proof = run()
+        task["writer_path"] = "D:/How_I_Fall/zagent"
+        task["native_validation_manifest"] = proof["manifest_path"]
+        proof.update(source_head_sha=task["head_sha"], writer_path=task["writer_path"])
+        c.save(proof["manifest_path"], proof)
+        review = dict(self.strong, task_id=task["id"])
+        with patch.object(c, "source_fingerprint", return_value="fingerprint"):
+            self.assertEqual("READY", c.native_proof_status(task, control=control)["status"])
+            self.assertEqual("MERGE_ALLOWED", c.gate(task, review, review, self.pr, self.checks,
+                             ["tools/agent-control/test_control.py"], control=control)["status"])
+            # Exact-head canonical CLEAN is unchanged; only queue selection drifts.
+            task.update(native_validation_profile="agent-control", native_qa=None)
+            with patch.object(c.subprocess, "check_output") as git:
+                self.assert_native_candidate_rejected(task, control)
+                git.assert_not_called()
+            del task["native_validation_manifest"]
+            task["native_remote_proof"] = {"head_sha": task["head_sha"]}
+            self.assert_native_candidate_rejected(task, control)
+
+    def test_native_agent_control_scope_checked_at_plan_review_and_merge_boundaries(self):
+        valid = self.native_task(native_validation_profile="agent-control", native_qa=None)
+        for allowed in (None, [], "tools/agent-control/test_control.py",
+                        ["Assets/X.cs"], ["docs/../Assets/X.md"], ["tools/agent-control/../X.py"],
+                        ["docs/"], [None]):
+            with self.subTest(allowed=allowed), patch.object(c.subprocess, "check_output") as git:
+                task = dict(valid, allowed_paths=allowed)
+                with self.assertRaises(ValueError):
+                    c.native_plan(task)
+                self.assert_native_candidate_rejected(task)
+                git.assert_not_called()
+        for changed in (["Assets/X.cs"], ["docs/unapproved.md"], ["tools/agent-control/../X.py"]):
+            with self.subTest(changed=changed), patch.object(c, "task_changed_files", return_value=changed):
+                self.assert_native_candidate_rejected(valid)
+
+    def test_native_agent_control_valid_scope_preserves_ready_and_merge(self):
+        task = self.native_task(native_validation_profile="agent-control", native_qa=None)
+        review = dict(self.strong, task_id=task["id"])
+        with patch.object(c, "task_changed_files", return_value=task["allowed_paths"]) as changed:
+            self.assertEqual("READY", c.native_proof_status(task)["status"])
+            self.assertEqual("MERGE_ALLOWED", c.gate(task, review, review, self.pr, self.checks,
+                             task["allowed_paths"])["status"])
+            self.assertGreaterEqual(changed.call_count, 3)
+
+    def test_native_agent_control_scope_includes_renamed_production_source(self):
+        task = self.native_task(native_validation_profile="agent-control", native_qa=None)
+        def renamed_diff(argv, **kwargs):
+            # --name-only with rename detection normally exposes only destination.
+            destination = "tools/agent-control/test_control.py\0"
+            return "Assets/Old.cs\0"+destination if "--no-renames" in argv else destination
+        with patch.object(c.subprocess, "check_output", side_effect=renamed_diff) as git:
+            self.assert_native_candidate_rejected(task)
+            for call in git.call_args_list:
+                self.assertIn("--no-renames", call.args[0])
+                self.assertIn(task["base_sha"]+"..."+task["head_sha"], call.args[0])
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell reviewer profile fixture")
+    def test_actual_reviewer_blocks_all_invalid_zcode_profiles_before_dispatch(self):
+        source = Path(__file__).with_name("hif-reviewer.ps1").read_text(encoding="utf-8-sig")
+        valid = self.native_task(native_validation_profile="agent-control", native_qa=None,
+                                 writer_path="D:\\How_I_Fall\\zagent")
+        missing = dict(valid)
+        del missing["native_validation_profile"]
+        invalid = [missing, dict(valid, native_validation_profile="unknown"),
+                   dict(valid, allowed_paths=["Assets/X.cs"]),
+                   dict(valid, native_validation_manifest="retained-runtime-manifest.json")]
+        for task in invalid:
+            with self.subTest(task=task), tempfile.TemporaryDirectory(prefix="hif-review-profile-fixture-") as directory:
+                root = Path(directory)
+                script = source.replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
+                script = script.replace("Local\\HowIFallWriter", "Local\\HowIFallFixture-"+root.name)
+                script = script.replace("C:\\Users\\roman\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe", sys.executable)
+                # No real Git checkout reads/writes, quota RPC or model dispatch.
+                script = script.replace("try {", "function git { if($args -contains 'status'){return}; if($args -contains 'rev-parse'){'"+task["head_sha"]+"';return}; throw 'Unexpected Git probe' }\ntry {", 1)
+                script = script.replace("    $suffix=", "    Set-Content (Join-Path $C 'unexpected-dispatch.txt') 'DISPATCH'; exit 99\n    $suffix=", 1)
+                (root/"reviewer.ps1").write_text(script, encoding="utf-8-sig")
+                (root/"hif-control.py").write_bytes(Path(__file__).with_name("hif-control.py").read_bytes())
+                c.save(root/"queue.json", {"tasks": [task]})
+                c.save(root/"state.json", {"status": "REVIEW_CANDIDATE", "active_task_id": task["id"],
+                                           "head_sha": task["head_sha"]})
+                review_path = root/"strong-review-latest.json"
+                c.save(review_path, dict(self.strong, task_id=task["id"]))
+                before = review_path.read_bytes()
+                result = subprocess.run(["powershell.exe", "-NoProfile", "-File", str(root/"reviewer.ps1"), "-Strong"],
+                                        capture_output=True, timeout=15)
+                self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+                self.assertEqual("BLOCKED", c.load(root/"state.json")["status"])
+                self.assertEqual(task["head_sha"], c.load(root/"state.json")["head_sha"])
+                self.assertFalse((root/"unexpected-dispatch.txt").exists())
+                self.assertEqual(before, review_path.read_bytes())
 
     def test_native_unknown_malformed_or_command_arguments_fail_before_process(self):
         bad = [self.native_task(native_validation_profile=p) for p in (None, "", "shell", {}, [])]

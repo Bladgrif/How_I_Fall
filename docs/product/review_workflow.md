@@ -109,6 +109,11 @@ Native GLM acceptance сейчас разрешает только whitelisted `
 invocations/required originals. Synthetic fixture images не являются visual proof
 настоящей production-задачи; staged runtime/UI rollout остаётся `NOT VERIFIED`.
 
+Все Z-Code candidates проходят текущий `native-plan` до reviewer dispatch и
+merge, включая `agent-control`. Missing/unknown profile, выход exact base/head
+diff за явный infrastructure scope или смена profile с сохранённым runtime proof
+закрывают gate. Даже exact-head canonical `CLEAN` не разрешает этот bypass.
+
 ## Разделение ролей
 
 - **Codex:** implementation, автоматические тесты, объективный graphical QA и screenshot proof; при доступном настроенном канале — доставка review screenshots на Drive.

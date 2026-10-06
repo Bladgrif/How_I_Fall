@@ -21,7 +21,7 @@ try {
     if($base -notmatch '^[a-f0-9]{40}$' -or $head -notmatch '^[a-f0-9]{40}$'){throw 'Missing exact SHA'}
     if(@(git -c ("safe.directory="+$Repo) -C $Repo status --porcelain).Count){throw 'Dirty checkout before review'}
     if((git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim() -ne $head){throw 'Reviewer HEAD mismatch'}
-    if($t.writer_engine -eq 'ZCode' -and $t.native_validation_profile -eq 'hif-runtime'){
+    if($t.writer_engine -eq 'ZCode'){
         & $Python (Join-Path $PSScriptRoot 'hif-control.py') native-proof-status --control $C | Tee-Object -Variable proofStatusJson | Out-Null
         if($LASTEXITCODE){throw 'Native proof safety check failed'}
         $proofStatus=($proofStatusJson -join "`n") | ConvertFrom-Json
@@ -33,7 +33,7 @@ try {
             Move-Item -LiteralPath $tmp -Destination (Join-Path $C 'state.json') -Force
             exit 0 # Outer Supervisor publishes permitted proof before independent inspection.
         }
-        if($t.native_qa.graphical.Count -and -not $Strong){throw 'GLM objective graphical inspection requires Sol High'}
+        if($t.native_validation_profile -eq 'hif-runtime' -and $t.native_qa.graphical.Count -and -not $Strong){throw 'GLM objective graphical inspection requires Sol High'}
     }
     $suffix=if($Strong){'strong-review-latest'}else{'review-latest'}
     $model=if($Strong){'gpt-6.1-sol'}else{'gpt-6-luna'}

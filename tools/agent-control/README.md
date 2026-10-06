@@ -186,6 +186,12 @@ fingerprint, task/base/engine/path, точный текущий `native-plan`, s
 с exit code 0 и required originals/hashes; затем связывает manifest с точным
 candidate head до push. Эти проверки повторяются перед review/merge; изменение
 approved check selection делает старый PASS manifest непригодным.
+Проверка текущего `native-plan` обязательна для КАЖДОГО Z-Code candidate,
+до любого non-runtime bypass и reviewer dispatch. Для `agent-control` повторно
+проверяются явные infrastructure `allowed_paths` и exact base/head diff на
+review/merge boundary; сохранённый runtime manifest/remote receipt запрещён.
+Missing/unknown profile или downgrade со старым proof не дают `READY`/
+`MERGE_ALLOWED`, даже при совпадающем canonical exact-head `CLEAN` review.
 Missing/zero/stale proof → false completeness, `BLOCKED`, без stage/commit/push;
 implementation test/compile failure → `PARTIAL_RETRY` с correction brief/log.
 Не более двух correction попыток, SAME checkout/branch/engine/resume HEAD; drift

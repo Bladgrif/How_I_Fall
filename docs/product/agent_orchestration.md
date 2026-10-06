@@ -198,6 +198,13 @@ control/review transport.
 до model/QA launch; queue/report не могут задать executable, shell или произвольные
 arguments. Flash остаётся Z-Code edit/no-shell/Max, Sol writer flow не меняется.
 
+Для каждого Z-Code candidate текущий `native-plan` проверяется перед любым
+profile bypass, reviewer dispatch и merge. `agent-control` допускает только
+явный infrastructure scope; на review/merge boundary повторно проверяется
+реальный exact base/head diff. Missing/unknown profile и переход на
+`agent-control` с сохранённым runtime manifest/remote receipt блокируются,
+даже если canonical `CLEAN` review всё ещё совпадает с head.
+
 Native worker запускает только существующие `run-unity-tests.ps1` и
 `run-graphical-e2e.ps1` в bound `writer_path` (`agent`/`zagent`); launcher'ы и
 изолирующие QA harnesses не должны отличаться от approved base. `develop`/`master`
