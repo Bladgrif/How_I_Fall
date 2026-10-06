@@ -14,6 +14,21 @@
 
 Этот документ — единственный основной roadmap/approved-task entrypoint автономного контура. Документы Drive `02`/`03` остаются research/history и необязательным зеркалом; при конфликте источник истины — репозиторий. Отсутствие Drive write не блокирует `DONE` после остальных обязательных gates, но stale-зеркало помечается явно. Новые product features/canon без user approval здесь не добавляются; существующие принятые решения и защищённые UI/Save контракты сохраняются.
 
+## Текущий infrastructure candidate: утренние bounded пакеты
+
+`approved-morning-batches`, exact base `835e342ebf26c49c372db162a6159985d67c9625`:
+расширение единственного existing runtime, 1–15 предложенных bounded task
+определений и native exact-digest approval в `queue.json`. Это не утверждение
+новых features/canon и не promotion трёх существующих
+`LIST_APPROVED_NOT_DISPATCHED` game items. History сохраняется.
+
+Candidate включает serial native selection с fresh base после DONE/native sync,
+fresh bounded Supervisor context, read-only dashboard и temporary regression
+fixtures. До host publication, fresh independent review и CI — REVIEW CANDIDATE,
+не DONE. Полный live morning packet, local deployment и GLM runtime QA —
+NOT VERIFIED; закрытые native PlayMode/graphical profiles не ослаблены.
+Workflow/source rationale/stop semantics: `tools/agent-control/README.md`.
+
 ## Базовая архитектура
 
 Сохраняется существующая простая структура:

@@ -14,14 +14,15 @@
 не старый npm shim. Основной пользовательский чат — Sol 6.1 High.
 
 Обычная команда: «Продолжай How I Fall по утверждённому плану».
-При окончании утверждённых задач Supervisor предлагает до трёх product-задач
-в `proposals.md`, ставит `WAIT_USER` и ждёт выбора в Codex.
+Утром пользователь утверждает exact digest пакета 1–15 bounded задач из repository roadmap.
+До native approval задачи — только proposal в существующем `queue.json`.
+Исчерпание пакета разрешает один planning pass следующего пакета и `WAIT_USER`.
 
 ## Runtime
 
 - `supervisor-loop.ps1`: один tick каждые 15 минут, mutex; dispatch по durable
   state. Запускает writer/reviewer снаружи model sandbox, не вложенные model exec.
-- `wake-supervisor.ps1`: persistent Luna Low, GitHub/Drive plugins, selection,
+- `wake-supervisor.ps1`: НОВАЯ bounded Luna Low session из durable facts, GitHub/Drive plugins, selection,
   correction, CI, merge, roadmap. Не отдельный второй implementation-agent.
 - `hif-worker.ps1 -Engine Codex|ZCode`: одна очередь, общий writer/reviewer lock,
   approved bounded brief, exact expected base, scoped stage, machine-readable
@@ -68,7 +69,7 @@ research/history и необязательное зеркало, stale поме�
 перепроверять. Не запускать пустые research loops ради расходования токенов.
 
 Пользователь явно разрешил autonomous merge 2026-10-06. Только процесс HIF
-Supervisor получает per-tool `approval_mode=approve` для GitHub `merge_pull_request`
+Supervisor получает per-tool `approval_mode=approve` для GitHub `create_pull_request` и `merge_pull_request`
 через CLI override; глобальный `config.toml` и другие tools не расширяются.
 Это разрешение инструмента, не новый GitHub repository scope: Supervisor по-прежнему
 работает только с HIF и требует свежий exact-head merge gate, review и CI.
@@ -215,3 +216,138 @@ mutex names; модели, GitHub writes, Unity/user checkout/LocalLow не за
 Полный writer log и head-bound manifest хранить в `agent-control/evidence`; если
 writer sandbox не разрешает live control path, использовать gitignored
 `QAArtifacts/agent-control/evidence` и передать этот archive outer transport.
+
+## Утренние bounded пакеты (candidate, ещё не deployment)
+
+Один `queue.json`: `tasks` хранит execution/history; дополнительный `batches` —
+не вторая очередь, а exact определения proposal/approval. Runtime task материализуется
+только native scheduler'ом, по одной. Pending определения НЕ получают `READY` и
+не конфликтуют с serial active-task gate. Старый `DONE` history и три
+`LIST_APPROVED_NOT_DISPATCHED` game items сохраняются; их статус не является новым
+утренним approval. Этот infrastructure pass не утверждает ни одну новую game feature.
+
+Packet input — строго `{id, source:{path:"docs/technical_plan.md", revision:<40-hex>},
+tasks:[...]}`. В определении обязательны ровно:
+- `id`, `title`, `goal`;
+- `allowed_paths` (точные paths либо repository-prefix с `/`);
+- `protected_contracts`, `acceptance` (непустые массивы);
+- `dependencies` (IDs внутри пакета; пустой массив допустим), `risk`;
+- `player_facing` boolean, `validation`;
+- `native_validation_profile`, `native_qa` (`null` для `agent-control`).
+
+1–15 — максимум, не quota на придуманные features/canon. Source revision должен
+содержать repository roadmap; соответствие намерения roadmap проверяют оператор
+утром и независимый reviewer. Никаких executable/command/shell/provider полей.
+Existing fixed `native-plan` проверяется ещё при proposal и при materialization:
+закрытые `PlayMode`/graphical profiles НЕ открыты этим пакетом. Если product task
+нуждается в таком proof, этот staged native маршрут остаётся недоступен.
+
+Proposal файл внутри existing runtime — только кратковременный input, не tracker.
+После принятой host publication оператор/внешний Supervisor transport использует:
+
+```powershell
+$Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$C='D:\How_I_Fall\agent-control'
+# Proposal: без user decision, dispatch запрещён.
+& $Python "$C\hif-control.py" batch-propose --output "$C\morning-packet.json"
+# ТОЛЬКО пользователь в отдельной обычной native console, не model tool/PTY:
+& $Python "$C\hif-control.py" batch-approve --batch-id <id> --digest <full-sha256> --consent-source 'operator-console:2026-10-07-user-morning-decision'
+```
+
+Native command печатает exact определения и требует вручную набрать `APPROVE
+<full-sha256>`. Нет `--yes`, piped input, approval HTTP или self-approval модели.
+Model environment/ancestor guards отказывают даже при PTY; direct signing API
+также отказывает approval payload из model environment. Receipt содержит digest,
+operator, источник решения, время и user-bound Windows DPAPI seal В ТОМ ЖЕ queue.
+Canonical SHA-256 покрывает ВСЕ exact определения, source revision и зависимости.
+Изменённый scope/acceptance, stale receipt, extra keys, duplicates/cycles, fake
+source-only approval и malformed data закрывают dispatch/review/merge.
+DPAPI — integrity для queue-only counterfeit, НЕ security sandbox против
+hostile arbitrary code с тем же OS principal: такой код способен заменить и сам
+runtime. Runtime source и operator console остаются trusted host boundary.
+
+`batch-tick` — фиксированный native шаг ЕДИНСТВЕННОГО `supervisor-loop.ps1` под
+existing `HowIFallSupervisorWake` + `HowIFallWriter` locks. `scope-check` не пишет
+state и вызывается внутри writer/reviewer lock. Proposal из wake берёт writer lock,
+но не пытается recursively взять уже удерживаемый wake lock. Operator action не
+может состязаться с model wake. Scheduler state write — atomic replacement под
+writer lock с compare-and-swap исходного снимка: более свежий operator state не
+затирается. Partial queue/state/quota write — `STOP`, fatal exit `78`, даже если
+marker невозможно записать. Нет автоматического repair/reset/clean.
+
+Для КАЖДОЙ следующей задачи native selection требует fresh GitHub master SHA и
+совпадение с native-synced reference `master`; writer fetch проверяет exact
+`origin/master` повторно. После первой задачи следующая получает НОВУЮ base,
+а не batch source revision. Native-signed dispatch identity связывает definition,
+base, engine, path и branch. Предыдущая задача должна пройти merge, native sync
+(с matching sealed receipt), repository roadmap reconciliation и `DONE`.
+`ROADMAP_SYNC_READY`, CI/review/auth wait или partial candidate не разрешают
+следующий writer. Scope guards проверяют durable определения и реальный diff
+(включая обе стороны rename) до writer, до публикации, reviewer и merge/native sync.
+Batch approval не заменяет fresh independent Sol High, exact-head CI/proof.
+Model processes не получают write-root `master` и не выполняют его git transport.
+
+`quota` теперь read-only RPC/JSON output, не unlocked control write. Native
+`batch-tick` получает fresh snapshot под existing locks и сохраняет fallback.
+Unknown/stale/incomplete quota → `WAIT_QUOTA`, без модельных idle loops. ≤25% в
+любом окне выбирает existing Z-Code Flash Max edit/no-shell; ≥26% в обоих — Sol6.1
+High. После dispatch identity engine immutable: retry сохраняет исходный checkout,
+head, branch и partial diff, даже при изменении квоты. Нет переноса diff.
+Недоступный strong reviewer — `WAIT_STRONG_REVIEW`, no merge.
+
+Exhaustion: `queue.batch_planning` — только durable claim одного planning wake,
+не второй execution tracker. `REQUESTED` переживает restart до claim;
+`batch-plan-claim` нативно переводит его в `CLAIMED` перед fresh Luna wake.
+После единственной попытки — proposal/`WAIT_USER`. Crash после claim не вызывает
+повторную оплату/recursive resume; оператор может разобраться с прерванным planning.
+Historical `supervisor_thread_id` оставлен для истории, `exec resume` не используется.
+Durable task/state/roadmap/review receipts — context каждой новой bounded session.
+
+`STOP`, `MAINTENANCE`, `enabled=false`, `PAUSED` запрещают новые dispatch/wakes,
+но НЕ убивают текущий model turn и не теряют partial diff. При восстановлении
+сначала inspect identity/diff/receipts; продолжать SAME task, не новый engine.
+Обычные CI failures и deterministic fixes — bounded automatic correction;
+новое решение, auth или настоящий blocker — честный wait. Subjective UI choices
+включаются в утренние определения; objective QA внутри approved scope автономен.
+
+## Read-only dashboard
+
+В repository включены ТОЛЬКО исходные `hif-dashboard.py`, `.html`,
+`test_dashboard.py` из `zagent/tools/agent-control`; parent zagent/живой экран не
+изменены. Нет installer/autostart/нового queue/loop, executable из task packet,
+POST actions или credentials. HTTP — существующий read-only экран localhost.
+Progress/approval-recorded/next/wait показываются компактно; recorded receipt не
+объявляется native dispatch PASS. Live PID facts отделены от running scheduler
+timer. GPT показывает fresh source/age/reset или stale fallback; GLM balance
+честно unknown. Потеря связи/устаревший снимок — `НЕ LIVE`, исторический preview
+не доказательство живого подключения.
+
+Fixed `agent-control` host QA: три NAMED suites (`test_control.py`, `test_batch.py`,
+`test_dashboard.py`), Python compile в памяти, dashboard JS `node --check`,
+`git diff --check`, ровно четыре named PowerShell AST. Ни discovery команд из
+queue, ни caller-provided suite/arguments. Все fixtures temporary/mocked; не
+запускают реальные модели/Unity/GitHub writes/saves. HTTP proof ≠ screenshot PASS.
+Browser inspection отмечается отдельно; при недоступном legitimate browser tool —
+`NOT RUN`. Полный autonomous morning packet и GLM runtime QA — `NOT VERIFIED`,
+deployment/host publication/fresh reviewer/CI выполняются только последующими gates.
+
+## Источники идей, не готовая установка
+
+Root research: `agent-control/evidence/orchestrator-fit-20261006.md` (read-only).
+Применены идеи durable facts, bounded task packets и fresh context; чужой
+исполняемый код/framework НЕ вендорился. Обоснование missing native fit:
+- [AO STATUS на исследованном commit](https://github.com/OrchestratorInc/agent-orchestrator/blob/eaa1ce480b1a6741858ef19d525009cd170cd8cd/docs/STATUS.md),
+  [shipped registry](https://github.com/OrchestratorInc/agent-orchestrator/blob/eaa1ce480b1a6741858ef19d525009cd170cd8cd/backend/internal/adapters/agent/registry/registry.go),
+  [lifecycle automation](https://github.com/OrchestratorInc/agent-orchestrator/blob/eaa1ce480b1a6741858ef19d525009cd170cd8cd/frontend/src/docs/content/configuration/lifecycle-automation.mdx):
+  по root evidence нет Z-Code adapter/config-only arbitrary executable и
+  config-only autoMerge; autoReview не равен merge. Live refetch этих AO links в
+  bounded pass недоступен, утверждение относится к исследованному snapshot.
+- [OpenHands custom ACP command](https://github.com/OpenHands/docs/blob/main/openhands/usage/agent-canvas/acp-agents.mdx)
+  не доказывает совместимость с собственным [Z-Code protocol](https://github.com/zai-org/ZCode/blob/29628c9acdb81b703bbd4080c207a0e7ce5e276e/apps/zcode-cli/packages/bootstrap/src/zcode-protocol-entrypoint.ts).
+- [Symphony prototype](https://github.com/openai/symphony/blob/main/elixir/README.md)
+  использует Codex App Server и собственный tracker/workspace lifecycle, не native
+  HIF fit. [Ralph launcher](https://github.com/snarktank/ralph/blob/6c53cb0b831ebe8739c6a003e22af14902d8b0b5/ralph.sh)
+  не переносится с его permission/COMPLETE assumptions.
+
+Не установлены AO/OpenHands/Symphony/Ralph, второй daemon/DB/provider или платный
+GLM API; OAuth extraction/dangerous bypass/global config expansion запрещены.

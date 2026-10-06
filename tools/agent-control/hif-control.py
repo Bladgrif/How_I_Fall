@@ -1,8 +1,13 @@
 """Локальные transport/gates HIF. Без сторонних пакетов и собственных model loops."""
 import argparse
+import base64
+import contextlib
+import ctypes
 import datetime as dt
 import hashlib
+import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import queue
@@ -15,9 +20,300 @@ import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
+_batch_spec = importlib.util.spec_from_file_location("hif_batch", Path(__file__).with_name("hif-batch.py"))
+batch = importlib.util.module_from_spec(_batch_spec)
+_batch_spec.loader.exec_module(batch)
+
+CONTROL_ROOT = "D:/How_I_Fall/agent-control"
+
+
+def control_paths(control):
+    if Path(control).resolve() != Path(CONTROL_ROOT).resolve():
+        raise ValueError("Only the existing fixed runtime directory is authorized")
+    for relative in ("controller.json", "queue.json", "queue.json.tmp", "state.json", "state.json.tmp",
+                     "STOP", "MAINTENANCE", "codex-quota.json", "codex-quota.json.tmp"):
+        bounded_path(control, relative)
+
+
+@contextlib.contextmanager
+def writer_lock(name="Local\\HowIFallWriter"):
+    """Тот же named lock, что у existing writer/reviewer; не второй scheduler."""
+    if os.name != "nt":
+        raise ValueError("Native operator/scheduler requires Windows named lock")
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateMutexW.restype = wintypes.HANDLE
+    kernel.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+    kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel.ReleaseMutex.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel.CreateMutexW(None, False, name)
+    if not handle:
+        raise OSError("Cannot acquire existing writer lock")
+    acquired = False
+    try:
+        result = kernel.WaitForSingleObject(handle, 0)
+        if result == 0x80:
+            kernel.ReleaseMutex(handle)
+            raise ValueError("Abandoned writer lock: inspect partial control/diff before recovery")
+        if result != 0:
+            raise ValueError("Writer/reviewer/operator busy")
+        acquired = True
+        yield
+    finally:
+        if acquired:
+            kernel.ReleaseMutex(handle)
+        kernel.CloseHandle(handle)
+
+
+def receipt_seal(payload, encoded=None):
+    """Windows user-bound DPAPI receipt: JSON source claim alone is not approval.
+
+    Это integrity seal, не sandbox против злоумышленника с тем же OS principal.
+    Единственный approval entrypoint ниже требует физический interactive consent.
+    """
+    if encoded is None and "operator" in payload:
+        operator_origin()
+    if os.name != "nt":
+        raise ValueError("Operator receipt requires Windows DPAPI")
+    from ctypes import wintypes
+    class Blob(ctypes.Structure):
+        _fields_ = [("size", wintypes.DWORD), ("data", ctypes.POINTER(ctypes.c_ubyte))]
+    raw = (base64.b64decode(encoded, validate=True) if encoded is not None else
+           json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    memory = ctypes.create_string_buffer(raw)
+    source, output = Blob(len(raw), ctypes.cast(memory, ctypes.POINTER(ctypes.c_ubyte))), Blob()
+    crypt = ctypes.WinDLL("crypt32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    method = crypt.CryptUnprotectData if encoded is not None else crypt.CryptProtectData
+    method.argtypes = [ctypes.POINTER(Blob), ctypes.c_void_p, ctypes.c_void_p,
+                       ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(Blob)]
+    if not method(ctypes.byref(source), None, None, None, None, 1, ctypes.byref(output)):
+        raise ValueError("Invalid/unavailable native receipt")
+    try:
+        value = ctypes.string_at(output.data, output.size)
+        if encoded is not None:
+            if json.loads(value.decode("utf-8")) != payload:
+                raise ValueError("Native receipt definition/identity drift")
+            return None
+        return base64.b64encode(value).decode("ascii")
+    finally:
+        kernel.LocalFree(ctypes.cast(output.data, ctypes.c_void_p))
+
+
+def verify_receipt(encoded, payload):
+    if not isinstance(encoded, str):
+        raise ValueError("Missing native receipt")
+    receipt_seal(payload, encoded)
+
+
+def operator_origin():
+    """Supported native approval is unavailable to model sessions, including PTY."""
+    if any(os.environ.get(key) for key in ("CODEX_THREAD_ID", "CODEX_SESSION_ID", "CODEX_SANDBOX_NETWORK_DISABLED", "ZCODE_SESSION_ID")):
+        raise ValueError("Model process cannot approve its own proposal")
+    # Fixed read-only ancestor probe, no packet command/credentials or HTTP actions.
+    script = ("$id=" + str(os.getpid()) + "; $names=@(); for($i=0;$i -lt 32 -and $id;$i++){"
+              "$p=Get-CimInstance Win32_Process -Filter ('ProcessId='+$id); if(-not $p){break};"
+              "$names+=($p.Name+' '+$p.CommandLine);$id=$p.ParentProcessId}; $names|ConvertTo-Json -Compress")
+    result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                            capture_output=True, text=True, timeout=15,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if result.returncode:
+        raise ValueError("Operator origin unavailable; approval closed")
+    rows = json.loads(result.stdout)
+    if not isinstance(rows, list) or len(rows) < 2 or any(not isinstance(r, str) for r in rows):
+        raise ValueError("Operator ancestry unavailable")
+    # Examine parents, not this Python argv (which can contain a consent reference).
+    if any(re.search(r"(?i)codex\.exe|zcode|wake-supervisor\.ps1|hif-worker\.ps1|hif-reviewer\.ps1", r) for r in rows[1:]):
+        raise ValueError("Model/helper ancestry cannot record user consent")
+
+
+def persist_control(control, queue_value, state):
+    try:
+        save(Path(control) / "queue.json", queue_value)
+        save(Path(control) / "state.json", state)
+    except Exception as error:
+        try:
+            bounded_path(control, "STOP").write_text("Fatal partial control write; inspect receipts and preserve diff", encoding="utf-8")
+        except OSError:
+            pass
+        raise FatalPersistence(str(error)) from error
+
+
+def persist_quota(control, value):
+    # Caller owns existing writer + wake locks; dashboard RPC remains read-only.
+    try:
+        save(bounded_path(control, "codex-quota.json"), value)
+    except Exception as error:
+        try:
+            bounded_path(control, "STOP").write_text("Fatal quota persistence; no dispatch", encoding="utf-8")
+        except OSError:
+            pass
+        raise FatalPersistence(str(error)) from error
+
+
+def fresh_quota():
+    try:
+        return quota_result(codex_rpc("account/rateLimits/read", {}))
+    except Exception as error:
+        return {"updated_at": now(), "source": "account/rateLimits/read", "mode": "UNKNOWN",
+                "error": str(error), "threshold_remaining_percent": 25}
+
+
+def batch_propose(control, packet):
+    state, q = load(Path(control) / "state.json"), load(Path(control) / "queue.json")
+    for definition in batch.validate_packet(packet)["tasks"]:
+        native_plan(dict(definition, writer_engine="ZCode", writer_path="D:/How_I_Fall/zagent", base_sha=packet["source"]["revision"]))
+    # An immutable historical source revision, not a mutable mirror or external feature list.
+    roadmap = git_output(MASTER_CHECKOUT, "show", packet["source"]["revision"] + ":" + batch.SOURCE)
+    if not roadmap.strip():
+        raise ValueError("Repository roadmap unavailable")
+    q = batch.propose(q, packet, verify_receipt)
+    q["batch_planning"] = None  # New packet, next exhaustion may plan once again.
+    dispatched = {t["id"] for t in q["tasks"]}
+    approved_pending = any(t["id"] not in dispatched for record in q["batches"]
+                           if record["status"] == "APPROVED" for t in record["tasks"])
+    if (state.get("status") in ("PLANNING_ONCE", "WAIT_USER")
+            or (state.get("status") in ("DONE", "IDLE") and not approved_pending)):
+        state.update(status="WAIT_USER", next_action="PROPOSED, не dispatchable; native exact-digest approval утром.")
+    persist_control(control, q, state)
+    return {"status": "PROPOSED", "digest": q["batches"][-1]["digest"]}
+
+
+def approve_batch(control, ident, expected_digest, consent_source, input_fn=input):
+    # No --yes, HTTP action, model-generated approved_source or piped confirmation.
+    operator_origin()
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        raise ValueError("Approval requires an interactive native operator console")
+    if not isinstance(consent_source, str) or not re.fullmatch(r"operator-console:[^\r\n\x00]{3,300}", consent_source):
+        raise ValueError("Explicit operator consent source required")
+    state, q = load(Path(control) / "state.json"), load(Path(control) / "queue.json")
+    records = batch.validate_queue(q, verify_receipt)
+    record = next((r for r in records if r["id"] == ident), None)
+    if not record or record["status"] != "PROPOSED" or record["digest"] != expected_digest:
+        raise ValueError("Unknown/stale/already approved packet")
+    print(json.dumps(batch.packet_of(record), ensure_ascii=False, indent=2))
+    if input_fn("User decision: type APPROVE " + expected_digest + ": ") != "APPROVE " + expected_digest:
+        raise ValueError("No explicit user approval")
+    payload = dict(digest=expected_digest, operator=os.environ.get("USERNAME", "operator"),
+                   source=consent_source, approved_at=now())
+    record.update(status="APPROVED", approval=dict(payload, seal=receipt_seal(payload)))
+    if state.get("status") == "WAIT_USER":
+        state.update(status="BATCH_PENDING", next_action="Native scheduler selects next approved definition after serial gates.")
+    persist_control(control, q, state)
+    return {"status": "APPROVED", "digest": expected_digest}
+
+
+def claim_planning(control):
+    q, state = load(Path(control) / "queue.json"), load(Path(control) / "state.json")
+    if state.get("status") != "PLANNING_ONCE" or (q.get("batch_planning") or {}).get("status") != "REQUESTED":
+        raise ValueError("Single planning pass already claimed/not requested")
+    q["batch_planning"]["status"] = "CLAIMED"
+    persist_control(control, q, state)
+    return {"status": "CLAIMED"}
+
+
+def batch_tick(control):
+    state, q = load(Path(control) / "state.json"), load(Path(control) / "queue.json")
+    batch.validate_queue(q, verify_receipt)
+    if any(t.get("status") not in batch.INACTIVE for t in q["tasks"]):
+        # Still validate serial identity; do not alter active candidates/retries.
+        _, _, outcome = batch.advance(q, state, {}, None, None, dt.datetime.now(dt.timezone.utc), verify_receipt, receipt_seal)
+        return {"status": outcome}
+    if not q.get("batches"):
+        # Initial packet planning never promotes historical/list-only game items.
+        new_q, new_state, outcome = batch.advance(q, state, {}, None, None, dt.datetime.now(dt.timezone.utc), verify_receipt, receipt_seal)
+        if new_q != q or new_state != state:
+            persist_control(control, new_q, new_state)
+        return {"status": outcome}
+    quota = fresh_quota()
+    persist_quota(control, quota)
+    # Read-only fresh remote master; worker fetch/recheck remains mandatory.
+    base = github("branches/master").get("commit", {}).get("sha")
+    master_head = git_output(MASTER_CHECKOUT, "rev-parse", "HEAD")
+    new_q, new_state, outcome = batch.advance(q, state, quota, base, master_head,
+                                            dt.datetime.now(dt.timezone.utc), verify_receipt, receipt_seal)
+    if outcome == "READY":
+        native_plan(new_q["tasks"][-1])
+    if new_q != q or new_state != state:
+        persist_control(control, new_q, new_state)
+    return {"status": outcome}
+
+
+def scope_guard(control, task, changed):
+    q = load(Path(control) / "queue.json")
+    # Old fixtures/minimal historical receipts retain their original gates.
+    if task.get("allowed_paths") or q.get("batches"):
+        batch.task_guard(q, task, changed, verify_receipt)
+
+
+def boundary_scope(control, phase):
+    s, q = load(Path(control) / "state.json"), load(Path(control) / "queue.json")
+    matches = [t for t in q["tasks"] if t.get("id") == s.get("active_task_id")]
+    if len(matches) != 1:
+        raise ValueError("Scope guard active identity missing/ambiguous")
+    task = matches[0]
+    if q.get("batches"):
+        active = [t for t in q["tasks"] if t.get("status") not in batch.INACTIVE]
+        if len(active) != 1 or active[0]["id"] != task["id"]:
+            raise ValueError("Scope guard serial identity conflict")
+    if phase == "dispatch":
+        scope_guard(control, task, [])
+        return {"status": "SCOPE_VERIFIED", "task_id": task["id"], "phase": phase}
+    repo = task.get("writer_path", "")
+    if repo.replace("\\", "/") not in ("D:/How_I_Fall/agent", "D:/How_I_Fall/zagent"):
+        raise ValueError("Scope guard checkout unbound")
+    if task.get("batch_id"):
+        if git_output(repo, "branch", "--show-current") != task.get("branch"):
+            raise ValueError("Scope guard branch drift")
+        if phase == "review" and git_output(repo, "rev-parse", "HEAD") != task.get("head_sha"):
+            raise ValueError("Scope guard review head drift")
+    if phase == "review":
+        changed = task_changed_files(task, no_renames=True)
+    else:
+        changed = git_output(repo, "diff", "--no-renames", "--name-only", task["base_sha"]).splitlines()
+        changed += git_output(repo, "ls-files", "--others", "--exclude-standard").splitlines()
+    scope_guard(control, task, changed)
+    return {"status": "SCOPE_VERIFIED", "task_id": task["id"], "phase": phase}
+
+
+def validate_infrastructure(repo):
+    """Fixed host profile; queue never supplies tests/commands/arguments."""
+    root = bounded_path(repo, "tools/agent-control")
+    for name in ("hif-control.py", "hif-batch.py", "hif-dashboard.py", "test_control.py", "test_batch.py", "test_dashboard.py"):
+        path = bounded_path(root, name)
+        compile(path.read_text(encoding="utf-8-sig"), str(path), "exec")
+    print("Python compile in memory: PASS", flush=True)
+    for name in ("test_control.py", "test_batch.py", "test_dashboard.py"):
+        result = subprocess.run([sys.executable, "-B", str(bounded_path(root, name))], capture_output=True,
+                                encoding="utf-8", errors="replace", env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"))
+        log = result.stdout + result.stderr
+        print(log, flush=True)
+        if result.returncode or not re.search(r"^Ran [1-9][0-9]* tests? in ", log, re.M) or not re.search(r"^OK$", log, re.M):
+            raise ValueError("Fixed native suite failed/incomplete: " + name)
+    html = bounded_path(root, "hif-dashboard.html").read_text(encoding="utf-8-sig")
+    scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+    if len(scripts) != 1:
+        raise ValueError("Expected one fixed dashboard script")
+    node = Path.home() / ".cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe"
+    subprocess.run([str(node), "--check", "-"], input=scripts[0], text=True, encoding="utf-8", check=True)
+    subprocess.run(["git", "-c", "safe.directory=" + str(repo), "-C", str(repo), "diff", "--check"], check=True)
+    print("Dashboard JS syntax + diff check: PASS", flush=True)
+
 
 def load(path):
-    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("Duplicate JSON key: " + key)
+            result[key] = value
+        return result
+    def invalid_constant(value):
+        raise ValueError("Non-finite JSON data: " + value)
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"), object_pairs_hook=unique,
+                      parse_constant=invalid_constant)
 
 
 def save(path, value):
@@ -94,7 +390,8 @@ def quota_result(raw):
     # Account-wide Codex limits, not an unrelated model-specific bucket.
     bucket = raw.get("rateLimitsByLimitId", {}).get("codex") or raw.get("rateLimits", {})
     windows = [bucket.get("primary"), bucket.get("secondary")]
-    if not all(isinstance(w, dict) and isinstance(w.get("usedPercent"), (int, float)) for w in windows):
+    if not all(isinstance(w, dict) and type(w.get("usedPercent")) in (int, float)
+               and math.isfinite(w["usedPercent"]) and 0 <= w["usedPercent"] <= 100 for w in windows):
         raise ValueError("Incomplete Codex quota windows")
     remaining = [max(0, 100 - w["usedPercent"]) for w in windows]
     return {"updated_at": now(), "source": "account/rateLimits/read", "mode":
@@ -543,7 +840,7 @@ def review_ok(review, task, strong=False):
 
 
 def needs_strong(task, changed, cheap=None):
-    if high_risk(changed) or task.get("risk") == "high" or task.get("player_facing") or (task.get("native_qa") or {}).get("graphical"):
+    if task.get("batch_id") or high_risk(changed) or task.get("risk") == "high" or task.get("player_facing") or (task.get("native_qa") or {}).get("graphical"):
         return True
     bound = cheap and all(cheap.get(k) == task.get(t) for k, t in
                          (("task_id", "id"), ("base_sha", "base_sha"), ("head_sha", "head_sha")))
@@ -573,6 +870,10 @@ def ci_pending(checks, head):
 
 
 def gate(task, cheap, strong, pr, checks, changed, control="D:/How_I_Fall/agent-control"):
+    if task.get("allowed_paths"):
+        batch.scope(task, changed)
+    if task.get("batch_id"):
+        scope_guard(control, task, changed)
     strong_required = needs_strong(task, changed, cheap)
     final_review = strong if strong_required else cheap
     review_ok(final_review or {}, task, strong=strong_required)
@@ -689,8 +990,10 @@ def sync_master(control):
     if len(matches) != 1:
         raise ValueError("Master sync requires exactly one active task identity")
     task = matches[0]
+    if task.get("batch_id"):
+        scope_guard(control, task, task_changed_files(task, no_renames=True))
     if task.get("status") != "SYNC_MASTER_PENDING" or any(
-            t.get("id") != task["id"] and t.get("status") not in ("DONE", "WAIT_USER", "READY", "CANCELLED")
+            t.get("id") != task["id"] and t.get("status") not in (*batch.INACTIVE, "READY")
             for t in queue["tasks"]):
         raise ValueError("Master sync requires one pending task and no other active task")
     for key in ("base_sha", "head_sha", "merge_sha"):
@@ -744,6 +1047,9 @@ def sync_master(control):
             raise ValueError("Post-merge master verification failed")
     task["status"] = "MERGED_LOCAL_SYNC_DONE"
     task["local_sync_done"] = True
+    if task.get("batch_id"):
+        task["local_sync_receipt"] = receipt_seal({k: task.get(k) for k in
+                                               ("id", "base_sha", "head_sha", "merge_sha", "local_sync_done")})
     state["status"] = "ROADMAP_SYNC_READY"
     try:
         save(control / "queue.json", queue)
@@ -790,7 +1096,7 @@ def zcode_run(repo, prompt, output, events):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier", "sync-master", "native-plan", "native-qa", "bind-native-proof", "native-proof-status"])
+    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier", "sync-master", "native-plan", "native-qa", "bind-native-proof", "native-proof-status", "batch-propose", "batch-approve", "batch-tick", "batch-plan-claim", "scope-check", "validate-infra"])
     parser.add_argument("--control", default="D:/How_I_Fall/agent-control")
     parser.add_argument("--method")
     parser.add_argument("--params", default="{}")
@@ -800,17 +1106,44 @@ def main():
     parser.add_argument("--output")
     parser.add_argument("--events")
     parser.add_argument("--head")
+    parser.add_argument("--batch-id")
+    parser.add_argument("--digest")
+    parser.add_argument("--consent-source")
+    parser.add_argument("--phase", choices=["dispatch", "writer", "publish", "review"])
     args = parser.parse_args()
     c = Path(args.control)
-    if args.command == "rpc":
+    if args.command == "validate-infra":
+        if (args.repo or "").replace("\\", "/") not in ("D:/How_I_Fall/agent", "D:/How_I_Fall/zagent"):
+            raise ValueError("Fixed infrastructure profile requires bound writer checkout")
+        validate_infrastructure(args.repo)
+    elif args.command in ("batch-propose", "batch-approve", "batch-tick", "batch-plan-claim", "scope-check"):
+        control_paths(c)
+        if args.command == "scope-check":
+            print(json.dumps(boundary_scope(c, args.phase)))
+            return
+        # Native proposal is called inside the existing wake. Other mutations
+        # must also exclude that turn, not race model state/receipt transport.
+        wake_lock = contextlib.nullcontext() if args.command == "batch-propose" else writer_lock("Local\\HowIFallSupervisorWake")
+        with wake_lock, writer_lock():
+            if (c / "STOP").exists() or (c / "MAINTENANCE").exists():
+                raise ValueError("Control paused/stopped")
+            if args.command == "batch-propose":
+                # Packet file must live inside existing runtime, never arbitrary executable.
+                packet_path = Path(args.output).resolve()
+                relative = packet_path.relative_to(c.resolve())
+                value = batch_propose(c, load(bounded_path(c, relative)))
+            elif args.command == "batch-approve":
+                value = approve_batch(c, args.batch_id, args.digest, args.consent_source)
+            elif args.command == "batch-plan-claim":
+                value = claim_planning(c)
+            else:
+                value = batch_tick(c)
+            print(json.dumps(value, ensure_ascii=False))
+    elif args.command == "rpc":
         print(json.dumps(codex_rpc(args.method, load(args.params_file) if args.params_file else json.loads(args.params)), ensure_ascii=False))
     elif args.command == "quota":
-        try:
-            value = quota_result(codex_rpc("account/rateLimits/read", {}))
-        except Exception as error:
-            value = {"updated_at": now(), "mode": "UNKNOWN", "error": str(error), "threshold_remaining_percent": 25}
-        save(c / "codex-quota.json", value)
-        print(json.dumps(value))
+        # No unlocked durable write from a child of writer/wake/reviewer.
+        print(json.dumps(fresh_quota()))
     elif args.command == "zcode-run":
         zcode_run(args.repo, args.prompt, args.output, args.events)
     elif args.command == "validate-report":
@@ -863,14 +1196,14 @@ def main():
             raise ValueError("Exact CI head SHA required")
         print(ci_status(ci_checks(args.head), args.head))
     elif args.command == "sync-master":
-        try:
+        control_paths(c)
+        with writer_lock():
             print(json.dumps(sync_master(c), ensure_ascii=False))
-        except FatalPersistence:
-            sys.exit(78)
     else:
         state, tasks = load(c / "state.json"), load(c / "queue.json")["tasks"]
         task = next(t for t in tasks if t["id"] == state["active_task_id"])
-        changed = task_changed_files(task)
+        changed = task_changed_files(task, no_renames=True)
+        scope_guard(c, task, changed)
         cheap = load(c / "review-latest.json") if (c / "review-latest.json").exists() else None
         if args.command == "review-tier":
             print("strong" if needs_strong(task, changed, cheap) else "cheap")
@@ -886,6 +1219,9 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except FatalPersistence as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(78)
     except Exception as error:
         print(str(error), file=sys.stderr)
         sys.exit(1)

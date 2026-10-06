@@ -251,7 +251,7 @@ class ControlTests(unittest.TestCase):
             root = Path(directory)
             text = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig")
             text = text.replace("$C='D:\\How_I_Fall\\agent-control'", "$C='" + directory + "'")
-            (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name), encoding="utf-8-sig")
+            (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name).replace("Local\\HowIFallWriter", "Local\\HowIFallFixtureWriter-" + root.name), encoding="utf-8-sig")
             (root/"wake-supervisor.ps1").write_text("exit 1", encoding="utf-8-sig")
             (root/"state.json").write_text(json.dumps({"status":"IDLE", "active_task_id":"preserve"}), encoding="utf-8")
             (root/"controller.json").write_text(json.dumps({"enabled":True}), encoding="utf-8")
@@ -268,7 +268,7 @@ class ControlTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="hif-dispatch-fixture-") as directory:
             root = Path(directory)
             text = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
-            (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name), encoding="utf-8-sig")
+            (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name).replace("Local\\HowIFallWriter", "Local\\HowIFallFixtureWriter-" + root.name), encoding="utf-8-sig")
             (root/"state.json").write_text(json.dumps({"status":"READY", "active_task_id":"preserve"}), encoding="utf-8")
             (root/"queue.json").write_text(json.dumps({"tasks":[{"id":"preserve","status":"READY"}]}), encoding="utf-8")
             (root/"controller.json").write_text(json.dumps({"enabled":True}), encoding="utf-8")
@@ -286,7 +286,7 @@ class ControlTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="hif-quota-fixture-") as directory:
             root=Path(directory)
             text=Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
-            (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name),encoding="utf-8-sig")
+            (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name).replace("Local\\HowIFallWriter", "Local\\HowIFallFixtureWriter-" + root.name),encoding="utf-8-sig")
             (root/"hif-worker.ps1").write_text('Write-Error usage_limit_exceeded; exit 75',encoding="utf-8-sig")
             (root/"state.json").write_text(json.dumps({"status":"PARTIAL_RETRY","active_task_id":"preserve"}),encoding="utf-8")
             (root/"queue.json").write_text(json.dumps({"tasks":[{"id":"preserve","status":"PARTIAL_RETRY","writer_engine":"Codex"}]}),encoding="utf-8")
@@ -304,13 +304,13 @@ class ControlTests(unittest.TestCase):
             root = Path(directory)
             text = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
             text = text.replace("$ErrorActionPreference='Stop'", "$ErrorActionPreference='Stop'\nfunction Set-Content { throw 'Simulated control and STOP write failure' }", 1)
-            (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name), encoding="utf-8-sig")
+            (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name).replace("Local\\HowIFallWriter", "Local\\HowIFallFixtureWriter-" + root.name), encoding="utf-8-sig")
             (root/"hif-worker.ps1").write_text("Add-Content -LiteralPath '"+str(root/"dispatches.txt")+"' 'dispatch'; Write-Error persistence_failed; exit 78", encoding="utf-8-sig")
             (root/"controller.json").write_text(json.dumps({"enabled": True}), encoding="utf-8")
             (root/"state.json").write_text(json.dumps({"status":"PARTIAL_RETRY", "active_task_id":"preserve"}), encoding="utf-8")
             (root/"queue.json").write_text(json.dumps({"tasks":[{"id":"preserve","status":"PARTIAL_RETRY","writer_engine":"Codex"}]}), encoding="utf-8")
             result = subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(root/"loop.ps1")], capture_output=True, timeout=15)
-            self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+            self.assertEqual(78, result.returncode, result.stderr.decode(errors="replace"))
             self.assertEqual(1, len((root/"dispatches.txt").read_text().splitlines()))
             self.assertFalse((root/"STOP").exists())
             self.assertEqual("preserve", c.load(root/"state.json")["active_task_id"])
@@ -351,9 +351,10 @@ class ControlTests(unittest.TestCase):
             root = Path(directory)
             source = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig")
             source = source.replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
-            (root/"loop.ps1").write_text(source.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name), encoding="utf-8-sig")
+            (root/"loop.ps1").write_text(source.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name).replace("Local\\HowIFallWriter", "Local\\HowIFallFixtureWriter-" + root.name), encoding="utf-8-sig")
             (root/"controller.json").write_text(json.dumps({"enabled":True}), encoding="utf-8")
             (root/"state.json").write_text(json.dumps({"status":"WAIT_AUTH", "active_task_id":"preserve"}), encoding="utf-8")
+            c.save(root/"queue.json", {"tasks": []})
             (root/"wake-supervisor.ps1").write_text("throw 'Unexpected auth-wait wake'", encoding="utf-8-sig")
             result = subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(root/"loop.ps1"),"-Once"], capture_output=True, timeout=15)
             self.assertEqual(0,result.returncode,result.stderr.decode(errors="replace"))
@@ -582,10 +583,9 @@ class ControlTests(unittest.TestCase):
              patch.object(c.subprocess, "check_output", side_effect=lambda argv, **kwargs: fx["git"](argv)), \
              patch.object(c, "github", side_effect=[fx["pr"], {"commit": {"sha": "c"*40}}]), \
              patch.object(c, "ci_checks", return_value=fx["checks"]), \
-             patch.object(c, "save", side_effect=OSError("disk full")):
-            with self.assertRaises(SystemExit) as caught:
+             patch.object(c, "save", side_effect=OSError("disk full")), patch.object(c, "control_paths"), patch.object(c, "writer_lock", return_value=__import__("contextlib").nullcontext()):
+            with self.assertRaises(c.FatalPersistence):
                 c.main()
-            self.assertEqual(78, caught.exception.code)
 
     def test_zcode_transport_is_edit_mode_without_shell_tools(self):
         source = Path(__file__).with_name("hif-control.py").read_text(encoding="utf-8-sig")
@@ -619,7 +619,7 @@ class ControlTests(unittest.TestCase):
     def scheduler_sync_fixture(self, directory):
         root = Path(directory)
         text = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig").replace("$C='D:\\How_I_Fall\\agent-control'", "$C='"+directory+"'")
-        (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name), encoding="utf-8-sig")
+        (root/"loop.ps1").write_text(text.replace("Local\\HowIFallSupervisorLoop", "Local\\HowIFallFixture-" + root.name).replace("Local\\HowIFallWriter", "Local\\HowIFallFixtureWriter-" + root.name), encoding="utf-8-sig")
         (root/"wake-supervisor.ps1").write_text("Add-Content '"+str(root/"wake-log.txt")+"' 'wake'", encoding="utf-8-sig")
         stub = ("import sys, json\nfrom pathlib import Path\n"
                 "c = Path(sys.argv[sys.argv.index('--control') + 1])\n"
@@ -646,6 +646,7 @@ class ControlTests(unittest.TestCase):
             (root / "events.jsonl").write_text('{"error":"You have hit your usage limit"}', encoding="utf-8")
             (root / "review.json").write_text('{"verdict":"CLEAN"}', encoding="utf-8")
             prelude = "$ErrorActionPreference='Stop'; $Strong=$true; $code=1; $C='" + directory + "'\n"
+            prelude += "function SaveReviewerState($value) {$value|ConvertTo-Json -Depth 30|Set-Content (Join-Path $C 'state.json') -Encoding UTF8}\n"
             prelude += "$Events=Join-Path $C 'events.jsonl';$Out=Join-Path $C 'review.json';$s=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8|ConvertFrom-Json\n"
             (root / "quota.ps1").write_text(prelude + guard, encoding="utf-8-sig")
             result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(root / "quota.ps1")], capture_output=True, timeout=15)
@@ -665,7 +666,8 @@ class ControlTests(unittest.TestCase):
             root = Path(directory)
             scripts = root / "tools/agent-control"
             scripts.mkdir(parents=True)
-            (scripts / "fixture.ps1").write_text("'ok'", encoding="utf-8-sig")
+            for name in ("hif-worker.ps1", "hif-reviewer.ps1", "supervisor-loop.ps1", "wake-supervisor.ps1"):
+                (scripts / name).write_text("'ok'", encoding="utf-8-sig")
             prelude = "$ErrorActionPreference='Stop'\n"
             prelude += "$Engine='ZCode'; $Repo='" + directory + "'; $LogDir=$Repo; $stamp='fixture'; $id='gate'; $base='" + "a"*40 + "'\n"
             prelude += "$Python='" + sys.executable + "'; $reportPath=Join-Path $Repo 'report.json'\n"
@@ -679,7 +681,7 @@ class ControlTests(unittest.TestCase):
                                             ("Ran 1 test in 0.01s\n\nFAILED", 1, 1),
                                             ("Ran 0 tests in 0.01s\n\nOK", 0, 1)]:
                 (root / "report.json").write_text('{"validation_complete": false}', encoding="utf-8")
-                (scripts / "test_control.py").write_text("import sys\nprint(" + repr(output) + ",file=sys.stderr)\nsys.exit(" + str(code) + ")", encoding="utf-8")
+                (root / "hif-control.py").write_text("import sys\nprint(" + repr(output) + ",file=sys.stderr)\nsys.exit(" + str(code) + ")", encoding="utf-8")
                 result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(root / "gate.ps1")], capture_output=True, timeout=30)
                 self.assertEqual(expected, result.returncode, result.stderr.decode(errors="replace"))
                 self.assertIs(c.load(root / "report.json")["validation_complete"], expected == 0)
@@ -836,10 +838,14 @@ class ControlTests(unittest.TestCase):
                 script = script.replace("Local\\HowIFallWriter", "Local\\HowIFallFixture-"+root.name)
                 script = script.replace("C:\\Users\\roman\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe", sys.executable)
                 # No real Git checkout reads/writes, quota RPC or model dispatch.
-                script = script.replace("try {", "function git { if($args -contains 'status'){return}; if($args -contains 'rev-parse'){'"+task["head_sha"]+"';return}; throw 'Unexpected Git probe' }\ntry {", 1)
+                script = script.replace("$mutex=New-Object Threading.Mutex", "function git { if($args -contains 'status'){return}; if($args -contains 'rev-parse'){'"+task["head_sha"]+"';return}; throw 'Unexpected Git probe' }\n$mutex=New-Object Threading.Mutex", 1)
                 script = script.replace("    $suffix=", "    Set-Content (Join-Path $C 'unexpected-dispatch.txt') 'DISPATCH'; exit 99\n    $suffix=", 1)
                 (root/"reviewer.ps1").write_text(script, encoding="utf-8-sig")
-                (root/"hif-control.py").write_bytes(Path(__file__).with_name("hif-control.py").read_bytes())
+                control_source = Path(__file__).with_name("hif-control.py").read_text(encoding="utf-8-sig")
+                control_source = control_source.replace('CONTROL_ROOT = "D:/How_I_Fall/agent-control"', 'CONTROL_ROOT = ' + repr(str(root)))
+                control_source = control_source.replace('print(json.dumps(boundary_scope(c, args.phase)))', 'print("SCOPE_VERIFIED") # scope mocked in old profile fixture')
+                (root/"hif-control.py").write_text(control_source, encoding="utf-8")
+                (root/"hif-batch.py").write_bytes(Path(__file__).with_name("hif-batch.py").read_bytes())
                 c.save(root/"queue.json", {"tasks": [task]})
                 c.save(root/"state.json", {"status": "REVIEW_CANDIDATE", "active_task_id": task["id"],
                                            "head_sha": task["head_sha"]})
@@ -1308,7 +1314,7 @@ class ControlTests(unittest.TestCase):
     def test_native_partial_retry_never_switches_or_transfers_head(self):
         source = Path(__file__).with_name("hif-worker.ps1").read_text(encoding="utf-8-sig")
         start = source.index("    elseif ($mode -eq 'PARTIAL_RETRY') {")
-        body = source[start:source.index("    SetProp $task 'resume_head_sha'", start)].replace("elseif", "if", 1)
+        body = source[start:source.index("    & $Python (Join-Path $PSScriptRoot 'hif-control.py') scope-check", start)].replace("elseif", "if", 1)
         with tempfile.TemporaryDirectory(prefix="hif-native-identity-fixture-") as directory:
             root = Path(directory)
             for branch, head, expected in [("codex/native", "a"*40, 0), ("other", "a"*40, 1), ("codex/native", "b"*40, 1)]:

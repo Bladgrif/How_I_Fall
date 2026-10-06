@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How I Fall • Работа агентов</title>
+<link rel="icon" href="/favicon.ico" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0b1520;
+    --bg-2: #0e1c2b;
+    --panel: rgba(148, 196, 210, 0.055);
+    --panel-border: rgba(148, 196, 210, 0.16);
+    --text: #dce8ee;
+    --muted: #8aa3b2;
+    --accent: #35c4b5;
+    --accent-2: #2a8f9e;
+    --ok: #3ddc97;
+    --warn: #f2b25c;
+    --error: #ff7b72;
+    --unknown: #93a8b6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: linear-gradient(160deg, var(--bg) 0%, var(--bg-2) 60%, #0a2230 100%);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  main, header .inner, footer { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+  header { padding: 22px 0 6px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: 0.2px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; color: #b8d2da; text-transform: uppercase; letter-spacing: 0.7px; }
+  .title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .muted { color: var(--muted); }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  .small { font-size: 12.5px; }
+  .error-text { color: var(--error); }
+  .hidden { display: none !important; }
+  #updatedLine { margin-top: 4px; font-size: 13px; }
+  .banner {
+    margin: 12px 0 4px; padding: 10px 14px; border-radius: 10px;
+    border: 1px solid rgba(255, 123, 114, 0.5);
+    background: rgba(255, 123, 114, 0.1);
+    color: #ffd3cf; font-size: 13.5px;
+  }
+  main { padding: 14px 20px 30px; }
+  section.panel, article.panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    backdrop-filter: none;
+  }
+  .grid { display: grid; gap: 16px; }
+  .quota-grid { grid-template-columns: 1fr 1fr; }
+  .two-col { grid-template-columns: 1fr 1fr; }
+  .agents-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .panel.level-warn { border-color: rgba(242, 178, 92, 0.45); }
+  .panel.level-error, .panel.level-unknown { border-color: rgba(255, 123, 114, 0.4); }
+  .panel.level-stale { border-color: rgba(242, 178, 92, 0.3); }
+
+  .pill {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .pill.ok { color: #06251c; background: linear-gradient(120deg, #3ddc97, #2bb3a3); }
+  .pill.warn { color: #33230a; background: linear-gradient(120deg, #f2b25c, #e08f3c); }
+  .pill.error { color: #350d0a; background: linear-gradient(120deg, #ff7b72, #e05a52); }
+  .pill.unknown { color: #17242e; background: linear-gradient(120deg, #93a8b6, #6d8598); }
+  .pill.info { color: var(--text); background: rgba(53, 196, 181, 0.14); border-color: rgba(53, 196, 181, 0.4); }
+  .pill.stale { color: #33230a; background: linear-gradient(120deg, #d8c08a, #b39a68); }
+
+  .quota-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .quota-source { font-size: 12.5px; }
+  .window { margin: 12px 0 4px; }
+  .window-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13.5px; }
+  .window-value { font-size: 17px; font-weight: 700; color: var(--accent); }
+  .window-value.warn { color: var(--warn); }
+  .window-value.error { color: var(--error); }
+  .bar { height: 9px; border-radius: 999px; background: rgba(148, 196, 210, 0.12); margin: 6px 0 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent-2), var(--accent)); }
+  .bar-fill.warn { background: linear-gradient(90deg, #c07f2e, var(--warn)); }
+  .bar-fill.error { background: linear-gradient(90deg, #a33f39, var(--error)); }
+  .window-reset { font-size: 12.5px; }
+  .big-unknown { font-size: 20px; font-weight: 700; color: var(--unknown); margin: 6px 0; }
+
+  .agent-card {
+    background: rgba(10, 24, 36, 0.5);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 12px 13px;
+  }
+  .agent-card .pill { margin-bottom: 8px; }
+  .agent-title { font-weight: 600; font-size: 13.5px; margin-bottom: 6px; }
+  .agent-card .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; font-size: 13.5px; }
+  .kv .k { color: var(--muted); }
+  .kv .v { overflow-wrap: anywhere; }
+  .block {
+    margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(8, 20, 30, 0.55); border: 1px solid var(--panel-border);
+    font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .block.error-block { border-color: rgba(255, 123, 114, 0.45); background: rgba(255, 123, 114, 0.08); }
+
+  .task-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  input[type="search"] {
+    flex: 1 1 260px; max-width: 380px;
+    background: rgba(8, 20, 30, 0.6); color: var(--text);
+    border: 1px solid var(--panel-border); border-radius: 10px;
+    padding: 8px 12px; font-size: 13.5px; outline: none;
+  }
+  input[type="search"]:focus { border-color: rgba(53, 196, 181, 0.6); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    padding: 4px 12px; border-radius: 999px; cursor: pointer; user-select: none;
+    border: 1px solid var(--panel-border); font-size: 12.5px; color: var(--muted);
+    background: rgba(8, 20, 30, 0.4);
+  }
+  .chip.active { color: #06251c; background: linear-gradient(120deg, var(--accent), #2bb3a3); border-color: transparent; font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(148, 196, 210, 0.1); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+  tr.group-done td { opacity: 0.62; }
+  td .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .blocker-cell { max-width: 460px; overflow-wrap: anywhere; }
+
+  .activity-row { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid rgba(148, 196, 210, 0.08); }
+  .activity-row:last-child { border-bottom: none; }
+  .activity-top { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .note-warn { color: var(--warn); font-size: 12.5px; }
+  footer { padding: 10px 20px 26px; font-size: 12.5px; }
+  body.stale main { opacity: 0.72; }
+  body.stale #livePill { color: #350d0a; background: linear-gradient(120deg, #ff7b72, #e05a52); }
+
+  @media (max-width: 980px) {
+    .agents-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 720px) {
+    .quota-grid, .two-col, .agents-grid { grid-template-columns: 1fr; }
+    .kv { grid-template-columns: 1fr; }
+    .kv .k { margin-top: 6px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <div class="title-row">
+      <h1>How I Fall • Работа агентов</h1>
+      <span id="livePill" class="pill unknown">подключение…</span>
+    </div>
+    <div id="updatedLine" class="muted">Загрузка состояния…</div>
+    <div id="banner" class="banner hidden"></div>
+  </div>
+</header>
+<main>
+  <div class="grid quota-grid">
+    <article class="panel" id="quotaGptPanel"></article>
+    <article class="panel" id="quotaGlmPanel"></article>
+  </div>
+  <section class="panel">
+    <h2>Агенты</h2>
+    <div id="agentCards" class="grid agents-grid"></div>
+  </section>
+  <div class="grid two-col">
+    <article class="panel">
+      <h2>Состояние контура</h2>
+      <div id="stateBody"></div>
+    </article>
+    <article class="panel">
+      <h2>GLM-поддержка</h2>
+      <div id="supportBody"></div>
+    </article>
+  </div>
+  <section class="panel">
+    <h2>Утренний пакет</h2>
+    <div id="batchBody"></div>
+  </section>
+  <section class="panel">
+    <h2>Очередь задач</h2>
+    <div class="task-controls">
+      <input id="search" type="search" placeholder="Поиск: название, id, статус, движок…">
+      <div id="groupChips" class="chips"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Задача</th><th>Статус</th><th>Движок</th><th>PR / head</th><th>Обновлено</th><th>Блокер / следующий шаг</th></tr>
+        </thead>
+        <tbody id="tasksBody"></tbody>
+      </table>
+    </div>
+    <div id="tasksEmpty" class="muted hidden" style="margin-top:8px;"></div>
+  </section>
+  <section class="panel">
+    <h2>Последние значимые шаги</h2>
+    <div id="activityBody"></div>
+  </section>
+  <section class="panel">
+    <h2>Легенда</h2>
+    <div id="legend" class="chips"></div>
+    <div id="idleReasons" style="margin-top:12px; font-size:13.5px;"></div>
+  </section>
+</main>
+<footer class="muted">
+  Read-only: дашборд только читает состояние контура и никогда не изменяет queue/state/controller/quota, Git и сохранения.
+  Адрес только 127.0.0.1; автообновление каждые 5 секунд.
+</footer>
+<script>
+"use strict";
+/* Все данные рендерятся только через textContent и createTextNode; разметка из данных не собирается. */
+var REFRESH_MS = 5000;
+var snapshot = null;
+var connectionOk = null;
+var lastRenderedAt = null;
+var groupFilter = "all";
+var searchText = "";
+var fetchInFlight = false;
+
+var GROUP_TITLES = { all: "Все", running: "Выполняется", review: "Ревью / CI", waiting: "Ожидание", error: "Ошибка", done: "Готово" };
+var LEVEL_PANEL = { ok: "", warn: "level-warn", stale: "level-stale", error: "level-error", unknown: "level-unknown" };
+
+function el(tag, cls, text) {
+  var node = document.createElement(tag);
+  if (cls) { node.className = cls; }
+  if (text !== undefined && text !== null) { node.textContent = String(text); }
+  return node;
+}
+function pill(text, level) { return el("span", "pill " + (level || "unknown"), text); }
+
+var fmtMoscow = new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+var fmtLocal = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+function fmtAge(seconds) {
+  if (seconds === null || seconds === undefined || isNaN(seconds)) { return "возраст неизвестен"; }
+  if (seconds < 60) { return Math.max(1, Math.round(seconds)) + " с назад"; }
+  if (seconds < 3600) { return Math.round(seconds / 60) + " мин назад"; }
+  return Math.round(seconds / 3600) + " ч назад";
+}
+function fmtEpochMoscow(epoch) {
+  if (epoch === null || epoch === undefined) { return null; }
+  return fmtMoscow.format(new Date(epoch * 1000));
+}
+function countdown(epoch) {
+  if (epoch === null || epoch === undefined) { return null; }
+  var diff = epoch - Date.now() / 1000;
+  if (diff <= 0) { return "сброс уже наступил/скоро"; }
+  var hours = Math.floor(diff / 3600);
+  var minutes = Math.floor((diff % 3600) / 60);
+  return "через " + hours + " ч " + minutes + " мин";
+}
+function setPanelLevel(node, level) {
+  node.className = "panel " + (LEVEL_PANEL[level] || "");
+}
+
+/* ---------- квоты ---------- */
+
+function renderQuotaGpt(q) {
+  var box = document.getElementById("quotaGptPanel");
+  box.replaceChildren();
+  setPanelLevel(box, q.level);
+  box.append(el("h2", null, "Codex (GPT) — лимиты аккаунта"));
+  var head = el("div", "quota-head");
+  var modePill;
+  if (q.level === "stale" || q.level === "error" || q.level === "unknown") { modePill = pill("не актуально", "warn"); }
+  else if (q.mode === "QUOTA_SAVE") { modePill = pill("QUOTA_SAVE · ≤25%", "warn"); }
+  else if (q.mode === "NORMAL") { modePill = pill("норма", "ok"); }
+  else { modePill = pill("неизвестно", "unknown"); }
+  head.append(modePill);
+  var sourceText = "источник: " + (q.source_label || "нет данных");
+  if (q.age_seconds !== null && q.age_seconds !== undefined) { sourceText += " · " + fmtAge(q.age_seconds); }
+  head.append(el("span", "muted small quota-source", sourceText));
+  box.append(head);
+
+  if (q.windows && q.windows.length) {
+    q.windows.forEach(function (w) {
+      var wrap = el("div", "window");
+      wrap.dataset.reset = w.resets_at_epoch === null ? "" : String(w.resets_at_epoch);
+      var row = el("div", "window-row");
+      row.append(el("span", null, w.label));
+      var valueCls = "window-value" + (w.remaining_percent <= 10 ? " error" : (w.remaining_percent <= 25 ? " warn" : ""));
+      var value = el("span", valueCls, "остаток " + w.remaining_percent + "%");
+      row.append(value);
+      wrap.append(row);
+      var bar = el("div", "bar");
+      var fill = el("div", "bar-fill" + (w.remaining_percent <= 10 ? " error" : (w.remaining_percent <= 25 ? " warn" : "")));
+      fill.style.width = Math.max(0, Math.min(100, w.remaining_percent)) + "%";
+      bar.append(fill);
+      wrap.append(bar);
+      wrap.append(el("div", "window-reset muted", "использовано " + w.used_percent + "% · сброс: "
+        + (fmtEpochMoscow(w.resets_at_epoch) || "время неизвестно")));
+      box.append(wrap);
+    });
+  } else {
+    box.append(el("div", "big-unknown", "НЕИЗВЕСТНО"));
+  }
+  if (q.refreshing) { box.append(el("div", "muted small", "обновление лимита в фоне…")); }
+  if (q.error) { box.append(el("div", "error-text small", "Ошибка свежего чтения: " + q.error)); }
+  if (q.level === "stale" || q.level === "unknown" || q.level === "error") {
+    box.append(el("div", "small", q.detail || "Значение не является живым; зелёным не помечается."));
+  }
+  refreshQuotaTimes();
+}
+
+function renderQuotaGlm(q, activity) {
+  var box = document.getElementById("quotaGlmPanel");
+  box.replaceChildren();
+  setPanelLevel(box, "unknown");
+  box.append(el("h2", null, "GLM (Z-Code) — лимиты"));
+  box.append(pill("остаток неизвестен", "unknown"));
+  box.append(el("div", "small muted", q.detail || "Авторитетных данных об остатке GLM нет; значение не придумывается."));
+  var usage = activity && activity.glm_usage;
+  if (usage && usage.usage) {
+    var u = usage.usage;
+    var block = el("div", "block");
+    block.append(el("div", null, "Последний завершённый Z-Code-запуск" + (usage.file ? " (" + usage.file + ")" : "") + ":"));
+    var parts = [];
+    if (u.totalTokens !== undefined) { parts.push("всего токенов " + u.totalTokens); }
+    if (u.inputTokens !== undefined) { parts.push("ввод " + u.inputTokens); }
+    if (u.outputTokens !== undefined) { parts.push("вывод " + u.outputTokens); }
+    if (u.modelRequestCount !== undefined) { parts.push("запросов к модели " + u.modelRequestCount); }
+    block.append(el("div", null, parts.join(" · ")));
+    if (usage.age_seconds !== null && usage.age_seconds !== undefined) {
+      block.append(el("div", "muted small", "завершён " + fmtAge(usage.age_seconds)));
+    }
+    block.append(el("div", "muted small", "Это известное потребление прошлого запуска, а не текущий остаток; кэшированный ввод не считается свежей тратой."));
+    box.append(block);
+  } else {
+    box.append(el("div", "muted small", "Записей о потреблении Z-Code пока нет (конверт пишется только после завершения запуска)."));
+  }
+}
+
+function refreshQuotaTimes() {
+  if (!snapshot) { return; }
+  var q = snapshot.quota_gpt;
+  if (!q || !q.windows) { return; }
+  var boxes = document.querySelectorAll("#quotaGptPanel .window");
+  q.windows.forEach(function (w, index) {
+    var node = boxes[index];
+    if (!node) { return; }
+    var resetLine = node.querySelector(".window-reset");
+    var cd = countdown(w.resets_at_epoch);
+    if (resetLine && cd) {
+      resetLine.textContent = "использовано " + w.used_percent + "% · сброс: "
+        + (fmtEpochMoscow(w.resets_at_epoch) || "время неизвестно") + " (" + cd + ")";
+    }
+  });
+}
+
+/* ---------- агенты и поддержка ---------- */
+
+function renderAgents(agents) {
+  var box = document.getElementById("agentCards");
+  box.replaceChildren();
+  agents.cards.forEach(function (card) {
+    var node = el("div", "agent-card");
+    node.append(el("div", "agent-title", card.title));
+    node.append(pill(card.status_label, card.status === "running" ? "ok" : (card.status === "stopped" ? "info" : "unknown")));
+    if (card.process) {
+      var line = "pid " + card.process.pid;
+      if (card.process.engine) { line += " · " + card.process.engine; }
+      if (card.process.created_at) { line += " · запущен " + card.process.created_at.slice(0, 19).replace("T", " "); }
+      node.append(el("div", "muted small mono", line));
+    }
+    (card.hints || []).forEach(function (hint) { node.append(el("div", "hint", hint)); });
+    box.append(node);
+  });
+}
+
+function renderSupport(support) {
+  var box = document.getElementById("supportBody");
+  box.replaceChildren();
+  var statusLevel = { running: "ok", interrupted: "error", unknown: "unknown", absent: "info" }[support.status] || "info";
+  box.append(pill(support.status_label, statusLevel));
+  var kv = el("div", "kv");
+  function addRow(key, value) {
+    if (value === null || value === undefined || value === "") { return; }
+    kv.append(el("div", "k", key));
+    kv.append(el("div", "v", value));
+  }
+  addRow("Задача", support.title || support.task_id);
+  addRow("task_id", support.task_id);
+  addRow("Движок / модель", [support.engine, support.model].filter(Boolean).join(" · "));
+  addRow("Запущена", support.started_at);
+  addRow("Ветка", support.branch);
+  addRow("Base", support.base_sha);
+  if (support.pid !== null && support.pid !== undefined) {
+    addRow("Процесс", String(support.pid) + (support.pid_alive === true ? " — жив" : (support.pid_alive === false ? " — не найден" : " — неизвестно")));
+  }
+  addRow("Отчёт", support.report_name);
+  box.append(kv);
+  if (support.receipt_error) {
+    box.append(el("div", "muted small", "Квитанция: " + support.receipt_error + "."));
+  }
+  if (support.live_process_detected && support.status !== "running") {
+    box.append(el("div", "note-warn", "Обнаружен живой GLM-процесс, но квитанция его не подтверждает."));
+  }
+  box.append(el("div", "muted small", support.disclaimer));
+}
+
+function renderState(state, controller) {
+  var box = document.getElementById("stateBody");
+  box.replaceChildren();
+  var head = el("div", null);
+  head.style.marginBottom = "8px";
+  if (state.status) {
+    head.append(pill(state.status, state.status === "DONE" || state.status === "MERGED_LOCAL_SYNC_DONE" || state.status === "ROADMAP_SYNC_READY" ? "ok"
+      : (state.status.indexOf("BLOCK") >= 0 || state.status === "NEEDS_CORRECTION" ? "error" : "info")));
+  } else {
+    head.append(pill("состояние неизвестно", "unknown"));
+  }
+  box.append(head);
+  var kv = el("div", "kv");
+  function addRow(key, value) {
+    if (value === null || value === undefined || value === "") { return; }
+    kv.append(el("div", "k", key));
+    kv.append(el("div", "v", value));
+  }
+  addRow("Активная задача", state.active_task_id);
+  addRow("Ветка", state.branch);
+  addRow("base → head", [state.base_sha, state.head_sha].filter(Boolean).join(" → "));
+  addRow("Обновлено", state.updated_at);
+  addRow("Scheduler", [controller.scheduler_mode, controller.enabled === false ? "ВЫКЛЮЧЕН (enabled=false)" : null, controller.maintenance_marker ? "MAINTENANCE" : null, controller.stop_marker ? "STOP" : null].filter(Boolean).join(" · "));
+  addRow("Native master sync", controller.native_master_sync_enabled === true ? "включён" : (controller.native_master_sync_enabled === false ? "выключен" : null));
+  box.append(kv);
+  if (state.next_action) { box.append(el("div", "block", "Следующий шаг: " + state.next_action)); }
+  if (state.last_error) { box.append(el("div", "block error-block", "Последняя ошибка: " + state.last_error)); }
+  if (state.error) { box.append(el("div", "error-text small", "Файл состояния: " + state.error)); }
+  if (controller.error) { box.append(el("div", "muted small", "controller.json: " + controller.error)); }
+}
+
+/* ---------- задачи ---------- */
+
+function renderGroupChips(groups) {
+  var box = document.getElementById("groupChips");
+  box.replaceChildren();
+  var order = ["all", "running", "review", "waiting", "error", "done"];
+  order.forEach(function (key) {
+    var count = key === "all" ? (snapshot.tasks || []).length : (groups[key] || 0);
+    var chip = el("span", groupFilter === key ? "chip active" : "chip", (GROUP_TITLES[key] || key) + " · " + count);
+    chip.addEventListener("click", function () { groupFilter = key; renderTasks(); renderGroupChips(snapshot.groups); });
+    box.append(chip);
+  });
+}
+
+function renderTasks() {
+  var body = document.getElementById("tasksBody");
+  var empty = document.getElementById("tasksEmpty");
+  body.replaceChildren();
+  var tasks = snapshot.tasks || [];
+  var queueError = snapshot.queue && snapshot.queue.error;
+  var needle = searchText.trim().toLowerCase();
+  var visible = tasks.filter(function (task) {
+    if (groupFilter !== "all" && task.group !== groupFilter) { return false; }
+    if (!needle) { return true; }
+    var haystack = [task.id, task.title, task.status, task.engine, task.model, task.branch, task.pr_number]
+      .filter(Boolean).join(" ").toLowerCase();
+    return haystack.indexOf(needle) >= 0;
+  });
+  if (!visible.length) {
+    empty.classList.remove("hidden");
+    empty.replaceChildren();
+    if (!tasks.length) {
+      empty.append(el("span", null, queueError ? ("Очередь недоступна: " + queueError) : "В очереди нет задач."));
+    } else {
+      empty.append(el("span", null, "Нет задач, подходящих под фильтр."));
+    }
+    return;
+  }
+  empty.classList.add("hidden");
+  visible.forEach(function (task) {
+    var tr = el("tr", "group-" + task.group);
+    var nameCell = el("td", null);
+    nameCell.append(el("div", null, task.title || task.id || "(без названия)"));
+    var sub = [task.id, task.risk === "high" ? "риск: high" : null, task.player_facing ? "player-facing" : null].filter(Boolean).join(" · ");
+    nameCell.append(el("div", "sub", sub));
+    if (task.is_active) { nameCell.append(el("div", "sub", "активная задача контура")); }
+    tr.append(nameCell);
+    var statusCell = el("td", null);
+    statusCell.append(pill(task.status || "неизвестно", task.group === "done" ? "ok" : (task.group === "error" ? "error" : (task.group === "running" ? "ok" : "info"))));
+    tr.append(statusCell);
+    tr.append(el("td", null, [task.engine, task.model].filter(Boolean).join(" · ") || "—"));
+    var prCell = el("td", null);
+    prCell.append(el("div", null, task.pr_number ? ("#" + task.pr_number) : "—"));
+    prCell.append(el("div", "sub mono", task.head_sha || ""));
+    tr.append(prCell);
+    tr.append(el("td", null, task.updated_at ? String(task.updated_at).slice(0, 19).replace("T", " ") : "—"));
+    var blockerCell = el("td", "blocker-cell");
+    blockerCell.append(el("div", null, task.blocker || "—"));
+    if (task.last_error) { blockerCell.append(el("div", "sub error-text", task.last_error)); }
+    tr.append(blockerCell);
+    body.append(tr);
+  });
+}
+
+/* ---------- активность ---------- */
+
+function renderActivity(activity, agents, support) {
+  var box = document.getElementById("activityBody");
+  box.replaceChildren();
+  function row(title, meta, processRunning) {
+    var wrap = el("div", "activity-row");
+    var top = el("div", "activity-top");
+    top.append(el("strong", null, title));
+    if (meta && meta.present) {
+      if (meta.last_step) {
+        top.append(el("span", null, meta.last_step.label + (meta.last_step.detail ? " (" + meta.last_step.detail + ")" : "")));
+      } else {
+        top.append(el("span", "muted", "события есть, значимый шаг не распознан"));
+      }
+      top.append(el("span", "muted small", fmtAge(meta.age_seconds) + " · " + Math.round((meta.size_bytes || 0) / 1024) + " КБ · " + meta.name));
+    } else if (meta && meta.error) {
+      top.append(el("span", "muted", meta.error));
+    } else {
+      top.append(el("span", "muted", "нет данных"));
+    }
+    wrap.append(top);
+    if (processRunning && meta && meta.present && meta.age_seconds !== null && meta.age_seconds > (activity.stale_write_note_seconds || 300)) {
+      wrap.append(el("div", "note-warn", "процесс есть, последняя запись " + fmtAge(meta.age_seconds)
+        + " — это не доказательство зависания (лог пишется порциями, у GLM — после завершения)."));
+    }
+    if (meta && meta.present && !meta.last_step && meta.size_bytes > 300 * 1024) {
+      wrap.append(el("div", "muted small", "показан ограниченный хвост файла (256 КБ)."));
+    }
+    return wrap;
+  }
+  var writerRunning = false;
+  var glmRunning = support && support.status === "running";
+  (agents.cards || []).forEach(function (card) {
+    if (card.id === "sol_writer" && card.status === "running") { writerRunning = true; }
+    if (card.id === "glm" && card.status === "running") { glmRunning = true; }
+  });
+  box.append(row("Текущая производственная задача (события writer'а)", activity.task_events, writerRunning));
+  box.append(row("GLM-поддержка (квитанция)", activity.support_events, glmRunning));
+}
+
+/* ---------- каркас ---------- */
+
+function renderLegend() {
+  var box = document.getElementById("legend");
+  box.replaceChildren();
+  var items = [
+    ["ok", "процесс работает / шаг завершён"],
+    ["info", "запускается по событию / ожидание"],
+    ["error", "остановлен, прерван или ошибка"],
+    ["unknown", "неизвестно / нет данных (никогда не зелёный)"],
+    ["warn", "QUOTA_SAVE или устаревшее значение"],
+  ];
+  items.forEach(function (item) {
+    var chip = el("span", "chip", null);
+    chip.style.cursor = "default";
+    chip.prepend(pill("●", item[0]));
+    chip.append(el("span", null, " " + item[1]));
+    box.append(chip);
+  });
+}
+
+function renderIdle(glmIdle) {
+  var box = document.getElementById("idleReasons");
+  box.replaceChildren();
+  box.append(el("strong", null, glmIdle && (glmIdle.production_running || glmIdle.support_running) ? "Активность GLM: " : "Почему GLM не выполняет производственную задачу: "));
+  var reasons = (glmIdle && glmIdle.reasons) || [];
+  if (!reasons.length) {
+    box.append(el("span", null, glmIdle && glmIdle.production_running ? "GLM выполняет производственную задачу." : (glmIdle && glmIdle.support_running ? "GLM-поддержка активна." : "Подтверждённых данных об активности нет.")));
+    return;
+  }
+  reasons.forEach(function (reason, index) {
+    if (index > 0) { box.append(el("span", null, " ")); }
+    box.append(el("span", null, reason));
+  });
+  box.append(el("div", "muted small", "Заявление «завершено/одобрено» делается только по статусу в очереди; обсуждение в чате им не является."));
+}
+
+function render(data) {
+  snapshot = data;
+  connectionOk = true;
+  lastRenderedAt = Date.now();
+  document.body.classList.remove("stale");
+  document.getElementById("banner").classList.add("hidden");
+  var livePill = document.getElementById("livePill");
+  livePill.className = "pill ok";
+  livePill.textContent = "live";
+  renderQuotaGpt(data.quota_gpt);
+  renderQuotaGlm(data.quota_glm, data.activity);
+  renderAgents(data.agents);
+  renderSupport(data.support);
+  renderState(data.state, data.controller);
+  renderBatch(data.batch);
+  renderGroupChips(data.groups);
+  renderTasks();
+  renderActivity(data.activity, data.agents, data.support);
+  renderIdle(data.glm_idle);
+  updateFreshness();
+}
+
+function markConnectionError(message) {
+  connectionOk = false;
+  document.body.classList.add("stale");
+  var livePill = document.getElementById("livePill");
+  livePill.className = "pill error";
+  livePill.textContent = "НЕ LIVE";
+  var banner = document.getElementById("banner");
+  banner.classList.remove("hidden");
+  banner.replaceChildren();
+  banner.append(el("span", null, message + " Показаны последние данные — они НЕ актуальны (не live), зелёные индикаторы не обновляются. Повтор через 5 секунд."));
+  updateFreshness();
+}
+
+function renderBatch(batch) {
+  var box = document.getElementById("batchBody");
+  box.replaceChildren();
+  batch = batch || {};
+  (batch.packets || []).forEach(function (packet) {
+    box.append(el("div", null, packet.id + " · " + packet.done + "/" + packet.total
+      + " DONE · pending " + packet.pending + " · " + packet.status + " · digest " + packet.digest));
+  });
+  if (!(batch.packets || []).length) { box.append(el("div", "muted", "Пакета ещё нет; legacy items не становятся READY автоматически.")); }
+  box.append(el("div", null, "Следующая: " + (batch.next_task || "не выбрана") + " · " + (batch.wait_reason || "ожидаем durable facts")));
+  box.append(el("div", "muted", batch.error || batch.note || "Native approval/dispatch guard обязателен."));
+}
+
+function updateFreshness() {
+  if (lastRenderedAt && Date.now() - lastRenderedAt > 15000 && connectionOk !== false) {
+    markConnectionError("Снимок устарел, таймер не доказывает связь.");
+    return;
+  }
+  var line = document.getElementById("updatedLine");
+  line.replaceChildren();
+  if (!snapshot) {
+    line.append(el("span", null, connectionOk === false ? "Данных ещё нет; сервер недоступен." : "Загрузка состояния…"));
+    return;
+  }
+  var age = lastRenderedAt ? Math.round((Date.now() - lastRenderedAt) / 1000) : null;
+  line.append(el("span", null, "Данные на " + fmtLocal.format(new Date(snapshot.generated_epoch * 1000))
+    + " (время сервера) · снимок " + (age === null ? "?" : age + " с назад")
+    + " · автообновление " + REFRESH_MS / 1000 + " с"
+    + (connectionOk === false ? " · НЕ LIVE" : "")));
+}
+
+function fetchData() {
+  if (fetchInFlight) { return; }
+  fetchInFlight = true;
+  var controller = typeof AbortController === "function" ? new AbortController() : null;
+  var timer = controller ? setTimeout(function () { controller.abort(); }, 4500) : null;
+  fetch("/api/status", { signal: controller ? controller.signal : undefined, cache: "no-store" })
+    .then(function (response) {
+      if (!response.ok) { throw new Error("сервер ответил " + response.status); }
+      return response.json();
+    })
+    .then(function (data) { render(data); })
+    .catch(function () {
+      markConnectionError("Нет связи с дашборд-сервером.");
+    })
+    .finally(function () {
+      if (timer) { clearTimeout(timer); }
+      fetchInFlight = false;
+    });
+}
+
+document.getElementById("search").addEventListener("input", function (event) {
+  searchText = event.target.value || "";
+  if (snapshot) { renderTasks(); }
+});
+
+renderLegend();
+fetchData();
+setInterval(fetchData, REFRESH_MS);
+setInterval(function () {
+  updateFreshness();
+  refreshQuotaTimes();
+}, 1000);
+</script>
+</body>
+</html>
