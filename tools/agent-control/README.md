@@ -129,10 +129,10 @@ CI poll молчит, пока актуальные classification/Unity/Gate jo
 ```json
 {
   "native_validation_profile": "hif-runtime",
-  "player_facing": true,
+  "player_facing": false,
   "native_qa": {
-    "unity": [{"mode": "PlayMode", "filter": "SaveLoadFocusOwnershipPlayModeTests"}],
-    "graphical": ["GameMenu"]
+    "unity": [{"mode": "EditMode", "filter": "InteractiveHotspotEditModeTests"}],
+    "graphical": []
   }
 }
 ```
@@ -140,18 +140,28 @@ CI poll молчит, пока актуальные classification/Unity/Gate jo
 Это пример schema, **не утверждение нового product pass**. Состояние реального
 GLM runtime/UI rollout после infrastructure acceptance — staged `NOT VERIFIED`.
 
-Whitelisted filters: `EditMode` → `InteractiveHotspotEditModeTests`,
-`SavePaginationEditModeTests`; `PlayMode` → `SaveLoadFocusOwnershipPlayModeTests`.
-Whitelisted graphical Scenario: `PlayerUi`, `GameMenu`, `SaveBackendV2`.
-До шести Unity selections и трёх Scenario, без duplicates. Player-facing обязательно
-имеет graphical selection. Ни пустой/all filter, ни regex/method/arg/command/executable,
-ни дополнительный ключ в `native_qa` не принимаются. `Smoke`, `ManualSave`, `Hotspot`
-пока закрыты: broad/unproven save isolation не обходится ради автономности.
-Расширять whitelist можно только отдельным inspected safety diff, не queue string.
+Whitelisted filters: только `EditMode` → `InteractiveHotspotEditModeTests`,
+`SavePaginationEditModeTests`. До шести Unity selections без duplicates.
+`PlayMode` и ВСЕ graphical Scenario (`PlayerUi`, `SaveBackendV2`, `GameMenu`,
+`ManualSave`, `Hotspot`) закрыты до доказанной save isolation **перед первым**
+runtime access. `SaveManager.Awake` обращается к реальному save root раньше
+`ConfigureSaveDirectoryForTests`; поздний override не является startup isolation.
+Поэтому player-facing selection сейчас fail closed: `REVIEWER VISUAL PROOF NOT AVAILABLE`,
+не запускать Unity и не выдавать candidate с неполным QA. `Smoke` также закрыт.
+Ни пустой/all filter, ни regex/method/arg/command/executable, ни дополнительный ключ
+в `native_qa` не принимаются. Открытие selections требует отдельного inspected
+safety diff с startup isolation и bounded proof affected-state coverage, не queue string.
+Это ограничение текущего staged rollout, а не утверждение GLM runtime/UI PASS.
 
 `native-plan` закрывает unknown/malformed profile до dispatch. `native-qa` читает
 одну active task identity из существующей queue/state, проверяет writer/branch/HEAD,
-неизменные approved launchers/isolation harnesses и отсутствие reparse escape.
+неизменные approved launchers/isolation harnesses и `ProjectVersion.txt`, который
+определяет installed Editor executable. До первого launcher и перед
+каждым следующим проверяются ВСЕ Unity write roots (`Assets`, `Packages`,
+`ProjectSettings`, `Library`, `Temp`, `Logs`, `UserSettings`, `obj`, `.vs`, `QAArtifacts`),
+их существующие поддеревья, root-level entries (включая IDE project files), selected
+outputs/sentinels и ancestor reparse points.
+Junction/reparse escape блокирует запуск; существующий sentinel не перезаписывается.
 Native invocation использует fixed Windows PowerShell, fixed script и args;
 `UNITY_EDITOR_PATH` override не наследуется. Flash остаётся edit/no-shell без Bash/yolo.
 Процесс запускается только в `agent`/`zagent`, никогда `develop`/`master`.
@@ -166,9 +176,16 @@ backup/restore механизм; недоказанная/destructive selection 
 
 `evidence/<task>-<run>/manifest.json`: task/base/source head, source fingerprint,
 engine/path, timestamps, fixed invocations/exit codes, SHA-256 XML/logs/sentinels
-и до трёх curated оригиналов на Scenario. Это generated control evidence, не task
-PR payload. `bind-native-proof` после native commit проверяет unchanged source
-fingerprint и связывает manifest с точным candidate head до push.
+и все relevant оригиналы на Scenario (не более трёх). Произвольная выборка
+первых/фиксированных трёх кадров из broad launcher не допускается: если весь
+required proof list не помещается в bound, launch блокируется заранее.
+Оригиналы архивируются сразу после invocation, до очистки следующего launcher.
+Это generated control evidence, не task PR payload.
+`bind-native-proof` после native commit проверяет unchanged source
+fingerprint, task/base/engine/path, точный текущий `native-plan`, successful invocations
+с exit code 0 и required originals/hashes; затем связывает manifest с точным
+candidate head до push. Эти проверки повторяются перед review/merge; изменение
+approved check selection делает старый PASS manifest непригодным.
 Missing/zero/stale proof → false completeness, `BLOCKED`, без stage/commit/push;
 implementation test/compile failure → `PARTIAL_RETRY` с correction brief/log.
 Не более двух correction попыток, SAME checkout/branch/engine/resume HEAD; drift

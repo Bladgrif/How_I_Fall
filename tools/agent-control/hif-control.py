@@ -129,20 +129,15 @@ def validate_worker_report(report):
 
 
 # Native QA extends the existing worker, not model-provided shell commands.
-# These harnesses were inspected for temp-save isolation. Unproven selections
-# (notably ManualSave, Hotspot and broad Smoke) fail closed, not 'probably safe'.
+# A PlayMode test override AFTER SaveManager.Awake is not startup isolation.
+# Keep runtime/graphical selections closed until isolation before ANY runtime
+# access and bounded affected-state screenshot coverage are proven separately.
 NATIVE_FILTERS = {
     "EditMode": ("InteractiveHotspotEditModeTests", "SavePaginationEditModeTests"),
-    "PlayMode": ("SaveLoadFocusOwnershipPlayModeTests",),
 }
-NATIVE_GRAPHICAL = {
-    "PlayerUi": ("PlayerUiGraphicalE2ERunner", "player_ui_graphical_result.txt", "PlayerUi",
-                 ("main_menu_normal_enabled_1920x1080.png", "main_menu_hover_1920x1080.png", "gameplay_dialogue_standard_1920x1080.png")),
-    "GameMenu": ("PlayerUiGraphicalE2ERunner", "player_ui_graphical_result.txt", "PlayerUi",
-                 ("game_menu_root_1920x1080.png", "game_menu_pointer_hover_quit_1920x1080.png", "game_menu_keyboard_focus_return_1920x1080.png")),
-    "SaveBackendV2": ("SaveBackendV2PlayModeE2ERunner", "save_backend_v2_playmode_result.txt", "SaveBackendV2",
-                      ("save_load_manual_1920x1080.png", "save_load_auto_1920x1080.png", "save_load_quick_1920x1080.png")),
-}
+NATIVE_GRAPHICAL = {}
+UNITY_WRITE_ROOTS = ("Assets", "Packages", "ProjectSettings", "Library", "Temp",
+                     "Logs", "UserSettings", "obj", ".vs", "QAArtifacts")
 
 
 def native_plan(task):
@@ -181,7 +176,7 @@ def native_plan(task):
         plan.append(("tools/run-unity-tests.ps1", ["-Mode", mode, "-TestFilter", test_filter]))
     for scenario in graphical:
         if not isinstance(scenario, str) or scenario not in NATIVE_GRAPHICAL:
-            raise ValueError("Unknown or unproven save isolation for Scenario")
+            raise ValueError("REVIEWER VISUAL PROOF NOT AVAILABLE: unknown/unproven startup isolation or bounded affected-state coverage for Scenario")
         plan.append(("tools/run-graphical-e2e.ps1", ["-Scenario", scenario]))
     if len({tuple(args) for _, args in plan}) != len(plan):
         raise ValueError("Duplicate native QA selection")
@@ -201,11 +196,96 @@ def bounded_path(root, relative):
         raise NativeQaError("QA path escapes bound checkout")
     # Reject junctions/reparse points too, even when they resolve inside root.
     for part in (path, *path.parents):
-        if part.exists() and (part.is_symlink() or getattr(part.lstat(), "st_file_attributes", 0) & 0x400):
+        if os.path.lexists(part) and (part.is_symlink() or getattr(part.lstat(), "st_file_attributes", 0) & 0x400):
             raise NativeQaError("QA path contains reparse point")
-        if part == root:
-            break
     return path
+
+
+def graphical_names(repo, script, scenario):
+    source = bounded_path(repo, script).read_text(encoding="utf-8-sig")
+    line = next((line for line in source.splitlines() if line.strip().startswith(scenario + " = @{")), "")
+    names = re.findall(r"'([^'/\\]+\.png)'", line)
+    # No arbitrary three-frame sample of a broad launcher: archive ALL required
+    # originals, or refuse before launch. Current production scenarios are closed.
+    if not 1 <= len(names) <= 3 or len(set(names)) != len(names):
+        raise NativeQaError("REVIEWER VISUAL PROOF NOT AVAILABLE: launcher coverage is not bounded to three originals")
+    return names
+
+
+def preflight_native_paths(repo, plan):
+    """Inspect every existing Unity write subtree and every selected output BEFORE launch."""
+    # Unity can regenerate root-level IDE/project files too. Reject root/ancestor
+    # or immediate-child links before traversing any write subtree.
+    bounded_path(repo, ".")
+    for child in Path(repo).iterdir():
+        bounded_path(repo, child.name)
+    for relative in UNITY_WRITE_ROOTS:
+        root = bounded_path(repo, relative)
+        if root.exists() and not root.is_dir():
+            raise NativeQaError("Unity write root is not a directory: " + relative)
+        pending = [root] if root.exists() else []
+        while pending:
+            for child in pending.pop().iterdir():
+                path = bounded_path(repo, child.relative_to(repo))
+                if path.is_dir():
+                    pending.append(path)
+    outputs = ["Temp/CodexTests"]
+    for script, args in plan:
+        if args[0] == "-Mode":
+            stem = "Temp/CodexTests/" + args[1] + "_" + args[3]
+            outputs.extend((stem + ".log", stem + "_results.xml"))
+        else:
+            _, sentinel, directory = NATIVE_GRAPHICAL[args[1]]
+            outputs.extend(("Temp/CodexTests/graphical_preflight.log",
+                            "Temp/CodexTests/graphical_" + args[1] + ".log",
+                            sentinel, "QAArtifacts/GraphicalE2E/" + directory))
+            if bounded_path(repo, sentinel).exists():
+                raise NativeQaError("Existing sentinel would be overwritten; preserve and block")
+            outputs.extend("QAArtifacts/GraphicalE2E/" + directory + "/" + name
+                           for name in graphical_names(repo, script, args[1]))
+    for relative in outputs:
+        bounded_path(repo, relative)
+
+
+def native_selection(plan):
+    return [dict(launcher=script, arguments=args) for script, args in plan]
+
+
+def native_selection_ok(proof, task):
+    selection = native_selection(native_plan(task))
+    invocations = proof.get("invocations")
+    if (proof.get("selection") != selection or not isinstance(invocations, list)
+            or len(invocations) != len(selection) or not selection):
+        raise ValueError("Native proof selection differs from current approved plan")
+    for expected, actual in zip(selection, invocations):
+        if (not isinstance(actual, dict) or set(actual) != {"launcher", "arguments", "exit_code"}
+                or actual["launcher"] != expected["launcher"] or actual["arguments"] != expected["arguments"]
+                or type(actual["exit_code"]) is not int or actual["exit_code"] != 0):
+            raise ValueError("Native proof lacks exact successful launcher invocation")
+
+
+def native_originals_ok(proof, task, evidence):
+    files = proof.get("files")
+    if not isinstance(files, list) or not files:
+        raise ValueError("Missing native originals")
+    names = [entry["filename"] for entry in files]
+    if len(names) != len(set(names)):
+        raise ValueError("Duplicate native originals")
+    for entry in files:
+        original = bounded_path(evidence, entry["filename"])
+        if original.stat().st_size != entry["bytes"] or sha256(original) != entry["sha256"]:
+            raise ValueError("Native original hash/size mismatch")
+    for index, (script, args) in enumerate(native_plan(task)):
+        label = str(index) + "-" + args[1]
+        required = [label + "-transport.log", label + ".log"]
+        if args[0] == "-Mode":
+            required.append(label + ".xml")
+            unity_xml_ok(bounded_path(evidence, label + ".xml"))
+        else:
+            required.extend((label + "-preflight.log", label + "-result.txt"))
+            required.extend(label + "-" + name for name in graphical_names(task["writer_path"], script, args[1]))
+        if not set(required).issubset(names):
+            raise ValueError("Missing selected invocation originals")
 
 
 def sha256(path):
@@ -267,6 +347,7 @@ def native_qa(task, control):
     manifest = dict(task_id=task["id"], base_sha=task["base_sha"], source_head_sha=head,
                     writer_engine=task["writer_engine"], writer_path=str(repo), started_at=now(),
                     source_fingerprint=source_fingerprint(repo, task["base_sha"]),
+                    selection=native_selection(plan),
                     status="BLOCKED", validation_complete=False, invocations=[], files=[],
                     visual_inspection="NOT VERIFIED: independent Sol High owns inspection", remote_proof="NOT VERIFIED")
     manifest_path = evidence / "manifest.json"
@@ -279,6 +360,8 @@ def native_qa(task, control):
     try:
         # Validate every harness before the first launch. No execution of modified
         # scripts or isolation harnesses supplied by the writer.
+        # This input controls the existing launcher's installed Unity executable.
+        unchanged_harness(repo, task["base_sha"], "ProjectSettings/ProjectVersion.txt")
         for script, args in plan:
             unchanged_harness(repo, task["base_sha"], script)
             if args[0] == "-Mode":
@@ -286,7 +369,10 @@ def native_qa(task, control):
             else:
                 runner = NATIVE_GRAPHICAL[args[1]][0]
                 unchanged_harness(repo, task["base_sha"], "Assets/HowIFall/Editor/" + runner + ".cs")
+        preflight_native_paths(repo, plan)
         for index, (script, args) in enumerate(plan):
+            # Recheck the complete selection, not just this invocation's files.
+            preflight_native_paths(repo, plan)
             label = str(index) + "-" + args[1]
             started = time.time_ns()
             exe = str(Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe")
@@ -311,7 +397,7 @@ def native_qa(task, control):
                 unity_xml_ok(xml)
             else:
                 scenario = args[1]
-                _, sentinel_name, directory, curated = NATIVE_GRAPHICAL[scenario]
+                _, sentinel_name, directory = NATIVE_GRAPHICAL[scenario]
                 preflight = fresh_artifact(repo, "Temp/CodexTests/graphical_preflight.log", started)
                 archive(preflight, label + "-preflight.log")
                 if re.search(r"error CS\d+:", preflight.read_text(encoding="utf-8-sig", errors="replace")):
@@ -331,19 +417,14 @@ def native_qa(task, control):
                     raise NativeQaError("PlayerPrefs restoration proof missing")
                 # Use ALL required names from the unchanged existing launcher,
                 # not a model claim or a universal screenshot proof platform.
-                source = bounded_path(repo, script).read_text(encoding="utf-8-sig")
-                line = next(line for line in source.splitlines() if line.strip().startswith(scenario + " = @{"))
-                names = re.findall(r"'([^'/\\]+\.png)'", line)
-                if not names:
-                    raise NativeQaError("Graphical launcher proof list missing")
+                names = graphical_names(repo, script, scenario)
                 for name in names:
                     png = fresh_artifact(repo, "QAArtifacts/GraphicalE2E/" + directory + "/" + name, started)
                     data = png.read_bytes()
                     size = (1920, 1080) if "1920x1080" in name else (1280, 720)
                     if data[:8] != b"\x89PNG\r\n\x1a\n" or len(data) < 24 or struct.unpack(">II", data[16:24]) != size:
                         raise NativeQaError("Malformed/wrong-size graphical original: " + name)
-                    if name in curated:
-                        archive(png, label + "-" + name)
+                    archive(png, label + "-" + name)
             if run.returncode:
                 raise NativeQaError("Native launcher exit failure", retryable=True)
         if (git_output(repo, "rev-parse", "HEAD") != head or git_output(repo, "branch", "--show-current") != task["branch"]
@@ -386,14 +467,11 @@ def native_proof_ok(task, require_remote=True, control="D:/How_I_Fall/agent-cont
     if (proof.get("status") != "PASS" or proof.get("validation_complete") is not True
             or proof.get("task_id") != task["id"] or proof.get("base_sha") != task["base_sha"]
             or proof.get("source_head_sha") != task["head_sha"] or proof.get("writer_engine") != "ZCode"
+            or Path(proof.get("writer_path", "")).resolve() != Path(task["writer_path"]).resolve()
             or proof.get("source_fingerprint") != source_fingerprint(task["writer_path"], task["base_sha"])):
         raise ValueError("Missing/stale/incomplete native QA manifest")
-    if not proof.get("files") or not proof.get("invocations"):
-        raise ValueError("Missing native originals/invocations")
-    for entry in proof["files"]:
-        original = bounded_path(path.parent, entry["filename"])
-        if sha256(original) != entry["sha256"]:
-            raise ValueError("Native original hash mismatch")
+    native_selection_ok(proof, task)
+    native_originals_ok(proof, task, path.parent)
     if task["native_qa"]["graphical"] and require_remote:
         receipt = task.get("native_remote_proof", {})
         if (receipt.get("head_sha") != task["head_sha"] or receipt.get("manifest_sha256") != sha256(path)
@@ -412,11 +490,11 @@ def native_proof_ok(task, require_remote=True, control="D:/How_I_Fall/agent-cont
 def native_proof_status(task, control="D:/How_I_Fall/agent-control"):
     try:
         native_proof_ok(task, require_remote=False, control=control)
-    except (ValueError, OSError, KeyError) as error:
+    except (ValueError, OSError, KeyError, ET.ParseError) as error:
         return dict(status="BLOCKED", error=str(error))
     try:
         native_proof_ok(task, control=control)
-    except (ValueError, OSError, KeyError) as error:
+    except (ValueError, OSError, KeyError, ET.ParseError) as error:
         return dict(status="WAIT_VISUAL_PROOF", error=str(error))
     return dict(status="READY")
 
@@ -736,7 +814,14 @@ def main():
             path = bounded_path(c, relative)
             proof = load(path)
             head = git_output(task["writer_path"], "rev-parse", "HEAD")
-            if proof["status"] != "PASS" or source_fingerprint(task["writer_path"], task["base_sha"]) != proof["source_fingerprint"]:
+            native_selection_ok(proof, task)
+            native_originals_ok(proof, task, path.parent)
+            if (proof.get("status") != "PASS" or proof.get("validation_complete") is not True
+                    or proof.get("task_id") != task["id"] or proof.get("base_sha") != task["base_sha"]
+                    or proof.get("source_head_sha") != task["resume_head_sha"]
+                    or proof.get("writer_engine") != task["writer_engine"]
+                    or Path(proof.get("writer_path", "")).resolve() != Path(task["writer_path"]).resolve()
+                    or source_fingerprint(task["writer_path"], task["base_sha"]) != proof.get("source_fingerprint")):
                 raise ValueError("Cannot bind incomplete/drifted native QA to committed head")
             proof["source_head_sha"] = head
             save(path, proof)

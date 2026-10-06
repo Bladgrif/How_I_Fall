@@ -761,7 +761,7 @@ class ControlTests(unittest.TestCase):
         for repo in ("D:/How_I_Fall/develop", "D:/How_I_Fall/master", "D:/How_I_Fall/zagent/../develop", "D:/How_I_Fall/zagent-extra", "D:/How_I_Fall/agent"):
             with self.assertRaises(ValueError):
                 c.native_plan(self.native_task(writer_path=repo))
-        for scenario in ("ManualSave", "Hotspot", "Unknown", "PlayerUi -nographics", "../PlayerUi"):
+        for scenario in ("PlayerUi", "SaveBackendV2", "GameMenu", "ManualSave", "Hotspot", "Unknown", "PlayerUi -nographics", "../PlayerUi"):
             task = self.native_task()
             task["native_qa"]["graphical"] = [scenario]
             with self.assertRaises(ValueError):
@@ -780,7 +780,21 @@ class ControlTests(unittest.TestCase):
                 if failed:
                     self.assertTrue(caught.exception.retryable)
 
-    def native_fixture(self, *, graphical=False, fault=None):
+    def test_native_late_save_overrides_fail_closed_before_any_process(self):
+        self.assertEqual({}, c.NATIVE_GRAPHICAL)
+        tasks = [self.native_task(native_qa={"unity": [{"mode": "PlayMode", "filter": "SaveLoadFocusOwnershipPlayModeTests"}], "graphical": []})]
+        for scenario in ("PlayerUi", "SaveBackendV2", "GameMenu"):
+            task = self.native_task(player_facing=True)
+            task["native_qa"]["graphical"] = [scenario]
+            tasks.append(task)
+        for task in tasks:
+            with patch.object(c.subprocess, "run") as process, patch.object(c.subprocess, "check_output") as git:
+                with self.assertRaises(ValueError):
+                    c.native_qa(task, "unused")
+                process.assert_not_called()
+                git.assert_not_called()
+
+    def native_fixture(self, *, graphical=False, fault=None, repeat_graphical=False):
         directory = tempfile.TemporaryDirectory(prefix="hif-native-fixture-")
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
@@ -789,11 +803,18 @@ class ControlTests(unittest.TestCase):
         task = self.native_task(player_facing=graphical)
         if graphical:
             task["native_qa"]["graphical"] = ["GameMenu"]
-        plan = c.native_plan(task)
+        graphical_fixture = {"GameMenu": ("PlayerUiGraphicalE2ERunner", "player_ui_graphical_result.txt", "PlayerUi")}
+        with patch.object(c, "NATIVE_GRAPHICAL", graphical_fixture):
+            plan = c.native_plan(task)
+        if repeat_graphical:
+            # Fixture-only replay simulates later launcher cleanup of shared output.
+            # Duplicate selection is still prohibited by the real native_plan.
+            plan.append(plan[-1])
         task["writer_path"] = str(repo)  # Fixture-only path injection AFTER real policy check.
         (repo / "tools").mkdir()
-        source = Path(__file__).parents[1] / "run-graphical-e2e.ps1"
-        (repo / "tools/run-graphical-e2e.ps1").write_bytes(source.read_bytes())
+        # Fixture-only bounded list, NEVER a production startup isolation claim.
+        mock_source = "GameMenu = @{ ProofFiles = @('game_menu_root_1920x1080.png', 'game_menu_pointer_hover_quit_1920x1080.png', 'game_menu_keyboard_focus_return_1920x1080.png') }"
+        (repo / "tools/run-graphical-e2e.ps1").write_text(mock_source)
         calls = []
 
         def process(argv, **kwargs):
@@ -817,29 +838,37 @@ class ControlTests(unittest.TestCase):
                     result = "Failed" if failed == "1" else "Passed"
                     write(stem + "_results.xml", f'<test-run total="{total}" passed="1" failed="{failed}" result="{result}"><test-case result="{result}"/></test-run>'.encode())
             else:
+                proof_dir = repo / "QAArtifacts/GraphicalE2E/PlayerUi"
+                if proof_dir.exists():
+                    for previous in proof_dir.iterdir():
+                        previous.unlink()  # Only generated fixture originals.
                 write("Temp/CodexTests/graphical_GameMenu.log", b"Graphical log")
                 write("Temp/CodexTests/graphical_preflight.log", b"Preflight")
                 if fault != "missing-sentinel":
                     write("player_ui_graphical_result.txt", b"status=PASS\nplayerPrefsRestored=true\n")
                 import re
-                line = next(line for line in source.read_text().splitlines() if line.strip().startswith("GameMenu = @{"))
+                line = next(line for line in mock_source.splitlines() if line.strip().startswith("GameMenu = @{"))
                 for i, name in enumerate(re.findall(r"'([^'/\\]+\.png)'", line)):
                     if fault == "missing-png" and i == 0:
                         continue
                     size = (1920, 1080) if "1920x1080" in name else (1280, 720)
                     if fault == "wrong-size":
                         size = (2, 2)
-                    write("QAArtifacts/GraphicalE2E/PlayerUi/" + name, b"\x89PNG\r\n\x1a\n" + b"\0"*8 + struct.pack(">II", *size))
+                    write("QAArtifacts/GraphicalE2E/PlayerUi/" + name, b"\x89PNG\r\n\x1a\n" + b"\0"*8 + struct.pack(">II", *size) + str(len(calls)).encode())
             return subprocess.CompletedProcess(argv, 1 if fault == "exit" else 0, b"native fixture", b"")
 
         def git(_, *args):
             return {("rev-parse", "HEAD"):"a"*40, ("branch", "--show-current"):"codex/native",
                     ("rev-parse", "--show-toplevel"):str(repo)}[args]
 
+        def harness(_, base, relative):
+            if fault == "version" and relative == "ProjectSettings/ProjectVersion.txt":
+                raise c.NativeQaError("Unapproved Unity executable version input")
+
         def run():
-            with patch.object(c, "native_plan", return_value=plan), patch.object(c, "git_output", side_effect=git), \
+            with patch.object(c, "NATIVE_GRAPHICAL", graphical_fixture), patch.object(c, "native_plan", return_value=plan), patch.object(c, "git_output", side_effect=git), \
                  patch.object(c, "source_fingerprint", return_value="fingerprint"), \
-                 patch.object(c, "unchanged_harness", return_value=None), patch.object(c.subprocess, "run", side_effect=process), \
+                 patch.object(c, "unchanged_harness", side_effect=harness), patch.object(c.subprocess, "run", side_effect=process), \
                  patch.dict(os.environ, SystemRoot="C:/Windows", UNITY_EDITOR_PATH="evil.exe"):
                 return c.native_qa(task, root)
         return task, calls, run, root
@@ -881,6 +910,21 @@ class ControlTests(unittest.TestCase):
             self.assertEqual("BLOCKED", outcome["status"], fault)
             self.assertIs(False, outcome["validation_complete"])
 
+    def test_native_originals_archived_before_later_shared_launcher_cleanup(self):
+        task, calls, run, _ = self.native_fixture(graphical=True, repeat_graphical=True)
+        outcome = run()
+        self.assertEqual("PASS", outcome["status"])
+        self.assertEqual(3, len(calls))
+        evidence = Path(outcome["manifest_path"]).parent
+        originals = [entry for entry in outcome["files"] if entry["filename"].endswith(".png")]
+        self.assertEqual(6, len(originals))
+        for entry in originals:
+            expected_run = b"2" if entry["filename"].startswith("1-") else b"3"
+            self.assertTrue((evidence / entry["filename"]).read_bytes().endswith(expected_run))
+            self.assertEqual(entry["sha256"], c.sha256(evidence / entry["filename"]))
+        live = Path(task["writer_path"]) / "QAArtifacts/GraphicalE2E/PlayerUi/game_menu_root_1920x1080.png"
+        self.assertTrue(live.read_bytes().endswith(b"3"))
+
     def test_native_changed_harness_rejected_and_path_escape_rejected(self):
         with tempfile.TemporaryDirectory(prefix="hif-harness-fixture-") as directory:
             root = Path(directory)
@@ -890,6 +934,118 @@ class ControlTests(unittest.TestCase):
                     c.unchanged_harness(root, "a"*40, "launcher.ps1")
             with self.assertRaises(c.NativeQaError):
                 c.bounded_path(root, "../escape")
+
+    @unittest.skipUnless(os.name == "nt", "Windows junction escape preflight")
+    def test_native_all_write_roots_and_later_graphical_outputs_preflight_zero_launches(self):
+        paths = list(c.UNITY_WRITE_ROOTS) + ["Library/nested", "Temp/CodexTests", "QAArtifacts/GraphicalE2E/PlayerUi"]
+        for relative in paths:
+            task, calls, run, control = self.native_fixture(graphical=True)
+            repo = Path(task["writer_path"])
+            link = repo / relative
+            target = control / "outside-writer"
+            target.mkdir()
+            link.parent.mkdir(parents=True, exist_ok=True)
+            result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(link), str(target)], capture_output=True)
+            self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+            try:
+                outcome = run()
+                self.assertEqual("BLOCKED", outcome["status"], relative)
+                self.assertFalse(outcome["validation_complete"])
+                self.assertEqual([], calls, relative)
+                self.assertEqual([], list(target.iterdir()))
+            finally:
+                link.rmdir()  # Remove the fixture junction itself, NEVER its target.
+
+    def test_native_reparse_output_files_and_sentinel_preflight_zero_launches(self):
+        from types import SimpleNamespace
+        for relative in ("Temp/CodexTests/EditMode_InteractiveHotspotEditModeTests_results.xml",
+                         "Temp/CodexTests/EditMode_InteractiveHotspotEditModeTests.log",
+                         "Temp/CodexTests/graphical_preflight.log", "player_ui_graphical_result.txt", "Assembly-CSharp.csproj"):
+            task, calls, run, _ = self.native_fixture(graphical=True)
+            file = Path(task["writer_path"]) / relative
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(b"preserved fixture")
+            original_lstat = Path.lstat
+            def lstat(path):
+                result = original_lstat(path)
+                return SimpleNamespace(st_file_attributes=0x400, st_mode=result.st_mode) if path == file else result
+            with patch.object(Path, "lstat", lstat):
+                outcome = run()
+            self.assertEqual("BLOCKED", outcome["status"], relative)
+            self.assertEqual([], calls)
+            self.assertEqual(b"preserved fixture", file.read_bytes())
+
+    def test_native_version_executable_input_must_match_approved_base_before_launch(self):
+        _, calls, run, _ = self.native_fixture(fault="version")
+        outcome = run()
+        self.assertEqual("BLOCKED", outcome["status"])
+        self.assertFalse(outcome["validation_complete"])
+        self.assertEqual([], calls)
+
+    def test_native_existing_sentinel_and_unbounded_graphical_coverage_zero_launches(self):
+        for fault in ("existing-sentinel", "broad-coverage"):
+            task, calls, run, _ = self.native_fixture(graphical=True)
+            repo = Path(task["writer_path"])
+            if fault == "existing-sentinel":
+                (repo / "player_ui_graphical_result.txt").write_bytes(b"do not overwrite")
+            else:
+                # Actual existing broad launcher cannot be sampled arbitrarily.
+                (repo / "tools/run-graphical-e2e.ps1").write_bytes((Path(__file__).parents[1] / "run-graphical-e2e.ps1").read_bytes())
+            outcome = run()
+            self.assertEqual("BLOCKED", outcome["status"])
+            self.assertEqual([], calls)
+            self.assertFalse(outcome["validation_complete"])
+            if fault == "broad-coverage":
+                self.assertIn("REVIEWER VISUAL PROOF NOT AVAILABLE", outcome["error"])
+
+    def test_native_stale_pass_rejected_when_current_selection_or_invocation_changes(self):
+        task, _, run, control = self.native_fixture()
+        outcome = run()
+        path = Path(outcome["manifest_path"])
+        outcome["source_head_sha"] = task["head_sha"]
+        task["native_validation_manifest"] = str(path)
+        original_plan = [(entry["launcher"], entry["arguments"]) for entry in outcome["selection"]]
+        with patch.object(c, "native_plan", return_value=original_plan) as planner, \
+             patch.object(c, "source_fingerprint", return_value="fingerprint"):
+            c.save(path, outcome)
+            c.native_proof_ok(task, control=control)
+            changed_plan = [("tools/run-unity-tests.ps1", ["-Mode", "EditMode", "-TestFilter", "SavePaginationEditModeTests"])]
+            for plan in (changed_plan, original_plan + changed_plan, []):
+                planner.return_value = plan
+                self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+            planner.return_value = original_plan
+            for invocations in ([], [dict(outcome["invocations"][0], exit_code=1)],
+                                [dict(outcome["invocations"][0], exit_code=False)],
+                                [dict(outcome["invocations"][0], arguments=["-Mode", "Smoke"])],
+                                outcome["invocations"] * 2):
+                c.save(path, dict(outcome, invocations=invocations))
+                self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+            c.save(path, dict(outcome, selection=[]))
+            self.assertEqual("BLOCKED", c.native_proof_status(task, control=control)["status"])
+
+    def test_native_bind_rejects_changed_plan_failure_or_missing_originals_before_write(self):
+        task, _, run, control = self.native_fixture()
+        outcome = run()
+        path = Path(outcome["manifest_path"])
+        task["native_validation_manifest"] = str(path)
+        c.save(control/"queue.json", {"tasks": [task]})
+        c.save(control/"state.json", {"active_task_id": task["id"]})
+        plan = [(entry["launcher"], entry["arguments"]) for entry in outcome["selection"]]
+        with patch.object(sys, "argv", ["hif-control.py", "bind-native-proof", "--control", str(control)]), \
+             patch.object(c, "native_plan", return_value=plan), \
+             patch.object(c, "source_fingerprint", return_value="fingerprint"), \
+             patch.object(c, "git_output", return_value=task["head_sha"]):
+            for change in ({"selection": []}, {"validation_complete": False},
+                           {"invocations": [dict(outcome["invocations"][0], exit_code=1)]},
+                           {"files": outcome["files"][:1]}):
+                c.save(path, dict(outcome, **change))
+                before = path.read_bytes()
+                with self.assertRaises((ValueError, OSError)):
+                    c.main()
+                self.assertEqual(before, path.read_bytes())
+            c.save(path, outcome)
+            c.main()
+            self.assertEqual(task["head_sha"], c.load(path)["source_head_sha"])
 
     def test_native_two_corrections_then_block_exact_identity_retained(self):
         task = self.native_task()
@@ -931,7 +1087,8 @@ class ControlTests(unittest.TestCase):
         outcome["source_head_sha"] = task["head_sha"]
         c.save(path, outcome)
         task["native_validation_manifest"] = str(path)
-        with patch.object(c, "native_plan", return_value=[]), patch.object(c, "source_fingerprint", return_value="fingerprint"):
+        plan = [(entry["launcher"], entry["arguments"]) for entry in outcome["selection"]]
+        with patch.object(c, "native_plan", return_value=plan), patch.object(c, "source_fingerprint", return_value="fingerprint"):
             self.assertEqual("WAIT_VISUAL_PROOF", c.native_proof_status(task, control=control)["status"])
             outcome["validation_complete"] = False
             c.save(path, outcome)
@@ -986,7 +1143,7 @@ class ControlTests(unittest.TestCase):
         outcome["source_head_sha"] = task["head_sha"]
         c.save(manifest, outcome)
         task["native_validation_manifest"] = str(manifest)
-        plan = [("tools/run-graphical-e2e.ps1", ["-Scenario", "GameMenu"])]
+        plan = [(entry["launcher"], entry["arguments"]) for entry in outcome["selection"]]
         with patch.object(c, "native_plan", return_value=plan), patch.object(c, "source_fingerprint", return_value="fingerprint"):
             with self.assertRaises(ValueError):
                 c.native_proof_ok(task, control=control)

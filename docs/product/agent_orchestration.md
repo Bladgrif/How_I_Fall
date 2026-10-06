@@ -201,15 +201,25 @@ arguments. Flash остаётся Z-Code edit/no-shell/Max, Sol writer flow не
 Native worker запускает только существующие `run-unity-tests.ps1` и
 `run-graphical-e2e.ps1` в bound `writer_path` (`agent`/`zagent`); launcher'ы и
 изолирующие QA harnesses не должны отличаться от approved base. `develop`/`master`
-не используются для QA. Только inspected temp-save harnesses включаются в whitelist;
-без доказанной isolation/backup/restore destructive selection блокируется.
+не используются для QA. Сейчас whitelist открыт только для двух `EditMode`
+filters. `PlayMode` и все
+graphical Scenario закрыты: temp-save override после `SaveManager.Awake` не
+изолирует первый runtime access. Без доказанной startup isolation/backup/restore
+selection не запускается; player-facing proof явно unavailable. Открывать эти
+selections можно только отдельным inspected safety diff, не строкой из queue.
 
 Exit 0 не proof: обязательны fresh log, XML с nonzero executed totals без failures,
 для graphical — preflight log, PASS sentinel, restoration evidence и все свежие
 оригиналы из списка существующего launcher'а. Standard proof — 1920x1080 без
 `-nographics`; existing responsive checks launcher'а не удаляются и не расширяются.
 Native manifest связывает task/base/head, source fingerprint, invocations и SHA-256;
-публикуется небольшой набор (до трёх оригиналов на Scenario), не весь `QAArtifacts`.
+manifest обязан совпадать с текущим `native-plan` и exact successful invocations
+(exit 0), в том числе при binding после commit. Перед любым launch проверяются все
+Unity write roots/subtrees, outputs, sentinels и ancestors на containment/reparse.
+Публикуются все relevant оригиналы bounded launcher (до трёх на Scenario), не
+произвольная выборка из broad proof list и не весь `QAArtifacts`. Если bound и
+coverage невозможно обеспечить, `REVIEWER VISUAL PROOF NOT AVAILABLE`, no launch;
+оригиналы архивируются до последующей launcher cleanup.
 
 `validation_complete` native manifest означает выполненные machine checks, НЕ
 visual PASS. При отсутствующем local proof он всегда false, transport запрещён.

@@ -100,6 +100,15 @@ Google Drive хранит историю benchmark-driven проходов; не
 
 Следующая задача не выбирается только по памяти чата. При расхождении repository и Drive предпочитается repository, после чего Drive приводится в соответствие при доступной записи; недоступная запись фиксируется как stale и не блокирует `DONE`.
 
+Native GLM acceptance сейчас разрешает только whitelisted `EditMode` checks;
+`PlayMode` и все graphical selections fail closed до доказанной изоляции saves
+перед первым runtime access. Поздний test override не доказывает startup safety.
+Недоказанное bounded affected-state coverage также означает
+`REVIEWER VISUAL PROOF NOT AVAILABLE`, без запуска/merge. Старый PASS manifest
+непригоден при изменении approved `native-plan` или отсутствии exact successful
+invocations/required originals. Synthetic fixture images не являются visual proof
+настоящей production-задачи; staged runtime/UI rollout остаётся `NOT VERIFIED`.
+
 ## Разделение ролей
 
 - **Codex:** implementation, автоматические тесты, объективный graphical QA и screenshot proof; при доступном настроенном канале — доставка review screenshots на Drive.
