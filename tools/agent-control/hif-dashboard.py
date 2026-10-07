@@ -5,9 +5,11 @@ D:/How_I_Fall/agent-control и никогда не пишет queue/state/contro
 codex-quota файлы, Git и сохранения. Живая квота GPT берётся из уже
 установленного hif-control.py (codex_rpc + quota_result), кэш только в памяти;
 обновление — throttled single-flight не чаще 60 c, UI не блокируется.
-Остаток квоты GLM честно неизвестен: поддерживаемого источника остатка
-подписки Z-Code Coding Plan без учётных данных нет (см. glm_quota_snapshot),
-расход отдельных запросов остатком не считается.
+Остаток GLM читается из agent-control/glm-quota.json, который пишет отдельный
+opt-in хелпер hif-glm-quota.py (свой запрос к api.z.ai с coding-plan api-key);
+сам дашборд учётные данные не читает и процессов не запускает. Без свежего
+снимка остаток GLM честно неизвестен, расход отдельных запросов остатком
+не считается.
 Никаких mutation/execute маршрутов: только /, /api/status, /health, favicon.
 """
 import argparse
@@ -35,6 +37,7 @@ PROCESS_HELPER_TIMEOUT = 10.0
 EVENT_TAIL_MAX_BYTES = 256 * 1024
 GLM_USAGE_RECHECK_INTERVAL = 60.0
 GLM_LEGACY_SCAN_FILES = 4
+GLM_QUOTA_FILE_STALE_SECONDS = 900.0
 STALE_WRITE_NOTE_SECONDS = 300.0
 SUPPORT_RUNNING_STATUSES = {"SUPPORT_RUNNING", "RUNNING", "IN_PROGRESS"}
 GROUP_ORDER = ("running", "review", "waiting", "error", "done", "unknown")
@@ -159,42 +162,109 @@ def default_quota_rpc(module_path=DEFAULT_CONTROL_MODULE):
 
 
 GLM_QUOTA_PROVIDER_LABEL = "GLM-5.3-Flash (аккаунт Z-Code Coding Plan)"
-# Проверено 2026-10-07 против ZCode CLI/desktop 0.16.9: поддерживаемого способа
-# прочитать остаток подписки без учётных данных нет. Список фиксированный и
-# документирует проверенные источники; runtime-проверок учётных данных нет и не
-# будет — дашборд read-only и не извлекает secrets/token'ы.
+# Остаток GLM попадает в дашборд только через снимок glm-quota.json, который
+# пишет отдельный opt-in хелпер hif-glm-quota.py (свой запрос к
+# api.z.ai/api/monitor/usage/quota/limit с coding-plan api-key из хранилища
+# ZCode). Сам dashboard процесс учётные данные не читает и хелпер не запускает.
+# Список ниже документирует, почему без снимка остаток не показывается.
 GLM_QUOTA_CHECKED_SOURCES = (
+    {"name": "glm-quota.json (хелпер hif-glm-quota.py)", "result": "основной источник",
+     "reason": "снимок авторитетного API; пишется пользователем/планировщиком вручную"},
     {"name": "app-server usage/stats", "result": "не остаток",
      "reason": "локальная статистика расхода запросов (agent-db), а не остаток подписки"},
     {"name": "app-server session/usage", "result": "не остаток",
      "reason": "расход одной сессии, а не остаток подписки"},
     {"name": "~/.zcode/v2/coding-plan-cache.json", "result": "не остаток",
      "reason": "только статусы доступности планов, без остатка и времени сброса"},
-    {"name": "api.z.ai/api/monitor/usage/quota/limit", "result": "недоступен",
-     "reason": "авторитетный источник остатка, но требует OAuth-токен из хранилища "
-               "учётных данных desktop-приложения; извлечение учётных данных запрещено"},
 )
 
 
-def glm_quota_snapshot():
-    """Честный блок GLM-квоты без авторитетного источника остатка.
-
-    Остаток не придумывается и зелёным не помечается; расход отдельных
-    запросов (activity.glm_usage) остатком подписки не считается.
-    """
+def glm_quota_unknown(level="unknown", detail=None, error=None):
+    detail = detail or ("Остаток квоты GLM неизвестен: свежего снимка glm-quota.json нет; "
+                        "значение не придумывается и не показывается зелёным. "
+                        "Запусти tools/agent-control/hif-glm-quota.py для обновления.")
     return {
         "provider": GLM_QUOTA_PROVIDER_LABEL,
         "available": False,
-        "level": "unknown",
-        "detail": ("Остаток квоты GLM неизвестен: поддерживаемого источника остатка "
-                   "подписки без учётных данных нет; значение не придумывается и "
-                   "не показывается зелёным."),
+        "level": level,
+        "mode": "UNKNOWN",
+        "windows": [],
+        "source": "none",
+        "source_label": "нет данных",
+        "age_seconds": None,
+        "updated_at": None,
+        "plan_level": None,
+        "error": error,
+        "detail": detail,
         "limitation": ("Официальный источник остатка Coding Plan "
-                       "(api.z.ai/api/monitor/usage/quota/limit) требует OAuth-токен "
-                       "из хранилища учётных данных desktop-приложения ZCode; "
-                       "read-only дашборд не извлекает и не хранит учётные данные."),
+                       "(api.z.ai/api/monitor/usage/quota/limit) требует api-key из "
+                       "хранилища учётных данных ZCode; read-only дашборд сам не читает "
+                       "учётные данные — снимок пишет хелпер hif-glm-quota.py."),
         "checked_sources": [dict(source) for source in GLM_QUOTA_CHECKED_SOURCES],
-        "verified_against": "ZCode CLI/desktop 0.16.9, 2026-10-07",
+        "request_usage_note": ("Потребление ниже — расход прошлого запуска, НЕ остаток "
+                               "подписки; кэшированный ввод не считается свежей тратой."),
+    }
+
+
+def glm_quota_snapshot(control_dir, now_fn=time.time):
+    """Остаток GLM из снимка хелпера glm-quota.json; без снимка — честно неизвестно."""
+    fallback_path = Path(control_dir) / "glm-quota.json"
+    value, read_error = load_json_file(fallback_path)
+    now = now_fn()
+    if value is None:
+        unknown = glm_quota_unknown()
+        if read_error and read_error != "файл отсутствует":
+            unknown["error"] = read_error
+            unknown["level"] = "error"
+            unknown["detail"] = ("Снимок glm-quota.json не читается: " + read_error
+                                 + " Остаток неизвестен.")
+        return unknown
+    if value.get("mode") == "UNKNOWN":
+        unknown = glm_quota_unknown(
+            level="error",
+            detail="Последний запуск хелпера не удался, остаток неизвестен.",
+            error=_optional_str(value.get("error"), 200))
+        unknown["updated_at"] = _optional_str(value.get("updated_at"), 40)
+        return unknown
+    windows = normalize_windows(value.get("windows"))
+    if not windows:
+        return glm_quota_unknown(level="error",
+                                 detail="Снимок glm-quota.json без пригодных окон; остаток неизвестен.")
+    try:
+        age = max(0.0, now - fallback_path.stat().st_mtime)
+    except OSError:
+        age = None
+    mode = value.get("mode") if value.get("mode") in ("NORMAL", "QUOTA_SAVE") else "UNKNOWN"
+    rolled = any(window["resets_at_epoch"] is not None and window["resets_at_epoch"] <= now
+                 for window in windows)
+    level = "warn" if mode == "QUOTA_SAVE" else "ok"
+    if rolled and level != "warn":
+        # Окно уже сбросилось: использовано в снимке заведомо устарело.
+        level = "stale"
+    detail = ("Снимок из glm-quota.json (helper hif-glm-quota.py); окно уже сбросилось — "
+              "запусти хелпер для обновления."
+              if rolled else
+              "Снимок из glm-quota.json (helper hif-glm-quota.py, читает api.z.ai с "
+              "coding-plan api-key). Сам дашборд учётные данные не читает.")
+    if age is not None and age > GLM_QUOTA_FILE_STALE_SECONDS and level != "warn":
+        level = "stale"
+        detail = ("Снимок glm-quota.json старше 15 минут; остаток мог измениться. "
+                  "Запусти хелпер для обновления.")
+    return {
+        "provider": GLM_QUOTA_PROVIDER_LABEL,
+        "available": True,
+        "level": level,
+        "mode": mode,
+        "windows": windows,
+        "source": "helper-file",
+        "source_label": "файл glm-quota.json (хелпер hif-glm-quota.py)",
+        "age_seconds": round(age, 1) if age is not None else None,
+        "updated_at": _optional_str(value.get("updated_at"), 40),
+        "plan_level": _optional_str(value.get("plan_level"), 40),
+        "error": None,
+        "detail": detail,
+        "limitation": None,
+        "checked_sources": [],
         "request_usage_note": ("Потребление ниже — расход прошлого запуска, НЕ остаток "
                                "подписки; кэшированный ввод не считается свежей тратой."),
     }
@@ -1051,7 +1121,7 @@ class Dashboard:
                 "stale_write_note_seconds": STALE_WRITE_NOTE_SECONDS,
             },
             "quota_gpt": quota,
-            "quota_glm": glm_quota_snapshot(),
+            "quota_glm": glm_quota_snapshot(self.control_dir, self.now_fn),
             "glm_idle": self.glm_idle_reasons(tasks, state_value, support.get("status") == "running",
                                                any(row.get("role") == "writer_glm" for row in processes.get("value") or [])),
         }

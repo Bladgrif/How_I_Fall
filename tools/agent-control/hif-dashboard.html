@@ -268,6 +268,31 @@ function setPanelLevel(node, level) {
 
 /* ---------- квоты ---------- */
 
+function renderQuotaWindows(box, windows) {
+  if (!windows || !windows.length) {
+    box.append(el("div", "big-unknown", "НЕИЗВЕСТНО"));
+    return;
+  }
+  windows.forEach(function (w) {
+    var wrap = el("div", "window");
+    wrap.dataset.reset = w.resets_at_epoch === null ? "" : String(w.resets_at_epoch);
+    var row = el("div", "window-row");
+    row.append(el("span", null, w.label));
+    var valueCls = "window-value" + (w.remaining_percent <= 10 ? " error" : (w.remaining_percent <= 25 ? " warn" : ""));
+    var value = el("span", valueCls, "остаток " + w.remaining_percent + "%");
+    row.append(value);
+    wrap.append(row);
+    var bar = el("div", "bar");
+    var fill = el("div", "bar-fill" + (w.remaining_percent <= 10 ? " error" : (w.remaining_percent <= 25 ? " warn" : "")));
+    fill.style.width = Math.max(0, Math.min(100, w.remaining_percent)) + "%";
+    bar.append(fill);
+    wrap.append(bar);
+    wrap.append(el("div", "window-reset muted", "использовано " + w.used_percent + "% · сброс: "
+      + (fmtEpochMoscow(w.resets_at_epoch) || "время неизвестно")));
+    box.append(wrap);
+  });
+}
+
 function renderQuotaGpt(q) {
   var box = document.getElementById("quotaGptPanel");
   box.replaceChildren();
@@ -285,28 +310,7 @@ function renderQuotaGpt(q) {
   head.append(el("span", "muted small quota-source", sourceText));
   box.append(head);
 
-  if (q.windows && q.windows.length) {
-    q.windows.forEach(function (w) {
-      var wrap = el("div", "window");
-      wrap.dataset.reset = w.resets_at_epoch === null ? "" : String(w.resets_at_epoch);
-      var row = el("div", "window-row");
-      row.append(el("span", null, w.label));
-      var valueCls = "window-value" + (w.remaining_percent <= 10 ? " error" : (w.remaining_percent <= 25 ? " warn" : ""));
-      var value = el("span", valueCls, "остаток " + w.remaining_percent + "%");
-      row.append(value);
-      wrap.append(row);
-      var bar = el("div", "bar");
-      var fill = el("div", "bar-fill" + (w.remaining_percent <= 10 ? " error" : (w.remaining_percent <= 25 ? " warn" : "")));
-      fill.style.width = Math.max(0, Math.min(100, w.remaining_percent)) + "%";
-      bar.append(fill);
-      wrap.append(bar);
-      wrap.append(el("div", "window-reset muted", "использовано " + w.used_percent + "% · сброс: "
-        + (fmtEpochMoscow(w.resets_at_epoch) || "время неизвестно")));
-      box.append(wrap);
-    });
-  } else {
-    box.append(el("div", "big-unknown", "НЕИЗВЕСТНО"));
-  }
+  renderQuotaWindows(box, q.windows);
   if (q.refreshing) { box.append(el("div", "muted small", "обновление лимита в фоне…")); }
   if (q.error) { box.append(el("div", "error-text small", "Ошибка свежего чтения: " + q.error)); }
   if (q.level === "stale" || q.level === "unknown" || q.level === "error") {
@@ -318,27 +322,46 @@ function renderQuotaGpt(q) {
 function renderQuotaGlm(q, activity) {
   var box = document.getElementById("quotaGlmPanel");
   box.replaceChildren();
-  setPanelLevel(box, "unknown");
+  var level = (q && q.level) || "unknown";
+  var available = q && q.available && q.windows && q.windows.length;
+  setPanelLevel(box, level);
   box.append(el("h2", null, "GLM (Z-Code) — лимиты"));
   var head = el("div", "quota-head");
-  head.append(el("span", null, (q && q.provider) || "GLM-5.3-Flash"));
-  head.append(pill("остаток неизвестен", "unknown"));
-  box.append(head);
-  box.append(el("div", "small muted", (q && q.detail) || "Авторитетных данных об остатке GLM нет; значение не придумывается."));
-  if (q && q.limitation) {
-    box.append(el("div", "small", q.limitation));
+  var modePill;
+  if (available) {
+    if (q.level === "stale" || q.level === "error") { modePill = pill("не актуально", "warn"); }
+    else if (q.mode === "QUOTA_SAVE") { modePill = pill("QUOTA_SAVE · ≤25%", "warn"); }
+    else { modePill = pill("норма", "ok"); }
+  } else if (level === "error") { modePill = pill("ошибка снимка", "warn"); }
+  else { modePill = pill("остаток неизвестен", "unknown"); }
+  head.append(modePill);
+  if (available) {
+    var sourceText = "источник: " + (q.source_label || "нет данных");
+    if (q.age_seconds !== null && q.age_seconds !== undefined) { sourceText += " · " + fmtAge(q.age_seconds); }
+    head.append(el("span", "muted small quota-source", sourceText));
   }
-  if (q && q.checked_sources && q.checked_sources.length) {
-    var sources = el("div", "block");
-    var sourcesTitle = "Проверенные источники";
-    if (q.verified_against) { sourcesTitle += " (" + q.verified_against + ")"; }
-    sourcesTitle += ":";
-    sources.append(el("div", null, sourcesTitle));
-    q.checked_sources.forEach(function (source) {
-      sources.append(el("div", "muted small", source.name + " — " + source.result
-        + (source.reason ? ": " + source.reason : "")));
-    });
-    box.append(sources);
+  box.append(head);
+  if (available) {
+    if (q.plan_level) { box.append(el("div", "muted small", "план: " + q.plan_level)); }
+    renderQuotaWindows(box, q.windows);
+    box.append(el("div", "small muted", q.detail || ""));
+  } else {
+    box.append(el("div", "small muted", (q && q.detail) || "Авторитетных данных об остатке GLM нет; значение не придумывается."));
+    if (q && q.limitation) {
+      box.append(el("div", "small", q.limitation));
+    }
+    if (q && q.checked_sources && q.checked_sources.length) {
+      var sources = el("div", "block");
+      sources.append(el("div", null, "Проверенные источники:"));
+      q.checked_sources.forEach(function (source) {
+        sources.append(el("div", "muted small", source.name + " — " + source.result
+          + (source.reason ? ": " + source.reason : "")));
+      });
+      box.append(sources);
+    }
+    if (q && q.error) {
+      box.append(el("div", "error-text small", "Ошибка снимка: " + q.error));
+    }
   }
   var usage = activity && activity.glm_usage;
   if (usage && usage.usage) {
@@ -364,18 +387,20 @@ function renderQuotaGlm(q, activity) {
 
 function refreshQuotaTimes() {
   if (!snapshot) { return; }
-  var q = snapshot.quota_gpt;
-  if (!q || !q.windows) { return; }
-  var boxes = document.querySelectorAll("#quotaGptPanel .window");
-  q.windows.forEach(function (w, index) {
-    var node = boxes[index];
-    if (!node) { return; }
-    var resetLine = node.querySelector(".window-reset");
-    var cd = countdown(w.resets_at_epoch);
-    if (resetLine && cd) {
-      resetLine.textContent = "использовано " + w.used_percent + "% · сброс: "
-        + (fmtEpochMoscow(w.resets_at_epoch) || "время неизвестно") + " (" + cd + ")";
-    }
+  [["quotaGptPanel", snapshot.quota_gpt], ["quotaGlmPanel", snapshot.quota_glm]].forEach(function (entry) {
+    var q = entry[1];
+    if (!q || !q.windows) { return; }
+    var boxes = document.querySelectorAll("#" + entry[0] + " .window");
+    q.windows.forEach(function (w, index) {
+      var node = boxes[index];
+      if (!node) { return; }
+      var resetLine = node.querySelector(".window-reset");
+      var cd = countdown(w.resets_at_epoch);
+      if (resetLine && cd) {
+        resetLine.textContent = "использовано " + w.used_percent + "% · сброс: "
+          + (fmtEpochMoscow(w.resets_at_epoch) || "время неизвестно") + " (" + cd + ")";
+      }
+    });
   });
 }
 

@@ -331,13 +331,18 @@ ETA неизвестен до накопления сопоставимой ис
 POST actions или credentials. HTTP — существующий read-only экран localhost.
 Progress/approval-recorded/next/wait показываются компактно; recorded receipt не
 объявляется native dispatch PASS. Live PID facts отделены от running scheduler
-timer. GPT показывает fresh source/age/reset или stale fallback; GLM balance
-честно unknown с фиксированным списком проверенных источников: `usage/stats` и
-`session/usage` — локальный расход запросов, а не остаток; авторитетный
-`api.z.ai/api/monitor/usage/quota/limit` требует OAuth-токен desktop-приложения
-и дашбордом не извлекается. Расход отдельных запросов не выдаётся за остаток
-подписки. Потеря связи/устаревший снимок — `НЕ LIVE`, исторический preview
-не доказательство живого подключения.
+timer. GPT показывает fresh source/age/reset или stale fallback. GLM остаток
+читается ТОЛЬКО из `agent-control/glm-quota.json`, который пишет отдельный
+opt-in хелпер `hif-glm-quota.py`: он запускается пользователем/планировщиком
+вручную (симметрично `hif-control.py quota` для Codex), сам читает coding-plan
+api-key из хранилища ZCode (`~/.zcode/v2/credentials.json`, расшифровка
+`enc:v1:` AES-256-GCM через штатный node) и делает один запрос к
+авторитетному `api.z.ai/api/monitor/usage/quota/limit`. Секреты хелпер не
+печатает и в файл не пишет. Сам dashboard процесс учётных данных не читает,
+хелпер не запускает, `usage/stats`/`session/usage` (локальный расход запросов)
+остатком не считает. Без свежего снимка (stale > 15 минут или сброс окна) GLM
+balance честно unknown. Потеря связи/устаревший снимок — `НЕ LIVE`,
+исторический preview не доказательство живого подключения.
 
 Fixed `agent-control` host QA: три NAMED suites (`test_control.py`, `test_batch.py`,
 `test_dashboard.py`), Python compile в памяти, dashboard JS `node --check`,

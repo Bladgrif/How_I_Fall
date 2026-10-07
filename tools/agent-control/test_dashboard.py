@@ -493,45 +493,205 @@ class QuotaTests(BaseControlTest):
             gate.set()
 
 
+def glm_quota_file_value(mode="NORMAL", used=(15.0, 5.0), resets_offset=(4000, 700000)):
+    now = time.time()
+    snapshot = {"version": 1, "updated_at": "2026-10-07T13:13:34+00:00",
+                "source": "https://api.z.ai/api/monitor/usage/quota/limit",
+                "mode": mode, "threshold_remaining_percent": 25, "plan_level": "lite",
+                "windows": [], "error": None}
+    if mode != "UNKNOWN":
+        snapshot["windows"] = [
+            {"usedPercent": used[0], "windowDurationMins": 300,
+             "resetsAt": now + resets_offset[0], "remainingCount": 1686},
+            {"usedPercent": used[1], "windowDurationMins": 10080,
+             "resetsAt": now + resets_offset[1], "remainingCount": 9486}]
+    else:
+        snapshot["error"] = "API квоты вернуло бизнес-ошибку unauthorized"
+    return snapshot
+
+
 class GlmQuotaTests(BaseControlTest):
-    def test_structured_honest_unknown(self):
-        value = d.glm_quota_snapshot()
+    def test_unknown_without_snapshot(self):
+        control = build_control_dir(self.base)
+        value = d.glm_quota_snapshot(control)
         self.assertFalse(value["available"])
         self.assertEqual("unknown", value["level"])
+        self.assertEqual([], value["windows"])
         self.assertIn("неизвестен", value["detail"])
+        self.assertIn("hif-glm-quota.py", value["detail"])
         self.assertIn("GLM-5.3-Flash", value["provider"])
         self.assertTrue(value["limitation"])
-        self.assertTrue(value["verified_against"])
+
+    def test_unknown_with_snapshot_error_is_error_not_green(self):
+        control = build_control_dir(self.base)
+        write_json(control / "glm-quota.json", glm_quota_file_value(mode="UNKNOWN"))
+        value = d.glm_quota_snapshot(control)
+        self.assertFalse(value["available"])
+        self.assertEqual("error", value["level"])
+        self.assertIn("хелпера", value["detail"])
 
     def test_request_usage_is_not_subscription_balance(self):
-        value = d.glm_quota_snapshot()
+        value = d.glm_quota_snapshot(self.base)
         self.assertIn("НЕ остаток", value["request_usage_note"])
         names = " ".join(source["name"] for source in value["checked_sources"])
         self.assertIn("usage/stats", names)
-        self.assertIn("session/usage", names)
-        authoritative = [source for source in value["checked_sources"]
-                         if "quota/limit" in source["name"]]
-        self.assertEqual(1, len(authoritative))
-        self.assertIn("учётных данных", authoritative[0]["reason"])
+        self.assertIn("hif-glm-quota.py", names)
 
     def test_no_secret_material_in_block(self):
-        dump = json.dumps(d.glm_quota_snapshot(), ensure_ascii=False).lower()
-        for banned in ("access_token", "bearer ", "secretkey", "authorization:"):
+        control = build_control_dir(self.base)
+        write_json(control / "glm-quota.json", glm_quota_file_value())
+        dump = json.dumps(d.glm_quota_snapshot(control), ensure_ascii=False).lower()
+        for banned in ("enc:v1", "bearer ", "access_token", "secretkey", "credentials.json"):
             self.assertNotIn(banned, dump)
 
-    def test_snapshot_uses_block_and_keeps_usage_separate(self):
+    def test_snapshot_with_fresh_file_shows_windows(self):
         control = build_control_dir(self.base)
+        write_json(control / "glm-quota.json", glm_quota_file_value())
+        value = d.glm_quota_snapshot(control)
+        self.assertTrue(value["available"])
+        self.assertEqual("ok", value["level"])
+        self.assertEqual("helper-file", value["source"])
+        self.assertEqual("lite", value["plan_level"])
+        self.assertEqual(["5-часовое окно", "Недельное окно"], [w["label"] for w in value["windows"]])
+        self.assertEqual(85.0, value["windows"][0]["remaining_percent"])
+        self.assertEqual(95.0, value["windows"][1]["remaining_percent"])
+        self.assertIsNotNone(value["age_seconds"])
+
+    def test_quota_save_warns_and_stale_file_not_ok(self):
+        control = build_control_dir(self.base)
+        write_json(control / "glm-quota.json", glm_quota_file_value(mode="QUOTA_SAVE", used=(80.0, 5.0)))
+        self.assertEqual("warn", d.glm_quota_snapshot(control)["level"])
+        stale = glm_quota_file_value()
+        write_json(control / "glm-quota.json", stale)
+        os.utime(control / "glm-quota.json", (time.time() - 1200, time.time() - 1200))
+        value = d.glm_quota_snapshot(control)
+        self.assertEqual("stale", value["level"])
+        self.assertIn("15 минут", value["detail"])
+
+    def test_rolled_reset_window_is_not_ok(self):
+        control = build_control_dir(self.base)
+        write_json(control / "glm-quota.json", glm_quota_file_value(resets_offset=(-100, 700000)))
+        value = d.glm_quota_snapshot(control)
+        self.assertEqual("stale", value["level"])
+        self.assertIn("сбросилось", value["detail"])
+
+    def test_unreadable_snapshot_is_error(self):
+        control = build_control_dir(self.base)
+        (control / "glm-quota.json").write_text("{broken", encoding="utf-8")
+        value = d.glm_quota_snapshot(control)
+        self.assertFalse(value["available"])
+        self.assertEqual("error", value["level"])
+        self.assertIn("не читается", value["detail"])
+
+    def test_snapshot_integration_and_usage_separate(self):
+        control = build_control_dir(self.base)
+        write_json(control / "glm-quota.json", glm_quota_file_value())
         snap = make_dashboard(control).snapshot()
-        self.assertEqual(d.glm_quota_snapshot(), snap["quota_glm"])
-        self.assertFalse(snap["quota_glm"]["available"])
+        self.assertEqual(d.glm_quota_snapshot(control), snap["quota_glm"])
+        self.assertTrue(snap["quota_glm"]["available"])
         # Расход прошлого запуска живёт в activity и не подменяет остаток.
         self.assertEqual(120, snap["activity"]["glm_usage"]["usage"]["totalTokens"])
 
-    def test_html_renders_sources_and_usage_disclaimer(self):
+    def test_html_renders_windows_and_usage_disclaimer(self):
         html = Path(__file__).with_name("hif-dashboard.html").read_text(encoding="utf-8")
-        self.assertIn("checked_sources", html)
         self.assertIn("request_usage_note", html)
         self.assertIn("остаток неизвестен", html)
+        self.assertIn("renderQuotaWindows(box, q.windows)", html)
+        self.assertIn('"quotaGlmPanel", snapshot.quota_glm', html)
+
+
+class GlmQuotaHelperTests(BaseControlTest):
+    @classmethod
+    def setUpClass(cls):
+        helper_spec = importlib.util.spec_from_file_location(
+            "hif_glm_quota", Path(__file__).with_name("hif-glm-quota.py"))
+        cls.helper = importlib.util.module_from_spec(helper_spec)
+        helper_spec.loader.exec_module(cls.helper)
+
+    def test_describe_limit_known_plan_windows(self):
+        self.assertEqual((300, "5-часовое окно"), self.helper.describe_limit({"number": 5, "unit": 3}))
+        self.assertEqual((10080, "Недельное окно"), self.helper.describe_limit({"number": 1, "unit": 6}))
+        minutes, label = self.helper.describe_limit({"number": 2, "unit": 99})
+        self.assertIsNone(minutes)
+        self.assertIn("unit=99", label)
+
+    def test_quota_result_normal_and_sorted(self):
+        body = {"code": 200, "data": {"level": "lite", "limits": [
+            {"type": "CREDIT_LIMIT", "unit": 3, "number": 5, "usage": 2000, "currentValue": 295,
+             "remaining": 1704, "percentage": 14, "nextResetTime": 1791394086904},
+            {"type": "CREDIT_LIMIT", "unit": 6, "number": 1, "usage": 10000, "currentValue": 495,
+             "remaining": 9504, "percentage": 4, "nextResetTime": 1791878591985}]}}
+        value = self.helper.quota_result(body)
+        self.assertEqual("NORMAL", value["mode"])
+        self.assertEqual("lite", value["plan_level"])
+        self.assertEqual([300, 10080], [w["windowDurationMins"] for w in value["windows"]])
+        self.assertEqual(14.0, value["windows"][0]["usedPercent"])
+        self.assertEqual(1704, value["windows"][0]["remainingCount"])
+        self.assertEqual(1791394086.904, value["windows"][0]["resetsAt"])
+
+    def test_quota_save_and_unknown(self):
+        body = {"code": 0, "data": {"limits": [
+            {"type": "CREDIT_LIMIT", "unit": 3, "number": 5, "percentage": 90,
+             "nextResetTime": 1791394086904}]}}
+        self.assertEqual("QUOTA_SAVE", self.helper.quota_result(body)["mode"])
+        self.assertEqual("UNKNOWN", self.helper.quota_result({"code": 0, "data": {"limits": []}})["mode"])
+        with self.assertRaises(ValueError):
+            self.helper.quota_result({"code": 401, "msg": "unauthorized"})
+
+    def test_credential_blob_parsing_rejects_bad_shapes(self):
+        for blob in ("plain", "enc:v1:a.b", "enc:v1:" + "AAAA." * 3, "enc:v1:AAAAAAAA.AAAA.AAAA"):
+            with self.assertRaises(ValueError, msg=blob):
+                self.helper.parse_credential_blob(blob)
+
+    def test_credential_secret_prefers_env_and_fallback_shape(self):
+        self.assertEqual("from-env", self.helper.credential_secret({"ZCODE_CREDENTIAL_SECRET": " from-env "}))
+        fallback = self.helper.credential_secret({})
+        self.assertTrue(fallback.startswith("zcode-credential-fallback:"))
+        self.assertIn(str(Path.home()), fallback)
+
+    def test_decrypt_failure_has_no_secret_in_message(self):
+        node = self.helper.resolve_node()
+        if node is None:
+            self.fail("node unavailable in test environment")
+        with self.assertRaises(ValueError) as caught:
+            self.helper.decrypt_credential("enc:v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAA.AAAA", node)
+        self.assertNotIn("SECRET", str(caught.exception))
+
+    def test_main_writes_snapshot_without_secret_output(self):
+        import contextlib
+        import io
+
+        control = self.base / "control"
+        control.mkdir()
+        stdout = io.StringIO()
+
+        def fake_load(path, node, env=None):
+            return "SECRET-KEY"
+
+        def fake_fetch(key, timeout=20.0):
+            return {"code": 200, "data": {"level": "lite", "limits": [
+                {"type": "CREDIT_LIMIT", "unit": 3, "number": 5, "percentage": 15,
+                 "remaining": 1686, "nextResetTime": 1791394086904}]}}
+
+        with patch.object(self.helper, "load_coding_plan_api_key", fake_load), \
+                patch.object(self.helper, "fetch_quota", fake_fetch), \
+                contextlib.redirect_stdout(stdout):
+            code = self.helper.main(["--control-dir", str(control)])
+        self.assertEqual(0, code)
+        snapshot = json.loads((control / "glm-quota.json").read_text(encoding="utf-8"))
+        self.assertEqual("NORMAL", snapshot["mode"])
+        self.assertEqual(1, len(snapshot["windows"]))
+        self.assertNotIn("SECRET-KEY", json.dumps(snapshot))
+        self.assertNotIn("SECRET-KEY", stdout.getvalue())
+
+    def test_expired_api_error_exit_code(self):
+        control = self.base / "control-empty"
+        control.mkdir()
+        with patch.object(self.helper, "load_coding_plan_api_key", lambda *a, **k: "SECRET-KEY"), \
+                patch.object(self.helper, "fetch_quota", lambda *a, **k: (_ for _ in ()).throw(OSError("network down"))):
+            code = self.helper.main(["--control-dir", str(control)])
+        self.assertEqual(3, code)
+        self.assertFalse((control / "glm-quota.json").exists())
 
 
 class TailTests(BaseControlTest):
