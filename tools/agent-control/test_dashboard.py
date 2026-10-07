@@ -13,6 +13,7 @@ from pathlib import Path
 import threading
 import time
 import unittest
+from unittest.mock import patch
 import urllib.error
 import urllib.request
 
@@ -569,6 +570,61 @@ class TailTests(BaseControlTest):
         meta = dash.read_event_tail(str(big))
         self.assertGreater(meta["size_bytes"], 300000)
         self.assertEqual("Шаг завершён", meta["last_step"]["label"])
+
+    def test_event_tail_encodings_keep_unicode_and_usage(self):
+        dash, control = self.dashboard()
+        event = {"type": "item.completed", "item": {"type": "file_change",
+                 "changes": [{"path": "SECRET/Проверка.cs"}]},
+                 "usage": {"totalTokens": 9}}
+        text = json.dumps(event, ensure_ascii=False) + "\r\n"
+        for encoding, bom in (("utf-8", b""), ("utf-8", b"\xef\xbb\xbf"),
+                              ("utf-16-le", b"\xff\xfe"), ("utf-16-le", b""),
+                              ("utf-16-be", b"\xfe\xff")):
+            with self.subTest(encoding=encoding, bom=bom):
+                path = control / "logs" / "encoded.jsonl"
+                path.write_bytes(bom + text.encode(encoding))
+                meta = dash.read_event_tail(str(path))
+                self.assertTrue(meta["present"])
+                self.assertEqual("Проверка.cs", meta["last_step"]["detail"])
+                self.assertEqual(9, meta["usage"]["totalTokens"])
+                self.assertNotIn("SECRET", json.dumps(meta, ensure_ascii=False))
+
+    def test_utf16_large_failed_command_tail_is_aligned_and_bounded(self):
+        from io import BytesIO
+
+        class TrackedReader(BytesIO):
+            def __init__(self, data):
+                super().__init__(data)
+                self.requests = []
+
+            def read(self, size=-1):
+                self.requests.append(size)
+                return super().read(size)
+
+        dash, control = self.dashboard()
+        path = control / "logs" / "large-utf16.jsonl"
+        event = {"type": "item.completed", "item": {"type": "command_execution",
+                 "command": "python test_batch.py SECRET", "exit_code": 1,
+                 "aggregated_output": "SECRET-OUTPUT"}}
+        text = "diagnostic line\r\n" * 20000 + '{"type":"turn.started"}\r\n'
+        text += json.dumps(event) + "\r\n"
+        payload = b"\xff\xfe" + text.encode("utf-16-le")
+        for cap, suffix in ((d.EVENT_TAIL_MAX_BYTES, b""),
+                            (d.EVENT_TAIL_MAX_BYTES - 1, b""),
+                            (d.EVENT_TAIL_MAX_BYTES, b"{")):
+            with self.subTest(cap=cap, partial_code_unit=bool(suffix)):
+                data = payload + suffix
+                path.write_bytes(data)
+                reader = TrackedReader(data)
+                with patch.object(d, "EVENT_TAIL_MAX_BYTES", cap), \
+                        patch.object(d, "open", return_value=reader, create=True):
+                    meta = dash.read_event_tail(str(path))
+                self.assertGreater(meta["size_bytes"], cap)
+                self.assertEqual("Проверки завершены с ошибкой", meta["last_step"]["label"])
+                self.assertEqual("error", meta["last_step"]["level"])
+                self.assertNotIn("SECRET", json.dumps(meta, ensure_ascii=False))
+                self.assertTrue(all(0 <= size <= cap for size in reader.requests))
+                self.assertLessEqual(sum(reader.requests), cap + 4)
 
     def test_extract_envelope_usage_last_wins(self):
         text = json.dumps({"usage": {"totalTokens": 5}}) + "noise\n" + json.dumps(

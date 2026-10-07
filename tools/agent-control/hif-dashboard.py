@@ -656,15 +656,27 @@ class Dashboard:
                  (self.logs_root_resolved, self.evidence_root_resolved)]
         return any(candidate == root or candidate.startswith(root + os.sep) for root in roots)
 
-    def _read_tail_bytes(self, target):
+    def _read_tail_text(self, target):
         stat = target.stat()
         size = stat.st_size
-        chunk = min(size, EVENT_TAIL_MAX_BYTES)
         with open(target, "rb") as handle:
-            if size > chunk:
-                handle.seek(size - chunk)
-            data = handle.read(chunk)
-        return data, stat
+            # BOM остаётся в начале большого лога, а не в bounded tail.
+            # Native Windows PowerShell Tee-Object пишет UTF-16LE; Z-Code — UTF-8.
+            prefix = handle.read(4)
+            if prefix.startswith(b"\xff\xfe") or (len(prefix) == 4 and prefix[1::2] == b"\x00\x00"):
+                encoding = "utf-16-le"
+            elif prefix.startswith(b"\xfe\xff"):
+                encoding = "utf-16-be"
+            else:
+                encoding = "utf-8"
+            start = max(0, size - EVENT_TAIL_MAX_BYTES)
+            if encoding.startswith("utf-16"):
+                # Округляем вверх: не разрываем code unit и не превышаем cap,
+                # даже при нечётном cap/незавершённой записи последнего байта.
+                start += start % 2
+            handle.seek(start)
+            data = handle.read(max(0, size - start))
+        return data.decode(encoding, "replace").lstrip("\ufeff"), stat
 
     def read_event_tail(self, events_path):
         meta = {"present": False, "name": None, "size_bytes": None, "age_seconds": None,
@@ -681,11 +693,10 @@ class Dashboard:
             meta["error"] = "путь вне разрешённых каталогов (logs/evidence)"
             return meta
         try:
-            data, stat = self._read_tail_bytes(target)
+            text, stat = self._read_tail_text(target)
         except OSError:
             meta["error"] = "ошибка чтения файла событий"
             return meta
-        text = data.decode("utf-8", "replace").lstrip("\ufeff")
         meta["present"] = True
         meta["name"] = target.name
         meta["size_bytes"] = stat.st_size
@@ -908,10 +919,10 @@ class Dashboard:
             return None
         for path in candidates[:GLM_LEGACY_SCAN_FILES]:
             try:
-                data, stat = self._read_tail_bytes(path)
+                text, stat = self._read_tail_text(path)
             except OSError:
                 continue
-            usage = extract_envelope_usage(data.decode("utf-8", "replace").lstrip("\ufeff"))
+            usage = extract_envelope_usage(text)
             if usage:
                 return {"usage": usage, "file": path.name, "age_seconds": round(max(0.0, self.now_fn() - stat.st_mtime), 1)}
         return None
