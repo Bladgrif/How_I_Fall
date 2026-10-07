@@ -4,6 +4,23 @@ $ErrorActionPreference = 'Stop'
 $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $OutputEncoding
 $ControlDir = 'D:\How_I_Fall\agent-control'
+
+# Fixed runtime only; refuse junction/symlink ancestors before reading or writing control.
+function AssertControlPaths([string]$root) {
+    foreach($relative in @('', 'queue.json', 'queue.json.tmp', 'state.json', 'state.json.tmp', 'controller.json', 'codex-quota.json', 'STOP', 'MAINTENANCE', 'logs', 'evidence')) {
+        $candidate=if($relative){Join-Path $root $relative}else{$root}
+        while($candidate){
+            if(Test-Path -LiteralPath $candidate){
+                $item=Get-Item -LiteralPath $candidate -Force
+                if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Runtime reparse/ancestor escape refused'}
+            }
+            $parent=Split-Path -Parent $candidate
+            if($parent -eq $candidate){break}; $candidate=$parent
+        }
+    }
+}
+
+AssertControlPaths $ControlDir
 if ((Test-Path (Join-Path $ControlDir 'MAINTENANCE')) -or (Test-Path (Join-Path $ControlDir 'STOP'))) { throw 'Maintenance: worker disabled' }
 $env:CODEX_HOME='D:\Codex'
 $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
@@ -89,19 +106,21 @@ try {
     $task = @($q.tasks | Where-Object { $eligible -contains $_.status } | Select-Object -First 1)
     if ($task.Count -eq 0) { exit 0 } # Never erase a pending candidate.
     $task = $task[0]
-    if (@($q.tasks | Where-Object { $_.id -ne $task.id -and $_.status -notin @('DONE','READY','WAIT_USER','CANCELLED') }).Count) { throw 'Another task is active; serial writer only' }
+    if (@($q.tasks | Where-Object { $_.id -ne $task.id -and $_.status -notin @('DONE','READY','WAIT_USER','CANCELLED','LIST_APPROVED_NOT_DISPATCHED') }).Count) { throw 'Another task is active; serial writer only' }
     $id = [string]$task.id
     if ($id -notmatch '^[a-z0-9][a-z0-9-]{0,79}$') { throw 'Unsafe task ID' }
     if (-not $task.approved_source -or -not $task.base_sha -or -not $task.allowed_paths -or -not $task.validation -or -not $task.prompt) { throw 'Incomplete approved bounded task' }
     if ([string]$task.base_sha -notmatch '^[a-f0-9]{40}$') { throw 'Exact 40-character base SHA required before claim' }
     if (@($task.allowed_paths | Where-Object { $_ -match '(^[/\\]|(^|/)\.\.(/|$)|:)' }).Count) { throw 'Unsafe allowed paths' }
-    & $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $ControlDir | Out-Null
+    $quotaJson=& $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $ControlDir
     if ($LASTEXITCODE) { throw 'Quota reader failed' }
-    $quota=Get-Content (Join-Path $ControlDir 'codex-quota.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $quota=($quotaJson -join "`n") | ConvertFrom-Json
     if ($quota.mode -eq 'UNKNOWN') { throw 'Quota UNKNOWN: no automatic implementation' }
     if ($task.status -eq 'READY') {
         $requiredEngine=if($quota.mode -eq 'QUOTA_SAVE'){'ZCode'}else{'Codex'}
-        if($Engine -ne $requiredEngine){throw ('Routing requires '+$requiredEngine)}
+        if($task.batch_id){
+            if($Engine -ne $task.writer_engine -or $task.writer_path.Replace('/', '\') -ne $Repo){throw 'Batch writer identity drift'}
+        }elseif($Engine -ne $requiredEngine){throw ('Routing requires '+$requiredEngine)}
     } elseif ($task.writer_engine -ne $Engine -or $task.writer_path -ne $Repo) { throw 'Retry must preserve the original checkout/engine; no silent partial-diff transfer' }
     if($Engine -eq 'Codex' -and ($quota.primary_remaining_percent -le 0 -or $quota.weekly_remaining_percent -le 0)){exit 0} # Expected quota wait: preserve original task/diff.
     SetProp $task 'writer_engine' $Engine
@@ -123,6 +142,8 @@ try {
         if($LASTEXITCODE){throw 'Unknown/malformed native QA profile: no model or QA launch'}
     }
 
+    & $Python (Join-Path $PSScriptRoot 'hif-control.py') scope-check --control $ControlDir --phase dispatch
+    if($LASTEXITCODE){throw 'Durable user approval guard failed before Git preparation/claim'}
     $claimed=$true
     SetProp $s 'status' 'PREPARING'
     SetProp $s 'active_task_id' $id
@@ -160,6 +181,8 @@ try {
         if ((& git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim() -ne [string]$task.resume_head_sha) { throw 'Partial retry HEAD drift; preserve diff, no switch or transfer' }
     }
 
+    & $Python (Join-Path $PSScriptRoot 'hif-control.py') scope-check --control $ControlDir --phase writer
+    if($LASTEXITCODE){throw 'Durable approval/scope guard failed before writer'}
     SetProp $task 'resume_head_sha' ((& git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim())
     $base = [string]$task.base_sha
 
@@ -312,18 +335,19 @@ PASS. Real implementation/scope/auth blockers remain BLOCKED.
         $testLog=Join-Path $LogDir ($stamp+'-'+$id+'-native-validation.txt')
         Set-Content -LiteralPath $testLog -Value '' -Encoding UTF8
         $oldPreference=$ErrorActionPreference; $ErrorActionPreference='Continue'
-        try { & $Python (Join-Path $Repo 'tools/agent-control/test_control.py') 2>&1 | ForEach-Object {$line=$_.ToString(); Add-Content -LiteralPath $testLog -Value $line -Encoding UTF8; $line}; $testExit=$LASTEXITCODE }
+        try { & $Python (Join-Path $PSScriptRoot 'hif-control.py') validate-infra --repo $Repo 2>&1 | ForEach-Object {$line=$_.ToString(); Add-Content -LiteralPath $testLog -Value $line -Encoding UTF8; $line}; $testExit=$LASTEXITCODE }
         finally {$ErrorActionPreference=$oldPreference}
         if($testExit){
             if(Select-String -LiteralPath $testLog -Pattern '^Ran [1-9][0-9]* tests? in ' -Quiet){RequestNativeCorrection 'Native infrastructure fixtures failed; diff preserved'}
             throw 'Native fixture runner unavailable/incomplete; diff preserved'
         }
         if(-not (Select-String -LiteralPath $testLog -Pattern '^Ran [1-9][0-9]* tests? in ' -Quiet) -or -not (Select-String -LiteralPath $testLog -Pattern '^OK$' -Quiet)){throw 'Native fixtures missing nonzero unittest result'}
-        Get-ChildItem (Join-Path $Repo 'tools/agent-control') -Filter '*.ps1' | ForEach-Object {
+        @('hif-worker.ps1','hif-reviewer.ps1','supervisor-loop.ps1','wake-supervisor.ps1') | ForEach-Object {
+            $astPath=Join-Path (Join-Path $Repo 'tools/agent-control') $_
             $tokens=$null; $errors=$null
-            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$errors) | Out-Null
+            [System.Management.Automation.Language.Parser]::ParseFile($astPath,[ref]$tokens,[ref]$errors) | Out-Null
             if($errors.Count){RequestNativeCorrection 'Native PowerShell AST failed'}
-            Add-Content $testLog ('AST PASS: '+$_.Name) -Encoding UTF8
+            Add-Content $testLog ('AST PASS: '+$_) -Encoding UTF8
         }
         $result.validation_complete=$true
         $result.validation=@($result.validation)+@('Native fixed agent-control fixtures and PowerShell AST PASS; log: '+$testLog)
@@ -339,6 +363,8 @@ PASS. Real implementation/scope/auth blockers remain BLOCKED.
     $stagedByAgent = @(& git -c ("safe.directory="+$Repo) -C $Repo diff --cached --name-only)
     if ($stagedByAgent.Count -gt 0) { throw ('Codex staged files: ' + ($stagedByAgent -join ', ')) }
 
+    & $Python (Join-Path $PSScriptRoot 'hif-control.py') scope-check --control $ControlDir --phase publish
+    if($LASTEXITCODE){throw 'Durable approval/scope guard failed before publication'}
     $changed = @(ChangedFiles)
     if ((@($changed | Sort-Object) -join "`n") -ne (@($result.changed_files | Sort-Object) -join "`n")) { throw 'Report changed_files differs from actual diff' }
     if ($changed.Count -eq 0) {

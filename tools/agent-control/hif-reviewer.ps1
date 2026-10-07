@@ -3,6 +3,34 @@ $ErrorActionPreference='Stop'
 $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $OutputEncoding
 $C='D:\How_I_Fall\agent-control'
+
+# Fixed runtime only; refuse junction/symlink ancestors before reading or writing control.
+function AssertControlPaths([string]$root) {
+    foreach($relative in @('', 'queue.json', 'queue.json.tmp', 'state.json', 'state.json.tmp', 'controller.json', 'codex-quota.json', 'STOP', 'MAINTENANCE', 'logs', 'evidence')) {
+        $candidate=if($relative){Join-Path $root $relative}else{$root}
+        while($candidate){
+            if(Test-Path -LiteralPath $candidate){
+                $item=Get-Item -LiteralPath $candidate -Force
+                if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Runtime reparse/ancestor escape refused'}
+            }
+            $parent=Split-Path -Parent $candidate
+            if($parent -eq $candidate){break}; $candidate=$parent
+        }
+    }
+}
+
+AssertControlPaths $C
+function SaveReviewerState($value) {
+    try {
+        AssertControlPaths $C
+        $tmp=Join-Path $C 'state.json.tmp'
+        $value | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $tmp -Encoding UTF8
+        Move-Item -LiteralPath $tmp -Destination (Join-Path $C 'state.json') -Force
+    } catch {
+        try {Set-Content -LiteralPath (Join-Path $C 'STOP') 'Fatal reviewer persistence; preserve candidate' -Encoding UTF8} catch {}
+        exit 78
+    }
+}
 $env:CODEX_HOME='D:\Codex'
 $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
 if((Test-Path (Join-Path $C 'MAINTENANCE')) -or (Test-Path (Join-Path $C 'STOP'))){throw 'Maintenance: reviewer disabled'}
@@ -21,6 +49,8 @@ try {
     if($base -notmatch '^[a-f0-9]{40}$' -or $head -notmatch '^[a-f0-9]{40}$'){throw 'Missing exact SHA'}
     if(@(git -c ("safe.directory="+$Repo) -C $Repo status --porcelain).Count){throw 'Dirty checkout before review'}
     if((git -c ("safe.directory="+$Repo) -C $Repo rev-parse HEAD).Trim() -ne $head){throw 'Reviewer HEAD mismatch'}
+    & $Python (Join-Path $PSScriptRoot 'hif-control.py') scope-check --control $C --phase review
+    if($LASTEXITCODE){throw 'Durable approval/scope guard failed before reviewer'}
     if($t.writer_engine -eq 'ZCode'){
         & $Python (Join-Path $PSScriptRoot 'hif-control.py') native-proof-status --control $C | Tee-Object -Variable proofStatusJson | Out-Null
         if($LASTEXITCODE){throw 'Native proof safety check failed'}
@@ -28,9 +58,7 @@ try {
         if($proofStatus.status -ne 'READY'){
             $s.status=$proofStatus.status
             $s | Add-Member -NotePropertyName last_error -NotePropertyValue $proofStatus.error -Force
-            $tmp=Join-Path $C 'state.json.tmp'
-            $s | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $tmp -Encoding UTF8
-            Move-Item -LiteralPath $tmp -Destination (Join-Path $C 'state.json') -Force
+            SaveReviewerState $s
             exit 0 # Outer Supervisor publishes permitted proof before independent inspection.
         }
         if($t.native_validation_profile -eq 'hif-runtime' -and $t.native_qa.graphical.Count -and -not $Strong){throw 'GLM objective graphical inspection requires Sol High'}
@@ -43,12 +71,12 @@ try {
     # Failed reruns cannot leave an old approval at the canonical output path.
     if(Test-Path $Out){Remove-Item -LiteralPath $Out}
     if($Strong){
-        & $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $C | Out-Null
+        $quotaJson=& $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $C
         if($LASTEXITCODE){throw 'Quota reader failed'}
-        $quota=Get-Content (Join-Path $C 'codex-quota.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $quota=($quotaJson -join "`n") | ConvertFrom-Json
         if($quota.mode -eq 'UNKNOWN' -or $quota.primary_remaining_percent -le 0 -or $quota.weekly_remaining_percent -le 0){
             $s.status='WAIT_STRONG_REVIEW'
-            $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
+            SaveReviewerState $s
             Write-Output 'Strong review waits for available Sol quota; merge prohibited'
             exit 0
         }
@@ -94,9 +122,7 @@ Return only JSON matching output schema.
             if(Test-Path $Out){Remove-Item -LiteralPath $Out}
             $s.status='WAIT_STRONG_REVIEW'
             $s | Add-Member -NotePropertyName last_error -NotePropertyValue 'Strong reviewer quota exhausted; merge waits for Sol' -Force
-            $tmp=Join-Path $C 'state.json.tmp'
-            $s | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $tmp -Encoding UTF8
-            Move-Item -LiteralPath $tmp -Destination (Join-Path $C 'state.json') -Force
+            SaveReviewerState $s
             exit 75
         }
         throw ('Reviewer failed: '+$code)
@@ -109,7 +135,7 @@ Return only JSON matching output schema.
     $r | ConvertTo-Json -Depth 30 | Set-Content $Out -Encoding UTF8
     $s.status=if($Strong){'STRONG_REVIEW_READY'}else{'REVIEW_READY'}
     $s | Add-Member -NotePropertyName updated_at -NotePropertyValue (Get-Date).ToUniversalTime().ToString('o') -Force
-    $s | ConvertTo-Json -Depth 30 | Set-Content (Join-Path $C 'state.json') -Encoding UTF8
+    SaveReviewerState $s
     Write-Output ($s.status+' '+$Out)
 } finally {
     try{$mutex.ReleaseMutex()}catch{}

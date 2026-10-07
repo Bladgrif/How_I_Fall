@@ -135,3 +135,19 @@ diff за явный infrastructure scope или смена profile с сохр�
 ## Стандартный поток
 
 `Задача` → исследование/решение при необходимости → implementation → targeted tests → regression/smoke → graphical E2E для player-facing UI → просмотр screenshots → обновление baselines → при возможности зеркало на Drive → scoped review-candidate commit/push → review реального commit → синхронизация roadmap/capability → correction при необходимости → PR `CI Gate` `GREEN` → субъективное одобрение пользователя, если действительно нужно → merge → `SYNC_MASTER_PENDING` → native scheduler verify/fetch/ff-only exact `master` → `ROADMAP_SYNC_READY` → optional Drive mirror (`NOT SYNCED`, если недоступно) → `DONE` → следующий ограниченный pass из синхронизированного состояния.
+
+## Review утреннего пакета
+
+Batch receipt не является review/CI/proof approval. Проверять exact task
+определение/digest/dispatch identity, current real diff и native scope guards.
+Каждый batch candidate получает fresh independent Sol High; unknown quota,
+missing reviewer, current CI failure или missing native proof закрывают merge.
+Следующий approved definition выбирается только native scheduler'ом после
+merge + matching native sync receipt + repository roadmap reconciliation + DONE.
+
+Infrastructure fixtures/dashboard HTTP API — local machine evidence, не full
+live autonomous morning proof и не screenshot PASS. Deployment и GLM runtime
+QA остаются NOT VERIFIED до отдельно выполненного rollout. Morning subjective
+UI decision входит в approved packet; безопасные reversible шаги и objective
+QA не требуют нового approval каждый раз. Proposal/source-only claim либо
+historical LIST_APPROVED_NOT_DISPATCHED не дают права новой implementation.

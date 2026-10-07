@@ -28,7 +28,7 @@
 - Для GLM утверждённый brief явно выбирает native QA profile/checks. Flash остаётся edit/no-shell; существующий host worker запускает только фиксированные HIF launcher'ы. Объективную инспекцию GLM screenshots выполняет независимый Sol High до merge; capture/sentinel не являются writer visual PASS. Недоказанная save isolation, неполный local proof или недоступный remote proof закрывают соответствующий gate.
 - Autonomous Supervisor читает свежий `account/rateLimits/read`. При остатке **25% или меньше** в rolling 5-hour или weekly окне включается `QUOTA_SAVE`: новые bounded tasks идут в **Z-Code + GLM-5.3-Flash Max**, включая runtime/UI по явному разрешению пользователя. Для high-risk candidate обязательно независимое **Sol High** review до merge; при недоступности reviewer — `WAIT_STRONG_REVIEW`, без снижения gate.
 - **GLM-5.3** и **GPT-6 Astra** — selective escalation/fallback, а не обязательная ступень: используй при конкретной причине, недоступности/неудаче Sol High или unusually high cost of error.
-- В autonomous mode persistent **HIF Supervisor** в Codex владеет task selection, correction routing, PR/CI/proof gate, merge и roadmap sync; browser ChatGPT — manual reviewer/fallback, а не обязательное звено.
+- В autonomous mode одна durable роль **HIF Supervisor** с fresh bounded sessions в Codex владеет task selection, correction routing, PR/CI/proof gate, merge и roadmap sync; browser ChatGPT — manual reviewer/fallback, а не обязательное звено.
 - Полная policy выбора среды, reasoning, сессии и autonomous orchestration находится в `docs/product/agent_orchestration.md`.
 
 ## Язык документации
@@ -82,3 +82,14 @@
 4. `NOT RUN`;
 5. graphical/manual QA только если действительно нужен;
 6. оставшиеся риски.
+
+## Утренние approved batches
+
+- Proposal/source repository roadmap не равны user approval. 1–15 bounded
+  определений и exact native approval receipt находятся в existing `queue.json`.
+- Только existing native scheduler материализует следующую approved task после
+  previous merge + native sync + DONE; scope guards обязательны на всех boundaries.
+- Fresh independent Sol High, exact-head CI/native proof не заменяются batch receipt.
+- Supervisor wake — новая bounded Luna Low session из durable facts, не recursive
+  resume/helper loop. STOP/pause сохраняют текущий partial diff/engine/identity.
+- Детальный operator workflow и NOT VERIFIED rollout: `tools/agent-control/README.md`.

@@ -8,7 +8,7 @@
 приложения. Execution details принадлежат relevant skills, особенно
 `$hif-polish-loop` и `$hif-visual-qa`.
 
-Основной автономный контур живёт локально в Codex: persistent HIF Supervisor
+Основной автономный контур живёт локально в Codex: одна durable роль HIF Supervisor с fresh bounded sessions
 координирует writer/reviewer passes, GitHub/Drive и merge gates. Браузерный
 ChatGPT остаётся допустимым manual reviewer/fallback, но не является
 обязательным звеном обычного рабочего цикла.
@@ -282,7 +282,7 @@ Project-facing уровни:
 браузерного ChatGPT в обязательной цепочке.
 
 Роли:
-- persistent **HIF Supervisor** — **GPT-6 Luna Low**; выбирает следующий bounded
+- одна durable роль **HIF Supervisor** — НОВАЯ bounded **GPT-6 Luna Low** session; выбирает следующий bounded
   pass, координирует writer/reviewer, GitHub/Drive, CI/proof и merge gates;
 - **Writer** — **GPT-6.1 Sol High**; делает одну production-задачу и validation;
 - fresh **cheap reviewer** — **GPT-6 Luna Low**, read-only только для low-risk exact base/head;
@@ -481,3 +481,27 @@ implementation tasks по разделу 5; merge/strong-review gate остаё�
 **User** нужен для genuinely subjective aesthetic approval, нового product
 decision, необходимой authentication/permission или другого неавтоматизируемого
 реального blocker.
+
+## 14. Утренний пакет: approval отдельно от source
+
+User-approved infrastructure candidate `approved-morning-batches` добавляет
+1–15 exact bounded определений в existing `queue.json`, не новые game/product
+решения. Repository roadmap `docs/technical_plan.md` — источник proposals,
+НЕ пользовательский approval сам по себе. Native interactive operator action
+с decision source и full approved digest обязателен до dispatch. Supervisor
+не self-approve'ит пакет и не выбирает READY из legacy source-only claims.
+
+Единственный native scheduler материализует одну задачу после предыдущего
+merge + native sync + roadmap reconciliation + DONE; каждая получает fresh exact
+remote master base. Все batch tasks требуют fresh independent Sol High и текущий
+exact-head CI/proof. Scope проверяется кодом до writer/reviewer/merge, не только
+prompt. Retries сохраняют dispatch identity/engine/checkout/partial diff.
+
+После exhaustion — один claimed planning pass и WAIT_USER. Следующий bounded
+Supervisor wake — NEW Luna Low session по durable state/roadmap/review receipts,
+не endlessly resumed history. Одна роль и один существующий scheduler сохранены.
+Scoped GitHub create/merge overrides находятся в repository wake source; global
+config не расширяется, модели не git-write master. Детальные schema/native
+operator commands, locks, STOP/pause и DPAPI trust boundary —
+`tools/agent-control/README.md`. Полный live morning packet и GLM runtime QA ещё
+NOT VERIFIED; этот candidate не deployed.

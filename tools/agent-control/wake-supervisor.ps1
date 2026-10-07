@@ -3,6 +3,23 @@ $ErrorActionPreference='Stop'
 $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $OutputEncoding
 $C='D:\How_I_Fall\agent-control'
+
+# Fixed runtime only; refuse junction/symlink ancestors before reading or writing control.
+function AssertControlPaths([string]$root) {
+    foreach($relative in @('', 'queue.json', 'queue.json.tmp', 'state.json', 'state.json.tmp', 'controller.json', 'codex-quota.json', 'STOP', 'MAINTENANCE', 'logs', 'evidence')) {
+        $candidate=if($relative){Join-Path $root $relative}else{$root}
+        while($candidate){
+            if(Test-Path -LiteralPath $candidate){
+                $item=Get-Item -LiteralPath $candidate -Force
+                if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Runtime reparse/ancestor escape refused'}
+            }
+            $parent=Split-Path -Parent $candidate
+            if($parent -eq $candidate){break}; $candidate=$parent
+        }
+    }
+}
+
+AssertControlPaths $C
 $env:CODEX_HOME='D:\Codex'
 $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
 if((Test-Path (Join-Path $C 'MAINTENANCE')) -or (Test-Path (Join-Path $C 'STOP'))){exit 0}
@@ -11,11 +28,21 @@ if(-not $mutex.WaitOne(0)){exit 0}
 try {
     $cfg=Get-Content (Join-Path $C 'controller.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     if(-not $cfg.enabled){exit 0}
-    & $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $C | Out-Null
+    $proposalPath=$null
+    $state=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    if($state.status -eq 'PLANNING_ONCE'){
+        $queue=Get-Content (Join-Path $C 'queue.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        if($queue.batch_planning.status -ne 'CLAIMED'){throw 'Planning requires the single native claim'}
+        # Unique ephemeral input, not another tracker; no stale draft reused on restart.
+        $proposalPath=Join-Path $C ('morning-packet-'+[guid]::NewGuid().ToString('N')+'.json')
+    }
+    $quotaJson=& $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $C
     if($LASTEXITCODE){throw 'Quota reader failed'}
-    $quota=Get-Content (Join-Path $C 'codex-quota.json') -Raw -Encoding UTF8
+    $quota=$quotaJson -join "`n"
     $prompt=@"
-HIF SUPERVISOR WAKE. Continue from durable state, do not restart completed work.
+HIF SUPERVISOR WAKE. NEW bounded Luna Low session; ONE durable Supervisor role.
+Read controller.json, queue.json, state.json, merge-gate.json and matching latest review receipts
+from existing control. Historical supervisor_thread_id is NOT a session to resume.
 Read D:\How_I_Fall\master\AGENTS.md and docs/product/agent_orchestration.md.
 Repository docs/technical_plan.md is the approved roadmap; compare optional Drive mirror when tools are available. Missing mirror access never blocks selection.
 Preserve protected D:\How_I_Fall\develop: NO edits, reset, clean, stash, tests or import there.
@@ -34,11 +61,20 @@ High-risk candidates always need CLEAN Sol High independent review. If unavailab
 WAIT_STRONG_REVIEW; no merge, no substitution of GLM/Luna for strong review.
 Never transfer a partial diff to another engine silently. Preserve original retry branch.
 Do not invoke yourself recursively or run additional worker/supervisor loops.
-Before writer, set id, approved_source (repository decision/approved roadmap),
-exact base_sha from current remote master, bounded prompt, allowed_paths,
-validation/acceptance, risk and player_facing in queue.json. Production tasks must
-be supported by approved source. Set state.status=READY, then end this turn so the
-scheduler invokes the writer. At most ONE active task across both engines.
+Native scheduler alone materializes READY from an explicitly operator-approved queue.batches
+packet. Never set READY from source-only/roadmap/model claim, never edit signed definitions,
+approval receipts or dispatch identities. Preserve the three LIST_APPROVED_NOT_DISPATCHED
+legacy game items and DONE history. Native scope guards run before writer/reviewer/merge.
+If state PLANNING_ONCE: draft ONE packet of 1..15 bounded tasks from repository roadmap,
+goal, scope, protected_contracts, acceptance, dependencies, risk, fixed QA selection.
+Write ONLY the packet JSON to this host-selected ephemeral input: $proposalPath
+Do NOT invoke batch-propose inside this wake or write the proposal into queue/state yourself.
+After a successful turn the native host releases the wake lock, then batch-propose acquires
+both existing locks and imports this draft into SAME queue.json. No features/canon padding.
+Subjective UI choices belong in morning definitions, objective QA is autonomous.
+A proposal/approved_source is NOT user consent. Only interactive native batch-approve can
+record an operator decision. Do not invoke approval, forge seals, self-approve or dispatch.
+After planning end turn: native scheduler sets WAIT_USER and never endlessly repeats it.
 Each approved Flash task MUST explicitly select native_validation_profile:
 agent-control (existing fixed infrastructure fixtures) or hif-runtime with native_qa
 {unity:[{mode,filter}],graphical:[Scenario]}. Use ONLY hif-control.py's fixed whitelist;
@@ -78,10 +114,10 @@ belong to the merged candidate diff. Drive roadmap is an optional research/histo
 mirror: sync it when Drive write works; if unavailable explicitly mark Drive stale
 and set task DONE with a durable next action. Missing/stale Drive sync never blocks
 DONE after the other gates. Never silently claim a synced Drive.
-If queue ends: check approved roadmap/confirmed defects once. If exhausted, propose
-at most 3 new product tasks with acceptance in proposals.md, set WAIT_USER, stop.
-Do not execute unapproved product proposals or invent features/canon to burn tokens.
-User approval arrives in Codex: user never relays prompts between apps.
+If queue ends: only the native PLANNING_ONCE request permits a single proposal pass.
+Otherwise WAIT_USER, no unapproved execution. Never ask approval for each safe step
+inside an approved scope. CI failures/deterministic fixes use bounded corrections, same
+identity/engine/checkout; true user decisions/auth blockers wait durably.
 For real auth/CI/quota/blocker wait durably. Retry failed transport at most 3 times,
 then BLOCKED. Stay quiet on unchanged waits; notify only completion/failure/user decision.
 Use GitHub and Google Drive plugins directly. Browser ChatGPT is not required.
@@ -90,9 +126,17 @@ Finish with concise real progress and durable next action. Never report unrun PA
     $codex=(Get-ChildItem "$env:LOCALAPPDATA\OpenAI\Codex\bin" -Recurse -Filter codex.exe | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
     if(-not $codex){throw 'Bundled Codex CLI missing'}
     $old=$ErrorActionPreference; $ErrorActionPreference='Continue'
-    # User explicitly authorized autonomous HIF merge. Override only this tool,
+    # User authorized scoped HIF PR creation AND merge. Override only these two tools,
     # only in this Supervisor process; no global app/default permission change.
-    $prompt | & $codex -C 'D:\How_I_Fall\master' -a never -s workspace-write -c 'sandbox_workspace_write.network_access=true' -c 'apps.connector_76869538009648d5b282a4bb21c3d157.tools.merge_pull_request.approval_mode="approve"' --add-dir $C --add-dir 'D:\How_I_Fall\agent' --add-dir 'D:\How_I_Fall\zagent' -m 'gpt-6-luna' -c 'model_reasoning_effort="low"' exec resume $cfg.supervisor_thread_id - 2>&1 | Tee-Object -FilePath (Join-Path $C 'supervisor-wake.log') -Append
+    $prompt | & $codex -C 'D:\How_I_Fall\agent' -a never -s workspace-write -c 'sandbox_workspace_write.network_access=true' -c 'apps.connector_76869538009648d5b282a4bb21c3d157.tools.create_pull_request.approval_mode="approve"' -c 'apps.connector_76869538009648d5b282a4bb21c3d157.tools.merge_pull_request.approval_mode="approve"' --add-dir $C --add-dir 'D:\How_I_Fall\agent' --add-dir 'D:\How_I_Fall\zagent' -m 'gpt-6-luna' -c 'model_reasoning_effort="low"' exec - 2>&1 | Tee-Object -FilePath (Join-Path $C 'supervisor-wake.log') -Append
     $code=$LASTEXITCODE; $ErrorActionPreference=$old
     if($code){throw ('Supervisor transport failed: '+$code)}
 } finally {try{$mutex.ReleaseMutex()}catch{}; $mutex.Dispose()}
+
+# Not a lock bypass: the model turn has ended and the CLI acquires wake + writer
+# locks before loading ANY snapshot. A failed turn never imports a partial draft.
+if($proposalPath){
+    & $Python (Join-Path $PSScriptRoot 'hif-control.py') batch-propose --control $C --output $proposalPath
+    if($LASTEXITCODE -eq 78){exit 78}
+    if($LASTEXITCODE){throw 'Native proposal import failed; preserve draft, no dispatch'}
+}
