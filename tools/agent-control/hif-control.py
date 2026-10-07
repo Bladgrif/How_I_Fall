@@ -1121,10 +1121,9 @@ def main():
         if args.command == "scope-check":
             print(json.dumps(boundary_scope(c, args.phase)))
             return
-        # Native proposal is called inside the existing wake. Other mutations
-        # must also exclude that turn, not race model state/receipt transport.
-        wake_lock = contextlib.nullcontext() if args.command == "batch-propose" else writer_lock("Local\\HowIFallSupervisorWake")
-        with wake_lock, writer_lock():
+        # Every mutation excludes the Supervisor turn, including standalone
+        # proposals. Wake imports its draft only AFTER releasing its own lock.
+        with writer_lock("Local\\HowIFallSupervisorWake"), writer_lock():
             if (c / "STOP").exists() or (c / "MAINTENANCE").exists():
                 raise ValueError("Control paused/stopped")
             if args.command == "batch-propose":

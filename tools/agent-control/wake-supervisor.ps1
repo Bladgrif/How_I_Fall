@@ -28,6 +28,14 @@ if(-not $mutex.WaitOne(0)){exit 0}
 try {
     $cfg=Get-Content (Join-Path $C 'controller.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     if(-not $cfg.enabled){exit 0}
+    $proposalPath=$null
+    $state=Get-Content (Join-Path $C 'state.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    if($state.status -eq 'PLANNING_ONCE'){
+        $queue=Get-Content (Join-Path $C 'queue.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        if($queue.batch_planning.status -ne 'CLAIMED'){throw 'Planning requires the single native claim'}
+        # Unique ephemeral input, not another tracker; no stale draft reused on restart.
+        $proposalPath=Join-Path $C ('morning-packet-'+[guid]::NewGuid().ToString('N')+'.json')
+    }
     $quotaJson=& $Python (Join-Path $PSScriptRoot 'hif-control.py') quota --control $C
     if($LASTEXITCODE){throw 'Quota reader failed'}
     $quota=$quotaJson -join "`n"
@@ -59,8 +67,10 @@ approval receipts or dispatch identities. Preserve the three LIST_APPROVED_NOT_D
 legacy game items and DONE history. Native scope guards run before writer/reviewer/merge.
 If state PLANNING_ONCE: draft ONE packet of 1..15 bounded tasks from repository roadmap,
 goal, scope, protected_contracts, acceptance, dependencies, risk, fixed QA selection.
-Use native hif-control.py batch-propose --output <packet file inside control>; it stores proposal
-in SAME queue.json, not proposals.md or a second execution tracker. No features/canon padding.
+Write ONLY the packet JSON to this host-selected ephemeral input: $proposalPath
+Do NOT invoke batch-propose inside this wake or write the proposal into queue/state yourself.
+After a successful turn the native host releases the wake lock, then batch-propose acquires
+both existing locks and imports this draft into SAME queue.json. No features/canon padding.
 Subjective UI choices belong in morning definitions, objective QA is autonomous.
 A proposal/approved_source is NOT user consent. Only interactive native batch-approve can
 record an operator decision. Do not invoke approval, forge seals, self-approve or dispatch.
@@ -122,3 +132,11 @@ Finish with concise real progress and durable next action. Never report unrun PA
     $code=$LASTEXITCODE; $ErrorActionPreference=$old
     if($code){throw ('Supervisor transport failed: '+$code)}
 } finally {try{$mutex.ReleaseMutex()}catch{}; $mutex.Dispose()}
+
+# Not a lock bypass: the model turn has ended and the CLI acquires wake + writer
+# locks before loading ANY snapshot. A failed turn never imports a partial draft.
+if($proposalPath){
+    & $Python (Join-Path $PSScriptRoot 'hif-control.py') batch-propose --control $C --output $proposalPath
+    if($LASTEXITCODE -eq 78){exit 78}
+    if($LASTEXITCODE){throw 'Native proposal import failed; preserve draft, no dispatch'}
+}

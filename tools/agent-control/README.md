@@ -268,9 +268,13 @@ runtime. Runtime source и operator console остаются trusted host bounda
 
 `batch-tick` — фиксированный native шаг ЕДИНСТВЕННОГО `supervisor-loop.ps1` под
 existing `HowIFallSupervisorWake` + `HowIFallWriter` locks. `scope-check` не пишет
-state и вызывается внутри writer/reviewer lock. Proposal из wake берёт writer lock,
-но не пытается recursively взять уже удерживаемый wake lock. Operator action не
-может состязаться с model wake. Scheduler state write — atomic replacement под
+state и вызывается внутри writer/reviewer lock. Любой `batch-propose`, включая
+standalone operator command, берёт wake lock, затем writer lock ДО чтения снимка.
+Planning wake пишет только уникальный кратковременный packet input; после успешного
+model turn native host освобождает wake lock и вызывает обычный `batch-propose`
+с обоими locks. Bypass нет; старый draft не переиспользуется после restart,
+failed turn не импортируется. Operator action не может состязаться с model wake.
+Scheduler state write — atomic replacement под
 writer lock с compare-and-swap исходного снимка: более свежий operator state не
 затирается. Partial queue/state/quota write — `STOP`, fatal exit `78`, даже если
 marker невозможно записать. Нет автоматического repair/reset/clean.

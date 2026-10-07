@@ -345,6 +345,112 @@ class BatchTests(unittest.TestCase):
             self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
             self.assertEqual("BATCH_PENDING", c.load(root / "state.json")["status"])
 
+    def proposal_cli_fixture(self, root):
+        c.persist_control(root, {"tasks": [{"id": "history", "status": "DONE"}]}, {"status": "WAIT_USER"})
+        c.save(root / "packet.json", packet())
+        # Real CLI and Windows mutexes, isolated names; no live control/Git/models.
+        driver = root / "proposal.py"
+        driver.write_text(
+            "import importlib.util, sys\nfrom pathlib import Path\n"
+            f"spec=importlib.util.spec_from_file_location('control', {str(Path(c.__file__).resolve())!r})\n"
+            "c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)\n"
+            f"root=Path({str(root)!r})\n"
+            "c.control_paths=lambda value: None if value.resolve()==root.resolve() else sys.exit(2)\n"
+            "original_lock=c.writer_lock\n"
+            "c.writer_lock=lambda name='Local\\\\HowIFallWriter': original_lock(name+'-'+root.name)\n"
+            "c.git_output=lambda *args: 'fixture roadmap'\n"
+            "c.fresh_quota=lambda: {'mode':'NORMAL'}\n"
+            "original_load=c.load\n"
+            "def load(path):\n"
+            "    with (root/'reads.txt').open('a') as log: log.write(Path(path).name+'\\n')\n"
+            "    return original_load(path)\n"
+            "c.load=load\n"
+            "try: c.main()\n"
+            "except Exception as error: print(str(error), file=sys.stderr);sys.exit(1)\n", encoding="utf-8")
+        return [sys.executable, "-B", str(driver), "batch-propose", "--control", str(root), "--output", str(root / "packet.json")]
+
+    @unittest.skipUnless(sys.platform == "win32", "Actual standalone proposal wake contention")
+    def test_standalone_proposal_refuses_active_supervisor_before_read_or_write(self):
+        with tempfile.TemporaryDirectory(prefix="hif-proposal-lock-") as directory:
+            root = Path(directory); argv = self.proposal_cli_fixture(root)
+            before = {name: (root / name).read_bytes() for name in ("queue.json", "state.json")}
+            with c.writer_lock("Local\\HowIFallSupervisorWake-" + root.name):
+                result = subprocess.run(argv, capture_output=True, timeout=15)
+            self.assertEqual(1, result.returncode, result.stderr.decode(errors="replace"))
+            self.assertIn("busy", result.stderr.decode(errors="replace"))
+            self.assertFalse((root / "reads.txt").exists())
+            self.assertFalse((root / "STOP").exists())
+            for name, value in before.items():
+                self.assertEqual(value, (root / name).read_bytes())
+
+    @unittest.skipUnless(sys.platform == "win32", "Actual proposal overlapping snapshot preservation")
+    def test_proposal_after_wake_uses_latest_queue_state_not_overlapping_snapshot(self):
+        with tempfile.TemporaryDirectory(prefix="hif-proposal-stale-") as directory:
+            root = Path(directory); argv = self.proposal_cli_fixture(root)
+            with c.writer_lock("Local\\HowIFallSupervisorWake-" + root.name):
+                stale_q, stale_s = c.load(root / "queue.json"), c.load(root / "state.json")
+                result = subprocess.run(argv, capture_output=True, timeout=15)
+                self.assertEqual(1, result.returncode, result.stderr.decode(errors="replace"))
+                # Supervisor publishes from its own snapshot, still exclusively held.
+                stale_q["tasks"] += [dict(id="active", status="WAIT_CI", head_sha="b"*40)]
+                stale_s.update(status="WAIT_CI", active_task_id="active", head_sha="b"*40)
+                c.persist_control(root, stale_q, stale_s)
+            result = subprocess.run(argv, capture_output=True, timeout=15)
+            self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
+            current = c.load(root / "queue.json")
+            self.assertEqual(stale_q["tasks"], current["tasks"])
+            self.assertEqual(stale_s, c.load(root / "state.json"))
+            self.assertEqual("PROPOSED", current["batches"][0]["status"])
+            self.assertIsNone(current["batches"][0]["approval"])
+            self.assertFalse((root / "STOP").exists())
+
+    @unittest.skipUnless(sys.platform == "win32", "Actual native wake planning handoff fixture")
+    def test_wake_imports_fresh_draft_only_after_success_and_lock_release(self):
+        source = Path(__file__).with_name("wake-supervisor.ps1").read_text(encoding="utf-8-sig")
+        for mode in ("success", "failed-turn", "missing-draft", "unclaimed", "paused", "nonplanning"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory(prefix="hif-wake-proposal-") as directory:
+                root = Path(directory); self.proposal_cli_fixture(root)
+                (root / "proposal.py").rename(root / "hif-control.py")
+                c.save(root / "controller.json", {"enabled": True})
+                q = c.load(root / "queue.json")
+                q["batch_planning"] = {"status": "REQUESTED" if mode == "unclaimed" else "CLAIMED"}
+                state = {"status": "IDLE" if mode == "nonplanning" else "PLANNING_ONCE"}
+                c.persist_control(root, q, state)
+                # A stale input from an earlier wake must never be imported.
+                c.save(root / "morning-packet-stale.json", packet())
+                model = root / "fixture-model.ps1"
+                model.write_text(
+                    "$text=$input | Out-String\n"
+                    "Set-Content -LiteralPath (Join-Path $PSScriptRoot 'model-called') 'fixture'\n"
+                    "if($text -match 'ephemeral input: ([^\\r\\n]+)'){\n"
+                    "  $draft=$Matches[1].Trim()\n" +
+                    ("" if mode == "missing-draft" else
+                     "  Get-Content (Join-Path $PSScriptRoot 'packet.json') -Raw | Set-Content -LiteralPath $draft -Encoding UTF8\n") +
+                    "}\n" +
+                    ("Set-Content -LiteralPath (Join-Path $PSScriptRoot 'STOP') 'fixture pause'\n" if mode == "paused" else "") +
+                    ("exit 7\n" if mode == "failed-turn" else "exit 0\n"), encoding="utf-8-sig")
+                script = source.replace("D:\\How_I_Fall\\agent-control", directory)
+                script = script.replace("Local\\HowIFallSupervisorWake", "Local\\HowIFallSupervisorWake-" + root.name)
+                discovery = next(line for line in script.splitlines() if line.startswith("    $codex="))
+                invocation = next(line for line in script.splitlines() if line.startswith("    $prompt | & $codex"))
+                script = script.replace(discovery, "$codex='" + str(model) + "'")
+                script = script.replace(invocation, "    $prompt | & $codex")
+                (root / "wake.ps1").write_text(script, encoding="utf-8-sig")
+                result = subprocess.run(["powershell.exe", "-NoProfile", "-File", str(root / "wake.ps1")], capture_output=True, timeout=20)
+                self.assertEqual(0 if mode in ("success", "nonplanning") else 1, result.returncode,
+                                 result.stderr.decode(errors="replace"))
+                current = c.load(root / "queue.json")
+                self.assertEqual(q["tasks"], current["tasks"])
+                if mode == "success":
+                    self.assertEqual("PROPOSED", current["batches"][0]["status"])
+                    self.assertEqual("WAIT_USER", c.load(root / "state.json")["status"])
+                    self.assertEqual(1, len(list(root.glob("morning-packet-*.json"))) - 1)
+                else:
+                    self.assertEqual(q, current)
+                    self.assertEqual(state, c.load(root / "state.json"))
+                if mode == "unclaimed":
+                    self.assertFalse((root / "model-called").exists())
+
     @unittest.skipUnless(sys.platform == "win32", "Actual operator lock contention fixture")
     def test_scheduler_lock_busy_is_not_fatal_control_write(self):
         source = Path(__file__).with_name("supervisor-loop.ps1").read_text(encoding="utf-8-sig")
