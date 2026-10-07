@@ -337,12 +337,20 @@ opt-in хелпер `hif-glm-quota.py`: он запускается пользо
 вручную (симметрично `hif-control.py quota` для Codex), сам читает coding-plan
 api-key из хранилища ZCode (`~/.zcode/v2/credentials.json`, расшифровка
 `enc:v1:` AES-256-GCM через штатный node) и делает один запрос к
-авторитетному `api.z.ai/api/monitor/usage/quota/limit`. Секреты хелпер не
-печатает и в файл не пишет. Сам dashboard процесс учётных данных не читает,
-хелпер не запускает, `usage/stats`/`session/usage` (локальный расход запросов)
-остатком не считает. Без свежего снимка (stale > 15 минут или сброс окна) GLM
-balance честно unknown. Потеря связи/устаревший снимок — `НЕ LIVE`,
-исторический preview не доказательство живого подключения.
+авторитетному `api.z.ai/api/monitor/usage/quota/limit`. HTTP redirects для
+запроса запрещены полностью (`NoRedirectHandler`): ключ не уходит на другой
+host; ошибки — только фиксированные тексты и проверенные числовые HTTP/API
+коды, без API messages/response bodies/exception text/subprocess stderr.
+Секреты хелпер не печатает и в файл не пишет. Сам dashboard процесс учётных
+данных не читает, хелпер не запускает, `usage/stats`/`session/usage`
+(локальный расход запросов) остатком не считает. Свежесть GLM-снимка
+определяется только по валидированному `updated_at` (mtime файла свежестью не
+считается): missing/invalid/future время, возраст >15 минут, прошедший сброс
+окна или ошибка чтения дают stale/error даже при QUOTA_SAVE — исторические
+проценты показываются с явным «не актуально», текущий остаток не
+утверждается. Без свежего снимка GLM balance честно unknown. Потеря
+связи/устаревший снимок — `НЕ LIVE`, исторический preview не доказательство
+живого подключения.
 
 Fixed `agent-control` host QA: три NAMED suites (`test_control.py`, `test_batch.py`,
 `test_dashboard.py`), Python compile в памяти, dashboard JS `node --check`,

@@ -23,6 +23,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 
 CREDENTIALS_PATH = Path.home() / ".zcode/v2/credentials.json"
@@ -38,6 +39,33 @@ NODE_FALLBACKS = (
 IV_BYTES = 12
 TAG_BYTES = 16
 QUOTA_SAVE_THRESHOLD = 25
+# Redirects запрещены полностью: urllib иначе передал бы Authorization другому host.
+REDIRECT_CODES = (301, 302, 303, 307, 308)
+
+
+class QuotaHelperError(Exception):
+    """Ошибка с фиксированным безопасным текстом и проверенным числовым кодом.
+
+    Текст никогда не содержит API messages, response bodies, исходный текст
+    исключений или subprocess stderr: сервер не может использовать его,
+    чтобы отразить ключ обратно в stdout/stderr/снимок.
+    """
+
+    def __init__(self, message, code=None):
+        super().__init__(message)
+        self.message = message
+        self.code = code if isinstance(code, int) and not isinstance(code, bool) else None
+
+
+def error_code(error):
+    return str(error.code) if isinstance(error, QuotaHelperError) and error.code is not None else "—"
+
+
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Любой 3xx -> HTTPError без follow-up запроса (redirect_request=None)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 # Совпадает с вызовом node:crypto в desktop-app; вход/выход через stdin/stdout,
 # чтобы секрет не попадал в argv/списки процессов.
@@ -111,24 +139,39 @@ def load_coding_plan_api_key(credentials_path, node_path, env=None):
     try:
         values = json.loads(Path(credentials_path).read_text(encoding="utf-8-sig"))
     except FileNotFoundError:
-        raise ValueError("хранилище учётных данных ZCode не найдено: %s" % credentials_path)
-    except (OSError, ValueError) as error:
-        raise ValueError("хранилище учётных данных не читается: %s" % str(error)[:120])
+        raise QuotaHelperError("хранилище учётных данных ZCode не найдено")
+    except (OSError, ValueError):
+        raise QuotaHelperError("хранилище учётных данных не читается")
     if not isinstance(values, dict):
-        raise ValueError("хранилище учётных данных не является объектом")
+        raise QuotaHelperError("хранилище учётных данных не является объектом")
     names = sorted(name for name in values
                    if name.startswith(CREDENTIAL_KEY_PREFIX) and name.endswith(CREDENTIAL_KEY_SUFFIX))
     if not names:
-        raise ValueError("coding-plan api-key не найден в хранилище ZCode")
-    return decrypt_credential(values[names[0]], node_path, env)
+        raise QuotaHelperError("coding-plan api-key не найден в хранилище ZCode")
+    try:
+        return decrypt_credential(values[names[0]], node_path, env)
+    except ValueError:
+        raise QuotaHelperError("coding-plan api-key не расшифрован")
 
 
 def fetch_quota(api_key, timeout=DEFAULT_TIMEOUT):
     request = urllib.request.Request(QUOTA_URL, headers={"authorization": "Bearer " + api_key})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        body = json.loads(response.read().decode("utf-8"))
+    opener = urllib.request.build_opener(NoRedirectHandler)
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as error:
+        if error.code in REDIRECT_CODES:
+            raise QuotaHelperError("redirect квоты запрещён", code=error.code)
+        raise QuotaHelperError("HTTP-ошибка квоты", code=error.code)
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise QuotaHelperError("эндпоинт квоты недоступен")
+    try:
+        body = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        raise QuotaHelperError("ответ квоты не является корректным JSON")
     if not isinstance(body, dict):
-        raise ValueError("ответ квоты не является объектом")
+        raise QuotaHelperError("ответ квоты не является объектом")
     return body
 
 
@@ -147,7 +190,9 @@ def quota_result(body, now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     code = body.get("code")
     if body.get("success") is False or code not in (None, 0, 200):
-        raise ValueError("API квоты вернуло бизнес-ошибку %s" % (body.get("msg") or code))
+        # Только проверенный числовой код: msg сервера может отражать ключ.
+        numeric = code if isinstance(code, int) and not isinstance(code, bool) else None
+        raise QuotaHelperError("API квоты вернуло бизнес-ошибку", code=numeric)
     data = body.get("data") if isinstance(body.get("data"), dict) else {}
     limits = [limit for limit in (data.get("limits") or []) if isinstance(limit, dict)]
     windows = []
@@ -213,13 +258,18 @@ def main(argv=None):
         return 4
     try:
         api_key = load_coding_plan_api_key(args.credentials, node_path)
-    except ValueError as error:
-        print("Учётные данные: %s" % error, file=sys.stderr)
+    except QuotaHelperError as error:
+        print("Учётные данные недоступны (%s)" % error.message, file=sys.stderr)
         return 2
     try:
         snapshot = quota_result(fetch_quota(api_key, timeout=args.timeout))
-    except Exception as error:
-        print("Запрос квоты не удался: %s" % str(error)[:300], file=sys.stderr)
+    except QuotaHelperError as error:
+        print("Запрос квоты не удался (%s, код %s)" % (error.message, error_code(error)),
+              file=sys.stderr)
+        return 3
+    except Exception:
+        # Фиксированный текст: исходное исключение может содержать отражённый ключ.
+        print("Запрос квоты не удался (неожиданная ошибка)", file=sys.stderr)
         return 3
     target = write_snapshot(args.control_dir, snapshot)
     if snapshot["mode"] == "UNKNOWN":

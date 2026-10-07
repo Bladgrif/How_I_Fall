@@ -206,8 +206,25 @@ def glm_quota_unknown(level="unknown", detail=None, error=None):
     }
 
 
+def _parse_snapshot_time(value):
+    """ISO-время снимка -> aware datetime; None при missing/invalid значении."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        moment = dt.datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return moment if moment.tzinfo is not None else None
+
+
 def glm_quota_snapshot(control_dir, now_fn=time.time):
-    """Остаток GLM из снимка хелпера glm-quota.json; без снимка — честно неизвестно."""
+    """Остаток GLM из снимка хелпера glm-quota.json; без свежего снимка — не «норма».
+
+    Свежесть определяется ТОЛЬКО по валидированному updated_at снимка (mtime
+    файла свежестью не считается). Missing/invalid/future время, возраст >15
+    минут или прошедший сброс окна дают stale даже при QUOTA_SAVE: проценты
+    остаются как исторические, текущим остатком они не объявляются.
+    """
     fallback_path = Path(control_dir) / "glm-quota.json"
     value, read_error = load_json_file(fallback_path)
     now = now_fn()
@@ -230,35 +247,46 @@ def glm_quota_snapshot(control_dir, now_fn=time.time):
     if not windows:
         return glm_quota_unknown(level="error",
                                  detail="Снимок glm-quota.json без пригодных окон; остаток неизвестен.")
-    try:
-        age = max(0.0, now - fallback_path.stat().st_mtime)
-    except OSError:
-        age = None
-    mode = value.get("mode") if value.get("mode") in ("NORMAL", "QUOTA_SAVE") else "UNKNOWN"
-    rolled = any(window["resets_at_epoch"] is not None and window["resets_at_epoch"] <= now
-                 for window in windows)
-    level = "warn" if mode == "QUOTA_SAVE" else "ok"
-    if rolled and level != "warn":
-        # Окно уже сбросилось: использовано в снимке заведомо устарело.
+    mode = value.get("mode") if value.get("mode") in ("NORMAL", "QUOTA_SAVE") else None
+    moment = _parse_snapshot_time(value.get("updated_at"))
+    age = (now - moment.timestamp()) if moment is not None else None
+    if mode is None:
+        staleness = "Неизвестный режим снимка glm-quota.json; остаток не актуален."
+    elif moment is None:
+        staleness = "Время снимка glm-quota.json отсутствует или некорректно; остаток не актуален."
+    elif age < 0:
+        staleness = "Время снимка glm-quota.json в будущем; остаток не актуален."
+    elif age > GLM_QUOTA_FILE_STALE_SECONDS:
+        staleness = ("Снимок glm-quota.json устарел (возраст %d минут > %d): проценты "
+                     "исторические, текущий остаток не утверждается. Запусти хелпер "
+                     "hif-glm-quota.py." % (int(age // 60), int(GLM_QUOTA_FILE_STALE_SECONDS // 60)))
+    elif any(window["resets_at_epoch"] is not None and window["resets_at_epoch"] <= now
+             for window in windows):
+        staleness = ("Окно уже сбросилось: использовано в снимке заведомо устарело. "
+                     "Запусти хелпер hif-glm-quota.py для обновления.")
+    else:
+        staleness = None
+    if staleness is not None:
+        # Устаревание важнее QUOTA_SAVE: «норма» и низкий остаток не утверждаются.
         level = "stale"
-    detail = ("Снимок из glm-quota.json (helper hif-glm-quota.py); окно уже сбросилось — "
-              "запусти хелпер для обновления."
-              if rolled else
-              "Снимок из glm-quota.json (helper hif-glm-quota.py, читает api.z.ai с "
-              "coding-plan api-key). Сам дашборд учётные данные не читает.")
-    if age is not None and age > GLM_QUOTA_FILE_STALE_SECONDS and level != "warn":
-        level = "stale"
-        detail = ("Снимок glm-quota.json старше 15 минут; остаток мог измениться. "
-                  "Запусти хелпер для обновления.")
+        detail = staleness
+    elif mode == "QUOTA_SAVE":
+        level = "warn"
+        detail = ("QUOTA_SAVE: остаток ≤25% в одном из окон — свежий снимок glm-quota.json "
+                  "(helper hif-glm-quota.py).")
+    else:
+        level = "ok"
+        detail = ("Снимок из glm-quota.json (helper hif-glm-quota.py, читает api.z.ai с "
+                  "coding-plan api-key). Сам дашборд учётные данные не читает.")
     return {
         "provider": GLM_QUOTA_PROVIDER_LABEL,
         "available": True,
         "level": level,
-        "mode": mode,
+        "mode": mode or "UNKNOWN",
         "windows": windows,
         "source": "helper-file",
         "source_label": "файл glm-quota.json (хелпер hif-glm-quota.py)",
-        "age_seconds": round(age, 1) if age is not None else None,
+        "age_seconds": round(age, 1) if age is not None and age >= 0 else None,
         "updated_at": _optional_str(value.get("updated_at"), 40),
         "plan_level": _optional_str(value.get("plan_level"), 40),
         "error": None,
