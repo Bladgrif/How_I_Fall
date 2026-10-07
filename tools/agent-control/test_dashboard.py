@@ -494,7 +494,7 @@ class QuotaTests(BaseControlTest):
 
 
 def glm_quota_file_value(mode="NORMAL", used=(15.0, 5.0), resets_offset=(4000, 700000),
-                         updated_age_seconds=0.0, updated_at=None):
+                         updated_age_seconds=1.0, updated_at=None):
     now = time.time()
     if updated_at is None:
         updated_at = d.dt.datetime.fromtimestamp(now - updated_age_seconds, d.dt.timezone.utc).isoformat()
@@ -623,8 +623,12 @@ class GlmQuotaTests(BaseControlTest):
     def test_snapshot_integration_and_usage_separate(self):
         control = build_control_dir(self.base)
         write_json(control / "glm-quota.json", glm_quota_file_value())
-        snap = make_dashboard(control).snapshot()
-        self.assertEqual(d.glm_quota_snapshot(control), snap["quota_glm"])
+        # Freeze the clock: compare snapshots, not two different wall-clock ages.
+        value = json.loads((control / "glm-quota.json").read_text(encoding="utf-8"))
+        now = d._parse_snapshot_time(value["updated_at"]).timestamp() + 1.0
+        clock = lambda: now
+        snap = make_dashboard(control, now_fn=clock).snapshot()
+        self.assertEqual(d.glm_quota_snapshot(control, clock), snap["quota_glm"])
         self.assertTrue(snap["quota_glm"]["available"])
         # Расход прошлого запуска живёт в activity и не подменяет остаток.
         self.assertEqual(120, snap["activity"]["glm_usage"]["usage"]["totalTokens"])
