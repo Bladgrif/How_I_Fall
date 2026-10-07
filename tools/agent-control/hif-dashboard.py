@@ -5,6 +5,9 @@ D:/How_I_Fall/agent-control и никогда не пишет queue/state/contro
 codex-quota файлы, Git и сохранения. Живая квота GPT берётся из уже
 установленного hif-control.py (codex_rpc + quota_result), кэш только в памяти;
 обновление — throttled single-flight не чаще 60 c, UI не блокируется.
+Остаток квоты GLM честно неизвестен: поддерживаемого источника остатка
+подписки Z-Code Coding Plan без учётных данных нет (см. glm_quota_snapshot),
+расход отдельных запросов остатком не считается.
 Никаких mutation/execute маршрутов: только /, /api/status, /health, favicon.
 """
 import argparse
@@ -153,6 +156,48 @@ def default_quota_rpc(module_path=DEFAULT_CONTROL_MODULE):
         module = load_control_module(module_path)
         return module.quota_result(module.codex_rpc("account/rateLimits/read", {}))
     return rpc
+
+
+GLM_QUOTA_PROVIDER_LABEL = "GLM-5.3-Flash (аккаунт Z-Code Coding Plan)"
+# Проверено 2026-10-07 против ZCode CLI/desktop 0.16.9: поддерживаемого способа
+# прочитать остаток подписки без учётных данных нет. Список фиксированный и
+# документирует проверенные источники; runtime-проверок учётных данных нет и не
+# будет — дашборд read-only и не извлекает secrets/token'ы.
+GLM_QUOTA_CHECKED_SOURCES = (
+    {"name": "app-server usage/stats", "result": "не остаток",
+     "reason": "локальная статистика расхода запросов (agent-db), а не остаток подписки"},
+    {"name": "app-server session/usage", "result": "не остаток",
+     "reason": "расход одной сессии, а не остаток подписки"},
+    {"name": "~/.zcode/v2/coding-plan-cache.json", "result": "не остаток",
+     "reason": "только статусы доступности планов, без остатка и времени сброса"},
+    {"name": "api.z.ai/api/monitor/usage/quota/limit", "result": "недоступен",
+     "reason": "авторитетный источник остатка, но требует OAuth-токен из хранилища "
+               "учётных данных desktop-приложения; извлечение учётных данных запрещено"},
+)
+
+
+def glm_quota_snapshot():
+    """Честный блок GLM-квоты без авторитетного источника остатка.
+
+    Остаток не придумывается и зелёным не помечается; расход отдельных
+    запросов (activity.glm_usage) остатком подписки не считается.
+    """
+    return {
+        "provider": GLM_QUOTA_PROVIDER_LABEL,
+        "available": False,
+        "level": "unknown",
+        "detail": ("Остаток квоты GLM неизвестен: поддерживаемого источника остатка "
+                   "подписки без учётных данных нет; значение не придумывается и "
+                   "не показывается зелёным."),
+        "limitation": ("Официальный источник остатка Coding Plan "
+                       "(api.z.ai/api/monitor/usage/quota/limit) требует OAuth-токен "
+                       "из хранилища учётных данных desktop-приложения ZCode; "
+                       "read-only дашборд не извлекает и не хранит учётные данные."),
+        "checked_sources": [dict(source) for source in GLM_QUOTA_CHECKED_SOURCES],
+        "verified_against": "ZCode CLI/desktop 0.16.9, 2026-10-07",
+        "request_usage_note": ("Потребление ниже — расход прошлого запуска, НЕ остаток "
+                               "подписки; кэшированный ввод не считается свежей тратой."),
+    }
 
 
 def probe_processes():
@@ -1006,12 +1051,7 @@ class Dashboard:
                 "stale_write_note_seconds": STALE_WRITE_NOTE_SECONDS,
             },
             "quota_gpt": quota,
-            "quota_glm": {
-                "available": False,
-                "level": "unknown",
-                "detail": ("Остаток квоты GLM неизвестен: авторитетного источника остатка нет; "
-                           "значение не придумывается и не показывается зелёным."),
-            },
+            "quota_glm": glm_quota_snapshot(),
             "glm_idle": self.glm_idle_reasons(tasks, state_value, support.get("status") == "running",
                                                any(row.get("role") == "writer_glm" for row in processes.get("value") or [])),
         }

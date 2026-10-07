@@ -332,7 +332,11 @@ POST actions или credentials. HTTP — существующий read-only э�
 Progress/approval-recorded/next/wait показываются компактно; recorded receipt не
 объявляется native dispatch PASS. Live PID facts отделены от running scheduler
 timer. GPT показывает fresh source/age/reset или stale fallback; GLM balance
-честно unknown. Потеря связи/устаревший снимок — `НЕ LIVE`, исторический preview
+честно unknown с фиксированным списком проверенных источников: `usage/stats` и
+`session/usage` — локальный расход запросов, а не остаток; авторитетный
+`api.z.ai/api/monitor/usage/quota/limit` требует OAuth-токен desktop-приложения
+и дашбордом не извлекается. Расход отдельных запросов не выдаётся за остаток
+подписки. Потеря связи/устаревший снимок — `НЕ LIVE`, исторический preview
 не доказательство живого подключения.
 
 Fixed `agent-control` host QA: три NAMED suites (`test_control.py`, `test_batch.py`,

@@ -320,8 +320,26 @@ function renderQuotaGlm(q, activity) {
   box.replaceChildren();
   setPanelLevel(box, "unknown");
   box.append(el("h2", null, "GLM (Z-Code) — лимиты"));
-  box.append(pill("остаток неизвестен", "unknown"));
-  box.append(el("div", "small muted", q.detail || "Авторитетных данных об остатке GLM нет; значение не придумывается."));
+  var head = el("div", "quota-head");
+  head.append(el("span", null, (q && q.provider) || "GLM-5.3-Flash"));
+  head.append(pill("остаток неизвестен", "unknown"));
+  box.append(head);
+  box.append(el("div", "small muted", (q && q.detail) || "Авторитетных данных об остатке GLM нет; значение не придумывается."));
+  if (q && q.limitation) {
+    box.append(el("div", "small", q.limitation));
+  }
+  if (q && q.checked_sources && q.checked_sources.length) {
+    var sources = el("div", "block");
+    var sourcesTitle = "Проверенные источники";
+    if (q.verified_against) { sourcesTitle += " (" + q.verified_against + ")"; }
+    sourcesTitle += ":";
+    sources.append(el("div", null, sourcesTitle));
+    q.checked_sources.forEach(function (source) {
+      sources.append(el("div", "muted small", source.name + " — " + source.result
+        + (source.reason ? ": " + source.reason : "")));
+    });
+    box.append(sources);
+  }
   var usage = activity && activity.glm_usage;
   if (usage && usage.usage) {
     var u = usage.usage;
@@ -336,7 +354,8 @@ function renderQuotaGlm(q, activity) {
     if (usage.age_seconds !== null && usage.age_seconds !== undefined) {
       block.append(el("div", "muted small", "завершён " + fmtAge(usage.age_seconds)));
     }
-    block.append(el("div", "muted small", "Это известное потребление прошлого запуска, а не текущий остаток; кэшированный ввод не считается свежей тратой."));
+    block.append(el("div", "muted small", (q && q.request_usage_note)
+      || "Это известное потребление прошлого запуска, а не текущий остаток; кэшированный ввод не считается свежей тратой."));
     box.append(block);
   } else {
     box.append(el("div", "muted small", "Записей о потреблении Z-Code пока нет (конверт пишется только после завершения запуска)."));

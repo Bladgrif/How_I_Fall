@@ -493,6 +493,47 @@ class QuotaTests(BaseControlTest):
             gate.set()
 
 
+class GlmQuotaTests(BaseControlTest):
+    def test_structured_honest_unknown(self):
+        value = d.glm_quota_snapshot()
+        self.assertFalse(value["available"])
+        self.assertEqual("unknown", value["level"])
+        self.assertIn("неизвестен", value["detail"])
+        self.assertIn("GLM-5.3-Flash", value["provider"])
+        self.assertTrue(value["limitation"])
+        self.assertTrue(value["verified_against"])
+
+    def test_request_usage_is_not_subscription_balance(self):
+        value = d.glm_quota_snapshot()
+        self.assertIn("НЕ остаток", value["request_usage_note"])
+        names = " ".join(source["name"] for source in value["checked_sources"])
+        self.assertIn("usage/stats", names)
+        self.assertIn("session/usage", names)
+        authoritative = [source for source in value["checked_sources"]
+                         if "quota/limit" in source["name"]]
+        self.assertEqual(1, len(authoritative))
+        self.assertIn("учётных данных", authoritative[0]["reason"])
+
+    def test_no_secret_material_in_block(self):
+        dump = json.dumps(d.glm_quota_snapshot(), ensure_ascii=False).lower()
+        for banned in ("access_token", "bearer ", "secretkey", "authorization:"):
+            self.assertNotIn(banned, dump)
+
+    def test_snapshot_uses_block_and_keeps_usage_separate(self):
+        control = build_control_dir(self.base)
+        snap = make_dashboard(control).snapshot()
+        self.assertEqual(d.glm_quota_snapshot(), snap["quota_glm"])
+        self.assertFalse(snap["quota_glm"]["available"])
+        # Расход прошлого запуска живёт в activity и не подменяет остаток.
+        self.assertEqual(120, snap["activity"]["glm_usage"]["usage"]["totalTokens"])
+
+    def test_html_renders_sources_and_usage_disclaimer(self):
+        html = Path(__file__).with_name("hif-dashboard.html").read_text(encoding="utf-8")
+        self.assertIn("checked_sources", html)
+        self.assertIn("request_usage_note", html)
+        self.assertIn("остаток неизвестен", html)
+
+
 class TailTests(BaseControlTest):
     def dashboard(self):
         control = build_control_dir(self.base)
