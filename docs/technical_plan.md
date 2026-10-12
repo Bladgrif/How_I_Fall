@@ -138,10 +138,25 @@ production UI. За один проход брать одну задачу; сл
    состояния реальных настроек и возврат. Не добавлять controls без consumer.
    Результат — target со state sheet и ограниченным implementation brief;
    субъективное направление утверждает пользователь.
+   **2026-10-12:** Target 11 утверждён пользователем; два PNG и два SVG сохранены
+   побайтово, approval зафиксирован в brief/индексе. Это не production QA approval.
 4. **Preferences — только утверждённая presentation-дельта.** Сохранить один
    общий экран и текущую Settings authority. Acceptance: targeted regression,
    релевантный smoke, свежий `PlayerUi` graphical E2E и просмотр screenshots.
    Без нужной дельты — `NO PRODUCTION CHANGE`.
+   **2026-10-12: локальный кандидат для final review.** Presentation-дельта реализована
+   локально; compile/import, targeted EditMode 12/12, PlayMode 11/11, smoke 30/30
+   и machine PlayerUi E2E успешны. Reviewer сверил remote originals: отсутствие
+   tabs/footer не подтвердилось; ошибочный блокер отозван после проверки оригиналов
+   и вырезок. TMP diagnostics сохранены без установленной связи с визуальным дефектом.
+   Обновлены 8 curated Preferences baselines из того же proof; executable hashes
+   неизменны, Unity повторно не запускался. LocalLow/settings ранее восстановлены
+   и сверены. Evidence triage выполнен; final review/CI/commit/push/merge ещё
+   не завершены. Следующий шаг — final review reconciliation, не redesign.
+   **2026-10-13:** независимый final review reconciliation — без блокирующих
+   замечаний; 20 final files и 8 baseline copies сверены с remote proof.
+   Код/tests/runner совпадают с проверенным runtime pass. Интеграция ещё требует
+   exact-head `CI Gate`, merge и native master sync; затем — пункт 5, Windows QA.
 5. **Windows demo player journey — QA после визуальных проходов.** Проверить
    реальный собранный player: запуск → Main Menu → Reading → Preferences и
    Save/Load → возврат. До теста изолировать/сохранить реальные LocalLow данные,

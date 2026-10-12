@@ -1,0 +1,224 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="2700" viewBox="0 0 1920 2700">
+<defs>
+        <linearGradient id="stage" x2="1" y2="1"><stop stop-color="#0a2335"/><stop offset=".65" stop-color="#152937"/><stop offset="1" stop-color="#423b36"/></linearGradient>
+        <linearGradient id="panel" x2="1" y2="1"><stop stop-color="#102839"/><stop offset="1" stop-color="#071725"/></linearGradient>
+        <linearGradient id="row"><stop stop-color="#173d53"/><stop offset="1" stop-color="#102a3c"/></linearGradient>
+        </defs>
+<rect x="0" y="0" width="1920" height="2700" rx="0" fill="#07121f"/>
+<text x="48" y="67" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="42" font-weight="600" text-anchor="start" letter-spacing="0">11 / PREFERENCES — СОСТОЯНИЯ v1</text>
+<text x="48" y="105" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Один SharedPreferencesView · 13 реальных настроек · неизменные маршруты и Settings authority</text>
+<text x="1872" y="65" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="600" text-anchor="end" letter-spacing="2">НА СОГЛАСОВАНИИ</text>
+<g transform="translate(48 150) scale(0.6)">
+<rect x="0" y="0" width="1920" height="1080" rx="0" fill="url(#stage)"/>
+<path d="M60 0 L220 1080" fill="none" stroke="#31434e" stroke-width="3"/>
+<path d="M620 0 L780 1080" fill="none" stroke="#31434e" stroke-width="3"/>
+<path d="M1180 0 L1340 1080" fill="none" stroke="#31434e" stroke-width="3"/>
+<path d="M1740 0 L1900 1080" fill="none" stroke="#31434e" stroke-width="3"/>
+<text x="80" y="28" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" text-anchor="start" letter-spacing="2">11 / PREFERENCES — МАКЕТ v1</text>
+<text x="1840" y="28" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" text-anchor="end" letter-spacing="1">GAMEPLAY · НА СОГЛАСОВАНИИ · НЕ RUNTIME PROOF</text>
+<rect x="80" y="44" width="1760" height="980" rx="0" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="138" y="126" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="52" font-weight="400" text-anchor="start" letter-spacing="3">НАСТРОЙКИ</text>
+<path d="M138 168 L782 168" fill="none" stroke="#72d5f4" stroke-width="2"/>
+<rect x="138.0" y="188" width="397.5" height="72" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="336.75" y="232.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ЭКРАН</text>
+<rect x="553.5" y="188" width="397.5" height="72" rx="3" fill="#16384c" stroke="#284659" stroke-width="1"/>
+<text x="752.25" y="232.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ЗВУК</text>
+<rect x="577.5" y="257" width="349.5" height="2" rx="0" fill="#72d5f4"/>
+<rect x="969.0" y="188" width="397.5" height="72" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="1167.75" y="232.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ТЕКСТ</text>
+<rect x="1384.5" y="188" width="397.5" height="72" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="1583.25" y="232.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ИГРА</text>
+<text x="162" y="324" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="30" font-weight="600" text-anchor="start" letter-spacing="1">ЗВУК</text>
+<rect x="162" y="350" width="1596" height="82" rx="3" fill="url(#row)"/>
+<rect x="162" y="368" width="3" height="46" rx="0" fill="#72d5f4"/>
+<text x="184" y="397" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="26" font-weight="400" text-anchor="start" letter-spacing="0">Общая громкость</text>
+<rect x="1216" y="391" width="402" height="6" rx="3" fill="#264253"/>
+<rect x="1216" y="391" width="148.74" height="6" rx="3" fill="#72d5f4"/>
+<rect x="1358.74" y="382" width="12" height="24" rx="2" fill="#f0f5fa"/>
+<rect x="1353.74" y="377" width="22" height="34" rx="2" fill="none" stroke="#72d5f4" stroke-width="2"/>
+<text x="1736" y="402" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="end" letter-spacing="0">37 %</text>
+<path d="M184 432 L1736 432" fill="none" stroke="#284659" stroke-width="1"/>
+<text x="184" y="489" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="26" font-weight="400" text-anchor="start" letter-spacing="0">Музыка</text>
+<rect x="1216" y="483" width="402" height="6" rx="3" fill="#264253"/>
+<rect x="1216" y="483" width="321.6" height="6" rx="3" fill="#72d5f4"/>
+<rect x="1531.6" y="474" width="12" height="24" rx="2" fill="#f0f5fa"/>
+<text x="1736" y="494" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="end" letter-spacing="0">80 %</text>
+<path d="M184 524 L1736 524" fill="none" stroke="#284659" stroke-width="1"/>
+<text x="184" y="581" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="26" font-weight="400" text-anchor="start" letter-spacing="0">Эффекты</text>
+<rect x="1216" y="575" width="402" height="6" rx="3" fill="#264253"/>
+<rect x="1216" y="575" width="321.6" height="6" rx="3" fill="#72d5f4"/>
+<rect x="1531.6" y="566" width="12" height="24" rx="2" fill="#f0f5fa"/>
+<text x="1736" y="586" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="end" letter-spacing="0">80 %</text>
+<path d="M184 616 L1736 616" fill="none" stroke="#284659" stroke-width="1"/>
+<rect x="138" y="876" width="1644" height="56" rx="3" fill="#112c3c"/>
+<text x="154" y="911" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Общий уровень звука. Слева тише, справа громче.</text>
+<path d="M138 946 L1782 946" fill="none" stroke="#284659" stroke-width="1"/>
+<rect x="138" y="962" width="188" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="232.0" y="995.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">СБРОСИТЬ</text>
+<rect x="1384" y="962" width="188" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="1478.0" y="995.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">НАЗАД</text>
+<rect x="1594" y="962" width="188" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="1688.0" y="995.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">ПРИМЕНИТЬ</text>
+<text x="1840" y="1056" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" text-anchor="end" letter-spacing="1">DESIGN ONLY / ФОН И ЗНАЧЕНИЯ — TECH DEMO ONLY / NOT CANON</text>
+</g>
+<text x="1250" y="193" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="600" text-anchor="start" letter-spacing="0">A / ТОТ ЖЕ ЭКРАН ИЗ ИГРЫ</text>
+<text x="1250" y="244" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Main Menu и gameplay используют</text>
+<text x="1250" y="278" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">одинаковые tabs, controls и footer.</text>
+<text x="1250" y="336" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Здесь: Звук, черновик 37 %,</text>
+<text x="1250" y="370" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Apply доступен; звук ещё не записан.</text>
+<text x="1250" y="428" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Подложка условная; Game Menu</text>
+<text x="1250" y="462" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">не остаётся вторым меню поверх UI.</text>
+<text x="1250" y="520" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Вход через Game Menu → Назад / Esc</text>
+<text x="1250" y="554" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">возвращает в Game Menu.</text>
+<text x="1250" y="612" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Прямой вызов из gameplay →</text>
+<text x="1250" y="646" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">возврат к чтению.</text>
+<text x="1250" y="716" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Геометрия preview уменьшена до 60 %.</text>
+<text x="1250" y="750" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Это макет, не screenshot игры.</text>
+<rect x="48" y="844" width="888" height="448" rx="6" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="76" y="889" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" text-anchor="start" letter-spacing="0">B / ЭКРАН — DROPDOWN РЕЖИМА</text>
+<text x="76" y="924" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Закрытое поле → раскрытый TMP dropdown → выбор</text>
+<path d="M76 949 L908 949" fill="none" stroke="#284659" stroke-width="1"/>
+<text x="76" y="1009" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Режим экрана</text>
+<rect x="460" y="974" width="448" height="54" rx="3" fill="#102839" stroke="#72d5f4" stroke-width="2"/>
+<text x="478" y="1009.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Полный экран</text>
+<path d="M874 997 L881 1004" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M881 1004 L888 997" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<text x="76" y="1096" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Разрешение</text>
+<rect x="460" y="1060" width="448" height="54" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="478" y="1095.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">1920x1080</text>
+<path d="M874 1083 L881 1090" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M881 1090 L888 1083" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<rect x="460" y="1032" width="448" height="150" rx="3" fill="#122d40" stroke="#284659" stroke-width="1"/>
+<rect x="464" y="1035" width="440" height="46" rx="2" fill="#1b435a" stroke="#72d5f4" stroke-width="2"/>
+<text x="480" y="1066" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Полный экран</text>
+<text x="874" y="1066" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">✓</text>
+<text x="480" y="1114" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Окно</text>
+<text x="480" y="1162" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Без рамки</text>
+<text x="76" y="1232" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Esc закрывает только список; фокус возвращается к полю.</text>
+<text x="76" y="1264" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Список перекрывает нижнее поле, но не footer и подсказку.</text>
+<rect x="984" y="844" width="888" height="448" rx="6" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="1012" y="889" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" text-anchor="start" letter-spacing="0">C / ЭКРАН — ОКОННОЕ РАЗРЕШЕНИЕ</text>
+<text x="1012" y="924" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Пример: desktop 1920×1080; значения берутся из runtime</text>
+<path d="M1012 949 L1844 949" fill="none" stroke="#284659" stroke-width="1"/>
+<text x="1012" y="1009" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Режим экрана</text>
+<rect x="1396" y="974" width="448" height="54" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="1414" y="1009.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Окно</text>
+<path d="M1810 997 L1817 1004" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M1817 1004 L1824 997" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<text x="1012" y="1096" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Разрешение</text>
+<rect x="1396" y="1060" width="448" height="54" rx="3" fill="#102839" stroke="#72d5f4" stroke-width="2"/>
+<text x="1414" y="1095.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">1600x900</text>
+<path d="M1810 1083 L1817 1090" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M1817 1090 L1824 1083" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<rect x="1396" y="1118" width="448" height="100" rx="3" fill="#122d40" stroke="#284659" stroke-width="1"/>
+<text x="1416" y="1152" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">1280x720</text>
+<rect x="1400" y="1169" width="440" height="46" rx="2" fill="#1b435a" stroke="#72d5f4" stroke-width="2"/>
+<text x="1416" y="1200" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">1600x900</text>
+<text x="1810" y="1200" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">✓</text>
+<text x="1012" y="1264" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Только подходящие окна; Apply сохраняет видимое значение.</text>
+<rect x="48" y="1324" width="888" height="448" rx="6" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="76" y="1369" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" text-anchor="start" letter-spacing="0">D / ТЕКСТ — СУЩЕСТВУЮЩИЕ 4 CONTROLS</text>
+<text x="76" y="1404" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Размер текста — циклический selector, не новый dropdown</text>
+<path d="M76 1429 L908 1429" fill="none" stroke="#284659" stroke-width="1"/>
+<text x="76" y="1477" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Скорость текста</text>
+<rect x="500" y="1465" width="290" height="6" rx="3" fill="#264253"/>
+<rect x="500" y="1465" width="108.75" height="6" rx="3" fill="#72d5f4"/>
+<rect x="602.75" y="1456" width="12" height="24" rx="2" fill="#f0f5fa"/>
+<text x="908" y="1476" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="end" letter-spacing="0">Обычно</text>
+<text x="76" y="1540" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Задержка авто</text>
+<rect x="500" y="1528" width="290" height="6" rx="3" fill="#264253"/>
+<rect x="500" y="1528" width="128.76" height="6" rx="3" fill="#72d5f4"/>
+<rect x="622.76" y="1519" width="12" height="24" rx="2" fill="#f0f5fa"/>
+<text x="908" y="1539" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="end" letter-spacing="0">2.5 сек.</text>
+<text x="76" y="1603" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Размер текста</text>
+<rect x="500" y="1568" width="46" height="54" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="523.0" y="1602.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">‹</text>
+<rect x="552" y="1568" width="304" height="54" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="704.0" y="1604" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="middle" letter-spacing="0">Обычный</text>
+<rect x="862" y="1568" width="46" height="54" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="885.0" y="1602.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">›</text>
+<text x="76" y="1666" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Прозрачность окна</text>
+<rect x="500" y="1654" width="290" height="6" rx="3" fill="#264253"/>
+<rect x="500" y="1654" width="179.8" height="6" rx="3" fill="#72d5f4"/>
+<rect x="673.8" y="1645" width="12" height="24" rx="2" fill="#f0f5fa"/>
+<text x="908" y="1665" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="end" letter-spacing="0">62 %</text>
+<text x="76" y="1742" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Значения демонстрационные; изменение только в draft.</text>
+<rect x="984" y="1324" width="888" height="448" rx="6" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="1012" y="1369" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" text-anchor="start" letter-spacing="0">E / ИГРА — СУЩЕСТВУЮЩИЕ 4 TOGGLES</text>
+<text x="1012" y="1404" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Состояние различимо по глифу и тексту, не только цвету</text>
+<path d="M1012 1429 L1844 1429" fill="none" stroke="#284659" stroke-width="1"/>
+<text x="1012" y="1477" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Пропуск непрочитанного</text>
+<rect x="1396" y="1442" width="448" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<rect x="1412" y="1457" width="22" height="22" rx="2" fill="none" stroke="#71889a" stroke-width="1"/>
+<text x="1448" y="1476" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Выкл. — только виденное</text>
+<text x="1012" y="1540" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Пропуск после выбора</text>
+<rect x="1396" y="1505" width="448" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<rect x="1412" y="1520" width="22" height="22" rx="2" fill="none" stroke="#71889a" stroke-width="1"/>
+<text x="1448" y="1539" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Выкл.</text>
+<text x="1012" y="1603" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Автосохранение</text>
+<rect x="1396" y="1568" width="448" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<rect x="1412" y="1583" width="22" height="22" rx="2" fill="#72d5f4" stroke="#72d5f4" stroke-width="1"/>
+<path d="M1417 1593 L1422 1599" fill="none" stroke="#07121f" stroke-width="2"/>
+<path d="M1422 1599 L1430 1589" fill="none" stroke="#07121f" stroke-width="2"/>
+<text x="1448" y="1602" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Вкл.</text>
+<text x="1012" y="1666" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Быстрое меню</text>
+<rect x="1396" y="1631" width="448" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<rect x="1412" y="1646" width="22" height="22" rx="2" fill="#72d5f4" stroke="#72d5f4" stroke-width="1"/>
+<path d="M1417 1656 L1422 1662" fill="none" stroke="#07121f" stroke-width="2"/>
+<path d="M1422 1662 L1430 1652" fill="none" stroke="#07121f" stroke-width="2"/>
+<text x="1448" y="1665" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Вкл.</text>
+<text x="1012" y="1742" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Нет новых настроек Voice, языка, keybinds или Auto toggle.</text>
+<rect x="48" y="1804" width="888" height="448" rx="6" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="76" y="1849" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" text-anchor="start" letter-spacing="0">F / POINTER И KEYBOARD FOCUS</text>
+<text x="76" y="1884" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Выбранная категория ≠ hover ≠ текущий keyboard focus</text>
+<path d="M76 1909 L908 1909" fill="none" stroke="#284659" stroke-width="1"/>
+<rect x="76.0" y="1928" width="194.5" height="56" rx="3" fill="#16384c" stroke="#284659" stroke-width="1"/>
+<text x="173.25" y="1964.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ЭКРАН</text>
+<rect x="100.0" y="1981" width="146.5" height="2" rx="0" fill="#72d5f4"/>
+<rect x="288.5" y="1928" width="194.5" height="56" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="385.75" y="1964.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ЗВУК</text>
+<rect x="501.0" y="1928" width="194.5" height="56" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="598.25" y="1964.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ТЕКСТ</text>
+<rect x="713.5" y="1928" width="194.5" height="56" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="810.75" y="1964.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ИГРА</text>
+<text x="76" y="2021" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Pointer hover</text>
+<rect x="460" y="1994" width="448" height="54" rx="3" fill="#102839" stroke="#436577" stroke-width="1"/>
+<text x="478" y="2029.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Полный экран</text>
+<path d="M874 2017 L881 2024" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M881 2024 L888 2017" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<text x="76" y="2100" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Keyboard focus</text>
+<rect x="460" y="2073" width="448" height="54" rx="3" fill="#102839" stroke="#72d5f4" stroke-width="2"/>
+<text x="478" y="2108.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Полный экран</text>
+<path d="M874 2096 L881 2103" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M881 2103 L888 2096" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<text x="76" y="2191" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Активный tab: тихая подложка + линия. Focus: тонкий контур.</text>
+<text x="76" y="2223" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Hover не делает выбор и не меняет draft. Навигация прежняя.</text>
+<rect x="984" y="1804" width="888" height="448" rx="6" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="1012" y="1849" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" text-anchor="start" letter-spacing="0">G / DRAFT → APPLY → COMMITTED</text>
+<text x="1012" y="1884" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Apply не закрывает экран; новые правки снова создают draft</text>
+<path d="M1012 1909 L1844 1909" fill="none" stroke="#284659" stroke-width="1"/>
+<text x="1012" y="1949" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Без изменений</text>
+<rect x="1636" y="1918" width="208" height="52" rx="3" fill="#0b1d2a" stroke="#284659" stroke-width="1"/>
+<text x="1740.0" y="1951.0" fill="#71889a" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">ПРИМЕНИТЬ</text>
+<text x="1012" y="2024" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Есть изменения</text>
+<rect x="1636" y="1993" width="208" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="1740.0" y="2026.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">ПРИМЕНИТЬ</text>
+<text x="1012" y="2099" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">После Apply</text>
+<rect x="1636" y="2068" width="208" height="52" rx="3" fill="#0b1d2a" stroke="#284659" stroke-width="1"/>
+<text x="1740.0" y="2101.0" fill="#71889a" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">ПРИМЕНИТЬ</text>
+<text x="1012" y="2173" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Если Apply был keyboard-selected, фокус уходит на НАЗАД.</text>
+<text x="1012" y="2206" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">НАЗАД / Esc удаляет только правки после последнего Apply.</text>
+<text x="1012" y="2239" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" letter-spacing="0">Без confirmation и без новой status/toast-плашки.</text>
+<rect x="48" y="2284" width="1824" height="320" rx="6" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="76" y="2332" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" text-anchor="start" letter-spacing="0">H / RESET И ВОЗВРАТ — ТЕКУЩИЙ CONTRACT</text>
+<rect x="76" y="2360" width="188" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="170.0" y="2393.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">СБРОСИТЬ</text>
+<text x="292" y="2396" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Defaults всех 13 видимых настроек → только draft, не только активная категория.</text>
+<text x="292" y="2432" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Скрытые compatibility-поля не меняются. Apply доступен лишь если draft отличается.</text>
+<path d="M76 2460 L1844 2460" fill="none" stroke="#284659" stroke-width="1"/>
+<rect x="76" y="2482" width="188" height="52" rx="3" fill="#102839" stroke="#72d5f4" stroke-width="2"/>
+<text x="170.0" y="2515.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">НАЗАД</text>
+<text x="292" y="2518" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Esc с открытым dropdown → закрыть список → следующий Esc закрывает Preferences.</text>
+<text x="292" y="2554" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Main Menu → Main Menu · Game Menu → Game Menu · прямой gameplay → чтение.</text>
+<text x="1872" y="2657" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" text-anchor="end" letter-spacing="1.2">DESIGN ONLY · НЕ RUNTIME PROOF · TECH DEMO ONLY / NOT CANON</text>
+</svg>

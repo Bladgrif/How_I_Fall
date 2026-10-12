@@ -18,6 +18,9 @@ Google Drive остаётся удобным зеркалом для челов�
 - `09_Hotspot_Marker_Polish_Target_v1.png` — утверждённый marker-only target; implementation отдельно одобрена пользователем 2026-10-04; контракт ниже.
 - `10_Save_Load_Target_v1.png` — **APPROVED visual direction** 2026-10-12: Main Menu Load и встроенный Game Menu Save; не pixel-perfect спецификация.
 - `10_Save_Load_Target_v1_states.png` — **APPROVED visual direction** 2026-10-12: карточки, подтверждения и детали текущей навигации Target 10.
+- `11_Preferences_Target_v1.png` — **APPROVED visual direction** 2026-10-12: общий `SharedPreferencesView` из Main Menu и gameplay.
+- `11_Preferences_Target_v1_states.png` — состояния Target 11; одноимённые SVG — редактируемые исходники.
+- `11_Preferences_Target_v1.md` — утверждение, защищённые contracts и bounded presentation brief Target 11.
 
 Поправка target 07 по hands-on коррекции пользователя (2026-10-03, интеграционная коррекция Hotspot showcase):
 
@@ -66,6 +69,27 @@ Runtime capture: существующий `PlayerUiGraphicalE2ERunner.StartAutom
 - не копировать изображения target как production art;
 - implementation сохраняет существующие product/runtime contracts, если отдельная задача явно не разрешает их изменение;
 - изменение утверждённого target требует отдельного явного решения пользователя/reviewer.
+
+## Target 11 — общие настройки, approval 2026-10-12
+
+Presentation-кандидат подготовлен локально; evidence triage reviewer подтвердил
+подписи в точных PNG originals, поэтому прежний visual-blocked вывод отозван.
+Документация и 8 curated Preferences baselines сверены с исходным runtime proof;
+production/tests/runner/TMP и четыре design PNG/SVG в reconciliation не менялись.
+TMP diagnostics не связываются с недоказанным визуальным дефектом. Отдельное
+уточнение с final hashes — `QAArtifacts/PreferencesTarget11/reconciliation.json`;
+final review и CI ещё не завершены, commit/push/PR/merge не выполнялись.
+
+Утверждены спокойные navy-поверхности, сдержанный cyan-focus, читаемые значения,
+лёгкие разделители и различимые selected/hover/focus/disabled состояния.
+**Существующий арт-фон сохраняется:** абстрактная подложка — только часть макета.
+PNG/SVG не используются как production assets; пиксельная геометрия не обязательна.
+
+Один экран, четыре горизонтальные категории, 13 существующих controls,
+Settings authority/keys, draft/Apply/Reset/Back/Esc, dropdown dismissal,
+input ownership и маршруты возврата защищены. Пользователь отдельно разрешил
+implementation-pass; это не утверждение его QA/review/CI/merge результата.
+Подробности и локальное evidence — `11_Preferences_Target_v1.md`.
 
 ## Target 10 — Save/Load, design-only, 2026-10-12
 

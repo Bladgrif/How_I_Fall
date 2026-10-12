@@ -30,12 +30,13 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         SkipUnseenId, SkipAfterChoicesId, AutosaveId, ShowQuickMenuId
     };
 
-    private static readonly Color WindowColor = new Color(0.018f, 0.041f, 0.056f, 0.925f);
-    private static readonly Color HeaderColor = new Color(0.025f, 0.060f, 0.078f, 0.30f);
+    private static readonly Color WindowColor = new Color(0.025f, 0.065f, 0.10f, 0.925f);
+    private static readonly Color HeaderColor = new Color(0.04f, 0.10f, 0.16f, 0.30f);
     private static readonly Color RowColor = Color.clear;
-    private static readonly Color FocusedRowColor = new Color(0.20f, 0.52f, 0.70f, 0.20f);
-    private static readonly Color ControlColor = new Color(0.035f, 0.090f, 0.12f, 0.78f);
-    private static readonly Color AccentColor = new Color(0.42f, 0.78f, 0.96f, 1f);
+    private static readonly Color FocusedRowColor = new Color(0.18f, 0.40f, 0.55f, 0.14f);
+    private static readonly Color ControlColor = new Color(0.05f, 0.13f, 0.19f, 1f);
+    private static readonly Color AccentColor = new Color(0.45f, 0.82f, 0.94f, 1f);
+    private static readonly Color BorderColor = new Color(0.18f, 0.31f, 0.39f, 0.55f);
     private static readonly Color PrimaryText = new Color(0.97f, 0.98f, 1f, 1f);
     private static readonly Color SecondaryText = new Color(0.74f, 0.80f, 0.88f, 1f);
     // SecondaryText dimmed through the footer ColorTint disabled multiplier: the label
@@ -113,6 +114,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         if (expanded != null)
         {
             activeDropdown = expanded;
+            RefreshFocusedPresentation();
             return;
         }
 
@@ -304,8 +306,12 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
             button.GetComponent<LayoutElement>().preferredHeight = 64f;
             TextMeshProUGUI tabLabel = button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (tabLabel != null) { tabLabel.fontSize = 22f; tabLabel.characterSpacing = 2.5f; }
-            Outline tabOutline = button.gameObject.AddComponent<Outline>();
-            tabOutline.effectDistance = new Vector2(1f, -1f);
+            GameObject activeLine = CreateUi(button.transform, "Active Category Line");
+            RectTransform lineRect = activeLine.GetComponent<RectTransform>();
+            lineRect.anchorMin = Vector2.zero; lineRect.anchorMax = new Vector2(1f, 0f);
+            lineRect.pivot = new Vector2(0.5f, 0f); lineRect.sizeDelta = new Vector2(-48f, 2f);
+            Image lineImage = activeLine.AddComponent<Image>();
+            lineImage.color = AccentColor; lineImage.raycastTarget = false;
             RegisterHint(button, CategoryHint(i));
             categoryButtons.Add(button);
             buttons["category_" + i] = button;
@@ -347,15 +353,9 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         {
             categories[i].SetActive(i == index);
             categoryButtons[i].GetComponent<Image>().color = i == index
-                ? new Color(0.10f, 0.27f, 0.36f, 0.50f)
-                : new Color(0.025f, 0.07f, 0.095f, 0.14f);
-            Outline tabOutline = categoryButtons[i].GetComponent<Outline>();
-            if (tabOutline != null)
-            {
-                tabOutline.effectColor = i == index
-                    ? new Color(0.48f, 0.84f, 1f, 0.74f)
-                    : new Color(0.22f, 0.40f, 0.52f, 0.08f);
-            }
+                ? new Color(0.085f, 0.20f, 0.29f, 1f)
+                : new Color(0.025f, 0.07f, 0.11f, 1f);
+            categoryButtons[i].transform.Find("Active Category Line").gameObject.SetActive(i == index);
         }
         Selectable[] controls = categories[index].GetComponentsInChildren<Selectable>()
             .Where(control => control.gameObject.activeInHierarchy).ToArray();
@@ -394,7 +394,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         rect.sizeDelta = new Vector2(-116f, 42f);
         Image background = hint.AddComponent<Image>();
         background.color = new Color(0.06f, 0.13f, 0.17f, 0.62f);
-        contextualHintText = Text(hint.transform, "Text", "Выберите раздел, чтобы увидеть доступные параметры.", 16f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
+        contextualHintText = Text(hint.transform, "Text", "Выберите раздел, чтобы увидеть доступные параметры.", 18f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft);
         contextualHintText.color = SecondaryText;
         Stretch(contextualHintText.rectTransform, 16f, 16f);
     }
@@ -421,6 +421,17 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         Selectable selected = eventSystem != null && eventSystem.currentSelectedGameObject != null
             ? eventSystem.currentSelectedGameObject.GetComponent<Selectable>()
             : null;
+        // TMP selects a popup item. Present its owning field/row, not the stale
+        // previously focused row; do not change the actual EventSystem selection.
+        if (activeDropdown != null && activeDropdown.IsExpanded) selected = activeDropdown;
+        // Decorative only: keep the existing EventSystem owner and ColorTint hover.
+        // Active-category underlines persist independently of keyboard focus.
+        foreach (Selectable control in contextualHints.Keys)
+        {
+            Outline outline = control.targetGraphic != null ? control.targetGraphic.GetComponent<Outline>() : null;
+            if (outline != null)
+                outline.effectColor = control == selected && control.interactable ? AccentColor : BorderColor;
+        }
         if (selected == null || !contextualHints.TryGetValue(selected, out string hint)) return;
 
         if (contextualHintText != null) contextualHintText.text = hint;
@@ -475,7 +486,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         layout.spacing = 4f; layout.childAlignment = TextAnchor.MiddleRight; layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = false; layout.childForceExpandHeight = false;
         LayoutElement ownerLayout = owner.AddComponent<LayoutElement>(); ownerLayout.preferredWidth = 380f; ownerLayout.minHeight = 42f;
         Button previous = Button(owner.transform, "Previous", "‹", 34f);
-        TextMeshProUGUI value = Text(owner.transform, "Value", "—", 16f, FontStyles.Normal, TextAlignmentOptions.Center); value.color = PrimaryText;
+        TextMeshProUGUI value = Text(owner.transform, "Value", "—", 22f, FontStyles.Normal, TextAlignmentOptions.Center); value.color = PrimaryText;
         LayoutElement valueLayout = value.gameObject.AddComponent<LayoutElement>(); valueLayout.preferredWidth = 292f; valueLayout.minHeight = 42f;
         Button next = Button(owner.transform, "Next", "›", 34f);
         buttons[id] = next; cyclePreviousButtons[id] = previous;
@@ -497,12 +508,12 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         Transform control = Row(parent, id, label);
         GameObject owner = CreateUi(control, id + " Toggle");
         Image background = owner.AddComponent<Image>(); background.color = ControlColor;
-        Toggle toggle = owner.AddComponent<Toggle>(); toggle.targetGraphic = background; toggle.colors = Colors();
+        Toggle toggle = owner.AddComponent<Toggle>(); toggle.targetGraphic = background; toggle.colors = Colors(); AddControlOutline(toggle);
         LayoutElement layout = owner.AddComponent<LayoutElement>(); layout.preferredWidth = 380f; layout.minHeight = 40f; layout.preferredHeight = 40f;
         GameObject mark = CreateUi(owner.transform, "Mark");
         RectTransform markRect = mark.GetComponent<RectTransform>(); markRect.anchorMin = markRect.anchorMax = new Vector2(0f, 0.5f); markRect.pivot = new Vector2(0f, 0.5f); markRect.anchoredPosition = new Vector2(12f, 0f); markRect.sizeDelta = new Vector2(18f, 18f);
         Image markImage = mark.AddComponent<Image>(); markImage.color = AccentColor; toggle.graphic = markImage;
-        TextMeshProUGUI value = Text(owner.transform, "Value", "Выкл.", 16f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); value.color = PrimaryText; Stretch(value.rectTransform, 44f, 10f);
+        TextMeshProUGUI value = Text(owner.transform, "Value", "Выкл.", 20f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); value.color = PrimaryText; Stretch(value.rectTransform, 44f, 10f);
         toggles[id] = toggle; toggleValues[id] = value;
         RegisterHint(toggle, hint);
     }
@@ -521,7 +532,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         sliders[id] = slider;
         RegisterHint(slider, hint);
         if (!showValue) return;
-        TextMeshProUGUI value = Text(owner.transform, "Value", "—", 16f, FontStyles.Normal, TextAlignmentOptions.MidlineRight); value.color = SecondaryText;
+        TextMeshProUGUI value = Text(owner.transform, "Value", "—", 18f, FontStyles.Normal, TextAlignmentOptions.MidlineRight); value.color = SecondaryText;
         LayoutElement valueLayout = value.gameObject.AddComponent<LayoutElement>(); valueLayout.preferredWidth = 128f; valueLayout.minHeight = 34f; sliderValues[id] = value;
     }
 
@@ -532,6 +543,13 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         layout.padding = new RectOffset(22, 22, 8, 8); layout.spacing = 28f; layout.childAlignment = TextAnchor.MiddleCenter;
         layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = false; layout.childForceExpandHeight = false;
         LayoutElement rowLayout = row.AddComponent<LayoutElement>(); rowLayout.minHeight = 82f; rowLayout.preferredHeight = 82f;
+        GameObject separator = CreateUi(row.transform, "Row Separator");
+        separator.AddComponent<LayoutElement>().ignoreLayout = true;
+        RectTransform separatorRect = separator.GetComponent<RectTransform>();
+        separatorRect.anchorMin = Vector2.zero; separatorRect.anchorMax = new Vector2(1f, 0f);
+        separatorRect.pivot = new Vector2(0.5f, 0f); separatorRect.sizeDelta = new Vector2(-44f, 1f);
+        Image separatorImage = separator.AddComponent<Image>();
+        separatorImage.color = BorderColor; separatorImage.raycastTarget = false;
         TextMeshProUGUI labelText = Text(row.transform, "Label", label, 23f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); labelText.color = PrimaryText; labelText.enableWordWrapping = true; labelText.overflowMode = TextOverflowModes.Ellipsis;
         LayoutElement labelLayout = labelText.gameObject.AddComponent<LayoutElement>(); labelLayout.minWidth = 340f; labelLayout.flexibleWidth = 1f;
         GameObject control = CreateUi(row.transform, "Control");
@@ -550,18 +568,18 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     private Button Button(Transform parent, string name, string label, float width)
     {
         GameObject owner = CreateUi(parent, name); Image image = owner.AddComponent<Image>(); image.color = ControlColor;
-        Button button = owner.AddComponent<Button>(); button.targetGraphic = image; button.colors = Colors();
+        Button button = owner.AddComponent<Button>(); button.targetGraphic = image; button.colors = Colors(); AddControlOutline(button);
         LayoutElement layout = owner.AddComponent<LayoutElement>(); layout.preferredWidth = width; layout.minHeight = 40f; layout.preferredHeight = 40f;
-        TextMeshProUGUI text = Text(owner.transform, "Label", label, 16f, FontStyles.Bold, TextAlignmentOptions.Center); Stretch(text.rectTransform, 10f, 10f);
+        TextMeshProUGUI text = Text(owner.transform, "Label", label, 18f, FontStyles.Bold, TextAlignmentOptions.Center); Stretch(text.rectTransform, 10f, 10f);
         return button;
     }
 
     private TMP_Dropdown Dropdown(Transform parent, string id, IReadOnlyList<string> options)
     {
         GameObject owner = CreateUi(parent, id + " Dropdown"); Image image = owner.AddComponent<Image>(); image.color = ControlColor;
-        TMP_Dropdown dropdown = owner.AddComponent<TMP_Dropdown>(); dropdown.targetGraphic = image; dropdown.colors = Colors();
+        TMP_Dropdown dropdown = owner.AddComponent<TMP_Dropdown>(); dropdown.targetGraphic = image; dropdown.colors = Colors(); AddControlOutline(dropdown);
         LayoutElement layout = owner.AddComponent<LayoutElement>(); layout.preferredWidth = 380f; layout.minHeight = 44f; layout.preferredHeight = 44f;
-        TextMeshProUGUI caption = Text(owner.transform, "Label", "—", 18f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); caption.color = PrimaryText; Stretch(caption.rectTransform, 16f, 44f);
+        TextMeshProUGUI caption = Text(owner.transform, "Label", "—", 22f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); caption.color = PrimaryText; Stretch(caption.rectTransform, 16f, 44f);
         CreateDropdownChevron(owner.transform);
         RectTransform template = DropdownTemplate(owner.transform);
         dropdown.template = template; dropdown.captionText = caption; dropdown.itemText = template.GetComponentInChildren<TextMeshProUGUI>(true);
@@ -591,14 +609,14 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     {
         GameObject owner = CreateUi(parent, "Template"); RectTransform template = owner.GetComponent<RectTransform>();
         template.anchorMin = new Vector2(0f, 0f); template.anchorMax = new Vector2(1f, 0f); template.pivot = new Vector2(0.5f, 1f); template.anchoredPosition = new Vector2(0f, -4f); template.sizeDelta = new Vector2(0f, 176f);
-        owner.AddComponent<Image>().color = new Color(0.18f, 0.21f, 0.25f, 1f); ScrollRect scroll = owner.AddComponent<ScrollRect>();
+        owner.AddComponent<Image>().color = new Color(0.12f, 0.23f, 0.30f, 1f); ScrollRect scroll = owner.AddComponent<ScrollRect>();
         GameObject viewport = CreateUi(owner.transform, "Viewport"); Stretch(viewport.GetComponent<RectTransform>(), 3f, 3f); viewport.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.001f); viewport.AddComponent<RectMask2D>();
         GameObject content = CreateUi(viewport.transform, "Content"); RectTransform contentRect = content.GetComponent<RectTransform>(); contentRect.anchorMin = new Vector2(0f, 1f); contentRect.anchorMax = new Vector2(1f, 1f); contentRect.pivot = new Vector2(0.5f, 1f);
         contentRect.sizeDelta = new Vector2(0f, 40f);
         scroll.viewport = viewport.GetComponent<RectTransform>(); scroll.content = contentRect; scroll.horizontal = false;
-        GameObject item = CreateUi(content.transform, "Item"); Image itemImage = item.AddComponent<Image>(); itemImage.color = new Color(0.24f, 0.29f, 0.35f, 1f); Toggle toggle = item.AddComponent<Toggle>(); toggle.targetGraphic = itemImage; toggle.colors = Colors(); RectTransform itemRect = item.GetComponent<RectTransform>();
+        GameObject item = CreateUi(content.transform, "Item"); Image itemImage = item.AddComponent<Image>(); itemImage.color = new Color(0.075f, 0.17f, 0.24f, 1f); Toggle toggle = item.AddComponent<Toggle>(); toggle.targetGraphic = itemImage; toggle.colors = DropdownItemColors(); RectTransform itemRect = item.GetComponent<RectTransform>();
         itemRect.anchorMin = new Vector2(0f, 0.5f); itemRect.anchorMax = new Vector2(1f, 0.5f); itemRect.sizeDelta = new Vector2(0f, 34f);
-        TextMeshProUGUI label = Text(item.transform, "Item Label", "Option", 16f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); label.color = PrimaryText; Stretch(label.rectTransform, 14f, 34f);
+        TextMeshProUGUI label = Text(item.transform, "Item Label", "Option", 20f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft); label.color = PrimaryText; Stretch(label.rectTransform, 14f, 34f);
         GameObject checkmark = CreateUi(item.transform, "Item Checkmark"); RectTransform checkRect = checkmark.GetComponent<RectTransform>(); checkRect.anchorMin = checkRect.anchorMax = new Vector2(1f, 0.5f); checkRect.pivot = new Vector2(1f, 0.5f); checkRect.anchoredPosition = new Vector2(-12f, 0f); checkRect.sizeDelta = new Vector2(14f, 14f); Image checkImage = checkmark.AddComponent<Image>(); checkImage.color = AccentColor; toggle.graphic = checkImage;
         owner.SetActive(false); return template;
     }
@@ -609,7 +627,7 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
         GameObject track = CreateUi(owner.transform, "Track"); Stretch(track.GetComponent<RectTransform>(), 0f, 0f, 14f, 14f); track.AddComponent<Image>().color = new Color(0.10f, 0.12f, 0.15f, 1f);
         GameObject fillArea = CreateUi(owner.transform, "Fill Area"); Stretch(fillArea.GetComponent<RectTransform>(), 6f, 6f, 14f, 14f); GameObject fill = CreateUi(fillArea.transform, "Fill"); Stretch(fill.GetComponent<RectTransform>()); fill.AddComponent<Image>().color = AccentColor;
         GameObject handleArea = CreateUi(owner.transform, "Handle Slide Area"); Stretch(handleArea.GetComponent<RectTransform>(), 6f, 6f, 7f, 7f); GameObject handle = CreateUi(handleArea.transform, "Handle"); RectTransform handleRect = handle.GetComponent<RectTransform>(); handleRect.anchorMin = handleRect.anchorMax = new Vector2(0f, 0.5f); handleRect.sizeDelta = new Vector2(12f, -10f); Image handleImage = handle.AddComponent<Image>(); handleImage.color = new Color(0.92f, 0.96f, 1f, 1f);
-        slider.fillRect = fill.GetComponent<RectTransform>(); slider.handleRect = handleRect; slider.targetGraphic = handleImage; slider.direction = Slider.Direction.LeftToRight; slider.colors = Colors(); return slider;
+        slider.fillRect = fill.GetComponent<RectTransform>(); slider.handleRect = handleRect; slider.targetGraphic = handleImage; slider.direction = Slider.Direction.LeftToRight; slider.colors = Colors(); AddControlOutline(slider); return slider;
     }
 
     private Scrollbar CreateScrollbar(Transform window)
@@ -633,7 +651,14 @@ public sealed class SharedPreferencesView : MonoBehaviour, IPreferencesView
     private void SetSliderValue(string id, string value) { if (sliderValues.TryGetValue(id, out TextMeshProUGUI text)) text.text = value ?? string.Empty; }
     private static GameObject CreateUi(Transform parent, string name) { GameObject result = new GameObject(name, typeof(RectTransform)); result.layer = parent.gameObject.layer; result.transform.SetParent(parent, false); return result; }
     private static TextMeshProUGUI Text(Transform parent, string name, string value, float size, FontStyles style, TextAlignmentOptions alignment) { TextMeshProUGUI text = CreateUi(parent, name).AddComponent<TextMeshProUGUI>(); text.text = value; text.fontSize = size; text.fontStyle = style; text.alignment = alignment; text.color = PrimaryText; text.enableWordWrapping = false; text.raycastTarget = false; return text; }
-    private static ColorBlock Colors() { ColorBlock colors = ColorBlock.defaultColorBlock; colors.normalColor = Color.white; colors.highlightedColor = new Color(0.74f, 0.88f, 1f, 1f); colors.pressedColor = new Color(0.48f, 0.67f, 0.85f, 1f); colors.selectedColor = new Color(0.64f, 0.82f, 1f, 1f); colors.disabledColor = new Color(0.45f, 0.48f, 0.54f, 0.68f); colors.colorMultiplier = 1f; return colors; }
-    private static ColorBlock CategoryColors() { ColorBlock colors = Colors(); colors.highlightedColor = new Color(0.62f, 0.82f, 0.92f, 0.90f); colors.pressedColor = new Color(0.28f, 0.56f, 0.72f, 0.90f); colors.selectedColor = new Color(0.36f, 0.66f, 0.80f, 0.86f); return colors; }
+    private static void AddControlOutline(Selectable control)
+    {
+        Outline outline = control.targetGraphic.gameObject.AddComponent<Outline>();
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.effectColor = BorderColor; outline.useGraphicAlpha = false;
+    }
+    private static ColorBlock Colors() { ColorBlock colors = ColorBlock.defaultColorBlock; colors.normalColor = new Color(0.82f, 0.88f, 0.94f, 1f); colors.highlightedColor = Color.white; colors.pressedColor = new Color(0.60f, 0.72f, 0.82f, 1f); colors.selectedColor = Color.white; colors.disabledColor = new Color(0.45f, 0.48f, 0.54f, 0.68f); colors.colorMultiplier = 1f; return colors; }
+    private static ColorBlock CategoryColors() => Colors();
+    private static ColorBlock DropdownItemColors() { ColorBlock colors = Colors(); colors.normalColor = Color.white; colors.highlightedColor = new Color(1.3f, 1.5f, 1.6f, 1f); colors.selectedColor = new Color(1.5f, 1.8f, 2f, 1f); return colors; }
     private static void Stretch(RectTransform rect, float left = 0f, float right = 0f, float bottom = 0f, float top = 0f) { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = new Vector2(left, bottom); rect.offsetMax = new Vector2(-right, -top); }
 }

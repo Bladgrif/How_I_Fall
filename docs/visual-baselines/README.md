@@ -19,6 +19,39 @@
 
 ## Главное меню и настройки
 
+### Preferences Target 11 — reconciliation 2026-10-12, кандидат для final review
+
+Ошибочный вывод о пропавших tabs/footer отозван: reviewer сверил удалённые
+оригиналы, coding-agent повторно просмотрел 26 PNG в original detail и девять
+диагностических вырезок. Подписи присутствуют; новых clipping/overlap/malformed
+controls в settled Preferences состояниях не обнаружено. TMP inconsistent-import
+diagnostics сохранены; причинная связь с визуальным дефектом не установлена.
+Unity не перезапускался: production/tests/runner/TMP hashes прежние.
+
+Обновлены только шесть прежних Preferences PNG и добавлены два состояния
+gameplay/Cancel. Все восемь — **побайтовые копии оригиналов** из
+`QAArtifacts/GraphicalE2E/PlayerUi/`, run завершён `2026-10-12T13:50:16.0943254Z`,
+machine `PASS`, `playerPrefsRestored=true`. Dropdown — settled open/cancelled;
+промежуточные selected/Hide fade кадры не использованы.
+
+| Curated baseline | Исходный PNG текущего PlayerUi E2E |
+| --- | --- |
+| `preferences.png` | `main_menu_preferences_1920x1080.png` |
+| `preferences_sound_dirty.png` | `preferences_dirty_1920x1080.png` |
+| `preferences_applied_disabled.png` | `preferences_applied_1920x1080.png` |
+| `preferences_dropdown.png` | `main_menu_preferences_screen_mode_open_1920x1080.png` |
+| `preferences_windowed_dropdown.png` | `preferences_windowed_resolution_open_1920x1080.png` |
+| `preferences_dropdown_1280.png` | `preferences_dropdown_1280x720.png` |
+| `preferences_gameplay.png` | `gameplay_preferences_1920x1080.png` |
+| `preferences_dropdown_cancelled.png` | `preferences_dropdown_cancelled_1920x1080.png` |
+
+1920×1080 — основной стандарт; единственный 1280×720 baseline сохранён из
+существующего coverage, новая мультиразрешённая автоматизация не добавлялась.
+Source manifest сохранён; final hashes/mapping и reviewer triage связаны в
+отдельном `QAArtifacts/PreferencesTarget11/reconciliation.json`.
+[Удалённые оригиналы и уточнение](https://drive.google.com/drive/folders/1D0HUI6hTuoy4XhqsjnD9bK0uyxL4QzWS).
+Это curated candidate, не завершённый final review/CI/merge и не `DONE`.
+
 Main Menu v2, implementation pass 2026-10-04 от `f588a10f1c29db4d90902edb2484ad90f946563f`: компактнее production-логотип, спокойные подписи 36px без тяжёлых теней, общий оптический левый край, равный ритм первых четырёх действий и дополнительный отступ перед `Выйти`. Focus — короткий локальный navy-ramp с cyan-маркером 3×60, без halo; normal не имитирует selection. Исходные фон/логотип, пять маршрутов, динамика Continue, Esc/Quit и input ownership сохранены. В legacy Text заранее заполняется атлас всей колонки, чтобы подписи были чёткими уже до hover. Три visual-итерации; свежий PlayerUi E2E — `PASS`, 78 снимков, 54 обязательных proof-файла, `playerPrefsRestored=true`. Обновлены только пять Main Menu baselines и добавлены два целевых состояния ниже. Preferences/Reading/Game Menu baselines не менялись. Это **REVIEW CANDIDATE**, не финальное эстетическое approval.
 
 - `main_menu.png` — v2 при недоступном Continue и динамическом фокусе на `Новая игра` (TECH DEMO ONLY / NOT CANON: тестовая доступность).
@@ -34,6 +67,8 @@ Main Menu v2, implementation pass 2026-10-04 от `f588a10f1c29db4d90902edb2484a
 - `preferences_dropdown_1280.png` — dropdown при 1280×720: controls, contextual hint и footer остаются читаемыми и не перекрываются.
 - `preferences_windowed_dropdown.png` — dropdown разрешения в режиме «Окно» на 1920×1080 desktop: показываются только значения, которые помещаются на рабочий стол (1280×720, 1600×900); черновик видимо нормализован в 1600×900 до Apply, без обрезания пунктов.
 - `preferences_applied_disabled.png` — то же окно после Apply: кнопка «Применить» disabled и её подпись явно приглушена (тёмный серо-синий оттенок вместо почти белого enabled-текста), при этом enabled/dirty-состояние остаётся ярко-белым.
+- `preferences_gameplay.png` — тот же общий экран поверх сохранённого Reading-фона; четыре tabs, подписи controls и footer присутствуют.
+- `preferences_dropdown_cancelled.png` — settled состояние после Cancel списка: popup закрыт, Preferences остаётся открыт, focus возвращён полю режима экрана.
 
 Main Menu и Preferences-набор обновлён по полному PlayerUi graphical E2E от 2026-09-20: 69 свежих снимков, `playerPrefsRestored=true`; набор включает исправление иерархии — при открытии Preferences из Main Menu пять строк действий меню скрываются и возвращаются при закрытии, фон и полупрозрачность не изменились. Дополнительные состояния Text, after Apply, slider focus и gameplay parity остаются в ignored QAArtifacts. Это REVIEW CANDIDATE, не субъективное visual approval. Micro-polish pass 2026-09-21: `preferences_sound_dirty.png` переснят, добавлен `preferences_applied_disabled.png` (disabled-подпись Apply приглушена явно, layout и логика dirty/applied не менялись).
 

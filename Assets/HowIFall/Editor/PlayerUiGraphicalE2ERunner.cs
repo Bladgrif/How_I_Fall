@@ -176,7 +176,14 @@ public static class PlayerUiGraphicalE2ERunner
                 case "PreferencesApplied":
                     FindVisiblePreferences().GetButton("apply").onClick.Invoke();
                     Require(FindVisiblePreferences() != null && !FindVisiblePreferences().GetButton("apply").interactable, "Apply must keep a clean view open.");
-                    Capture("preferences_applied_1920x1080.png", "CaptureTextSpeedMaximum"); break;
+                    Capture("preferences_applied_1920x1080.png", "PreferencesResetDraft"); break;
+                case "PreferencesResetDraft": CapturePreferencesResetDraft(); break;
+                case "PreferencesResetBackReopen": CapturePreferencesResetBackReopen(); break;
+                case "PreferencesPointerHover": CapturePreferencesPointerHover(); break;
+                case "PreferencesKeyboardFocus": CapturePreferencesKeyboardFocus(); break;
+                case "PreferencesDropdownCancel": CancelPreferencesDropdown(); break;
+                case "PreferencesDropdownCancelled": CapturePreferencesDropdownCancelled(); break;
+                case "PreferencesGameMenuReturn": CapturePreferencesGameMenuReturn(); break;
                 case "PreferencesResponsiveScreen":
                     FindVisiblePreferences().SelectCategory(0);
                     Capture("preferences_screen_1280x720.png", "PreferencesResponsiveDropdown"); break;
@@ -499,6 +506,76 @@ public static class PlayerUiGraphicalE2ERunner
         Require(view.GetDisplayedValue(SharedPreferencesView.TextSpeedId) == "Очень быстро",
             "Text Speed maximum did not display its expected label.");
         Capture("main_menu_preferences_text_speed_max_1920x1080.png", "CaptureGameplayCategory");
+    }
+
+    // Target 11 gap: the existing flow captured dirty/applied but not Reset,
+    // Preferences-specific pointer hover, actual dropdown Cancel or child return.
+    private static void CapturePreferencesResetDraft()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        SettingsManager manager = UnityEngine.Object.FindFirstObjectByType<SettingsManager>();
+        SessionState.SetFloat("HIF.Preferences.CommittedVolume", manager.CurrentSettings.masterVolume);
+        view.GetButton("reset").Select();
+        view.GetButton("reset").onClick.Invoke();
+        Require(Mathf.Approximately(view.GetSlider(SharedPreferencesView.MasterVolumeId).value, new GameSettings().masterVolume),
+            "Reset must stage visible defaults.");
+        Require(Mathf.Approximately(manager.CurrentSettings.masterVolume, SessionState.GetFloat("HIF.Preferences.CommittedVolume", -1f)),
+            "Reset must not commit settings before Apply.");
+        Require(view.GetButton("apply").interactable, "Reset must enable Apply when defaults differ from committed settings.");
+        Capture("preferences_reset_draft_1920x1080.png", "PreferencesResetBackReopen");
+    }
+
+    private static void CapturePreferencesResetBackReopen()
+    {
+        FindVisiblePreferences().GetButton("back").onClick.Invoke();
+        SettingsPanelController adapter = UnityEngine.Object.FindFirstObjectByType<SettingsPanelController>(FindObjectsInactive.Include);
+        Require(adapter != null, "Main Menu Preferences adapter is missing after Back.");
+        adapter.Show();
+        SharedPreferencesView view = FindVisiblePreferences();
+        view.SelectCategory(1);
+        Require(Mathf.Approximately(view.GetSlider(SharedPreferencesView.MasterVolumeId).value,
+            SessionState.GetFloat("HIF.Preferences.CommittedVolume", -1f)), "Back must discard Reset draft after the last Apply.");
+        Require(!view.GetButton("apply").interactable, "Reopened committed settings must have disabled Apply.");
+        Capture("preferences_reset_back_reopened_1920x1080.png", "PreferencesPointerHover");
+    }
+
+    private static void CapturePreferencesPointerHover()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        view.SelectCategory(0);
+        TMP_Dropdown field = view.GetDropdown(SharedPreferencesView.ScreenModeId);
+        ExecuteEvents.Execute(field.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerEnterHandler);
+        Require(EventSystem.current.currentSelectedGameObject == view.GetButton("category_0").gameObject,
+            "Pointer hover must not steal the existing Preferences keyboard selection.");
+        Require(!view.GetButton("apply").interactable, "Hover must not edit the draft.");
+        Capture("preferences_pointer_hover_1920x1080.png", "PreferencesKeyboardFocus");
+    }
+
+    private static void CapturePreferencesKeyboardFocus()
+    {
+        TMP_Dropdown field = FindVisiblePreferences().GetDropdown(SharedPreferencesView.ScreenModeId);
+        ExecuteEvents.Execute(field.gameObject, new PointerEventData(EventSystem.current), ExecuteEvents.pointerExitHandler);
+        field.Select();
+        Capture("preferences_keyboard_focus_1920x1080.png", "PreferencesDropdownCancel");
+    }
+
+    private static void CancelPreferencesDropdown()
+    {
+        TMP_Dropdown field = FindVisiblePreferences().GetDropdown(SharedPreferencesView.ScreenModeId);
+        field.Show();
+        Require(field.IsExpanded, "Dropdown must open before Cancel proof.");
+        ExecuteEvents.Execute(field.gameObject, new BaseEventData(EventSystem.current), ExecuteEvents.cancelHandler);
+        SessionState.SetString(StageKey, "PreferencesDropdownCancelled");
+        SetDelay(0.5d);
+    }
+
+    private static void CapturePreferencesDropdownCancelled()
+    {
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null && !view.IsAnyDropdownExpanded, "Dropdown Cancel must keep Preferences open and close only the list.");
+        Require(EventSystem.current.currentSelectedGameObject == view.GetDropdown(SharedPreferencesView.ScreenModeId).gameObject,
+            "Dropdown Cancel must restore field focus.");
+        Capture("preferences_dropdown_cancelled_1920x1080.png", "CaptureTextSpeedMaximum");
     }
 
     private static void CaptureGameplayCategory()
@@ -1564,7 +1641,20 @@ public static class PlayerUiGraphicalE2ERunner
             Retry("Game View did not switch to 1280x720 for Preferences responsive proof.");
             return;
         }
-        Capture("gameplay_preferences_1280x720.png", "PrepareGameMenuRootProof");
+        Capture("gameplay_preferences_1280x720.png", "PreferencesGameMenuReturn");
+    }
+
+    private static void CapturePreferencesGameMenuReturn()
+    {
+        ConfigureGameViewResolution(QaResolution);
+        if (!IsQaResolutionReady()) { Retry("Game View did not restore 1920x1080 for Preferences return."); return; }
+        SharedPreferencesView view = FindVisiblePreferences();
+        Require(view != null, "Preferences closed before the child-return proof.");
+        view.GetButton("back").onClick.Invoke();
+        VNDialogueController dialogue = RequireGameplayDialogue();
+        Require(!dialogue.IsPreferencesOpen && dialogue.GameMenuController.IsPresentationVisible,
+            "Back from Preferences must restore the calling Game Menu.");
+        Capture("preferences_game_menu_return_1920x1080.png", "PrepareGameMenuRootProof");
     }
 
     private static void PrepareGameMenuRootProof()
