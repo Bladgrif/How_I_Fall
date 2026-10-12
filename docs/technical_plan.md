@@ -149,6 +149,12 @@ production UI. За один проход брать одну задачу; сл
    logs и список только воспроизведённых дефектов. QA не равно автоматическому
    объявлению release-ready.
 
+Статус 2026-10-12: пункты 1–2 локально выполнены в Target 10 / PR #71:
+направление утверждено, presentation-дельта прошла целевые EditMode 8/8,
+PlayMode 15/15, smoke 30/30 и ManualSave graphical E2E. Это не полный visual
+PASS Game Menu и не release-readiness. Интеграционный статус определяется
+exact-head CI и merge PR #71; пункт 3 выбирать только после этих gates.
+
 Новые мини-игры, story canon и дополнительные product features в этот список не
 входят. После него выбрать не более одной следующей функции по конкретной player
 problem и отдельному решению пользователя; существующие technical foundations
