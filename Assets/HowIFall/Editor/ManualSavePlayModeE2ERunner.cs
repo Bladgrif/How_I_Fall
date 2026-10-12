@@ -1149,6 +1149,9 @@ public static class ManualSavePlayModeE2ERunner
         }
 
         SaveManager.Instance.ConfigureSaveDirectoryForTests(SessionState.GetString(DirectoryKey, string.Empty));
+        // MainMenu initialized before the fixture directory was restored after
+        // the Play Mode restart. Refresh against that directory, never user saves.
+        menu.RefreshContinueAvailability();
         Require(SaveManager.Instance.HasAnyValidSave(), "Continue found no valid save after Play Mode restart.");
         Require(menu.continueButton != null && menu.continueButton.interactable, "Continue button is disabled despite valid slot 1.");
         menu.continueButton.onClick.Invoke();
@@ -1411,6 +1414,13 @@ public static class ManualSavePlayModeE2ERunner
         Require(!invalidView.button.interactable, "Unavailable slot is loadable.");
         Require(invalidView.emptyText.gameObject.activeSelf && invalidView.emptyText.text == "Недоступное сохранение",
             "Unavailable slot is visually indistinguishable from empty.");
+        Transform warning = invalidView.emptyText.transform.parent.Find("Unavailable Warning");
+        Require(warning != null && warning.gameObject.activeSelf,
+            "Unavailable occupied slot is missing its warning glyph.");
+        Require(warning.GetComponentsInChildren<Image>().All(image => !image.raycastTarget),
+            "Unavailable warning intercepts card/delete input.");
+        Require(invalidView.backgroundImage.color.b > invalidView.backgroundImage.color.r,
+            "Unavailable card uses a red plate competing with interactive focus.");
         Require(invalidView.deleteButton.gameObject.activeSelf && invalidView.deleteButton.interactable,
             "Unavailable occupied slot cannot be deleted.");
         panel.OnSlotSelected(2);
