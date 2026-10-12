@@ -115,3 +115,47 @@ Rollback/Rewind реализован: 12 in-memory checkpoints, guard 65,536 UTF
 - Утверждённая техническая dependency `glm-native-runtime-qa` (повторное подтверждение пользователя, base `df09ed3d3c017cd751698c0b83e3f1b01e680522`): расширить существующий native worker фиксированными runtime/UI checks, свежим XML/graphical proof, ограниченными correction retries и Sol High ownership объективной инспекции GLM screenshots. Writer acceptance — безопасные fixtures/AST/diff, без Unity в protected `develop` и без реальных user saves. Correction закрывает `PlayMode`/graphical selections до доказанной startup save isolation и bounded affected-state proof; late override после `SaveManager.Awake` не считается изоляцией. Настоящая свежая GLM production-задача остаётся staged `NOT VERIFIED`; продуктовую задачу ради проверки инфраструктуры не придумывать. Independent exact-head review → full remote CI → outer merge/native sync остаются обязательными.
 - Новых универсальных production/product-задач сейчас не утверждено. Принятые Main Menu v2 и Hotspot marker polish не переоткрывать без reproduced defect.
 - После принятия infrastructure pass: один bounded анализ repository/подтверждённых дефектов, до трёх product-предложений с acceptance, затем `WAIT_USER`. Новые features, визуальное направление и story canon выполняются только после согласования пользователя.
+
+## Ближайший ручной план UI и demo QA
+
+Порядок обсуждён с пользователем 2026-10-12. Это список для утреннего выбора
+ограниченных задач, **не** approval на автоматический dispatch или изменение
+production UI. За один проход брать одну задачу; следующий шаг зависит от
+результата предыдущего. `develop` остаётся защищённым пользовательским checkout.
+
+1. **Save/Load — макет и brief, design-only.** Показать Main Menu и встроенный
+   Game Menu контексты, пустой/валидный/повреждённый слот, preview, фокус и
+   подтверждения. Сохранить сетку 3×2, Manual 60 / Auto 6 / Quick 6 и текущий
+   backend. Результат — target со state sheet и ограниченным implementation brief;
+   субъективное направление утверждает пользователь.
+2. **Save/Load — только утверждённая presentation-дельта.** После approval
+   target изменить лишь согласованный UI; SaveData/формат, capacities,
+   navigation и safety contracts не менять. Acceptance: targeted regression,
+   релевантный smoke, свежий `ManualSave` graphical E2E и просмотр screenshots.
+   Если требуемой дельты или воспроизводимого дефекта нет — `NO PRODUCTION CHANGE`.
+3. **Preferences — макет и brief, design-only.** Один `SharedPreferencesView` для
+   Main Menu и gameplay; показать иерархию, читаемость, pointer/keyboard focus,
+   состояния реальных настроек и возврат. Не добавлять controls без consumer.
+   Результат — target со state sheet и ограниченным implementation brief;
+   субъективное направление утверждает пользователь.
+4. **Preferences — только утверждённая presentation-дельта.** Сохранить один
+   общий экран и текущую Settings authority. Acceptance: targeted regression,
+   релевантный smoke, свежий `PlayerUi` graphical E2E и просмотр screenshots.
+   Без нужной дельты — `NO PRODUCTION CHANGE`.
+5. **Windows demo player journey — QA после визуальных проходов.** Проверить
+   реальный собранный player: запуск → Main Menu → Reading → Preferences и
+   Save/Load → возврат. До теста изолировать/сохранить реальные LocalLow данные,
+   после — восстановить и проверить их; приложить свежие runtime screenshots,
+   logs и список только воспроизведённых дефектов. QA не равно автоматическому
+   объявлению release-ready.
+
+Статус 2026-10-12: пункты 1–2 локально выполнены в Target 10 / PR #71:
+направление утверждено, presentation-дельта прошла целевые EditMode 8/8,
+PlayMode 15/15, smoke 30/30 и ManualSave graphical E2E. Это не полный visual
+PASS Game Menu и не release-readiness. Интеграционный статус определяется
+exact-head CI и merge PR #71; пункт 3 выбирать только после этих gates.
+
+Новые мини-игры, story canon и дополнительные product features в этот список не
+входят. После него выбрать не более одной следующей функции по конкретной player
+problem и отдельному решению пользователя; существующие technical foundations
+не планировать заново как отсутствующие.

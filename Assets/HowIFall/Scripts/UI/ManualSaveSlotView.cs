@@ -18,8 +18,11 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     private static readonly Color EmptyLoadColor = new Color(0.042f, 0.049f, 0.062f, 0.72f);
     private static readonly Color HoverColor = new Color(0.072f, 0.1f, 0.142f, 0.98f);
     private static readonly Color FocusColor = new Color(0.085f, 0.135f, 0.20f, 0.98f);
-    private static readonly Color InvalidColor = new Color(0.09f, 0.05f, 0.065f, 0.9f);
-    private static readonly Color FocusOutlineColor = new Color(0.45f, 0.74f, 0.96f, 0.95f);
+    // Unavailable is occupied, not a red action plate. The label/glyph carry the
+    // warning while the stronger cyan frame remains reserved for interaction.
+    private static readonly Color InvalidColor = OccupiedColor;
+    private static readonly Color UnavailableMessageColor = new Color(0.72f, 0.45f, 0.49f, 0.92f);
+    private static readonly Color FocusOutlineColor = new Color(0.28f, 0.76f, 0.90f, 0.95f);
 
     public Button button;
     public RectTransform cardRect;
@@ -47,6 +50,9 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
     private bool isOccupied;
     private float hoverAmount;
     private bool hasEventSystemFocus;
+    private RectTransform unavailableWarning;
+    private Vector2 placeholderPosition;
+    private bool hasPlaceholderPosition;
 
     public bool HasEventSystemFocus => hasEventSystemFocus;
     public bool IsLoadable => isLoadable;
@@ -137,9 +143,10 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
             emptyText.gameObject.SetActive(!isLoadable);
             emptyText.text = isOccupied ? "Недоступное сохранение" : "Пусто";
             emptyText.color = isOccupied
-                ? new Color(0.86f, 0.48f, 0.52f, 0.88f)
+                ? UnavailableMessageColor
                 : new Color(0.48f, 0.55f, 0.63f, 0.68f);
         }
+        ApplyUnavailableWarning(isOccupied && !isLoadable);
 
         if (backgroundSlotNumberText != null)
         {
@@ -156,7 +163,7 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
             occupiedAccentImage.gameObject.SetActive(isOccupied);
             occupiedAccentImage.color = isLoadable
                 ? new Color(0.28f, 0.57f, 0.82f, 0.78f)
-                : new Color(0.58f, 0.19f, 0.25f, 0.56f);
+                : new Color(0.52f, 0.25f, 0.30f, 0.45f);
         }
 
         if (button != null)
@@ -174,6 +181,54 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
 
         ApplyPreview(isLoadable ? info.PreviewPath : string.Empty);
         ApplyVisualState(true);
+    }
+
+    private void ApplyUnavailableWarning(bool visible)
+    {
+        if (emptyText == null) return;
+
+        RectTransform label = emptyText.rectTransform;
+        if (!hasPlaceholderPosition)
+        {
+            placeholderPosition = label.anchoredPosition;
+            hasPlaceholderPosition = true;
+        }
+        label.anchoredPosition = placeholderPosition + (visible ? new Vector2(0f, -18f) : Vector2.zero);
+        emptyText.fontStyle = visible ? FontStyles.Normal : FontStyles.Italic;
+
+        if (visible && unavailableWarning == null)
+        {
+            // Runtime-only, font-independent line art: no sprite asset, serialized
+            // reference, navigation target or added hit region.
+            var owner = new GameObject("Unavailable Warning", typeof(RectTransform));
+            unavailableWarning = owner.GetComponent<RectTransform>();
+            unavailableWarning.SetParent(label.parent, false);
+            unavailableWarning.anchorMin = label.anchorMin;
+            unavailableWarning.anchorMax = label.anchorMax;
+            unavailableWarning.anchoredPosition = placeholderPosition + new Vector2(0f, 22f);
+            unavailableWarning.sizeDelta = new Vector2(28f, 24f);
+            AddWarningStroke("Left", new Vector2(-12f, -9f), new Vector2(0f, 11f));
+            AddWarningStroke("Right", new Vector2(0f, 11f), new Vector2(12f, -9f));
+            AddWarningStroke("Base", new Vector2(12f, -9f), new Vector2(-12f, -9f));
+            AddWarningStroke("Stem", new Vector2(0f, 4f), new Vector2(0f, -2f));
+            AddWarningStroke("Dot", new Vector2(-1f, -5f), new Vector2(1f, -5f));
+        }
+        if (unavailableWarning != null) unavailableWarning.gameObject.SetActive(visible);
+    }
+
+    private void AddWarningStroke(string name, Vector2 from, Vector2 to)
+    {
+        var owner = new GameObject(name, typeof(RectTransform), typeof(UnityEngine.UI.Image));
+        RectTransform rect = owner.GetComponent<RectTransform>();
+        rect.SetParent(unavailableWarning, false);
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = (from + to) * 0.5f;
+        rect.sizeDelta = new Vector2(Vector2.Distance(from, to), 2f);
+        Vector2 direction = to - from;
+        rect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+        UnityEngine.UI.Image image = owner.GetComponent<UnityEngine.UI.Image>();
+        image.color = UnavailableMessageColor;
+        image.raycastTarget = false;
     }
 
     public void OnSelect(BaseEventData eventData)
@@ -257,7 +312,9 @@ public sealed class ManualSaveSlotView : MonoBehaviour,
 
         if (hoverAccentImage != null)
         {
-            Color accent = hoverAccentImage.color;
+            // The authored full-card accent used a bright blue fill. Keep its
+            // existing emphasis timing/strength, but let the frame own focus.
+            Color accent = new Color(0.10f, 0.21f, 0.29f, 0f);
             accent.a = Mathf.Max(hoverAmount * 0.09f, focusAmount * 0.30f);
             hoverAccentImage.color = accent;
         }
