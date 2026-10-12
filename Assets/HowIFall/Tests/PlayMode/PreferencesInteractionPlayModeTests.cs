@@ -206,6 +206,33 @@ namespace HowIFall.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator Target11_FocusOutlineMovesWithoutChangingSelectionOrDraft()
+        {
+            var host = new GameObject("FocusOutlineHost", typeof(RectTransform), typeof(Canvas));
+            var events = new GameObject("FocusOutlineEvents", typeof(EventSystem));
+            var view = SharedPreferencesView.Create(host.transform, "FocusOutline");
+            var controller = new PreferencesController(new FakePreferencesService(), view);
+            try
+            {
+                controller.Initialize(); controller.Open();
+                var field = view.GetDropdown(SharedPreferencesView.ScreenModeId);
+                Outline fieldOutline = field.targetGraphic.GetComponent<Outline>();
+                Color idle = fieldOutline.effectColor;
+                EventSystem.current.SetSelectedGameObject(field.gameObject);
+                yield return null;
+                Assert.That(fieldOutline.effectColor, Is.Not.EqualTo(idle));
+                Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(field.gameObject));
+                view.GetButton("back").Select();
+                yield return null;
+                Assert.That(fieldOutline.effectColor, Is.EqualTo(idle));
+                Assert.That(view.GetButton("category_0").transform.Find("Active Category Line").gameObject.activeSelf, Is.True,
+                    "The active category must remain marked after focus leaves it.");
+                Assert.That(controller.IsDirty, Is.False);
+            }
+            finally { Object.DestroyImmediate(host); Object.DestroyImmediate(events); }
+        }
+
+        [UnityTest]
         public IEnumerator FocusedControl_UpdatesContextualHintWithoutChangingDraft()
         {
             var host = new GameObject("HintTest", typeof(RectTransform), typeof(Canvas));
@@ -221,6 +248,32 @@ namespace HowIFall.PlayModeTests
                 yield return null;
                 Assert.That(view.CurrentContextHint, Does.Contain("Общий уровень звука"));
                 Assert.That(service.Source.masterVolume, Is.EqualTo(new GameSettings().masterVolume));
+                Assert.That(controller.IsDirty, Is.False);
+            }
+            finally { Object.DestroyImmediate(host); Object.DestroyImmediate(events); }
+        }
+
+        [UnityTest]
+        public IEnumerator Target11_ExpandedDropdownPresentsOwningFieldWithoutStealingItemFocus()
+        {
+            var host = new GameObject("DropdownPresentationHost", typeof(RectTransform), typeof(Canvas));
+            host.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            var events = new GameObject("DropdownPresentationEvents", typeof(EventSystem));
+            var view = SharedPreferencesView.Create(host.transform, "DropdownPresentation");
+            var controller = new PreferencesController(new FakePreferencesService(), view);
+            try
+            {
+                controller.Initialize(); controller.Open();
+                var mode = view.GetDropdown(SharedPreferencesView.ScreenModeId);
+                mode.Select(); yield return null;
+                var resolution = view.GetDropdown(SharedPreferencesView.ResolutionId);
+                resolution.Select(); resolution.Show();
+                GameObject popupSelection = EventSystem.current.currentSelectedGameObject;
+                yield return null;
+                Assert.That(view.CurrentContextHint, Does.Contain("удобный размер окна"));
+                Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(popupSelection));
+                Assert.That(resolution.targetGraphic.GetComponent<Outline>().effectColor,
+                    Is.Not.EqualTo(mode.targetGraphic.GetComponent<Outline>().effectColor));
                 Assert.That(controller.IsDirty, Is.False);
             }
             finally { Object.DestroyImmediate(host); Object.DestroyImmediate(events); }

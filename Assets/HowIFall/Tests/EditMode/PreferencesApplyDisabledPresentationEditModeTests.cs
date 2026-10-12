@@ -49,6 +49,44 @@ public class PreferencesApplyDisabledPresentationEditModeTests
         }
     }
 
+    [Test]
+    public void Target11_ReadableValuesAndDecorations_PreserveControlSurface()
+    {
+        GameObject host = new GameObject("PreferencesPresentationHost", typeof(RectTransform));
+        try
+        {
+            SharedPreferencesView view = SharedPreferencesView.Create(host.transform, "Test");
+            var controller = new PreferencesController(new FakePreferencesService(), view);
+            controller.Initialize(); controller.Open();
+            Assert.That(SharedPreferencesView.VisibleControlIds.Count, Is.EqualTo(13));
+            foreach (string id in SharedPreferencesView.VisibleControlIds) Assert.That(view.HasControl(id), Is.True, id);
+            Assert.That(view.GetDropdown(SharedPreferencesView.ScreenModeId).captionText.fontSize, Is.GreaterThanOrEqualTo(22f));
+            Assert.That(view.GetDropdown(SharedPreferencesView.ScreenModeId).itemText.fontSize, Is.GreaterThanOrEqualTo(20f));
+            Assert.That(view.GetToggle(SharedPreferencesView.SkipUnseenId).GetComponentInChildren<TextMeshProUGUI>().fontSize,
+                Is.GreaterThanOrEqualTo(20f));
+            Assert.That(view.GetButton("apply").GetComponentInChildren<TextMeshProUGUI>().fontSize, Is.GreaterThanOrEqualTo(18f));
+
+            int separators = 0;
+            foreach (Image image in view.GetComponentsInChildren<Image>(true))
+            {
+                if (image.name != "Row Separator") continue;
+                separators++;
+                Assert.That(image.raycastTarget, Is.False, "Decorative separators must not intercept pointer input.");
+                Assert.That(image.GetComponent<LayoutElement>().ignoreLayout, Is.True, "Separators must not resize control rows.");
+            }
+            Assert.That(separators, Is.EqualTo(13));
+            view.SelectCategory(1);
+            for (int i = 0; i < 4; i++)
+            {
+                Transform marker = view.GetButton("category_" + i).transform.Find("Active Category Line");
+                Assert.That(marker.gameObject.activeSelf, Is.EqualTo(i == 1));
+                Assert.That(marker.GetComponent<Image>().raycastTarget, Is.False);
+            }
+            Assert.That(controller.IsDirty, Is.False, "Presentation and category selection must not edit draft settings.");
+        }
+        finally { Object.DestroyImmediate(host); }
+    }
+
     private sealed class FakePreferencesService : IPreferencesService
     {
         public GameSettings Source { get; private set; } = new GameSettings();

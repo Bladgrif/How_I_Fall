@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+<defs>
+        <linearGradient id="stage" x2="1" y2="1"><stop stop-color="#0a2335"/><stop offset=".65" stop-color="#152937"/><stop offset="1" stop-color="#423b36"/></linearGradient>
+        <linearGradient id="panel" x2="1" y2="1"><stop stop-color="#102839"/><stop offset="1" stop-color="#071725"/></linearGradient>
+        <linearGradient id="row"><stop stop-color="#173d53"/><stop offset="1" stop-color="#102a3c"/></linearGradient>
+        </defs>
+<rect x="0" y="0" width="1920" height="1080" rx="0" fill="#07121f"/>
+<rect x="0" y="0" width="1920" height="1080" rx="0" fill="url(#stage)"/>
+<path d="M60 0 L220 1080" fill="none" stroke="#31434e" stroke-width="3"/>
+<path d="M620 0 L780 1080" fill="none" stroke="#31434e" stroke-width="3"/>
+<path d="M1180 0 L1340 1080" fill="none" stroke="#31434e" stroke-width="3"/>
+<path d="M1740 0 L1900 1080" fill="none" stroke="#31434e" stroke-width="3"/>
+<text x="80" y="28" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" text-anchor="start" letter-spacing="2">11 / PREFERENCES — МАКЕТ v1</text>
+<text x="1840" y="28" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" text-anchor="end" letter-spacing="1">MAIN MENU · НА СОГЛАСОВАНИИ · НЕ RUNTIME PROOF</text>
+<rect x="80" y="44" width="1760" height="980" rx="0" fill="url(#panel)" stroke="#284659" stroke-width="1"/>
+<text x="138" y="126" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="52" font-weight="400" text-anchor="start" letter-spacing="3">НАСТРОЙКИ</text>
+<path d="M138 168 L782 168" fill="none" stroke="#72d5f4" stroke-width="2"/>
+<rect x="138.0" y="188" width="397.5" height="72" rx="3" fill="#16384c" stroke="#72d5f4" stroke-width="2"/>
+<text x="336.75" y="232.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ЭКРАН</text>
+<rect x="162.0" y="257" width="349.5" height="2" rx="0" fill="#72d5f4"/>
+<rect x="553.5" y="188" width="397.5" height="72" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="752.25" y="232.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ЗВУК</text>
+<rect x="969.0" y="188" width="397.5" height="72" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="1167.75" y="232.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ТЕКСТ</text>
+<rect x="1384.5" y="188" width="397.5" height="72" rx="3" fill="#0c2130" stroke="#284659" stroke-width="1"/>
+<text x="1583.25" y="232.0" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.8">ИГРА</text>
+<text x="162" y="324" fill="#72d5f4" font-family="Segoe UI,Arial,sans-serif" font-size="30" font-weight="600" text-anchor="start" letter-spacing="1">ЭКРАН</text>
+<text x="184" y="402" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="26" font-weight="400" text-anchor="start" letter-spacing="0">Режим экрана</text>
+<rect x="1324" y="372" width="412" height="54" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="1342" y="407.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">Полный экран</text>
+<path d="M1702 395 L1709 402" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M1709 402 L1716 395" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M184 442 L1736 442" fill="none" stroke="#284659" stroke-width="1"/>
+<text x="184" y="494" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="26" font-weight="400" text-anchor="start" letter-spacing="0">Разрешение</text>
+<rect x="1324" y="464" width="412" height="54" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="1342" y="499.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="400" text-anchor="start" letter-spacing="0">1920x1080</text>
+<path d="M1702 487 L1709 494" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M1709 494 L1716 487" fill="none" stroke="#abc1d0" stroke-width="2"/>
+<path d="M184 534 L1736 534" fill="none" stroke="#284659" stroke-width="1"/>
+<rect x="138" y="876" width="1644" height="56" rx="3" fill="#112c3c"/>
+<text x="154" y="911" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" letter-spacing="0">Режим экрана и размер окна. Изменения остаются в черновике до применения.</text>
+<path d="M138 946 L1782 946" fill="none" stroke="#284659" stroke-width="1"/>
+<rect x="138" y="962" width="188" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="232.0" y="995.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">СБРОСИТЬ</text>
+<rect x="1384" y="962" width="188" height="52" rx="3" fill="#102839" stroke="#284659" stroke-width="1"/>
+<text x="1478.0" y="995.0" fill="#f0f5fa" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">НАЗАД</text>
+<rect x="1594" y="962" width="188" height="52" rx="3" fill="#0b1d2a" stroke="#284659" stroke-width="1"/>
+<text x="1688.0" y="995.0" fill="#71889a" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="0.5">ПРИМЕНИТЬ</text>
+<text x="1840" y="1056" fill="#abc1d0" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" text-anchor="end" letter-spacing="1">DESIGN ONLY / ФОН И ЗНАЧЕНИЯ — TECH DEMO ONLY / NOT CANON</text>
+</svg>
