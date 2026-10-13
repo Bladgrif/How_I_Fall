@@ -306,6 +306,38 @@ Supervisor синхронизирует roadmap и выбирает следую
 interruption → `PARTIAL_RETRY`; решение, которого нет в source of truth,
 → `WAIT_USER`.
 
+
+Для пропущенной последовательности ручных merge разрешён отдельный native
+`master-recovery-propose` / `master-recovery-approve` → `MASTER_RECOVERY_PENDING`
+маршрут existing `sync-master`, без ослабления обычных gates. Только outer
+scheduler пишет fixed clean `master` через ff-only. Отдельный operator console
+approval привязан DPAPI seal к immutable exact local SHA, ordered complete
+merge chain, fresh target и original canonical native Sol High review archives.
+Operator отдельно аутентифицирует native provenance исторических archives;
+GitHub comment/coding-pass/batch receipt не заменяют review или approval.
+Нет authentic matching review/independent visual proof — fail closed. Каждый
+PR перепроверяется live: merged master, original base/head/merge, GREEN
+exact-head CI и непрерывная first-parent chain. Обычный merge требует второго
+родителя exact reviewed head; squash — sole parent previous и identical valid
+Git tree SHA результата/original head с exact live commit identities. Missing/
+different tree, direct commit без matching merged PR и прочие неподдержанные
+стратегии закрывают gate; общий rebase workflow не поддержан. Stale target/approval,
+STOP/MAINTENANCE и competing task закрывают транспорт.
+Empty/malformed file coverage fail closed до classification: известный status,
+canonical nonempty relative filename и обязательный source для rename/copy.
+Import хранит original identities и явные reconciliation records, не выдумывает
+прежний automated dispatch. Успех только `ROADMAP_SYNC_READY`, не `DONE`;
+aggregate блокирует новый pass до repository roadmap reconciliation всех PR.
+Native `batch-tick` закрывает model-only DONE и inactive-label обходы: требует matching sealed actual
+sync receipt и durable `recovery_roadmap` entries для каждого original PR,
+связанную с точным repository roadmap Git blob/revision/hash.
+Смена на `CANCELLED`/`WAIT_USER`/list-only и частичное удаление marker fields
+не снимают обязательства; pending/proposed workflow сохранён, отмена не вводится.
+Идемпотентный retry требует фактического clean exact target; persistence/receipt
+failure — STOP/exit 78 даже после actual ff-only. Схема запроса, native review
+provenance trust boundary и operator workflow: `tools/agent-control/README.md`.
+Этот contract не утверждает rollout: live install/approval/sync — NOT VERIFIED.
+
 Scheduler/Automation — только wake-up mechanism: он не выбирает product direction
 сам, а просит persistent Supervisor продолжить из durable state.
 

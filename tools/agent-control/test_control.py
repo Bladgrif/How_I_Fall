@@ -1325,5 +1325,539 @@ class ControlTests(unittest.TestCase):
                 self.assertEqual(expected, result.returncode, result.stderr.decode(errors="replace"))
 
 
+
+class MasterRecoveryTests(unittest.TestCase):
+    """All Git writes are confined to temporary repositories, GitHub is a fixture."""
+    def setUp(self):
+        ControlTests.setUp(self)
+        directory = tempfile.TemporaryDirectory(prefix="hif-recovery-fixture-")
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.control = self.root / "control"; self.control.mkdir()
+        self.remote = self.root / "origin.git"
+        self.writer = self.root / "writer"; self.writer.mkdir()
+        self.master = self.root / "master"
+        self.writes = []
+        def run(repo, *args):
+            return subprocess.check_output(["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                                           "-C", str(repo), *args], encoding="utf-8", stderr=subprocess.DEVNULL).strip()
+        self.git = run
+        run(self.root, "init", "--bare", str(self.remote))
+        run(self.writer, "init", "-b", "master")
+        (self.writer / "docs").mkdir()
+        (self.writer / "docs/technical_plan.md").write_text("base", encoding="utf-8")
+        run(self.writer, "add", "docs/technical_plan.md"); run(self.writer, "commit", "-m", "base")
+        self.base = run(self.writer, "rev-parse", "HEAD")
+        run(self.writer, "remote", "add", "origin", str(self.remote))
+        run(self.writer, "push", "origin", "master")
+        run(self.root, "clone", "--branch", "master", str(self.remote), str(self.master))
+        self.chain = []; self.api = {}; previous = self.base
+        for number in (71, 72):
+            run(self.writer, "switch", "-c", "pr" + str(number))
+            name = "docs/pr" + str(number) + ".md"
+            (self.writer / name).write_text(str(number), encoding="utf-8")
+            run(self.writer, "add", name); run(self.writer, "commit", "-m", "candidate " + str(number))
+            head = run(self.writer, "rev-parse", "HEAD")
+            # PR #71/#72 used squash: one parent, a distinct commit, exact head tree.
+            run(self.writer, "switch", "master"); run(self.writer, "merge", "--squash", "pr" + str(number))
+            run(self.writer, "commit", "-m", "squash " + str(number))
+            merge = run(self.writer, "rev-parse", "HEAD")
+            self.assertNotEqual(head, merge)
+            self.assertEqual(previous, run(self.writer, "show", "-s", "--format=%P", merge))
+            self.assertEqual(run(self.writer, "rev-parse", head + "^{tree}"), run(self.writer, "rev-parse", merge + "^{tree}"))
+            review = dict(self.strong, task_id="manual-pr-" + str(number), base_sha=previous, head_sha=head)
+            evidence = self.control / "evidence" / ("pr" + str(number)); evidence.mkdir(parents=True)
+            c.save(evidence / "strong-review-latest.json", review)
+            body = {k:v for k,v in review.items() if k not in {"task_id", "base_sha", "head_sha", "reviewer_model", "reviewer_reasoning", "reviewed_at"}}
+            thread = "00000000-0000-0000-0000-" + str(number).zfill(12)
+            events = [dict(type="thread.started", thread_id=thread), dict(type="item.completed", item=dict(type="agent_message", text=json.dumps(body))), dict(type="turn.completed")]
+            (evidence / "strong-review-latest-events.jsonl").write_text("\n".join(json.dumps(e) for e in events), encoding="utf-8")
+            entry = dict(pr_number=number, base_sha=previous, head_sha=head, merge_sha=merge, player_facing=False,
+                         review=dict(path=(evidence / "strong-review-latest.json").relative_to(self.control).as_posix(),
+                                     events_path=(evidence / "strong-review-latest-events.jsonl").relative_to(self.control).as_posix(),
+                                     sha256=c.hashlib.sha256((evidence / "strong-review-latest.json").read_bytes()).hexdigest(),
+                                     events_sha256=c.hashlib.sha256((evidence / "strong-review-latest-events.jsonl").read_bytes()).hexdigest(), thread_id=thread))
+            self.chain.append(entry)
+            self.api["pulls/" + str(number)] = dict(number=number, state="closed", merged=True, merge_commit_sha=merge,
+                                                    base=dict(ref="master", sha=previous, repo=dict(full_name="Bladgrif/How_I_Fall")), head=dict(sha=head))
+            for sha in (merge, head):
+                self.api["commits/" + sha] = dict(sha=sha, parents=[dict(sha=previous)],
+                                                commit=dict(tree=dict(sha=run(self.writer, "rev-parse", sha + "^{tree}"))))
+            for target in (previous, head):
+                self.api["compare/" + previous + "..." + target] = dict(status="identical" if target == previous else "ahead",
+                                                                     merge_base_commit=dict(sha=previous), files=[dict(filename=name, status="added")])
+            previous = merge
+        run(self.writer, "push", "origin", "master")
+        self.request = dict(version=1, local_sha=self.base, target_sha=previous, chain=self.chain)
+        self.api["branches/master"] = dict(commit=dict(sha=previous))
+        c.save(self.control / "controller.json", dict(enabled=True, native_master_sync_enabled=True))
+        c.save(self.control / "queue.json", dict(tasks=[]))
+        c.save(self.control / "state.json", dict(status="WAIT_USER", active_task_id=None))
+        # Fake seals are fixture-only; assertions validate payload equality, not DPAPI.
+        self.seal = lambda p: json.dumps(p, sort_keys=True)
+        def verify(encoded, payload):
+            if encoded != self.seal(payload):
+                raise ValueError("Fixture receipt mismatch")
+        self.verify = verify
+        def tracked(repo, *args):
+            self.assertEqual(self.master.resolve(), Path(repo).resolve())
+            if args[0] in ("fetch", "merge"):
+                self.writes.append(args)
+            return run(repo, *args)
+        for name, kwargs in (("MASTER_CHECKOUT", dict(new=str(self.master))), ("MASTER_ORIGIN", dict(new=str(self.remote))),
+                             ("github", dict(side_effect=lambda path: copy.deepcopy(self.api[path]))),
+                             ("ci_checks", dict(side_effect=lambda head: dict(workflow_run=dict(id=1, run_attempt=1, head_sha=head, status="completed", conclusion="success"),
+                                  check_runs=[dict(id=1, name="CI Gate", head_sha=head, app=dict(slug="github-actions"), status="completed", conclusion="success")]))),
+                             ("git_output", dict(side_effect=tracked)), ("receipt_seal", dict(side_effect=self.seal)),
+                             ("verify_receipt", dict(side_effect=verify)), ("recovery_scheduler_origin", dict(return_value=None))):
+            patcher = patch.object(c, name, **kwargs); patcher.start(); self.addCleanup(patcher.stop)
+
+    def approve(self, request=None):
+        result = c.propose_master_recovery(self.control, request or self.request)
+        with patch.object(c, "operator_origin"), patch.object(sys.stdin, "isatty", return_value=True), patch.object(sys.stdout, "isatty", return_value=True), patch("builtins.print"):
+            c.approve_master_recovery(self.control, result["task_id"], result["digest"], "operator-console:fixture", input_fn=lambda prompt: ("ATTEST NATIVE REVIEWS " if "ATTEST NATIVE" in prompt else "APPROVE RECOVERY ") + result["digest"])
+        return result
+
+    def test_original_manual_merge_gap_still_refused_by_normal_sync(self):
+        # Exact confirmed source case: no automated execution identity existed.
+        fx = ControlTests.sync_fixture(self, "0a4dad45a73177ac74d9740647ec890e5313c935",
+                status="WAIT_USER", queue=[], state={"active_task_id": None},
+                remote_master="7f79c708a47419c08a90e4f8f9d78db7760ce419")
+        with patch.object(c, "github", return_value={"commit": {"sha": fx["remote"]}}) as api, \
+             patch.object(c, "git_output", return_value="0a4dad45a73177ac74d9740647ec890e5313c935") as git:
+            with self.assertRaisesRegex(ValueError, "SYNC_MASTER_PENDING"):
+                c.sync_master(fx["root"])
+            api.assert_not_called(); git.assert_not_called()
+
+    def test_successful_real_ff_chain_and_idempotent_repeat_no_done(self):
+        result = self.approve()
+        original = copy.deepcopy(self.request)
+        synced = c.sync_master(self.control)
+        self.assertFalse(synced["already_synced"])
+        self.assertEqual([("fetch", "origin", "master"), ("merge", "--ff-only", self.request["target_sha"])], self.writes)
+        self.assertEqual(self.request["target_sha"], self.git(self.master, "rev-parse", "HEAD"))
+        q = c.load(self.control / "queue.json"); state = c.load(self.control / "state.json")
+        task = q["tasks"][0]
+        self.assertEqual(original, task["recovery_request"])
+        self.assertEqual(c.RECOVERY_KIND, task["origin"])
+        self.assertEqual([None, None], [r["registered_task_id"] for r in task["reconciliations"]])
+        self.assertNotIn("dispatch_identity", task)
+        self.assertEqual("MERGED_LOCAL_SYNC_DONE", task["status"])
+        self.assertEqual("ROADMAP_SYNC_READY", state["status"])
+        self.assertEqual("ACTIVE", c.batch.advance(q, state, {}, None, None, c.dt.datetime.now(c.dt.timezone.utc), self.verify, self.seal)[2])
+        self.assertTrue(c.sync_master(self.control)["already_synced"])
+        self.assertEqual(2, len(self.writes))
+
+    def test_squash_requires_exact_existing_commit_and_tree_identities(self):
+        entry = self.chain[0]
+        for mode in ("different_tree", "missing_merge_tree", "missing_head_tree", "invalid_tree", "wrong_head_commit", "wrong_merge_commit"):
+            api = copy.deepcopy(self.api)
+            merge = api["commits/" + entry["merge_sha"]]
+            head = api["commits/" + entry["head_sha"]]
+            if mode == "different_tree":
+                # Use an actual different Git tree, not just a fabricated digest.
+                merge["commit"]["tree"]["sha"] = self.git(self.writer, "rev-parse", self.base + "^{tree}")
+            elif mode == "missing_merge_tree": merge["commit"].pop("tree")
+            elif mode == "missing_head_tree": head.pop("commit")
+            elif mode == "invalid_tree": merge["commit"]["tree"]["sha"] = head["commit"]["tree"]["sha"] = "not-a-tree"
+            elif mode == "wrong_head_commit": head["sha"] = self.base
+            elif mode == "wrong_merge_commit": merge["sha"] = self.base
+            with self.subTest(mode=mode), patch.object(c, "github", side_effect=lambda path: copy.deepcopy(api[path])):
+                with self.assertRaises(ValueError): c.propose_master_recovery(self.control, self.request)
+                self.assertEqual([], self.writes)
+
+    def test_direct_commit_without_matching_merged_pr_is_not_squash(self):
+        # Same tree/sole parent alone must not substitute for the exact merged PR.
+        entry = self.chain[0]
+        self.git(self.writer, "switch", "-c", "direct", self.base)
+        self.git(self.writer, "merge", "--squash", "pr71")
+        self.git(self.writer, "commit", "-m", "unregistered direct commit")
+        direct = self.git(self.writer, "rev-parse", "HEAD")
+        self.assertEqual(self.base, self.git(self.writer, "show", "-s", "--format=%P", direct))
+        self.assertEqual(self.git(self.writer, "rev-parse", entry["head_sha"] + "^{tree}"), self.git(self.writer, "rev-parse", direct + "^{tree}"))
+        request = copy.deepcopy(self.request)
+        request["chain"] = [dict(request["chain"][0], merge_sha=direct)]
+        request["target_sha"] = direct
+        with self.assertRaisesRegex(ValueError, "PR identity mismatch"):
+            c.propose_master_recovery(self.control, request)
+        self.assertEqual([], self.writes)
+
+    def test_original_two_parent_merge_strategy_remains_supported(self):
+        self.git(self.writer, "switch", "-c", "merge-strategy", self.base)
+        self.git(self.writer, "merge", "--no-ff", "pr71", "-m", "two-parent merge")
+        merge = self.git(self.writer, "rev-parse", "HEAD")
+        entry = dict(copy.deepcopy(self.chain[0]), merge_sha=merge)
+        parents = self.git(self.writer, "show", "-s", "--format=%P", merge).split()
+        self.assertEqual([self.base, entry["head_sha"]], parents)
+        self.api["pulls/71"]["merge_commit_sha"] = merge
+        self.api["commits/" + merge] = dict(sha=merge, parents=[dict(sha=p) for p in parents])
+        self.api["branches/master"] = dict(commit=dict(sha=merge))
+        request = dict(version=1, local_sha=self.base, target_sha=merge, chain=[entry])
+        records = c.recovery_chain_ok(self.control, request, dict(tasks=[]))
+        self.assertEqual(merge, records[0]["merge_sha"])
+        # Existing merge strategy still rejects the wrong second parent.
+        self.api["commits/" + merge]["parents"][1]["sha"] = self.base
+        with self.assertRaisesRegex(ValueError, "first-parent chain"):
+            c.recovery_chain_ok(self.control, request, dict(tasks=[]))
+        self.assertEqual([], self.writes)
+
+    def test_dirty_diverged_wrong_branch_origin_block_before_writes(self):
+        self.approve()
+        for mode in ("dirty", "diverged", "branch", "origin"):
+            with self.subTest(mode=mode):
+                if mode == "dirty": (self.master / "stray.md").write_text("user change", encoding="utf-8")
+                if mode == "diverged":
+                    self.git(self.master, "commit", "--allow-empty", "-m", "local divergence")
+                if mode == "branch": self.git(self.master, "switch", "-c", "protected")
+                if mode == "origin": self.git(self.master, "remote", "set-url", "origin", "https://invalid.example/mirror.git")
+                with self.assertRaises(ValueError): c.sync_master(self.control)
+                self.assertEqual([], self.writes)
+                if mode == "dirty": (self.master / "stray.md").unlink()  # fixture-owned only
+                if mode == "diverged": self.git(self.master, "switch", "--detach", self.base); self.git(self.master, "branch", "-f", "master", self.base); self.git(self.master, "switch", "master")
+                if mode == "branch": self.git(self.master, "switch", "master")
+                if mode == "origin": self.git(self.master, "remote", "set-url", "origin", str(self.remote))
+
+    def test_wrong_sha_base_head_merge_skip_stale_remote_fail_closed(self):
+        for key in ("base_sha", "head_sha", "merge_sha", "pr_number", "skip", "remote", "parent", "unmerged", "repo", "base_ancestor"):
+            request = copy.deepcopy(self.request); api = copy.deepcopy(self.api)
+            if key in ("base_sha", "head_sha", "merge_sha"): request["chain"][0][key] = "f"*40
+            elif key == "pr_number": request["chain"][0][key] = True
+            elif key == "skip": request["chain"] = request["chain"][1:]
+            elif key == "remote": api["branches/master"]["commit"]["sha"] = "f"*40
+            elif key == "parent": api["commits/" + self.chain[1]["merge_sha"]]["parents"][0]["sha"] = self.base
+            elif key == "unmerged": api["pulls/71"]["merged"] = False
+            elif key == "repo": api["pulls/71"]["base"]["repo"]["full_name"] = "evil/mirror"
+            elif key == "base_ancestor": api["compare/" + self.base + "..." + self.chain[0]["head_sha"]]["status"] = "diverged"
+            with self.subTest(key=key), patch.object(c, "github", side_effect=lambda path: copy.deepcopy(api[path])):
+                with self.assertRaises(ValueError): c.propose_master_recovery(self.control, request)
+                self.assertEqual([], self.writes)
+
+    def test_review_visual_ci_and_native_provenance_failures(self):
+        for mode in ("missing", "comment", "wrong_head", "visual", "ci", "production_downgrade", "renamed", "truncated", "events", "thread"):
+            request = copy.deepcopy(self.request); entry = request["chain"][0]
+            path = self.control / entry["review"]["path"]; original = path.read_bytes()
+            review = json.loads(original)
+            if mode == "missing": path.unlink()
+            elif mode == "comment": entry["review"]["path"] = "https://github.com/Bladgrif/How_I_Fall/issues/71#issuecomment-1"
+            elif mode == "wrong_head": review["head_sha"] = "f"*40
+            elif mode == "visual": entry["player_facing"] = True
+            elif mode == "events": entry["review"]["events_sha256"] = "f"*64
+            elif mode == "thread": entry["review"]["thread_id"] = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+            if mode == "wrong_head":
+                c.save(path, review); entry["review"]["sha256"] = c.hashlib.sha256(path.read_bytes()).hexdigest()
+            api = copy.deepcopy(self.api)
+            compare = "compare/" + self.base + "..." + self.chain[0]["head_sha"]
+            if mode == "production_downgrade": api[compare]["files"] = [dict(filename="Assets/UI.cs", status="modified")]
+            if mode == "renamed": api[compare]["files"] = [dict(filename="docs/moved.cs", status="renamed", previous_filename="Assets/UI.cs")]
+            if mode == "truncated": api[compare]["files"] = [dict(filename="docs/x", status="modified")] * 300
+            ci = c.ci_checks(self.chain[0]["head_sha"])
+            if mode == "ci": ci["check_runs"][0]["conclusion"] = "failure"
+            with self.subTest(mode=mode), patch.object(c, "github", side_effect=lambda path: copy.deepcopy(api[path])), patch.object(c, "ci_checks", return_value=ci) if mode == "ci" else __import__("contextlib").nullcontext():
+                with self.assertRaises((ValueError, FileNotFoundError)): c.propose_master_recovery(self.control, request)
+                self.assertEqual([], self.writes)
+            path.write_bytes(original)
+
+    def test_approval_required_sealed_exact_request_and_fresh(self):
+        self.approve()
+        original = c.load(self.control / "queue.json")
+        for mode in ("missing", "fake", "general", "sha", "order", "target", "digest", "expired", "future", "source"):
+            q = copy.deepcopy(original); task = q["tasks"][0]
+            if mode == "missing": task["recovery_approval"] = None
+            elif mode == "fake": task["recovery_approval"]["seal"] = "fake"
+            elif mode == "general": task["recovery_approval"] = dict(enabled=True, approved_source="coding-pass")
+            elif mode == "sha": task["recovery_request"]["local_sha"] = "f"*40
+            elif mode == "order": task["recovery_request"]["chain"].reverse()
+            elif mode == "target": task["recovery_request"]["target_sha"] = "f"*40
+            elif mode == "digest": task["recovery_digest"] = "f"*64
+            else:
+                approval = task["recovery_approval"]
+                if mode == "expired": approval["approved_at"] = "2020-01-01T00:00:00+00:00"
+                if mode == "future": approval["approved_at"] = "2099-01-01T00:00:00+00:00"
+                if mode == "source": approval["source"] = "model"
+                approval["seal"] = self.seal({k:v for k,v in approval.items() if k != "seal"})
+            c.save(self.control / "queue.json", q)
+            with self.subTest(mode=mode), self.assertRaises(ValueError): c.sync_master(self.control)
+            self.assertEqual([], self.writes)
+        c.save(self.control / "queue.json", original)
+
+    def test_operator_approval_requires_native_origin_tty_both_exact_decisions(self):
+        result = c.propose_master_recovery(self.control, self.request)
+        with patch.object(c, "operator_origin", side_effect=ValueError("model")), self.assertRaises(ValueError):
+            c.approve_master_recovery(self.control, result["task_id"], result["digest"], "operator-console:fixture")
+        for tty, answer in ((False, ""), (True, "APPROVE " + result["digest"]), (True, "ATTEST NATIVE REVIEWS " + result["digest"])):
+            with patch.object(c, "operator_origin"), patch.object(sys.stdin, "isatty", return_value=tty), patch.object(sys.stdout, "isatty", return_value=tty), patch("builtins.print"), self.assertRaises(ValueError):
+                c.approve_master_recovery(self.control, result["task_id"], result["digest"], "operator-console:fixture", input_fn=lambda _: answer)
+        self.assertEqual("WAIT_USER", c.load(self.control / "state.json")["status"])
+
+    def test_stop_maintenance_active_conflict_stale_remote_and_state_block(self):
+        self.approve()
+        state = c.load(self.control / "state.json"); q = c.load(self.control / "queue.json")
+        for mode in ("STOP", "MAINTENANCE", "PAUSED", "BLOCKED", "active", "competing", "remote"):
+            if mode in ("STOP", "MAINTENANCE"): (self.control / mode).touch()
+            elif mode in ("PAUSED", "BLOCKED"): c.save(self.control / "state.json", dict(state, status=mode))
+            elif mode == "active": c.save(self.control / "state.json", dict(state, active_task_id="other"))
+            elif mode == "competing": c.save(self.control / "queue.json", dict(tasks=q["tasks"] + [dict(id="other", status="READY")]))
+            elif mode == "remote": self.api["branches/master"]["commit"]["sha"] = "f"*40
+            with self.subTest(mode=mode), self.assertRaises(ValueError): c.sync_master(self.control)
+            self.assertEqual([], self.writes)
+            if mode in ("STOP", "MAINTENANCE"): (self.control / mode).unlink()
+            c.save(self.control / "state.json", state); c.save(self.control / "queue.json", q)
+            self.api["branches/master"]["commit"]["sha"] = self.request["target_sha"]
+
+    def test_registered_identity_preserved_not_rewritten(self):
+        entry = self.chain[0]
+        registered = dict(id="manual-pr-71", status="DONE", **{k:entry[k] for k in ("pr_number", "base_sha", "head_sha", "merge_sha")})
+        c.save(self.control / "queue.json", dict(tasks=[registered]))
+        self.approve(); c.sync_master(self.control)
+        q = c.load(self.control / "queue.json")
+        self.assertEqual(registered, q["tasks"][0])
+        self.assertEqual(registered["id"], q["tasks"][1]["reconciliations"][0]["registered_task_id"])
+
+    def test_persistence_failure_after_git_sync_stops_and_safe_retry(self):
+        self.approve(); original_save = c.save
+        def partial(path, value):
+            if Path(path).name == "state.json": raise OSError("fixture disk full")
+            original_save(path, value)
+        with patch.object(c, "save", side_effect=partial), self.assertRaises(c.FatalPersistence): c.sync_master(self.control)
+        self.assertEqual(self.request["target_sha"], self.git(self.master, "rev-parse", "HEAD"))
+        self.assertTrue((self.control / "STOP").exists())
+        self.assertEqual("MASTER_RECOVERY_PENDING", c.load(self.control / "state.json")["status"])
+        self.assertEqual("MERGED_LOCAL_SYNC_DONE", c.load(self.control / "queue.json")["tasks"][0]["status"])
+        with self.assertRaises(ValueError): c.sync_master(self.control)
+        (self.control / "STOP").unlink()  # Explicit fixture operator inspection/recovery.
+        self.assertTrue(c.sync_master(self.control)["already_synced"])
+        self.assertEqual(2, len(self.writes))
+
+    def test_receipt_failure_after_git_sync_is_fatal(self):
+        self.approve()
+        with patch.object(c, "receipt_seal", side_effect=OSError("DPAPI unavailable")), self.assertRaises(c.FatalPersistence): c.sync_master(self.control)
+        self.assertTrue((self.control / "STOP").exists())
+        self.assertEqual("MASTER_RECOVERY_PENDING", c.load(self.control / "state.json")["status"])
+
+    def test_post_fetch_drift_rechecked_before_merge(self):
+        self.approve(); native = c.git_output.side_effect
+        def drift(repo, *args):
+            result = native(repo, *args)
+            if args[0] == "fetch": (self.master / "stray.md").write_text("new user diff", encoding="utf-8")
+            return result
+        with patch.object(c, "git_output", side_effect=drift), self.assertRaises(ValueError): c.sync_master(self.control)
+        self.assertEqual([("fetch", "origin", "master")], self.writes)
+        self.assertEqual(self.base, self.git(self.master, "rev-parse", "HEAD"))
+
+    def test_control_change_before_git_write_blocks(self):
+        self.approve(); native = c.github.side_effect
+        def drift(path):
+            result = native(path)
+            if path == "branches/master": c.save(self.control / "state.json", dict(status="STOP", active_task_id=None))
+            return result
+        with patch.object(c, "github", side_effect=drift), self.assertRaises(ValueError): c.sync_master(self.control)
+        self.assertEqual([], self.writes)
+
+    def test_mixed_native_utf16_diagnostics_preserve_authentic_events(self):
+        for entry in self.chain:
+            path = self.control / entry["review"]["events_path"]
+            lines = path.read_text(encoding="utf-8")
+            path.write_text("codex.exe : 2026-10-05 WARN codex_skills missing path\nAt D:\\How_I_Fall\\agent-control\\hif-reviewer.ps1:89 char:1\n+ CategoryInfo : NotSpecified\n" + lines, encoding="utf-16")
+            entry["review"]["events_sha256"] = c.hashlib.sha256(path.read_bytes()).hexdigest()
+        self.approve(); self.assertEqual("MASTER_SYNCED", c.sync_master(self.control)["status"])
+
+    def test_prefetch_remote_lookup_stop_or_control_drift_blocks_zero_writes(self):
+        self.approve(); state = c.load(self.control / "state.json"); native = c.github.side_effect
+        for mode in ("STOP", "state"):
+            count = [0]
+            def drift(path):
+                result = native(path)
+                if path == "branches/master":
+                    count[0] += 1
+                    if count[0] == 2:
+                        if mode == "STOP": (self.control / "STOP").touch()
+                        else: c.save(self.control / "state.json", dict(state, status="STOP"))
+                return result
+            with self.subTest(mode=mode), patch.object(c, "github", side_effect=drift), self.assertRaises(ValueError): c.sync_master(self.control)
+            self.assertEqual([], self.writes)
+            if mode == "STOP": (self.control / "STOP").unlink()
+            c.save(self.control / "state.json", state)
+
+    def test_final_operator_revalidation_stop_cannot_record_approval(self):
+        result = c.propose_master_recovery(self.control, self.request); native = c.github.side_effect; count = [0]
+        def drift(path):
+            output = native(path)
+            if path == "branches/master":
+                count[0] += 1
+                if count[0] == 2: (self.control / "STOP").touch()
+            return output
+        with patch.object(c, "github", side_effect=drift), patch.object(c, "operator_origin"), patch.object(sys.stdin, "isatty", return_value=True), patch.object(sys.stdout, "isatty", return_value=True), patch("builtins.print"), self.assertRaises(ValueError):
+            c.approve_master_recovery(self.control, result["task_id"], result["digest"], "operator-console:fixture", input_fn=lambda prompt: ("ATTEST NATIVE REVIEWS " if "ATTEST NATIVE" in prompt else "APPROVE RECOVERY ") + result["digest"])
+        self.assertIsNone(c.load(self.control / "queue.json")["tasks"][0]["recovery_approval"])
+
+    def test_approval_expires_during_network_before_fetch(self):
+        self.approve(); native = c.github.side_effect
+        q = c.load(self.control / "queue.json"); approval = q["tasks"][0]["recovery_approval"]
+        initial = c.dt.datetime.now(c.dt.timezone.utc)
+        approval["approved_at"] = (initial - c.dt.timedelta(seconds=86399)).isoformat()
+        approval["seal"] = self.seal({k:v for k,v in approval.items() if k != "seal"}); c.save(self.control / "queue.json", q)
+        class Clock(c.dt.datetime):
+            value = initial
+            @classmethod
+            def now(cls, tz=None): return cls.value
+        def drift(path):
+            result = native(path)
+            if path == "branches/master": Clock.value = initial + c.dt.timedelta(seconds=2)
+            return result
+        with patch.object(c, "github", side_effect=drift), patch.object(c.dt, "datetime", Clock), self.assertRaisesRegex(ValueError, "expired during"): c.sync_master(self.control)
+        self.assertEqual([], self.writes)
+
+    def test_done_without_sync_receipt_and_all_roadmap_entries_cannot_dispatch(self):
+        self.approve(); c.sync_master(self.control)
+        original = c.load(self.control / "queue.json")
+        c.save(self.control / "state.json", dict(c.load(self.control / "state.json"), status="DONE"))
+        content = self.git(self.master, "show", self.request["target_sha"] + ":docs/technical_plan.md")
+        roadmap = dict(revision=self.request["target_sha"], sha256=c.hashlib.sha256(content.encode()).hexdigest(),
+                       entries=[dict(pr_number=e["pr_number"], base_sha=e["base_sha"], head_sha=e["head_sha"], merge_sha=e["merge_sha"], status="RECONCILED") for e in self.chain])
+        for mode in ("not_synced", "receipt", "request", "roadmap", "skipped_pr", "roadmap_hash"):
+            q = copy.deepcopy(original); task = q["tasks"][0]; task.update(status="DONE", recovery_roadmap=copy.deepcopy(roadmap))
+            if mode == "not_synced": task["local_sync_done"] = False
+            if mode == "receipt": task["local_sync_receipt"] = "counterfeit"
+            if mode == "request": task["recovery_request"]["local_sha"] = "f"*40
+            if mode == "roadmap": task.pop("recovery_roadmap")
+            if mode == "skipped_pr": task["recovery_roadmap"]["entries"].pop()
+            if mode == "roadmap_hash": task["recovery_roadmap"]["sha256"] = "f"*64
+            c.save(self.control / "queue.json", q)
+            with self.subTest(mode=mode), patch.object(c, "fresh_quota") as quota, self.assertRaises(ValueError): c.batch_tick(self.control)
+            quota.assert_not_called()
+        q = copy.deepcopy(original); q["tasks"][0].update(status="DONE", recovery_roadmap=roadmap)
+        c.save(self.control / "queue.json", q)
+        self.assertEqual("PLANNING_ONCE", c.batch_tick(self.control)["status"])
+
+    def test_inactive_recovery_labels_cannot_discard_sync_and_roadmap_obligations(self):
+        import test_batch
+        self.approve(); c.sync_master(self.control)
+        original = c.batch.propose(c.load(self.control / "queue.json"), test_batch.packet(), self.verify)
+        record = original["batches"][0]
+        approval = dict(digest=record["digest"], operator="fixture", source="operator-console:fixture", approved_at=c.now())
+        record.update(status="APPROVED", approval=dict(approval, seal=self.seal(approval)))
+        content = self.git(self.master, "show", self.request["target_sha"] + ":docs/technical_plan.md")
+        roadmap = dict(revision=self.request["target_sha"], sha256=c.hashlib.sha256(content.encode()).hexdigest(),
+                       entries=[dict(pr_number=e["pr_number"], base_sha=e["base_sha"], head_sha=e["head_sha"], merge_sha=e["merge_sha"], status="RECONCILED") for e in self.chain])
+        state = dict(status="DONE", active_task_id=None)
+        limits = dict(updated_at=c.now(), source="account/rateLimits/read", mode="NORMAL", primary_remaining_percent=90, weekly_remaining_percent=90)
+        c.save(self.control / "state.json", state)
+        for status in ("CANCELLED", "WAIT_USER", "LIST_APPROVED_NOT_DISPATCHED"):
+            for missing in ("roadmap", "receipt", "sync"):
+                q = copy.deepcopy(original); task = q["tasks"][0]
+                task.update(status=status, recovery_roadmap=copy.deepcopy(roadmap))
+                if missing == "roadmap": task.pop("recovery_roadmap")
+                elif missing == "receipt": task.pop("local_sync_receipt")
+                else: task.pop("local_sync_done")
+                c.save(self.control / "queue.json", q)
+                with self.subTest(status=status, missing=missing), patch.object(c, "fresh_quota", return_value=limits) as quota, self.assertRaises(ValueError):
+                    c.batch_tick(self.control)
+                quota.assert_not_called()
+        q = copy.deepcopy(original); q["tasks"][0].update(status="DONE", recovery_roadmap=roadmap)
+        c.save(self.control / "queue.json", q)
+        with patch.object(c, "fresh_quota", return_value=limits):
+            self.assertEqual("READY", c.batch_tick(self.control)["status"])
+        self.assertEqual("first", c.load(self.control / "state.json")["active_task_id"])
+
+    def test_partial_recovery_marker_removal_cannot_hide_imported_history(self):
+        self.approve(); c.sync_master(self.control)
+        original = c.load(self.control / "queue.json")
+        c.save(self.control / "state.json", dict(status="DONE", active_task_id=None))
+        for fields in (("origin",), ("recovery_request",), ("origin", "recovery_request"),
+                       ("origin", "recovery_request", "recovery_digest", "recovery_approval", "reconciliations")):
+            q = copy.deepcopy(original); task = q["tasks"][0]; task["status"] = "CANCELLED"
+            for field in fields: task.pop(field)
+            c.save(self.control / "queue.json", q)
+            with self.subTest(fields=fields), patch.object(c, "fresh_quota") as quota, self.assertRaises(ValueError):
+                c.batch_tick(self.control)
+            quota.assert_not_called()
+
+    def test_proposed_and_pending_recovery_keep_existing_wait_and_serial_workflow(self):
+        c.propose_master_recovery(self.control, self.request)
+        self.assertEqual("WAIT", c.batch_tick(self.control)["status"])
+        # Use the existing proposal for a native fixture approval, not a new proposal.
+        q = c.load(self.control / "queue.json"); task = q["tasks"][0]
+        with patch.object(c, "operator_origin"), patch.object(sys.stdin, "isatty", return_value=True), patch.object(sys.stdout, "isatty", return_value=True), patch("builtins.print"):
+            c.approve_master_recovery(self.control, task["id"], task["recovery_digest"], "operator-console:fixture", input_fn=lambda prompt: ("ATTEST NATIVE REVIEWS " if "ATTEST NATIVE" in prompt else "APPROVE RECOVERY ") + task["recovery_digest"])
+        self.assertEqual("ACTIVE", c.batch_tick(self.control)["status"])
+        c.sync_master(self.control)
+        self.assertEqual("ACTIVE", c.batch_tick(self.control)["status"])
+
+    def test_recovery_file_coverage_rejects_malformed_paths_and_empty_diff(self):
+        compare = "compare/" + self.base + "..." + self.chain[0]["head_sha"]
+        cases = [[], [{}], [dict(filename="")], [None], [dict(filename=42, status="modified")],
+                 [dict(filename="docs/x", status="unknown")], [dict(filename="docs/x")],
+                 [dict(filename="docs/x", status="renamed")],
+                 [dict(filename="docs/x", status="copied")],
+                 [dict(filename="docs/x", status="renamed", previous_filename="")],
+                 [dict(filename="docs/x", status="renamed", previous_filename=[])]]
+        for path in ("/Assets/x", "../Assets/x", "docs/../Assets/x", "docs//x", "./Assets/x", "C:/Assets/x", "Assets\\x", "docs/x\n"):
+            cases.extend(([dict(filename=path, status="modified")], [dict(filename="docs/x", status="renamed", previous_filename=path)]))
+        for files in cases:
+            api = copy.deepcopy(self.api); api[compare]["files"] = files
+            with self.subTest(files=files), patch.object(c, "github", side_effect=lambda path: copy.deepcopy(api[path])):
+                with self.assertRaises(ValueError): c.recovery_chain_ok(self.control, self.request, dict(tasks=[]))
+                self.assertEqual([], self.writes)
+        for files in ([dict(filename="docs/genuine.md", status="modified")],
+                      [dict(filename="docs/new name.md", status="renamed", previous_filename="docs/old name.md")],
+                      [dict(filename="docs/copied.md", status="copied", previous_filename="docs/original.md")]):
+            api = copy.deepcopy(self.api); api[compare]["files"] = files
+            with patch.object(c, "github", side_effect=lambda path: copy.deepcopy(api[path])):
+                self.assertEqual(2, len(c.recovery_chain_ok(self.control, self.request, dict(tasks=[]))))
+
+    def test_done_cannot_use_unmerged_roadmap_revision(self):
+        self.approve(); c.sync_master(self.control)
+        self.git(self.master, "switch", "-c", "unmerged-roadmap")
+        (self.master / "docs/technical_plan.md").write_text("unmerged roadmap", encoding="utf-8")
+        self.git(self.master, "add", "docs/technical_plan.md"); self.git(self.master, "commit", "-m", "unmerged roadmap")
+        revision = self.git(self.master, "rev-parse", "HEAD"); self.git(self.master, "switch", "master")
+        q = c.load(self.control / "queue.json"); task = q["tasks"][0]; task["status"] = "DONE"
+        task["recovery_roadmap"] = dict(revision=revision, sha256=c.hashlib.sha256(b"unmerged roadmap").hexdigest(),
+            entries=[dict(pr_number=e["pr_number"], base_sha=e["base_sha"], head_sha=e["head_sha"], merge_sha=e["merge_sha"], status="RECONCILED") for e in self.chain])
+        c.save(self.control / "queue.json", q); c.save(self.control / "state.json", dict(c.load(self.control / "state.json"), status="DONE"))
+        with self.assertRaisesRegex(ValueError, "not reachable"): c.batch_tick(self.control)
+
+    def test_persistence_marker_failure_still_fatal_after_actual_sync(self):
+        self.approve(); native_write = Path.write_text
+        def refuse_marker(path, *args, **kwargs):
+            if path.name == "STOP": raise OSError("fixture marker unavailable")
+            return native_write(path, *args, **kwargs)
+        with patch.object(c, "save", side_effect=OSError("fixture disk unavailable")), patch.object(Path, "write_text", refuse_marker), self.assertRaises(c.FatalPersistence): c.sync_master(self.control)
+        self.assertEqual(self.request["target_sha"], self.git(self.master, "rev-parse", "HEAD"))
+        self.assertEqual("MASTER_RECOVERY_PENDING", c.load(self.control / "state.json")["status"])
+
+
+    def test_after_fetch_branch_origin_head_remote_drift_block_ff_only(self):
+        self.approve(); native = c.git_output.side_effect
+        for cmd, value in ((('branch', '--show-current'), 'other'), (('remote', 'get-url', 'origin'), 'evil'),
+                           (('rev-parse', 'HEAD'), 'f'*40), (('rev-parse', 'FETCH_HEAD'), 'f'*40)):
+            fetched = [False]
+            def drift(repo, *args):
+                if fetched[0] and args == cmd: return value
+                result = native(repo, *args)
+                if args[0] == "fetch": fetched[0] = True
+                return result
+            with self.subTest(cmd=cmd), patch.object(c, "git_output", side_effect=drift), self.assertRaises(ValueError): c.sync_master(self.control)
+            self.assertEqual(('fetch', 'origin', 'master'), self.writes[-1])
+            self.assertFalse(any(w[0] == 'merge' for w in self.writes))
+
+
+    def test_scheduler_ancestry_model_and_manual_console_blocked(self):
+        # Use actual guard rather than the transport fixture override.
+        source = Path(__file__).with_name("hif-control.py").read_text(encoding="utf-8")
+        namespace = dict(c.__dict__); exec(source[source.index("def recovery_scheduler_origin():"):source.index("def sync_master_recovery(control):")], namespace)
+        guard = namespace["recovery_scheduler_origin"]
+        with patch.dict(os.environ, {"CODEX_THREAD_ID": "fixture"}), self.assertRaises(ValueError): guard()
+        for parent in ("powershell.exe console", "codex.exe -File D:\\How_I_Fall\\agent-control\\supervisor-loop.ps1",
+                       "powershell.exe -File D:\\Temp\\supervisor-loop.ps1", "powershell.exe -File D:\\How_I_Fall\\agent-control\\not-supervisor-loop.ps1",
+                       'powershell.exe -Command "-File D:\\How_I_Fall\\agent-control\\supervisor-loop.ps1"',
+                       "powershell.exe powershell.exe -File D:\\How_I_Fall\\agent-control\\supervisor-loop.ps1"):
+            result = type("Result", (), dict(returncode=0, stdout=json.dumps(["python fixture", parent])))()
+            with patch.dict(os.environ, {}, clear=True), patch.object(c.subprocess, "run", return_value=result):
+                if parent.startswith("powershell.exe powershell.exe -File"): guard()
+                else:
+                    with self.assertRaises(ValueError): guard()
+
+
 if __name__ == "__main__":
     unittest.main()
