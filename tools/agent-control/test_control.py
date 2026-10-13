@@ -1859,5 +1859,277 @@ class MasterRecoveryTests(unittest.TestCase):
                     with self.assertRaises(ValueError): guard()
 
 
+
+class HistoricalReviewTests(unittest.TestCase):
+    """Native process fixtures write ONLY temporary repositories/control archives."""
+    def setUp(self):
+        MasterRecoveryTests.setUp(self)
+        entry = self.chain[0]
+        self.request = {k: entry[k] for k in ("pr_number", "base_sha", "head_sha", "merge_sha")}
+        self.request.update(version=1, writer_path=str(self.writer))
+        self.git(self.writer, "switch", "--detach", entry["head_sha"])
+        self.api["commits/" + self.base] = dict(sha=self.base, commit=dict(tree=dict(sha=self.git(self.writer, "rev-parse", self.base + "^{tree}"))))
+        self.api["pulls/71"]["head"]["repo"] = dict(full_name="Bladgrif/How_I_Fall")
+        remote_head = self.chain[-1]["merge_sha"]
+        self.api["compare/" + entry["merge_sha"] + "..." + remote_head] = dict(status="ahead", merge_base_commit=dict(sha=entry["merge_sha"]))
+        self.body = {k:v for k,v in self.strong.items() if k not in {"task_id", "base_sha", "head_sha", "reviewer_model", "reviewer_reasoning", "reviewed_at"}}
+        self.thread = "00000000-0000-0000-0000-000000000071"
+        self.mode = "clean"
+        self.calls = []
+        self.local = self.root / "app"; (self.local / "OpenAI/Codex/bin").mkdir(parents=True)
+        (self.local / "OpenAI/Codex/bin/codex.exe").touch()
+        self.stub = self.root / "codex-fixture.py"
+        self.real_popen = subprocess.Popen
+        def launch(argv, **kwargs):
+            if Path(argv[0]).name != "codex.exe":
+                return self.real_popen(argv, **kwargs)
+            self.calls.append(argv)
+            body = dict(self.body)
+            if self.mode == "correction": body.update(verdict="CORRECTION_NEEDED", findings=[dict(severity="high", file="fixture", problem="fixture", recommendation="fixture")])
+            lines = [dict(type="thread.started", thread_id=self.thread), dict(type="item.completed", item=dict(type="agent_message", text=json.dumps(body))), dict(type="turn.completed")]
+            if self.mode == "partial": lines.pop()
+            if self.mode == "error": lines.insert(1, dict(type="error", message="fixture"))
+            if self.mode == "late_message": lines.append(lines[1])
+            if self.mode == "mixed": lines[1]["item"]["text"] = json.dumps(dict(body, summary="stale output"))
+            if self.mode == "bad_thread": lines[0]["thread_id"] = "fake"
+            if self.mode == "drift": c.save(self.control / "state.json", dict(status="WAIT_USER", active_task_id=None, drift=True))
+            output = repr("\n".join(json.dumps(row) for row in lines)) if self.mode != "oversize" else "'x' * (17 * 1024 * 1024)"
+            self.stub.write_text("import sys,json\na=sys.argv[1:]\np=sys.stdin.read()\nopen(a[a.index('-o')+1],'w',encoding='utf-8').write(" + repr(json.dumps(body)) + ")\nprint(" + output + ")\nsys.exit(" + ("75" if self.mode == "exit" else "0") + ")\n", encoding="utf-8")
+            return self.real_popen([sys.executable, str(self.stub), *argv[1:]], **kwargs)
+        for name, kwargs in (("CONTROL_ROOT", dict(new=str(self.control))), ("HISTORICAL_WRITERS", dict(new=(str(self.writer),))),
+                             ("git_output", dict(side_effect=self.git)), ("writer_lock", dict(side_effect=lambda *a: __import__('contextlib').nullcontext())),
+                             ("fresh_quota", dict(return_value=dict(mode="NORMAL", primary_remaining_percent=50, weekly_remaining_percent=50)))):
+            patcher = patch.object(c, name, **kwargs); patcher.start(); self.addCleanup(patcher.stop)
+        patcher = patch.dict(os.environ, LOCALAPPDATA=str(self.local)); patcher.start(); self.addCleanup(patcher.stop)
+        self.launch = launch
+        for name in ("review-latest.json", "strong-review-latest.json", "strong-review-latest-events.jsonl"):
+            (self.control / name).write_bytes(b"normal review unchanged")
+        self.protected = {p.name:p.read_bytes() for p in self.control.iterdir() if p.is_file()}
+
+    def run_review(self):
+        with patch.object(c.subprocess, "Popen", side_effect=self.launch):
+            return c.historical_review(self.control, self.request)
+
+    def unchanged(self):
+        self.assertEqual(self.protected, {p.name:p.read_bytes() for p in self.control.iterdir() if p.is_file()})
+
+    def no_clean(self):
+        self.assertEqual([], list((self.control / "evidence").glob("historical-*/strong-review-latest.json")))
+
+    def test_genuine_process_args_archive_and_existing_recovery_consumption_normal_untouched(self):
+        result = self.run_review()
+        self.assertEqual("CLEAN", result["status"])
+        self.assertTrue(result["task_id"].startswith("historical-pr71-"))
+        self.assertIn('model_reasoning_effort="high"', self.calls[0])
+        for value in ("gpt-6.1-sol", "read-only", "--json", "--output-schema", "never"):
+            self.assertIn(value, self.calls[0])
+        reviewed = c.recovery_review(self.control, dict(self.request, player_facing=False, review=result["review"]))
+        self.assertEqual(result["task_id"], reviewed["task_id"])
+        self.unchanged()
+
+    def test_invalid_request_checkout_remote_identity_tree_ci_before_model_cost(self):
+        original = copy.deepcopy(self.request); original_api = copy.deepcopy(self.api)
+        cases = ("sha", "pr", "writer", "extra", "repo", "unmerged", "tree", "base", "remote", "ci", "head", "dirty", "origin")
+        for mode in cases:
+            self.request = copy.deepcopy(original); self.api = copy.deepcopy(original_api)
+            if mode == "sha": self.request["head_sha"] = "F" * 40
+            if mode == "pr": self.request["pr_number"] = True
+            if mode == "writer": self.request["writer_path"] = "D:/How_I_Fall/develop"
+            if mode == "extra": self.request["command"] = "fake executable"
+            if mode == "repo": self.api["pulls/71"]["base"]["repo"]["full_name"] = "evil/mirror"
+            if mode == "unmerged": self.api["pulls/71"]["merged"] = False
+            if mode == "tree": self.api["commits/" + original["head_sha"]]["commit"]["tree"]["sha"] = "f" * 40
+            if mode == "base": self.api["pulls/71"]["base"]["sha"] = "f" * 40
+            if mode == "remote": self.api["compare/" + original["merge_sha"] + "..." + self.chain[-1]["merge_sha"]]["status"] = "diverged"
+            if mode == "head": self.git(self.writer, "switch", "--detach", self.base)
+            if mode == "dirty": (self.writer / "stray.md").write_text("user change")
+            if mode == "origin": self.git(self.writer, "remote", "set-url", "origin", "https://invalid.example/repo.git")
+            with self.subTest(mode=mode), patch.object(c, "ci_status", return_value="FAILED") if mode == "ci" else __import__('contextlib').nullcontext():
+                with self.assertRaises(ValueError): self.run_review()
+                self.assertEqual([], self.calls)
+                self.unchanged()
+            if mode == "head": self.git(self.writer, "switch", "--detach", original["head_sha"])
+            if mode == "dirty": (self.writer / "stray.md").unlink()
+            if mode == "origin": self.git(self.writer, "remote", "set-url", "origin", str(self.remote))
+
+    def test_busy_stop_maintenance_paused_competing_and_fresh_quota_closed(self):
+        for marker in ("STOP", "MAINTENANCE"):
+            (self.control / marker).touch()
+            with self.assertRaises(ValueError): self.run_review()
+            (self.control / marker).unlink()
+        for status in ("PAUSED", "BLOCKED", "WAIT_AUTH"):
+            c.save(self.control / "state.json", dict(status=status, active_task_id=None))
+            with self.assertRaises(ValueError): self.run_review()
+        (self.control / "state.json").write_bytes(self.protected["state.json"])
+        c.save(self.control / "queue.json", dict(tasks=[dict(id="other", status="READY")]))
+        with self.assertRaises(ValueError): self.run_review()
+        (self.control / "queue.json").write_bytes(self.protected["queue.json"])
+        with patch.object(c, "writer_lock", side_effect=ValueError("busy")), self.assertRaises(ValueError): self.run_review()
+        for quota in (dict(mode="UNKNOWN"), dict(mode="NORMAL", primary_remaining_percent=0, weekly_remaining_percent=50), dict(mode="NORMAL", primary_remaining_percent=50, weekly_remaining_percent=float('nan'))):
+            with patch.object(c, "fresh_quota", return_value=quota), self.assertRaises(ValueError): self.run_review()
+        self.assertEqual([], self.calls); self.unchanged()
+
+    def test_partial_failed_error_stale_malformed_events_and_correction_never_publish_clean(self):
+        for mode in ("partial", "exit", "error", "late_message", "mixed", "bad_thread", "correction"):
+            self.mode = mode
+            with self.subTest(mode=mode), self.assertRaises(ValueError): self.run_review()
+            self.no_clean(); self.unchanged()
+        manifests = list((self.control / "evidence").glob("historical-*/manifest.json"))
+        self.assertEqual(7, len(manifests))
+        self.assertTrue(all(c.load(p)["status"] == "BLOCKED" for p in manifests))
+
+    def test_post_model_snapshot_drift_closes_publication(self):
+        self.mode = "drift"
+        with self.assertRaisesRegex(ValueError, "drift"): self.run_review()
+        self.no_clean()
+
+    def test_last_network_read_stop_state_and_head_drift_cannot_publish(self):
+        original_api = c.ci_checks.side_effect
+        for mode in ("STOP", "state", "head"):
+            count = [0]
+            def changed(head):
+                result = original_api(head); count[0] += 1
+                if count[0] == 3:
+                    if mode == "STOP": (self.control / "STOP").touch()
+                    if mode == "state": c.save(self.control / "state.json", dict(status="WAIT_USER", active_task_id=None, drift=True))
+                    if mode == "head": self.git(self.writer, "switch", "--detach", self.base)
+                return result
+            with self.subTest(mode=mode), patch.object(c, "ci_checks", side_effect=changed), self.assertRaises(ValueError):
+                self.run_review()
+            self.no_clean()
+            if mode == "STOP": (self.control / "STOP").unlink()
+            if mode == "state": (self.control / "state.json").write_bytes(self.protected["state.json"])
+            if mode == "head": self.git(self.writer, "switch", "--detach", self.request["head_sha"])
+        self.unchanged()
+
+    def test_local_gate_immediately_before_publication_catches_late_marker(self):
+        dump = c.json.dump
+        def persist(value, stream, **kwargs):
+            result = dump(value, stream, **kwargs)
+            if Path(stream.name).name == "manifest.json": (self.control / "STOP").touch()
+            return result
+        with patch.object(c.json, "dump", side_effect=persist), self.assertRaises(ValueError):
+            self.run_review()
+        self.no_clean()
+
+    def test_unread_stdin_child_still_obeys_stop_and_deadline(self):
+        import threading
+        started = threading.Event()
+        self.api["pulls/71"]["body"] = "x" * 50000
+        self.stub.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
+        def stalled(argv, **kwargs):
+            if Path(argv[0]).name != "codex.exe": return self.real_popen(argv, **kwargs)
+            self.assertIsNotNone(kwargs["stdin"].fileno())
+            proc = self.real_popen([sys.executable, str(self.stub)], **kwargs)
+            started.set()
+            return proc
+        errors = []
+        def run():
+            try: c.historical_review(self.control, self.request)
+            except Exception as error: errors.append(error)
+        with patch.object(c.subprocess, "Popen", side_effect=stalled):
+            worker = threading.Thread(target=run, daemon=True)
+            worker.start()
+            self.assertTrue(started.wait(10))
+            (self.control / "STOP").touch()
+            worker.join(10)
+            self.assertFalse(worker.is_alive(), "STOP must release a reviewer whose stdin is unread")
+            self.assertTrue(errors); self.no_clean()
+            (self.control / "STOP").unlink()
+            with patch.object(c.time, "monotonic", side_effect=[0, 1801]), self.assertRaisesRegex(ValueError, "bound"):
+                c.historical_review(self.control, self.request)
+            self.no_clean()
+
+    def test_external_gitdir_refused_before_status_and_outside_index_write(self):
+        metadata = self.writer / ".git"; outside = self.root / "external-git"
+        metadata.rename(outside)
+        metadata.write_text("gitdir: " + str(outside) + "\n", encoding="utf-8")
+        before = (outside / "index").stat().st_mtime_ns
+        tracked = self.writer / "docs/technical_plan.md"
+        os.utime(tracked, (time.time() + 3, time.time() + 3))
+        with patch.object(c, "git_output", wraps=self.git) as calls, self.assertRaises(ValueError):
+            self.run_review()
+        self.assertFalse(any("status" in call.args for call in calls.call_args_list))
+        self.assertEqual(before, (outside / "index").stat().st_mtime_ns)
+        self.assertEqual([], self.calls)
+
+    def test_linked_worktree_external_common_dir_refused_without_status(self):
+        linked = self.root / "linked-writer"
+        self.git(self.writer, "worktree", "add", "--detach", str(linked), self.request["head_sha"])
+        request = dict(self.request, writer_path=str(linked))
+        metadata = self.writer / ".git"
+        snapshot = {p.relative_to(metadata).as_posix(): (p.read_bytes(), p.stat().st_mtime_ns)
+                    for p in metadata.rglob("*") if p.is_file()}
+        with patch.object(c, "HISTORICAL_WRITERS", (str(linked),)), patch.object(c, "git_output", wraps=self.git) as calls, self.assertRaises(ValueError):
+            c.historical_preflight(self.control, request)
+        self.assertFalse(any("status" in call.args for call in calls.call_args_list))
+        self.assertEqual(snapshot, {p.relative_to(metadata).as_posix(): (p.read_bytes(), p.stat().st_mtime_ns)
+                                    for p in metadata.rglob("*") if p.is_file()})
+
+    def test_historical_checks_no_optional_index_refresh(self):
+        index = self.writer / ".git/index"; before = index.stat().st_mtime_ns
+        tracked = self.writer / "docs/technical_plan.md"
+        os.utime(tracked, (time.time() + 3, time.time() + 3))
+        with patch.object(c, "git_output", wraps=self.git) as calls:
+            self.run_review()
+        self.assertTrue(all(call.args[1] == "--no-optional-locks" for call in calls.call_args_list))
+        self.assertEqual(before, index.stat().st_mtime_ns)
+
+    def test_player_facing_is_diff_derived_without_request_waiver(self):
+        for path in ("Assets/UI.cs", "docs/visual-baselines/x.png"):
+            self.assertTrue(c.player_facing_paths([path]))
+        with patch.object(c, "player_facing_paths", return_value=True), self.assertRaisesRegex(ValueError, "visual proof"):
+            self.run_review()
+        self.no_clean()
+        self.request["player_facing"] = False
+        with self.assertRaises(ValueError): self.run_review()
+
+    def test_immutable_archive_collision(self):
+        fixed = type("UUID", (), dict(hex="0" * 32))()
+        with patch.object(c.uuid, "uuid4", return_value=fixed):
+            self.run_review()
+            archive = self.control / ("evidence/historical-pr71-" + "0" * 32)
+            snapshot = {p.name:p.read_bytes() for p in archive.iterdir()}
+            with self.assertRaises(FileExistsError): self.run_review()
+            self.assertEqual(snapshot, {p.name:p.read_bytes() for p in archive.iterdir()})
+
+    def test_reparse_and_traversal_escape(self):
+        outside = self.root / "outside"; outside.mkdir()
+        link = self.control / "linked"
+        if os.name == "nt":
+            result = subprocess.run(["cmd.exe", "/c", "mklink", "/J", str(link), str(outside)], capture_output=True)
+            self.assertEqual(0, result.returncode)
+        else:
+            link.symlink_to(outside, target_is_directory=True)
+        try:
+            with self.assertRaises(ValueError): c.bounded_path(self.control, "linked/archive")
+        finally:
+            if os.name == "nt": link.rmdir()  # Fixture junction itself only, never its target.
+            else: link.unlink()
+        with self.assertRaises(ValueError): c.bounded_path(self.control, "../outside/archive")
+
+    def test_publication_failure_never_persists_clean_manifest_or_canonical(self):
+        with patch.object(c.os, "link", side_effect=OSError("fixture publication failure")), self.assertRaises(OSError):
+            self.run_review()
+        self.no_clean()
+        manifest = next((self.control / "evidence").glob("historical-*/manifest.json"))
+        self.assertEqual("VALIDATED_NOT_PUBLISHED", c.load(manifest)["status"])
+        self.unchanged()
+
+    def test_oversize_events_are_capped_and_never_publish_clean(self):
+        self.mode = "oversize"
+        with self.assertRaises(ValueError): self.run_review()
+        self.no_clean()
+        events = next((self.control / "evidence").glob("historical-*/strong-review-latest-events.jsonl"))
+        self.assertLessEqual(events.stat().st_size, 16 * 1024 * 1024)
+
+    def test_normal_reviewer_route_only_changes_param_and_explicit_early_branch(self):
+        source = Path(__file__).with_name("hif-reviewer.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("if($HistoricalRequest){", source)
+        self.assertLess(source.index("if($HistoricalRequest){"), source.index("$mutex=New-Object"))
+        self.assertIn("State does not allow review", source)
+        self.assertIn("scope-check --control $C --phase review", source)
+
+
 if __name__ == "__main__":
     unittest.main()

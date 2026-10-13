@@ -316,6 +316,19 @@ merge chain, fresh target и original canonical native Sol High review archives.
 Operator отдельно аутентифицирует native provenance исторических archives;
 GitHub comment/coding-pass/batch receipt не заменяют review или approval.
 Нет authentic matching review/independent visual proof — fail closed. Каждый
+отсутствующий archive может быть получен только новым настоящим historical
+Sol6.1 High read-only pass через existing `hif-reviewer -HistoricalRequest` /
+`hif-control historical-review`: data-only exact original PR request, fixed clean
+writer checkout с явной caller materialization, existing Wake/Writer locks,
+idle/STOP/MAINTENANCE guards, fresh quota, live original identities/trees/diff/CI
+до model cost и после session. Player-facing определяется diff; actual remote
+original inspection остаётся обязанностью независимого reviewer. Route сохраняет
+отдельный immutable per-PR raw events/output/provenance archive с честной NEW
+job/thread/time identity; normal latest/state/queue/scheduler не переписываются.
+Partial/failed/correction/missing visual proof не публикуют canonical CLEAN.
+Это не прежний writer dispatch и не operator provenance attestation/approval.
+Детальный input/publication contract — `tools/agent-control/README.md`;
+installation и реальные historical sessions candidate ещё NOT RUN. Каждый
 PR перепроверяется live: merged master, original base/head/merge, GREEN
 exact-head CI и непрерывная first-parent chain. Обычный merge требует второго
 родителя exact reviewed head; squash — sole parent previous и identical valid
