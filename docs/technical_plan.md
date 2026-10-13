@@ -174,3 +174,15 @@ exact-head CI и merge PR #71; пункт 3 выбирать только пос
 входят. После него выбрать не более одной следующей функции по конкретной player
 problem и отдельному решению пользователя; существующие technical foundations
 не планировать заново как отсутствующие.
+
+**Сверка интеграции 2026-10-13:** PR #71 и #72 смержены; exact-head Unity CI
+#274 и #275 успешны. Remote `master` — `7f79c708a47419c08a90e4f8f9d78db7760ce419`;
+локальный reference остаётся на `0a4dad45a73177ac74d9740647ec890e5313c935`,
+native sync не выполнен. Bounded correction `fix/native-master-sync-recovery`
+локально принят после независимого Sol High review: строгая merge/squash chain,
+отдельное exact-digest operator approval и сохранение sync/roadmap barrier.
+Публикация разрешена пользователем; exact-head CI и merge correction проверяются
+отдельно. Установка helpers, authentic historical review/visual evidence и native
+operator-approved recovery — отдельный следующий gate, live rollout **NOT VERIFIED**.
+После фактической синхронизации — пункт 5, Windows player journey QA; порядок и
+product scope не меняются. Это не `DONE` и не release-readiness.

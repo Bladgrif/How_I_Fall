@@ -217,6 +217,7 @@ def claim_planning(control):
 def batch_tick(control):
     state, q = load(Path(control) / "state.json"), load(Path(control) / "queue.json")
     batch.validate_queue(q, verify_receipt)
+    recovery_done_guard(control, q, state)
     if any(t.get("status") not in batch.INACTIVE for t in q["tasks"]):
         # Still validate serial identity; do not alter active candidates/retries.
         _, _, outcome = batch.advance(q, state, {}, None, None, dt.datetime.now(dt.timezone.utc), verify_receipt, receipt_seal)
@@ -976,8 +977,417 @@ def git_output(repo, *args):
                                    encoding="utf-8").strip()
 
 
+
+# Recovery is an explicitly imported manual history, NOT an automated dispatch.
+RECOVERY_KIND = "manual-master-reconciliation-v1"
+
+
+def recovery_digest(request):
+    return hashlib.sha256(json.dumps(request, sort_keys=True, ensure_ascii=False,
+                                     separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def recovery_request_ok(request):
+    if not isinstance(request, dict) or set(request) != {"version", "local_sha", "target_sha", "chain"} or type(request["version"]) is not int or request["version"] != 1:
+        raise ValueError("Invalid recovery request schema")
+    def sha(value):
+        if not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{40}", value):
+            raise ValueError("Recovery requires exact SHA")
+    sha(request["local_sha"])
+    sha(request["target_sha"])
+    chain = request["chain"]
+    if not isinstance(chain, list) or not 1 <= len(chain) <= 100:
+        raise ValueError("Recovery chain must contain 1..100 merges")
+    seen = set()
+    merges = {request["local_sha"]}
+    for entry in chain:
+        if not isinstance(entry, dict) or set(entry) != {"pr_number", "base_sha", "head_sha", "merge_sha", "player_facing", "review"}:
+            raise ValueError("Invalid recovery merge schema")
+        if type(entry["pr_number"]) is not int or entry["pr_number"] <= 0 or entry["pr_number"] in seen or type(entry["player_facing"]) is not bool:
+            raise ValueError("Invalid/duplicate recovery PR")
+        seen.add(entry["pr_number"])
+        for key in ("base_sha", "head_sha", "merge_sha"):
+            sha(entry[key])
+        if entry["merge_sha"] in merges:
+            raise ValueError("Duplicate recovery merge")
+        merges.add(entry["merge_sha"])
+        evidence = entry["review"]
+        if not isinstance(evidence, dict) or set(evidence) != {"path", "sha256", "events_path", "events_sha256", "thread_id"}:
+            raise ValueError("Canonical native review archive required")
+        for key in ("sha256", "events_sha256"):
+            if not isinstance(evidence[key], str) or not re.fullmatch(r"[a-f0-9]{64}", evidence[key]):
+                raise ValueError("Exact evidence hash required")
+        if not isinstance(evidence["thread_id"], str) or not re.fullmatch(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", evidence["thread_id"]):
+            raise ValueError("Native reviewer thread identity required")
+        for key, suffix in (("path", "strong-review-latest.json"), ("events_path", "strong-review-latest-events.jsonl")):
+            if not isinstance(evidence[key], str) or not re.fullmatch(r"evidence/[a-zA-Z0-9_/-]+/" + re.escape(suffix), evidence[key]):
+                raise ValueError("Only bounded native strong-review archives accepted")
+    if chain[-1]["merge_sha"] != request["target_sha"]:
+        raise ValueError("Recovery target is not the final ordered merge")
+
+
+def recovery_review(control, entry):
+    evidence = entry["review"]
+    paths = [bounded_path(control, evidence[k]) for k in ("path", "events_path")]
+    for path, key in zip(paths, ("sha256", "events_sha256")):
+        if hashlib.sha256(path.read_bytes()).hexdigest() != evidence[key]:
+            raise ValueError("Native review archive hash drift")
+    review = load(paths[0])
+    identity = dict(id=review.get("task_id"), base_sha=entry["base_sha"], head_sha=entry["head_sha"])
+    if not isinstance(identity["id"], str) or not identity["id"]:
+        raise ValueError("Original review identity missing")
+    review_ok(review, identity, strong=True)
+    reviewed_at = dt.datetime.fromisoformat(review["reviewed_at"])
+    if reviewed_at.tzinfo is None or reviewed_at > dt.datetime.now(dt.timezone.utc):
+        raise ValueError("Invalid/future native review timestamp")
+    # Native host stamps identity/model/time AFTER the model's schema-only output.
+    body = {k: v for k, v in review.items() if k not in
+            {"task_id", "base_sha", "head_sha", "reviewer_model", "reviewer_reasoning", "reviewed_at"}}
+    raw = paths[1].read_bytes()
+    events = raw.decode("utf-16" if raw.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig")
+    if len(raw) > 16 * 1024 * 1024:
+        raise ValueError("Native reviewer archive exceeds bounded log size")
+    # Tee-Object merges native stderr/PowerShell diagnostics into the raw archive.
+    # Keep the exact raw hash, accept only strict JSON object event lines; never
+    # ignore malformed JSON or error/failed events as mere diagnostics.
+    rows = []
+    for line in events.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        row = json.loads(line)
+        if not isinstance(row, dict) or not isinstance(row.get("type"), str):
+            raise ValueError("Invalid native reviewer JSON event")
+        rows.append(row)
+    threads = [r.get("thread_id") for r in rows if r.get("type") == "thread.started"]
+    messages = [r.get("item", {}).get("text") for r in rows
+                if r.get("type") == "item.completed" and r.get("item", {}).get("type") == "agent_message"]
+    if threads != [evidence["thread_id"]] or not any(r.get("type") == "turn.completed" for r in rows) or any(r.get("type") in ("error", "turn.failed") for r in rows):
+        raise ValueError("Completed authentic native reviewer event archive required")
+    if not messages or json.loads(messages[-1]) != body:
+        raise ValueError("Canonical review differs from native reviewer output")
+    if entry["player_facing"] and review["visual_proof_verified"] is not True:
+        raise ValueError("Independent player-facing visual proof missing")
+    return review
+
+
+def recovery_idle(control, state, q, task=None):
+    cfg = load(Path(control) / "controller.json")
+    if cfg.get("enabled") is not True or cfg.get("native_master_sync_enabled") is not True or any((Path(control) / m).exists() for m in ("STOP", "MAINTENANCE")):
+        raise ValueError("Recovery disabled/stopped/maintenance")
+    batch.validate_queue(q, verify_receipt)
+    if state.get("status") in ("STOP", "MAINTENANCE", "PAUSED", "BLOCKED", "WAIT_AUTH"):
+        raise ValueError("Recovery state blocked")
+    if state.get("active_task_id") != (task["id"] if task else None):
+        raise ValueError("Recovery active-task conflict")
+    if any((not task or t["id"] != task["id"]) and t.get("status") not in batch.INACTIVE for t in q["tasks"]):
+        raise ValueError("Recovery competing task")
+
+
+def recovery_checkout(expected):
+    repo = bounded_path(MASTER_CHECKOUT, ".")
+    if Path(git_output(repo, "rev-parse", "--show-toplevel")).resolve() != repo.resolve() or git_output(repo, "branch", "--show-current") != "master":
+        raise ValueError("Recovery requires fixed master root/branch")
+    if git_output(repo, "remote", "get-url", "origin") != MASTER_ORIGIN or git_output(repo, "status", "--porcelain"):
+        raise ValueError("Recovery origin mismatch or dirty master")
+    if git_output(repo, "rev-parse", "HEAD") not in expected:
+        raise ValueError("Recovery master diverged/HEAD drift")
+    return repo
+
+
+def recovery_chain_ok(control, request, q):
+    recovery_request_ok(request)
+    previous = request["local_sha"]
+    records = []
+    for entry in request["chain"]:
+        pr = github("pulls/" + str(entry["pr_number"]))
+        if (pr.get("number") != entry["pr_number"] or pr.get("state") != "closed" or pr.get("merged") is not True
+                or pr.get("base", {}).get("ref") != "master" or pr.get("base", {}).get("repo", {}).get("full_name") != "Bladgrif/How_I_Fall"
+                or pr.get("base", {}).get("sha") != entry["base_sha"] or pr.get("head", {}).get("sha") != entry["head_sha"]
+                or pr.get("merge_commit_sha") != entry["merge_sha"]):
+            raise ValueError("Recovery live merged master PR identity mismatch")
+        commit = github("commits/" + entry["merge_sha"])
+        parents = [p.get("sha") for p in commit.get("parents", [])]
+        if commit.get("sha") != entry["merge_sha"] or parents not in ([previous, entry["head_sha"]], [previous]):
+            raise ValueError("Recovery first-parent chain gap or non-merge strategy")
+        if parents == [previous]:
+            # Squash is accepted only for the exact live merged PR above, with
+            # its sole parent at the prior link and the exact reviewed head tree.
+            # Single-parent/direct commits alone are never sufficient evidence.
+            head = github("commits/" + entry["head_sha"])
+            trees = [obj.get("commit", {}).get("tree", {}).get("sha") for obj in (commit, head)]
+            if (head.get("sha") != entry["head_sha"]
+                    or any(not isinstance(tree, str) or not re.fullmatch(r"[a-f0-9]{40}", tree) for tree in trees)
+                    or trees[0] != trees[1]):
+                raise ValueError("Recovery squash commit/tree identity missing or differs from reviewed head")
+        for target in (previous, entry["head_sha"]):
+            compare = github("compare/" + entry["base_sha"] + "..." + target)
+            if compare.get("status") not in ("ahead", "identical") or compare.get("merge_base_commit", {}).get("sha") != entry["base_sha"]:
+                raise ValueError("Original recovery base is not an ancestor")
+        if ci_status(ci_checks(entry["head_sha"]), entry["head_sha"]) != "GREEN":
+            raise ValueError("Recovery exact-head CI not GREEN")
+        review = recovery_review(control, entry)
+        # Detect player-facing code even if request tries to downgrade its declaration.
+        changed = github("compare/" + entry["base_sha"] + "..." + entry["head_sha"])
+        files = changed.get("files")
+        if not isinstance(files, list) or not 1 <= len(files) < 300:
+            raise ValueError("Recovery diff empty/missing/truncated; classification closed")
+        paths = []
+        for file in files:
+            if not isinstance(file, dict) or file.get("status") not in ("added", "removed", "modified", "renamed", "copied", "changed", "unchanged"):
+                raise ValueError("Recovery diff file row/status malformed")
+            if file["status"] in ("renamed", "copied") and "previous_filename" not in file:
+                raise ValueError("Recovery rename/copy source path missing")
+            for key in ("filename", "previous_filename") if "previous_filename" in file else ("filename",):
+                path = file.get(key)
+                if (not isinstance(path, str) or not path or path != path.strip()
+                        or any(ch in path for ch in ("\\", ":")) or any(ord(ch) < 32 or ord(ch) == 127 for ch in path)
+                        or any(part in ("", ".", "..") for part in path.split("/"))):
+                    raise ValueError("Recovery diff requires canonical nonempty repository-relative paths")
+                paths.append(path)
+        if any(path.startswith(("Assets/", "Packages/", "ProjectSettings/", "docs/visual-baselines/", "docs/ui-targets/")) for path in paths) and entry["player_facing"] is not True:
+            raise ValueError("Recovery production/visual diff requires player-facing proof")
+        existing = [t for t in q["tasks"] if t.get("pr_number") == entry["pr_number"] and t.get("origin") != RECOVERY_KIND]
+        if len(existing) > 1 or any(any(t.get(k) != entry[k] for k in ("base_sha", "head_sha", "merge_sha")) or t["id"] != review["task_id"] for t in existing):
+            raise ValueError("Registered PR original identity mismatch")
+        records.append(dict(entry, id="reconcile-" + recovery_digest(request)[:16] + "-pr-" + str(entry["pr_number"]),
+                            original_review_task_id=review["task_id"], registered_task_id=existing[0]["id"] if existing else None))
+        previous = entry["merge_sha"]
+    if github("branches/master").get("commit", {}).get("sha") != request["target_sha"]:
+        raise ValueError("Recovery target is stale against fresh remote master")
+    return records
+
+
+
+def recovery_done_guard(control, q, state):
+    """Status labels cannot discard imported-history sync/roadmap obligations."""
+    for task in q["tasks"]:
+        if (task.get("origin") != RECOVERY_KIND and not task["id"].startswith("master-reconcile-")
+                and not any(k.startswith("recovery_") for k in task) and "reconciliations" not in task):
+            continue
+        if task.get("origin") != RECOVERY_KIND or not {"recovery_request", "recovery_digest", "recovery_approval", "reconciliations"} <= task.keys():
+            raise ValueError("Recovery history origin drift")
+        request = task.get("recovery_request")
+        recovery_request_ok(request)
+        digest = recovery_digest(request)
+        if (task.get("id") != "master-reconcile-" + digest[:16] or task.get("recovery_digest") != digest
+                or task.get("base_sha") != request["local_sha"] or task.get("head_sha") != request["chain"][-1]["head_sha"]
+                or task.get("merge_sha") != request["target_sha"] or not isinstance(task["reconciliations"], list)
+                or len(task["reconciliations"]) != len(request["chain"])):
+            raise ValueError("Recovery history immutable identity drift")
+        # Preserve the original idle proposal and active serial recovery flow.
+        # These exceptions never permit a new task: WAIT or ACTIVE still applies.
+        if (task.get("status") == "WAIT_USER" and task["recovery_approval"] is None
+                and not any(k in task for k in ("local_sync_done", "local_sync_receipt", "recovery_roadmap"))
+                and state.get("status") == "WAIT_USER" and state.get("active_task_id") is None):
+            continue
+        if (task.get("status") in ("MASTER_RECOVERY_PENDING", "MERGED_LOCAL_SYNC_DONE")
+                and isinstance(task["recovery_approval"], dict) and task["recovery_approval"]
+                and state.get("status") in ("MASTER_RECOVERY_PENDING", "ROADMAP_SYNC_READY")
+                and state.get("active_task_id") == task["id"]):
+            continue
+        if task.get("local_sync_done") is not True:
+            raise ValueError("Reconciliation DONE requires actual native master sync")
+        verify_receipt(task.get("local_sync_receipt"), dict(kind=RECOVERY_KIND, digest=digest, id=task["id"],
+                                                          merge_sha=task["merge_sha"], local_sync_done=True))
+        roadmap = task.get("recovery_roadmap")
+        expected = [dict(pr_number=e["pr_number"], base_sha=e["base_sha"], head_sha=e["head_sha"], merge_sha=e["merge_sha"], status="RECONCILED")
+                    for e in request["chain"]]
+        if (not isinstance(roadmap, dict) or set(roadmap) != {"revision", "sha256", "entries"}
+                or not isinstance(roadmap["revision"], str) or not re.fullmatch(r"[a-f0-9]{40}", roadmap["revision"])
+                or not isinstance(roadmap["sha256"], str) or not re.fullmatch(r"[a-f0-9]{64}", roadmap["sha256"])
+                or roadmap["entries"] != expected):
+            raise ValueError("Every imported PR requires durable repository roadmap reconciliation")
+        # Read-only exact MERGED repository object, not an unmerged side branch.
+        master_head = git_output(MASTER_CHECKOUT, "rev-parse", "HEAD")
+        recovery_checkout({master_head})
+        if git_output(MASTER_CHECKOUT, "merge-base", roadmap["revision"], master_head) != roadmap["revision"]:
+            raise ValueError("Recovery roadmap revision is not reachable from actual master")
+        if git_output(MASTER_CHECKOUT, "merge-base", request["target_sha"], roadmap["revision"]) != request["target_sha"]:
+            raise ValueError("Recovery roadmap revision predates imported chain")
+        content = subprocess.check_output(["git", "-c", "safe.directory=" + str(MASTER_CHECKOUT), "-C", str(MASTER_CHECKOUT),
+                                           "show", roadmap["revision"] + ":docs/technical_plan.md"])
+        if hashlib.sha256(content).hexdigest() != roadmap["sha256"]:
+            raise ValueError("Recovery repository roadmap content drift")
+
+def propose_master_recovery(control, request):
+    control = Path(control)
+    state, q = load(control / "state.json"), load(control / "queue.json")
+    recovery_idle(control, state, q)
+    if state.get("status") != "WAIT_USER":
+        raise ValueError("Recovery proposal requires idle WAIT_USER")
+    recovery_request_ok(request)
+    recovery_checkout({request["local_sha"]})
+    records = recovery_chain_ok(control, request, q)
+    digest = recovery_digest(request)
+    ident = "master-reconcile-" + digest[:16]
+    if any(t["id"] == ident for t in q["tasks"]):
+        raise ValueError("Recovery identity already registered; inspect existing record")
+    q["tasks"].append(dict(id=ident, origin=RECOVERY_KIND, status="WAIT_USER", recovery_request=request,
+                           recovery_digest=digest, reconciliations=records, recovery_approval=None,
+                           base_sha=request["local_sha"], head_sha=request["chain"][-1]["head_sha"], merge_sha=request["target_sha"]))
+    persist_control(control, q, state)
+    return {"status": "RECOVERY_PROPOSED", "task_id": ident, "digest": digest}
+
+
+def approve_master_recovery(control, ident, digest, source, input_fn=input):
+    operator_origin()
+    if not sys.stdin.isatty() or not sys.stdout.isatty() or not isinstance(source, str) or not re.fullmatch(r"operator-console:[^\r\n\x00]{3,300}", source):
+        raise ValueError("Recovery approval requires separate native operator console/consent")
+    control = Path(control)
+    state, q = load(control / "state.json"), load(control / "queue.json")
+    recovery_idle(control, state, q)
+    task = next((t for t in q["tasks"] if t["id"] == ident), None)
+    if not task or task.get("origin") != RECOVERY_KIND or task.get("status") != "WAIT_USER" or state.get("status") != "WAIT_USER":
+        raise ValueError("Unknown/non-proposed recovery")
+    request = task["recovery_request"]
+    recovery_request_ok(request)
+    if recovery_digest(request) != digest or task["recovery_digest"] != digest:
+        raise ValueError("Stale recovery approval digest")
+    recovery_checkout({request["local_sha"]})
+    if recovery_chain_ok(control, request, q) != task["reconciliations"]:
+        raise ValueError("Recovery original identities drift")
+    snapshot = {name: (control / name).read_bytes() for name in ("controller.json", "state.json", "queue.json")}
+    print(json.dumps(request, ensure_ascii=False, indent=2))
+    # Legacy archives have no cryptographic reviewer receipt. The trusted operator
+    # authenticates their NATIVE provenance (not their verdict) separately. A PR
+    # comment/copied JSON/constructed event log is never an acceptable source.
+    if input_fn("Verify original native hif-reviewer archives, thread/model/base/head and actual independent visual inspection; type ATTEST NATIVE REVIEWS " + digest + ": ") != "ATTEST NATIVE REVIEWS " + digest:
+        raise ValueError("Native canonical review provenance not authenticated")
+    if input_fn("Approve this exact manual recovery only; type APPROVE RECOVERY " + digest + ": ") != "APPROVE RECOVERY " + digest:
+        raise ValueError("No explicit recovery approval")
+    if any((control / name).read_bytes() != value for name, value in snapshot.items()):
+        raise ValueError("Recovery proposal changed while operator considered approval")
+    recovery_idle(control, state, q)
+    recovery_checkout({request["local_sha"]})
+    if recovery_chain_ok(control, request, q) != task["reconciliations"]:
+        raise ValueError("Recovery evidence changed during operator decision")
+    if any((control / name).read_bytes() != value for name, value in snapshot.items()):
+        raise ValueError("Recovery changed during final approval evidence check")
+    recovery_idle(control, state, q)
+    recovery_checkout({request["local_sha"]})
+    payload = dict(kind=RECOVERY_KIND, task_id=ident, digest=digest, operator=os.environ.get("USERNAME", "operator"),
+                   source=source, approved_at=now(), provenance="operator-verified-original-native-review-archives")
+    task.update(recovery_approval=dict(payload, seal=receipt_seal(payload)), status="MASTER_RECOVERY_PENDING")
+    state.update(status="MASTER_RECOVERY_PENDING", active_task_id=ident, base_sha=task["base_sha"], head_sha=task["head_sha"])
+    persist_control(control, q, state)
+    return {"status": "RECOVERY_APPROVED", "task_id": ident, "digest": digest}
+
+
+
+def recovery_scheduler_origin():
+    # Git transport belongs exclusively to the existing OUTER scheduler.
+    if any(os.environ.get(k) for k in ("CODEX_THREAD_ID", "CODEX_SESSION_ID", "ZCODE_SESSION_ID")):
+        raise ValueError("Model session cannot execute master recovery")
+    script = ("$id=" + str(os.getpid()) + ";$rows=@();for($i=0;$i -lt 32 -and $id;$i++){"
+              "$p=Get-CimInstance Win32_Process -Filter ('ProcessId='+$id);if(-not $p){break};"
+              "$rows+=($p.Name+' '+$p.CommandLine);$id=$p.ParentProcessId};$rows|ConvertTo-Json -Compress")
+    result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                            capture_output=True, text=True, timeout=15,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if result.returncode:
+        raise ValueError("Native scheduler ancestry unavailable")
+    rows = json.loads(result.stdout)
+    fixed_script = re.escape(CONTROL_ROOT.replace("/", "\\") + "\\supervisor-loop.ps1")
+    def scheduler_parent(row):
+        return (row.lower().startswith("powershell.exe ") and not re.search(r"(?i)\s-Command(?:\s|$)", row)
+                and re.search(r'(?i)\s-File\s+(?:"' + fixed_script + r'"|' + fixed_script + r')(?:\s+-Once)?\s*$', row))
+    if (not isinstance(rows, list) or not all(isinstance(r, str) for r in rows)
+            or not any(scheduler_parent(r) for r in rows[1:])
+            or any(re.search(r"(?i)codex\.exe|zcode|wake-supervisor\.ps1|hif-worker\.ps1|hif-reviewer\.ps1", r) for r in rows[1:])):
+        raise ValueError("Only existing external scheduler may execute recovery")
+
+def sync_master_recovery(control):
+    recovery_scheduler_origin()
+    control = Path(control)
+    state, q = load(control / "state.json"), load(control / "queue.json")
+    matches = [t for t in q["tasks"] if t.get("id") == state.get("active_task_id")]
+    if len(matches) != 1:
+        raise ValueError("Recovery identity missing/ambiguous")
+    task = matches[0]
+    recovery_idle(control, state, q, task)
+    if task.get("origin") != RECOVERY_KIND or (state.get("status"), task.get("status")) not in (
+            ("MASTER_RECOVERY_PENDING", "MASTER_RECOVERY_PENDING"),
+            ("MASTER_RECOVERY_PENDING", "MERGED_LOCAL_SYNC_DONE"),  # partial persistence
+            ("ROADMAP_SYNC_READY", "MERGED_LOCAL_SYNC_DONE")):
+        raise ValueError("Recovery not pending/already synced")
+    request = task["recovery_request"]
+    recovery_request_ok(request)
+    digest = recovery_digest(request)
+    approval = task.get("recovery_approval")
+    keys = {"kind", "task_id", "digest", "operator", "source", "approved_at", "provenance", "seal"}
+    if not isinstance(approval, dict) or set(approval) != keys or approval["kind"] != RECOVERY_KIND or approval["task_id"] != task["id"] or approval["digest"] != digest or task["recovery_digest"] != digest or approval["provenance"] != "operator-verified-original-native-review-archives":
+        raise ValueError("Missing/stale exact recovery approval")
+    if task["id"] != "master-reconcile-" + digest[:16] or not isinstance(approval["source"], str) or not re.fullmatch(r"operator-console:[^\r\n\x00]{3,300}", approval["source"]) or not isinstance(approval["operator"], str) or not approval["operator"]:
+        raise ValueError("Invalid recovery operator receipt identity")
+    approved_at = dt.datetime.fromisoformat(approval["approved_at"])
+    if approved_at.tzinfo is None or not 0 <= (dt.datetime.now(dt.timezone.utc) - approved_at).total_seconds() <= 86400:
+        raise ValueError("Recovery approval expired/future; new operator decision required")
+    verify_receipt(approval["seal"], {k: v for k, v in approval.items() if k != "seal"})
+    if task["base_sha"] != request["local_sha"] or task["head_sha"] != request["chain"][-1]["head_sha"] or task["merge_sha"] != request["target_sha"] or any(state.get(k) != task[k] for k in ("base_sha", "head_sha")):
+        raise ValueError("Recovery aggregate identity drift")
+    snapshot = {name: (control / name).read_bytes() for name in ("controller.json", "state.json", "queue.json")}
+    def recheck():
+        if any((control / name).read_bytes() != value for name, value in snapshot.items()):
+            raise ValueError("Recovery control/approval changed during verification")
+        recovery_idle(control, state, q, task)
+        if not 0 <= (dt.datetime.now(dt.timezone.utc) - approved_at).total_seconds() <= 86400:
+            raise ValueError("Recovery approval expired during verification")
+    records = recovery_chain_ok(control, request, q)
+    if records != task["reconciliations"]:
+        raise ValueError("Recovery reconciliation evidence drift")
+    recheck()
+    repo = recovery_checkout({request["local_sha"], request["target_sha"]})
+    already = git_output(repo, "rev-parse", "HEAD") == request["target_sha"]
+    if not already:
+        # Recheck control and remote immediately before BOTH git writes.
+        recheck()
+        recovery_checkout({request["local_sha"]})
+        if github("branches/master").get("commit", {}).get("sha") != request["target_sha"]:
+            raise ValueError("Recovery remote moved before fetch")
+        recheck()
+        recovery_checkout({request["local_sha"]})
+        git_output(repo, "fetch", "origin", "master")
+        recovery_checkout({request["local_sha"]})
+        if git_output(repo, "rev-parse", "FETCH_HEAD") != request["target_sha"]:
+            raise ValueError("Recovery fetched remote drift")
+        if github("branches/master").get("commit", {}).get("sha") != request["target_sha"]:
+            raise ValueError("Recovery remote moved before ff-only")
+        if git_output(repo, "rev-list", "--first-parent", "--reverse", request["local_sha"] + ".." + request["target_sha"]).splitlines() != [e["merge_sha"] for e in request["chain"]]:
+            raise ValueError("Recovery fetched first-parent chain mismatch")
+        if git_output(repo, "merge-base", request["local_sha"], request["target_sha"]) != request["local_sha"]:
+            raise ValueError("Recovery cannot fast-forward")
+        recheck()
+        recovery_checkout({request["local_sha"]})
+        git_output(repo, "merge", "--ff-only", request["target_sha"])
+    recovery_checkout({request["target_sha"]})
+    if github("branches/master").get("commit", {}).get("sha") != request["target_sha"]:
+        raise ValueError("Recovery remote moved during sync; preserve actual HEAD, no completion")
+    recheck()
+    try:
+        task.update(status="MERGED_LOCAL_SYNC_DONE", local_sync_done=True)
+        task["local_sync_receipt"] = receipt_seal(dict(kind=RECOVERY_KIND, digest=digest, id=task["id"],
+                                                      merge_sha=task["merge_sha"], local_sync_done=True))
+        state.update(status="ROADMAP_SYNC_READY", next_action="Reconcile repository roadmap for every imported PR; recovery is NOT DONE.")
+        persist_control(control, q, state)
+    except FatalPersistence:
+        raise
+    except Exception as error:
+        try:
+            bounded_path(control, "STOP").write_text("Recovery receipt persistence failed; inspect actual master before retry", encoding="utf-8")
+        except OSError:
+            pass
+        raise FatalPersistence(str(error)) from error
+    return {"status": "MASTER_SYNCED", "task_id": task["id"], "merge_sha": task["merge_sha"], "already_synced": already}
+
+
 def sync_master(control):
     control = Path(control)
+    current = load(control / "state.json")
+    if current.get("status") == "MASTER_RECOVERY_PENDING" or (current.get("status") == "ROADMAP_SYNC_READY" and
+            any(t.get("id") == current.get("active_task_id") and t.get("origin") == RECOVERY_KIND
+                for t in load(control / "queue.json")["tasks"])):
+        return sync_master_recovery(control)
     controller = load(control / "controller.json")
     if controller.get("enabled") is not True or (control / "STOP").exists() or (control / "MAINTENANCE").exists():
         raise ValueError("Master sync disabled or in maintenance")
@@ -1096,7 +1506,7 @@ def zcode_run(repo, prompt, output, events):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier", "sync-master", "native-plan", "native-qa", "bind-native-proof", "native-proof-status", "batch-propose", "batch-approve", "batch-tick", "batch-plan-claim", "scope-check", "validate-infra"])
+    parser.add_argument("command", choices=["rpc", "quota", "zcode-run", "merge-gate", "validate-report", "ci-status", "review-tier", "sync-master", "native-plan", "native-qa", "bind-native-proof", "native-proof-status", "batch-propose", "batch-approve", "batch-tick", "batch-plan-claim", "scope-check", "validate-infra", "master-recovery-propose", "master-recovery-approve"])
     parser.add_argument("--control", default="D:/How_I_Fall/agent-control")
     parser.add_argument("--method")
     parser.add_argument("--params", default="{}")
@@ -1106,6 +1516,7 @@ def main():
     parser.add_argument("--output")
     parser.add_argument("--events")
     parser.add_argument("--head")
+    parser.add_argument("--recovery-id")
     parser.add_argument("--batch-id")
     parser.add_argument("--digest")
     parser.add_argument("--consent-source")
@@ -1116,7 +1527,7 @@ def main():
         if (args.repo or "").replace("\\", "/") not in ("D:/How_I_Fall/agent", "D:/How_I_Fall/zagent"):
             raise ValueError("Fixed infrastructure profile requires bound writer checkout")
         validate_infrastructure(args.repo)
-    elif args.command in ("batch-propose", "batch-approve", "batch-tick", "batch-plan-claim", "scope-check"):
+    elif args.command in ("batch-propose", "batch-approve", "batch-tick", "batch-plan-claim", "scope-check", "master-recovery-propose", "master-recovery-approve"):
         control_paths(c)
         if args.command == "scope-check":
             print(json.dumps(boundary_scope(c, args.phase)))
@@ -1126,7 +1537,12 @@ def main():
         with writer_lock("Local\\HowIFallSupervisorWake"), writer_lock():
             if (c / "STOP").exists() or (c / "MAINTENANCE").exists():
                 raise ValueError("Control paused/stopped")
-            if args.command == "batch-propose":
+            if args.command == "master-recovery-propose":
+                relative = Path(args.output).resolve().relative_to(c.resolve())
+                value = propose_master_recovery(c, load(bounded_path(c, relative)))
+            elif args.command == "master-recovery-approve":
+                value = approve_master_recovery(c, args.recovery_id, args.digest, args.consent_source)
+            elif args.command == "batch-propose":
                 # Packet file must live inside existing runtime, never arbitrary executable.
                 packet_path = Path(args.output).resolve()
                 relative = packet_path.relative_to(c.resolve())

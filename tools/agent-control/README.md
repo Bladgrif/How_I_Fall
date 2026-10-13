@@ -51,6 +51,137 @@
   task/state в `MERGED_LOCAL_SYNC_DONE`/`ROADMAP_SYNC_READY`; уже
   синхронизированный master идемпотентен; persistence failure — fatal exit 78.
 
+## Native recovery пропущенных ручных merge (candidate, НЕ deployment)
+
+Обычный `sync-master` не ослаблен. Отдельный путь нужен, когда `WAIT_USER`,
+`active_task_id=null`, нет active/READY задач, а clean reference отстал на несколько
+ручных **merge/squash commits**. Только existing outer scheduler пишет Git в fixed
+`master`/fixed origin. `enabled=true`, coding-pass/batch approval и PR comment
+не разрешают recovery. Нет второго queue/loop, repo/command argument или Unity QA.
+
+Input внутри existing runtime — строго:
+```json
+{
+  "version": 1,
+  "local_sha": "<исходный exact local HEAD, 40 hex>",
+  "target_sha": "<свежий remote master, 40 hex>",
+  "chain": [{
+    "pr_number": 123,
+    "base_sha": "<original PR/review base, 40 hex>",
+    "head_sha": "<original reviewed head, 40 hex>",
+    "merge_sha": "<original merge, 40 hex>",
+    "player_facing": false,
+    "review": {
+      "path": "evidence/pr123/strong-review-latest.json",
+      "sha256": "<SHA-256 canonical native record>",
+      "events_path": "evidence/pr123/strong-review-latest-events.jsonl",
+      "events_sha256": "<SHA-256 original native events>",
+      "thread_id": "<original native reviewer UUID>"
+    }
+  }]
+}
+```
+
+`chain` упорядочена от local до target, 1–100 PR. SHA не переписываются на
+последний master. Каждый PR повторно читается live из HIF GitHub: merged/closed,
+base `master`/HIF repo, exact original base/head/merge, GREEN latest exact-head
+CI. Для обычного двухродительского merge первый родитель обязан быть предыдущим
+звеном (первого — `local_sha`), второй — exact reviewed head. Squash разрешён
+только для того же exact live merged PR: единственный родитель — предыдущее звено,
+GitHub commit identities результата и original reviewed head точны, оба Git tree
+SHA валидны и полностью совпадают. Missing/different tree закрывает gate;
+single-parent/direct commit сам по себе ничего не разрешает. Original base —
+ancestor предыдущего звена и original head; identities не переписываются.
+Прочие стратегии (включая общий rebase workflow) не поддержаны. Empty/oversized/
+missing GitHub diff закрывает gate: recovery не поддерживает PR без изменений.
+Каждая file row требует известный `status` и непустой canonical repository-relative
+`filename`; `previous_filename` обязателен для rename/copy и валидируется всякий
+раз, когда присутствует. Absolute/backslash/traversal/пустые segments/control chars
+закрывают classification, не превращаются в non-player-facing diff.
+GitHub target — последнее звено и свежий remote master.
+После fetch вся first-parent последовательность проверяется ещё и локальным Git.
+Не ограничено конкретными номерами PR: после merge correction нужен НОВЫЙ target
+и полная цепь, включающая correction и любые последующие merge.
+
+Каждому PR нужен **существующий оригинальный native Sol High CLEAN record**:
+matching original task/base/head, без findings/gaps, плюс original completed
+`hif-reviewer` event log с matching final schema output и thread. Mixed native stderr/PowerShell diagnostics
+в raw log допустимы; malformed JSON/error/failed events закрывают gate. UTF-8/UTF-16
+host logs поддерживаются. Player-facing требует `visual_proof_verified=true`
+после реальной независимой инспекции. Production/visual diff, включая исходный
+путь rename, консервативно требует `player_facing=true`; ложный downgrade закрыт.
+Только комментарий GitHub, writer report, вручную сконструированный JSON/event log
+или screenshot-capture receipt **НЕ являются canonical review**.
+
+Исторические native review outputs не имели криптографического receipt. Поэтому
+trusted operator **отдельно аутентифицирует происхождение** оригинального native
+архива: проверить исходную reviewer session, actual Sol High, original identity
+и реальную visual inspection. Это attestation происхождения уже существующего
+review, НЕ новое CLEAN review и НЕ разрешение придумать отсутствующее evidence.
+Если достоверного native архива/инспекции нет — recovery блокируется; сначала
+нужен настоящий независимый exact-original-diff review и его native evidence.
+Изготовление фиктивных outputs для прохождения gate запрещено.
+Как existing batch DPAPI, это trusted-host/user-principal boundary, не sandbox
+против hostile кода того же Windows пользователя, способного заменить runtime.
+
+После независимого acceptance и отдельной authorized host publication (не этим
+implementation pass) оператор/outer transport может импортировать input:
+```powershell
+$Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$C='D:\How_I_Fall\agent-control'
+# Проверяет evidence/GitHub/clean master; НЕ fetch/merge. Только proposal.
+& $Python "$C\hif-control.py" master-recovery-propose --output "$C\master-recovery-request.json"
+# Только пользователь в обычной native console, НЕ model tool/PTY:
+& $Python "$C\hif-control.py" master-recovery-approve --recovery-id <returned-task-id> --digest <full-sha256> --consent-source 'operator-console:<decision-reference>'
+```
+
+Native approve требует два exact typed decisions: `ATTEST NATIVE REVIEWS <digest>`
+и `APPROVE RECOVERY <digest>`. Без `--yes`/piped input/HTTP/self-approval.
+DPAPI seal связывает отдельный recovery kind/task/digest/operator/source/time и
+native provenance attestation. Digest покрывает весь immutable request, original
+local SHA, ordered chain, target и hashes review/logs. Approval действует 24 часа,
+future/expired/modified approval или сдвиг target закрывают исполнение.
+Command перепроверяет live gates до approval, не выполняет master transport.
+
+В existing `queue.tasks` добавляется один aggregate с
+`origin=manual-master-reconciliation-v1`, без automated dispatch identity/engine.
+Его `reconciliations` сохраняют original SHA, reviewer task id и явные per-PR
+`reconcile-<digest-prefix>-pr-<number>` identities; existing registered tasks
+не переписываются и требуют совпадения original identity.
+Это import истории, а не фиктивный прежний automated dispatch.
+Proposal сохраняет `WAIT_USER`; approval ставит `MASTER_RECOVERY_PENDING`.
+Единственный `supervisor-loop.ps1` направляет этот статус в existing `sync-master`
+ДО model wake. Native ancestry guard отказывает model и обычной ручной console
+в Git transport. Existing locks исключают operator/writer/reviewer contention.
+
+Перед fetch и ff-only повторно проверяются state/queue/controller snapshot,
+STOP/MAINTENANCE, serial identity, clean/root/branch/origin/HEAD и fresh remote.
+HEAD допустим только original local либо exact target (идемпотентный retry).
+Нет reset/clean/stash; после ff-only проверяются exact HEAD и clean.
+Успех — только `MERGED_LOCAL_SYNC_DONE` / `ROADMAP_SYNC_READY` и sealed actual
+sync receipt, **не DONE**. Aggregate остаётся serial barrier до reconciliation
+repository roadmap по всем imported PR и отдельного Supervisor acceptance.
+`CANCELLED`, `WAIT_USER`, `LIST_APPROVED_NOT_DISPATCHED` или смена state label
+не отменяют imported obligations: перед следующим dispatch обязательны sealed
+actual sync и полное roadmap reconciliation независимо от inactive label.
+Частичное удаление recovery markers закрывает gate; новая модельная/native отмена
+не вводится. Исходный неутверждённый `WAIT_USER` proposal и active pending/synced
+serial workflow сохранены, но сами по себе никогда не разрешают следующую задачу.
+
+Git-sync мог реально завершиться до persistence failure. Тогда STOP и fatal
+exit 78; никаких следующих dispatch. Partial queue-success/state-failure
+сохраняет immutable identity и поддерживает verified already-synced retry,
+но только после operator inspection/снятия STOP. Сдвинувшийся target/expired
+approval требуют нового explicit operator решения: старый request не редактировать;
+сначала в maintenance сохранить историю и разобрать pending identity, затем
+новый полный proposal. Автоматического repair/reapproval нет.
+
+Fixtures используют исключительно temporary bare/origin/master repositories и
+mock GitHub/receipts: реальную двухзвенную squash-топологию #71/#72 и отдельный
+двухродительский merge, exact Git tree identities, отказы для missing/different
+tree, PR mismatch, chain gap/direct commit и идемпотентный ff-only retry.
+Live approval/recovery/scheduler/host publication — **NOT RUN**.
+
 `controller.json`: `enabled`, `supervisor_thread_id`, версия runtime/scheduler.
 `queue.json`: tasks с `id`, `status`, `approved_source`, `base_sha`, `prompt`,
 `allowed_paths`, `validation` (включая acceptance), `risk`, `player_facing`.

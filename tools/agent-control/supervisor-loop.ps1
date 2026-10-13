@@ -91,7 +91,7 @@ try {
                     if($tier -eq 'strong'){$helperArgs=@('-Strong')}
                 } elseif($s.status -eq 'WAIT_STRONG_REVIEW'){
                     $helper='hif-reviewer.ps1'; $helperArgs=@('-Strong')
-                } elseif($s.status -eq 'SYNC_MASTER_PENDING'){
+                } elseif($s.status -in @('SYNC_MASTER_PENDING','MASTER_RECOVERY_PENDING')){
                     # Native post-merge git transport runs BEFORE any model wake; no model sandbox git writes.
                     $runHelper=$false; $nativeSync=$true
                 }
