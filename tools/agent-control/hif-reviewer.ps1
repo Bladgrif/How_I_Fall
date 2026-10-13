@@ -1,4 +1,4 @@
-﻿param([switch]$Strong)
+﻿param([switch]$Strong, [string]$HistoricalRequest)
 $ErrorActionPreference='Stop'
 $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $OutputEncoding
@@ -33,6 +33,12 @@ function SaveReviewerState($value) {
 }
 $env:CODEX_HOME='D:\Codex'
 $Python='C:\Users\roman\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+if($HistoricalRequest){
+    if($Strong){throw 'Historical review already requires Sol High; do not mix normal mode'}
+    # Dedicated one-shot route owns the existing Wake/Writer locks; normal latest/state untouched.
+    & $Python (Join-Path $PSScriptRoot 'hif-control.py') historical-review --control $C --output $HistoricalRequest
+    exit $LASTEXITCODE
+}
 if((Test-Path (Join-Path $C 'MAINTENANCE')) -or (Test-Path (Join-Path $C 'STOP'))){throw 'Maintenance: reviewer disabled'}
 $mutex=New-Object Threading.Mutex($false,'Local\HowIFallWriter')
 if(-not $mutex.WaitOne(0)){throw 'Writer/reviewer already running'}

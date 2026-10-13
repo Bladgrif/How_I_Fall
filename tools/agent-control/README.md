@@ -182,6 +182,66 @@ mock GitHub/receipts: реальную двухзвенную squash-топол�
 tree, PR mismatch, chain gap/direct commit и идемпотентный ff-only retry.
 Live approval/recovery/scheduler/host publication — **NOT RUN**.
 
+### Новый native historical review (one-shot, НЕ deployment)
+
+Когда authentic archive отсутствует, поддержан отдельный **новый** независимый
+Sol6.1 High review исходного merged PR. Это не writer dispatch и не восстановление
+старого task/thread. Обычные `-Strong`, latest review, queue/state/controller и
+scheduler gates не меняются. Установка/запуск route требуют отдельного разрешения;
+реальные historical sessions этого candidate ещё **NOT RUN**.
+
+Data-only request внутри fixed runtime, без `prompt`, shell/command, output path,
+task id или `player_facing` waiver:
+```json
+{
+  "version": 1,
+  "pr_number": 71,
+  "base_sha": "<original base: 40 lowercase hex>",
+  "head_sha": "<original head: 40 lowercase hex>",
+  "merge_sha": "<original merge: 40 lowercase hex>",
+  "writer_path": "D:/How_I_Fall/agent"
+}
+```
+
+Caller **явно** материализует original head/base/merge в clean fixed `agent` или
+`zagent`; host не fetch/switch/repair и не пишет Git в `master`/`develop`.
+Request передаётся только existing `hif-reviewer.ps1 -HistoricalRequest
+D:\How_I_Fall\agent-control\historical-request.json` (не смешивать с `-Strong`)
+или `hif-control.py historical-review --output <тот же bounded request>`.
+Существующие Wake+Writer locks, idle `WAIT_USER`/null, отсутствие competing tasks,
+enabled recovery controller, STOP/MAINTENANCE/reparse guards обязательны.
+До model cost: live HIF merged/master PR exact identities, присутствие merge
+на свежем remote master, exact materialized commit trees, remote/local diff
+coverage и GREEN latest original-head CI; затем fresh nonzero Sol quota и повторный
+preflight. После session эти facts/protected snapshots перепроверяются.
+
+`player_facing` выводится из actual validated diff (включая rename sources),
+не из request. Reviewer сам открывает **remote originals**, проверяет связь с
+original head и objective visuals; PR body/receipt/local copy не заменяют доступ.
+Missing proof либо findings/gaps → recovery не разрешается. Это read-only review, не новый
+Unity runtime QA запуск и не субъективное переоткрытие принятого product scope.
+
+Архив — exclusive `evidence/historical-pr<number>-<new UUID hex>/`: оригинальные
+`--json` events, pending model output, host-stamped candidate и `manifest.json`
+с actual thread, model/reasoning/time, original PR SHA/tree/diff и hashes.
+Time bound 30 минут, prompt 64 KiB, raw log 16 MiB. Partial/error/oversize,
+correction или visual gap никогда не публикуют canonical CLEAN.
+Stdin — exclusive archived public-PR prompt file: CLI, не читающий input,
+не блокирует host timeout/STOP. Actual absolute Git-dir/common-dir обязаны
+оставаться внутри fixed clone без reparse; historical Git checks используют
+`--no-optional-locks` и не refresh-write index. Local/control/marker gates
+повторяются после всех network reads и непосредственно перед publication.
+Диагностика сохраняется отдельно; failed directory не переиспользуется.
+Immutable manifest `VALIDATED_NOT_PUBLISHED` честно фиксирует только валидацию:
+последний atomic exclusive hard-link публикует полностью проверенный
+`strong-review-latest.json`; успешный command возвращает `CLEAN` и готовый `review`
+descriptor для existing recovery. Publication failure оставляет только pending
+archive, не CLEAN manifest. Immutability — host no-overwrite + hashes, не OS
+write-protection/cryptographic attestation от hostile same-user процесса.
+Новый canonical archive имеет честный `historical-*` job id и actual fresh thread,
+не притворяется старой dispatch history. Existing operator provenance attestation
+и отдельный native recovery approval по-прежнему обязательны.
+
 `controller.json`: `enabled`, `supervisor_thread_id`, версия runtime/scheduler.
 `queue.json`: tasks с `id`, `status`, `approved_source`, `base_sha`, `prompt`,
 `allowed_paths`, `validation` (включая acceptance), `risk`, `player_facing`.

@@ -175,14 +175,31 @@ exact-head CI и merge PR #71; пункт 3 выбирать только пос
 problem и отдельному решению пользователя; существующие technical foundations
 не планировать заново как отсутствующие.
 
-**Сверка интеграции 2026-10-13:** PR #71 и #72 смержены; exact-head Unity CI
-#274 и #275 успешны. Remote `master` — `7f79c708a47419c08a90e4f8f9d78db7760ce419`;
-локальный reference остаётся на `0a4dad45a73177ac74d9740647ec890e5313c935`,
-native sync не выполнен. Bounded correction `fix/native-master-sync-recovery`
-локально принят после независимого Sol High review: строгая merge/squash chain,
-отдельное exact-digest operator approval и сохранение sync/roadmap barrier.
-Публикация разрешена пользователем; exact-head CI и merge correction проверяются
-отдельно. Установка helpers, authentic historical review/visual evidence и native
-operator-approved recovery — отдельный следующий gate, live rollout **NOT VERIFIED**.
-После фактической синхронизации — пункт 5, Windows player journey QA; порядок и
-product scope не меняются. Это не `DONE` и не release-readiness.
+**Сверка интеграции 2026-10-13:** PR #71, #72 и #73 смержены; exact-head
+Unity CI #274, #275 и #276 успешны. Remote `master` —
+`63ba4cc7b2299ba550a66648843c0e5a2e05f564`; локальный reference остаётся на
+`0a4dad45a73177ac74d9740647ec890e5313c935`, native sync не выполнен.
+PR #73 добавил строгую merge/squash recovery-chain и отдельное exact-digest
+operator approval. Live installation и recovery **NOT VERIFIED**: для ручных
+PR отсутствуют пригодные canonical native review archives. Пользователь разрешил
+отдельный bounded historical-review host pass в existing reviewer/control:
+настоящие новые Sol High sessions с exact original identities, без подмены
+writer history, queue/state и без ослабления operator/scheduler gates.
+Локальный код этого прохода требует независимого review и exact-head CI;
+установка helpers и реальные historical sessions — отдельный следующий gate.
+
+**Пункт 5 — bounded Windows QA выполнен 2026-10-13, NO PRODUCTION CHANGE.**
+Пользователь явно разрешил QA-before-native-sync исключение: чистый writer на
+exact remote source `63ba4cc7…`, без изменения reference checkout. Реально
+собран и проверен Windows player: Main Menu → Reading → Preferences и
+Save/Load → возврат. Проверены draft discard/apply/persistence и load после
+подтверждённого продвижения Reading. Reviewer просмотрел 9 оригинальных кадров;
+воспроизводимых production defects не обнаружено. После QA восстановлены и
+сверены 44/44 LocalLow файла и оба PlayerPrefs namespace. Remote evidence:
+[bounded Windows player journey proof](https://drive.google.com/file/d/1p_b-3nAQVKzg4Of9WIkDQT8fn1tzrKCf/view).
+Это не human physical keyboard/controller QA, full feature sweep или release-ready.
+
+Следующий ограниченный шаг — authentic historical reviews и operator-approved
+native reference recovery, затем per-PR repository roadmap reconciliation.
+QA-before-sync не заменяет recovery, не снимает sync barrier и не разрешает
+новые product features. До этих gates интеграция не `DONE`.
