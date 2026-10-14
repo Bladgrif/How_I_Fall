@@ -137,9 +137,12 @@ CI completion не объявляется заранее.
 
 | Original | SHA-256 |
 | --- | --- |
-| `12_Phone_Chat_Target_v1.svg` | `252727af84a5a577bef9fb152bf846ca1946dcae126af8cffc95af64cb79ea4d` |
+| `12_Phone_Chat_Target_v1.svg` | `b8b3aa0766b1cd20c685850eeb6a784090e24878c94754ae78065b069c23d21d` |
 | `12_Phone_Chat_Target_v1.png` | `7df6ed80f60e0112dabd0df6dde509aac57061eb83591a30d983a32513bfae1e` |
-| `12_Phone_Chat_Target_v1_states.svg` | `f99eeac039a11d5f514ef71a989f5f4daab01ef9fb536d089c6a398b90e9aa64` |
+| `12_Phone_Chat_Target_v1_states.svg` | `5eacfbe33cc8af721b82f6e43426812bfa311f7e6297f0cb41bcee40477c354e` |
+
+SVG hashes относятся к canonical repository blobs с LF; Windows CRLF-копии
+семантически эквивалентны, но имеют другой bytehash. PNG hashes побайтовые.
 | `12_Phone_Chat_Target_v1_states.png` | `701f74fc8c23a1d8d3c1cab4213a6934d482ec932bc35f0619bd8c97ac634160` |
 
 **NOT RUN:** Unity compile/import, EditMode/PlayMode/smoke, graphical E2E,
