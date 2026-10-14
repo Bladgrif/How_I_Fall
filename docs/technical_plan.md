@@ -14,6 +14,26 @@
 
 Этот документ — единственный основной roadmap/approved-task entrypoint автономного контура. Документы Drive `02`/`03` остаются research/history и необязательным зеркалом; при конфликте источник истины — репозиторий. Отсутствие Drive write не блокирует `DONE` после остальных обязательных gates, но stale-зеркало помечается явно. Новые product features/canon без user approval здесь не добавляются; существующие принятые решения и защищённые UI/Save контракты сохраняются.
 
+## Команда и планирование — локальная setup-задача, 2026-10-14
+
+По запросу пользователя подготовлены project-scoped профили `hif_pm`,
+`hif_ui_designer`, `hif_coder`, `hif_reviewer` и optional `hif_qa`, общий контракт
+`docs/product/agent_team.md` и entrypoint `$hif-agent-team`.
+PM ведёт ближайший bounded план здесь; отдельного backlog/queue/scheduler нет.
+Подзадачные галочки не означают task DONE и не заменяют native receipts.
+
+- [x] Роли и границы подготовлены локально на базе `47724821122219558e1447f5009e48786adcae3b`.
+- [x] TOML/skill/metadata/scope validation и независимая read-only behavioral/diff проверка.
+- [ ] Отдельное разрешение commit/push и последующие integration gates.
+- [ ] Реальный native role discovery/dispatch и deployment — NOT RUN.
+
+Статус — **LOCAL REVIEW-READY**: independent Sol High review CLEAN для локальных
+инструкций; пять аналитических сценариев проверены без исполнения тестовых ролей
+на live задачах.
+Это не live rollout или approval новой игровой задачи.
+Setup не запускает controller jobs, не меняет live queue/state и не снимает
+незавершённые historical/native-sync gates.
+
 ## Текущий infrastructure candidate: утренние bounded пакеты
 
 `approved-morning-batches`, exact base `835e342ebf26c49c372db162a6159985d67c9625`:
