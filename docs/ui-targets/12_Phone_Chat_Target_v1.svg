@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc"><title id="title">Target 12 — телефон и чат, основной макет</title><desc id="desc">Макет на согласование. NOT APPROVED. TECH DEMO ONLY / NOT CANON. Не runtime screenshot.</desc>
+<defs><linearGradient id="stage" x2="1" y2="1"><stop stop-color="#0a2335"/><stop offset="1" stop-color="#182630"/></linearGradient><linearGradient id="surface" x2="0" y2="1"><stop stop-color="#102839"/><stop offset="1" stop-color="#091a28"/></linearGradient></defs>
+<rect x="0" y="0" width="1920" height="1080" rx="0" fill="url(#stage)"/>
+<path d="M-200,0 L-55,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<path d="M330,0 L475,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<path d="M860,0 L1005,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<path d="M1390,0 L1535,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<path d="M1920,0 L2065,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<rect x="0" y="76" width="1920" height="922" fill="#07131f" fill-opacity="0.70"/>
+<text x="64" y="44" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="600" text-anchor="start" fill="#68d5f3">12 / ТЕЛЕФОН И ЧАТ — МАКЕТ v1</text>
+<text x="1856" y="44" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" text-anchor="end" fill="#a9c0d0">НА СОГЛАСОВАНИИ · NOT APPROVED · НЕ RUNTIME PROOF</text>
+<rect x="634" y="110" width="652" height="868" rx="18" fill="#030a11"/>
+<rect x="640" y="108" width="640" height="864" rx="14" fill="url(#surface)" stroke="#27495d" stroke-width="1"/>
+<rect x="658" y="126" width="604" height="98" rx="7" fill="#102839"/>
+<circle cx="702" cy="175" r="26" fill="#1c6380"/>
+<text x="702" y="184" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="600" text-anchor="middle" fill="#edf4fa">T</text>
+<text x="745" y="170" font-family="Segoe UI,Arial,sans-serif" font-size="26" font-weight="600" text-anchor="start" fill="#edf4fa">TEST CONTACT</text>
+<text x="745" y="196" font-family="Segoe UI,Arial,sans-serif" font-size="15" font-weight="400" text-anchor="start" fill="#a9c0d0">TECH DEMO ONLY / NOT CANON</text>
+<rect x="658" y="238" width="604" height="538" rx="7" fill="#091724"/>
+<rect x="672" y="345" width="414" height="62" rx="10" fill="#22384b"/>
+<text x="690" y="384" font-family="Segoe UI,Arial,sans-serif" font-size="23" font-weight="400" text-anchor="start" fill="#edf4fa">TEST: incoming message</text>
+<rect x="672" y="421" width="414" height="274" rx="10" fill="#22384b"/>
+<rect x="684" y="433" width="390" height="243.75" rx="0" fill="#102131"/>
+<rect x="732.75" y="433.0" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="830.25" y="433.0" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="927.75" y="433.0" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="1025.25" y="433.0" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="684.0" y="481.75" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="781.5" y="481.75" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="879.0" y="481.75" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="976.5" y="481.75" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="732.75" y="530.5" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="830.25" y="530.5" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="927.75" y="530.5" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="1025.25" y="530.5" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="684.0" y="579.25" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="781.5" y="579.25" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="879.0" y="579.25" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="976.5" y="579.25" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="732.75" y="628.0" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="830.25" y="628.0" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="927.75" y="628.0" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="1025.25" y="628.0" width="48.75" height="48.75" rx="0" fill="#1e6b8e"/>
+<rect x="658" y="790" width="604" height="164" rx="7" fill="#102536"/>
+<text x="674" y="815" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" text-anchor="start" fill="#a9c0d0">ВЫБЕРИТЕ ОТВЕТ</text>
+<rect x="672" y="829" width="576" height="54" rx="5" fill="#173d53" stroke="#68d5f3" stroke-width="2"/>
+<rect x="672" y="837" width="3" height="38" rx="0" fill="#68d5f3"/>
+<text x="692" y="863" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#edf4fa">TEST: reply A</text>
+<text x="1225" y="864" font-family="Segoe UI,Arial,sans-serif" font-size="31" font-weight="400" text-anchor="middle" fill="#68d5f3">›</text>
+<rect x="672" y="891" width="576" height="54" rx="5" fill="#173d53" stroke="#27495d" stroke-width="1"/>
+<text x="692" y="925" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#edf4fa">TEST: reply B</text>
+<text x="1225" y="926" font-family="Segoe UI,Arial,sans-serif" font-size="31" font-weight="400" text-anchor="middle" fill="#68d5f3">›</text>
+<text x="88" y="218" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600" text-anchor="start" fill="#68d5f3">ОДНА АВТОРСКАЯ СЦЕНА</text>
+<text x="88" y="265" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">Не телефонная ОС.</text>
+<text x="88" y="296" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">Существующий PhoneShell</text>
+<text x="88" y="327" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">поверх VN; фон сохраняется.</text>
+<text x="88" y="358" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">Dialogue Box и Quick Menu</text>
+<text x="88" y="389" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">в активном Chat скрыты.</text>
+<path d="M88,447 L502,447" fill="none" stroke="#27495d" stroke-width="1"/>
+<text x="88" y="491" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600" text-anchor="start" fill="#68d5f3">ТИХАЯ ИЕРАРХИЯ HIF</text>
+<text x="88" y="538" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">Navy-поверхности как в 10/11.</text>
+<text x="88" y="569" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">Cyan — только локальный focus.</text>
+<text x="88" y="600" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">Входящие слева, ответ справа.</text>
+<text x="88" y="631" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">Две существующие reply cards.</text>
+<text x="88" y="662" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#a9c0d0">Нет статусов доставки/прочтения.</text>
+<path d="M88,720 L502,720" fill="none" stroke="#27495d" stroke-width="1"/>
+<text x="88" y="766" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">В кадре: реальный TEST-контент</text>
+<text x="88" y="797" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">из test_chat_v1; выбранная рамка</text>
+<text x="88" y="828" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">иллюстрирует presentation,</text>
+<text x="88" y="859" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">не новый default selection.</text>
+<text x="1390" y="218" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600" text-anchor="start" fill="#68d5f3">TRANSCRIPT / IMAGE</text>
+<text x="1390" y="265" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Только уже раскрытые записи.</text>
+<text x="1390" y="296" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">ScrollRect сохраняет прокрутку;</text>
+<text x="1390" y="327" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">после reveal — к нижнему краю.</text>
+<text x="1390" y="358" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Здесь TEST-transcript помещается</text>
+<text x="1390" y="389" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">целиком; scrollbar не добавлен.</text>
+<path d="M1390,449 L1818,449" fill="none" stroke="#27495d" stroke-width="1"/>
+<text x="1390" y="491" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600" text-anchor="start" fill="#68d5f3">ЛОКАЛЬНЫЙ VIEWER</text>
+<text x="1390" y="538" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Клик по раскрытой Image card.</text>
+<text x="1390" y="569" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Aspect-fit без crop / stretch.</text>
+<text x="1390" y="600" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">X / Escape / scrim закрывают</text>
+<text x="1390" y="631" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">только viewer, не активный Chat.</text>
+<text x="1390" y="662" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Клик по изображению — no-op.</text>
+<path d="M1390,720 L1818,720" fill="none" stroke="#27495d" stroke-width="1"/>
+<text x="1390" y="766" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600" text-anchor="start" fill="#68d5f3">ЗАЩИЩЁННЫЙ ВОЗВРАТ</text>
+<text x="1390" y="810" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Escape вне viewer — no-op.</text>
+<text x="1390" y="841" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Нет Back / отмены Chat.</text>
+<text x="1390" y="872" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Completion → cleanup → lease</text>
+<text x="1390" y="903" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">release → ровно один returnScene.</text>
+<text x="64" y="1032" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="600" text-anchor="start" fill="#68d5f3">DESIGN ONLY · TECH DEMO ONLY / NOT CANON</text>
+<text x="1856" y="1032" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="end" fill="#a9c0d0">Аннотации вне телефона — не runtime UI. Production не изменён.</text>
+</svg>
