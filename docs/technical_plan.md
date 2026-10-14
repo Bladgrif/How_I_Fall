@@ -203,3 +203,21 @@ Save/Load → возврат. Проверены draft discard/apply/persistence
 native reference recovery, затем per-PR repository roadmap reconciliation.
 QA-before-sync не заменяет recovery, не снимает sync barrier и не разрешает
 новые product features. До этих gates интеграция не `DONE`.
+
+**2026-10-14: телефон/чат — отдельный design-only REVIEW CANDIDATE.**
+Пользователь разрешил bounded design + publication до native sync на exact
+remote base `47724821122219558e1447f5009e48786adcae3b`; исторические gates выше
+не сняты и новый automatic dispatch не разрешён. Подготовлены
+`docs/ui-targets/12_Phone_Chat_Target_v1.png` / `_states.png` (оба 1920×1080),
+editable SVG и source-linked bounded brief `.md`: одна existing authored Chat
+scene, typing/replies/transcript/Image/local viewer. **APPROVED visual direction**
+пользователем 2026-10-14; **NO PRODUCTION CHANGE / TECH DEMO ONLY / NOT CANON.**
+Static originals проверены; Unity/runtime/E2E NOT RUN. Independent CLEAN review
+и CI #280 success относятся к exact design head
+`7d5c3377f16d3b7157fb37dbc02031199068476e`, не к новому approval follow-up.
+PNG/SVG сохранены побайтово; baked NOT APPROVED — историческая аннотация capture,
+текущий authority approval — brief/index. Следующий gate текстовой записи —
+независимый exact-head review/CI; production implementation требует отдельного
+approval. Automatic dispatch, merge и native sync этим approval не разрешены.
+BlockingExclusive, SaveData v3, transient transcript, existing choices/timers/audio,
+Escape no-op вне viewer и exactly-once returnScene остаются защищены.
