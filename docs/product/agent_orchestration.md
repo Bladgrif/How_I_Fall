@@ -13,6 +13,12 @@
 ChatGPT остаётся допустимым manual reviewer/fallback, но не является
 обязательным звеном обычного рабочего цикла.
 
+Project-scoped роли и handoff описаны в `docs/product/agent_team.md`;
+entrypoint — `$hif-agent-team`, standalone profiles — `.codex/agents/hif_*.toml`.
+Это специализации существующей команды, не новая очередь/Supervisor или
+изменение native worker/reviewer settings. Перед role dispatch сохраняются
+все текущие quota/approval/base/review/CI/native-sync guards этого документа.
+
 ## 1. Перед новой задачей
 
 Reviewer:

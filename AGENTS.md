@@ -30,6 +30,7 @@
 - **GLM-5.3** и **GPT-6 Astra** — selective escalation/fallback, а не обязательная ступень: используй при конкретной причине, недоступности/неудаче Sol High или unusually high cost of error.
 - В autonomous mode одна durable роль **HIF Supervisor** с fresh bounded sessions в Codex владеет task selection, correction routing, PR/CI/proof gate, merge и roadmap sync; browser ChatGPT — manual reviewer/fallback, а не обязательное звено.
 - Полная policy выбора среды, reasoning, сессии и autonomous orchestration находится в `docs/product/agent_orchestration.md`.
+- Project-scoped роли PM/UI designer/coder/reviewer и optional QA описаны в `docs/product/agent_team.md`; entrypoint — `$hif-agent-team`, profiles — `.codex/agents/`. Это инструкции existing team, не новый controller или dispatch permission.
 
 ## Язык документации
 

@@ -1,0 +1,6 @@
+interface:
+  display_name: "How I Fall — команда агентов"
+  short_description: "Роли команды, ближайший план и безопасные handoff"
+  default_prompt: "Используй $hif-agent-team: сверь состояние How I Fall, составь bounded ближайший план и передай утверждённую задачу подходящей роли без новой очереди и обхода review/native-sync gates."
+policy:
+  allow_implicit_invocation: true
