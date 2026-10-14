@@ -21,6 +21,16 @@ Google Drive остаётся удобным зеркалом для челов�
 - `11_Preferences_Target_v1.png` — **APPROVED visual direction** 2026-10-12: общий `SharedPreferencesView` из Main Menu и gameplay.
 - `11_Preferences_Target_v1_states.png` — состояния Target 11; одноимённые SVG — редактируемые исходники.
 - `11_Preferences_Target_v1.md` — утверждение, защищённые contracts и bounded presentation brief Target 11.
+- `12_Phone_Chat_Target_v1.png` / `.svg` — **APPROVED visual direction / DESIGN ONLY**, пользователь утвердил 2026-10-14; основной макет телефона/чата 1920×1080, не runtime proof.
+- `12_Phone_Chat_Target_v1_states.png` / `.svg` — лист reachable Chat/viewer состояний 1920×1080; focus presentation не обещает нового input.
+- `12_Phone_Chat_Target_v1.md` — source-linked contracts и bounded brief; production-pass требует отдельного approval, **NO PRODUCTION CHANGE / TECH DEMO ONLY / NOT CANON**.
+
+Target 12: PNG/SVG сохранены побайтово; встроенные `NOT APPROVED` /
+«НА СОГЛАСОВАНИИ» — исторические аннотации исходного capture до approval.
+Текущий authority статуса — brief и этот index. Independent CLEAN review и CI
+#280 success принадлежат exact design head `7d5c3377f16d3b7157fb37dbc02031199068476e`;
+новая текстовая запись approval требует своего exact-head review/CI. Production,
+automatic dispatch, merge и снятие native-sync barrier этим approval не разрешены.
 
 Поправка target 07 по hands-on коррекции пользователя (2026-10-03, интеграционная коррекция Hotspot showcase):
 

@@ -203,3 +203,49 @@ Save/Load → возврат. Проверены draft discard/apply/persistence
 native reference recovery, затем per-PR repository roadmap reconciliation.
 QA-before-sync не заменяет recovery, не снимает sync barrier и не разрешает
 новые product features. До этих gates интеграция не `DONE`.
+
+**2026-10-14: телефон/чат — отдельный design-only REVIEW CANDIDATE.**
+Пользователь разрешил bounded design + publication до native sync на exact
+remote base `47724821122219558e1447f5009e48786adcae3b`; исторические gates выше
+не сняты и новый automatic dispatch не разрешён. Подготовлены
+`docs/ui-targets/12_Phone_Chat_Target_v1.png` / `_states.png` (оба 1920×1080),
+editable SVG и source-linked bounded brief `.md`: одна existing authored Chat
+scene, typing/replies/transcript/Image/local viewer. **APPROVED visual direction**
+пользователем 2026-10-14; **NO PRODUCTION CHANGE / TECH DEMO ONLY / NOT CANON.**
+Static originals проверены; Unity/runtime/E2E NOT RUN. Independent CLEAN review
+и CI #280 success относятся к exact design head
+`7d5c3377f16d3b7157fb37dbc02031199068476e`, не к новому approval follow-up.
+PNG/SVG сохранены побайтово; baked NOT APPROVED — историческая аннотация capture,
+текущий authority approval — brief/index. Следующий gate текстовой записи —
+независимый exact-head review/CI; production implementation требует отдельного
+approval. Automatic dispatch, merge и native sync этим approval не разрешены.
+BlockingExclusive, SaveData v3, transient transcript, existing choices/timers/audio,
+Escape no-op вне viewer и exactly-once returnScene остаются защищены.
+
+
+**2026-10-14: Target12 — отдельный approved bounded production candidate.**
+После design-direction approval пользователь явно утвердил полный presentation
+план existing ChatController → targeted QA/fresh runtime originals → independent
+Sol High review → scoped commit/push/PR/exact-head CI, **без merge**. Ручное
+исключение до native sync не открывает новую очередь/automatic dispatch и не
+снимает historical/recovery/native approval barriers. PR #75 — прежний design;
+production branch `polish/phone-chat-target12-109e54ab` от approved109e54ab…,
+remote base47724821…, отдельный PR.
+
+Local implementation: одна presentation-итерация, quiet navy/readable typography,
+Russian pacing labels, suppression decorative dot, built-in Button SpriteSwap
+focus contour/edge. Phone640/anchors, single BlockingExclusive, two choices,
+transient transcript, SaveData v3, timers/audio/media/input/routing сохранены.
+Existing Chat smoke + final-source compile/import PASS; targeted PlayMode3/3.
+Fresh before/after по8 originals1920×1080 без nographics, machine PASS/errors0;
+writer inspected все8 after originals без objective UI defects. Curated6 unique
+runtime baselines + index; synthetic pointer events, не physical-controller QA.
+Capture-only temporary helper удалён из final diff. Before first Unity access —
+полный external LocalLow/two PlayerPrefs quarantine; после всех owned Editors exit
+44/44 file hashes и оба полных registry names/values/types восстановлены точно.
+
+Статус **REVIEW CANDIDATE**, independent review/exact-head CI ещё pending,
+не DONE. Remote proof — existing CI visual-review artifact production PR.
+Full local suites, standalone, physical keyboard/controller, merge/native sync/
+historical recovery NOT RUN; Drive mirror NOT SYNCED. Подробный bounded evidence
+и незаменённые original hashes — `docs/ui-targets/12_Phone_Chat_Target_v1.md`.

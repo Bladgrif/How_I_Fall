@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc"><title id="title">Target 12 — лист реальных состояний и предлагаемой подачи</title><desc id="desc">Макет на согласование. NOT APPROVED. TECH DEMO ONLY / NOT CANON. Не runtime screenshot.</desc>
+<defs><linearGradient id="stage" x2="1" y2="1"><stop stop-color="#0a2335"/><stop offset="1" stop-color="#182630"/></linearGradient><linearGradient id="surface" x2="0" y2="1"><stop stop-color="#102839"/><stop offset="1" stop-color="#091a28"/></linearGradient></defs>
+<rect x="0" y="0" width="1920" height="1080" rx="0" fill="url(#stage)"/>
+<path d="M-200,0 L-55,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<path d="M330,0 L475,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<path d="M860,0 L1005,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<path d="M1390,0 L1535,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<path d="M1920,0 L2065,1080" fill="none" stroke="#253642" stroke-width="2"/>
+<text x="60" y="44" font-family="Segoe UI,Arial,sans-serif" font-size="24" font-weight="600" text-anchor="start" fill="#68d5f3">12 / ТЕЛЕФОН И ЧАТ — СОСТОЯНИЯ v1</text>
+<text x="1860" y="44" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" text-anchor="end" fill="#a9c0d0">НА СОГЛАСОВАНИИ · NOT APPROVED · НЕ RUNTIME PROOF</text>
+<text x="60" y="84" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Детали одной сцены, не четыре одновременных окна. Рамка focus — предложение, ввод не расширяется.</text>
+<rect x="60" y="116" width="870" height="414" rx="8" fill="url(#surface)" stroke="#27495d" stroke-width="1"/>
+<text x="84" y="154" font-family="Segoe UI,Arial,sans-serif" font-size="23" font-weight="600" text-anchor="start" fill="#68d5f3">A / INCOMING TYPING</text>
+<text x="84" y="188" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="400" text-anchor="start" fill="#a9c0d0">WaitingForEntryReveal · IncomingTyping</text>
+<rect x="84" y="212" width="330" height="92" rx="10" fill="#22384b"/>
+<circle cx="112" cy="280" r="4" fill="#68d5f3"/>
+<circle cx="136" cy="280" r="4" fill="#68d5f3"/>
+<circle cx="160" cy="280" r="4" fill="#68d5f3"/>
+<text x="454" y="244" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Typing вместо ещё не раскрытой записи.</text>
+<text x="454" y="275" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Для Delay — пауза без typing bubble.</text>
+<text x="454" y="306" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Reply cards скрыты; ответа пока нет.</text>
+<path d="M84,334 L906,334" fill="none" stroke="#27495d" stroke-width="1"/>
+<text x="84" y="372" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">В TEST-сцене: typing 1,5 с → incoming Text → Delay 0,6 с → Image.</text>
+<text x="84" y="406" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Длительности и reveal/audio semantics не меняются.</text>
+<text x="84" y="440" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Transcript временный; reveal приводит scroll к нижнему краю.</text>
+<text x="84" y="502" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="start" fill="#a9c0d0">Нет таймера-счётчика, read badge или обещания «онлайн».</text>
+<rect x="990" y="116" width="870" height="414" rx="8" fill="url(#surface)" stroke="#27495d" stroke-width="1"/>
+<text x="1014" y="154" font-family="Segoe UI,Arial,sans-serif" font-size="23" font-weight="600" text-anchor="start" fill="#68d5f3">B / ОЖИДАНИЕ ОТВЕТА</text>
+<text x="1014" y="188" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="400" text-anchor="start" fill="#a9c0d0">Active + Choice · оба TEST-варианта доступны</text>
+<text x="1014" y="228" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" text-anchor="start" fill="#a9c0d0">ВЫБЕРИТЕ ОТВЕТ</text>
+<rect x="1014" y="244" width="822" height="54" rx="5" fill="#173d53" stroke="#68d5f3" stroke-width="2"/>
+<rect x="1014" y="252" width="3" height="38" rx="0" fill="#68d5f3"/>
+<text x="1034" y="278" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#edf4fa">TEST: reply A</text>
+<text x="1813" y="279" font-family="Segoe UI,Arial,sans-serif" font-size="31" font-weight="400" text-anchor="middle" fill="#68d5f3">›</text>
+<rect x="1014" y="306" width="822" height="54" rx="5" fill="#173d53" stroke="#27495d" stroke-width="1"/>
+<text x="1034" y="340" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#edf4fa">TEST: reply B</text>
+<text x="1813" y="341" font-family="Segoe UI,Arial,sans-serif" font-size="31" font-weight="400" text-anchor="middle" fill="#68d5f3">›</text>
+<text x="1014" y="404" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Один визуальный язык для pointer hover и уже полученного focus.</text>
+<text x="1014" y="437" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Keyboard: показ selected-state, не обещание нового input mapping.</text>
+<text x="1014" y="470" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Условно скрытый вариант не рисуется как disabled card.</text>
+<text x="1014" y="502" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="start" fill="#a9c0d0">Контур + край + шеврон; это пример focus, не default/auto-select.</text>
+<rect x="60" y="556" width="870" height="436" rx="8" fill="url(#surface)" stroke="#27495d" stroke-width="1"/>
+<text x="84" y="594" font-family="Segoe UI,Arial,sans-serif" font-size="23" font-weight="600" text-anchor="start" fill="#68d5f3">C / ОТВЕТ ИГРОКА → TERMINAL</text>
+<text x="84" y="628" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="400" text-anchor="start" fill="#a9c0d0">ResolvingTerminalChoice · existing terminal delay 0,45 с</text>
+<rect x="504" y="651" width="402" height="62" rx="10" fill="#12516f"/>
+<text x="522" y="690" font-family="Segoe UI,Arial,sans-serif" font-size="23" font-weight="400" text-anchor="start" fill="#edf4fa">TEST: reply A</text>
+<text x="84" y="739" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600" text-anchor="start" fill="#a9c0d0">ОТПРАВКА ОТВЕТА…</text>
+<rect x="84" y="753" width="400" height="54" rx="5" fill="#132e40" stroke="#27495d" stroke-width="1"/>
+<text x="104" y="787" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#8197a7">TEST: reply A</text>
+<text x="461" y="788" font-family="Segoe UI,Arial,sans-serif" font-size="31" font-weight="400" text-anchor="middle" fill="#8197a7">›</text>
+<rect x="506" y="753" width="400" height="54" rx="5" fill="#132e40" stroke="#27495d" stroke-width="1"/>
+<text x="526" y="787" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="400" text-anchor="start" fill="#8197a7">TEST: reply B</text>
+<text x="883" y="788" font-family="Segoe UI,Arial,sans-serif" font-size="31" font-weight="400" text-anchor="middle" fill="#8197a7">›</text>
+<text x="84" y="844" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="400" text-anchor="start" fill="#a9c0d0">Карточки выше — детали disabled-state; в PhoneShell они вертикальны.</text>
+<text x="84" y="883" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Это pacing-подпись, не статус сети/доставки. Новых SFX нет.</text>
+<text x="84" y="916" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">После 0,45 с: cleanup → release lease → один returnScene.</text>
+<text x="84" y="949" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Для non-terminal choice — текущий nextEntryId, без новой кнопки Next.</text>
+<rect x="990" y="556" width="870" height="436" rx="8" fill="url(#surface)" stroke="#27495d" stroke-width="1"/>
+<text x="1014" y="594" font-family="Segoe UI,Arial,sans-serif" font-size="23" font-weight="600" text-anchor="start" fill="#68d5f3">D / ЛОКАЛЬНЫЙ MEDIA VIEWER</text>
+<text x="1014" y="628" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="400" text-anchor="start" fill="#a9c0d0">Поверх того же Chat · доступен после reveal Image</text>
+<rect x="1014" y="648" width="822" height="225" rx="5" fill="#040d17"/>
+<rect x="1269" y="660" width="312" height="200" rx="8" fill="#0c1a27" stroke="#27495d" stroke-width="1"/>
+<text x="1285" y="692" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#465c6d">TEST CONTACT</text>
+<rect x="1285" y="709" width="168" height="39" rx="5" fill="#172636"/>
+<rect x="1014" y="648" width="822" height="225" rx="5" fill="#040d17" fill-opacity="0.78"/>
+<rect x="1222" y="658" width="328" height="205.0" rx="0" fill="#102131"/>
+<rect x="1263.0" y="658.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1345.0" y="658.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1427.0" y="658.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1509.0" y="658.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1222.0" y="699.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1304.0" y="699.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1386.0" y="699.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1468.0" y="699.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1263.0" y="740.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1345.0" y="740.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1427.0" y="740.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1509.0" y="740.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1222.0" y="781.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1304.0" y="781.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1386.0" y="781.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1468.0" y="781.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1263.0" y="822.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1345.0" y="822.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1427.0" y="822.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1509.0" y="822.0" width="41.0" height="41.0" rx="0" fill="#1e6b8e"/>
+<rect x="1786" y="659" width="38" height="38" rx="4" fill="#17384d" stroke="#27495d" stroke-width="1"/>
+<text x="1805" y="686" font-family="Segoe UI,Arial,sans-serif" font-size="23" font-weight="400" text-anchor="middle" fill="#edf4fa">X</text>
+<text x="1031" y="683" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="400" text-anchor="start" fill="#a9c0d0">scrim</text>
+<text x="1593" y="766" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="start" fill="#a9c0d0">aspect-fit</text>
+<text x="1014" y="910" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">X / Escape / scrim → тот же Chat; image click не закрывает.</text>
+<text x="1014" y="941" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Таймеры локально на паузе; underlying UI input заблокирован.</text>
+<text x="1014" y="972" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="400" text-anchor="start" fill="#a9c0d0">Transcript / reply / GameState неизменны; без повторного audio.</text>
+<text x="60" y="1033" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600" text-anchor="start" fill="#68d5f3">ESCAPE ВНЕ VIEWER — NO-OP · НЕТ BACK / ОТМЕНЫ CHAT</text>
+<text x="1860" y="1033" font-family="Segoe UI,Arial,sans-serif" font-size="20" font-weight="400" text-anchor="end" fill="#a9c0d0">DESIGN ONLY · TECH DEMO ONLY / NOT CANON</text>
+</svg>
