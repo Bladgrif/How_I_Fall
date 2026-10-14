@@ -13,17 +13,18 @@ public sealed class ChatController : MonoBehaviour
     private const float MinimumBubbleWidth = 260f;
 
     private static readonly Color ScrimColor = new Color(0.015f, 0.03f, 0.055f, 0.70f);
-    private static readonly Color PhoneColor = new Color(0.035f, 0.065f, 0.105f, 0.96f);
-    private static readonly Color PhoneBorderColor = new Color(0.20f, 0.66f, 0.86f, 0.58f);
-    private static readonly Color HeaderColor = new Color(0.055f, 0.11f, 0.17f, 0.94f);
-    private static readonly Color TranscriptColor = new Color(0.02f, 0.045f, 0.075f, 0.76f);
+    private static readonly Color PhoneColor = new Color32(9, 26, 40, 245);
+    private static readonly Color PhoneBorderColor = new Color32(39, 73, 93, 255);
+    private static readonly Color HeaderColor = new Color32(16, 40, 57, 245);
+    private static readonly Color TranscriptColor = new Color32(9, 23, 36, 245);
     private static readonly Color MediaViewerScrimColor = new Color(0.005f, 0.012f, 0.025f, 0.86f);
-    private static readonly Color IncomingColor = new Color(0.12f, 0.19f, 0.27f, 0.96f);
-    private static readonly Color PlayerColor = new Color(0.075f, 0.36f, 0.52f, 0.98f);
-    private static readonly Color ReplyColor = new Color(0.08f, 0.30f, 0.43f, 0.98f);
-    private static readonly Color MutedTextColor = new Color(0.61f, 0.78f, 0.88f, 1f);
+    private static readonly Color IncomingColor = new Color32(34, 56, 75, 245);
+    private static readonly Color PlayerColor = new Color32(20, 80, 108, 250);
+    private static readonly Color ReplyColor = new Color32(23, 61, 83, 250);
+    private static readonly Color MutedTextColor = new Color32(169, 192, 208, 255);
     private static Sprite runtimeSurfaceSprite;
     private static Sprite runtimeCircleSprite;
+    private static readonly Sprite[] runtimeReplySprites = new Sprite[3];
 
     private VNDialogueController dialogueController;
     private GameObject root;
@@ -165,7 +166,7 @@ public sealed class ChatController : MonoBehaviour
         transcript.Clear();
         ClearTranscriptViews();
         headerText.text = chat.contactDisplayName;
-        replyStatusText.text = "Choose a reply";
+        replyStatusText.text = "ВЫБЕРИТЕ ОТВЕТ";
         root.SetActive(true);
         root.transform.SetAsLastSibling();
         RequestOpenSfx();
@@ -188,7 +189,7 @@ public sealed class ChatController : MonoBehaviour
         option.effects?.ApplyTo(GameState.Instance);
         RefreshTranscript();
         SetReplyCardsInteractable(false);
-        replyStatusText.text = target < 0 ? "Sending reply…" : string.Empty;
+        replyStatusText.text = target < 0 ? "ОТПРАВКА ОТВЕТА…" : string.Empty;
 
         if (target < 0)
         {
@@ -392,7 +393,7 @@ public sealed class ChatController : MonoBehaviour
 
         if (availableCount > 0)
         {
-            replyStatusText.text = "Choose a reply";
+            replyStatusText.text = "ВЫБЕРИТЕ ОТВЕТ";
             return;
         }
 
@@ -678,14 +679,14 @@ public sealed class ChatController : MonoBehaviour
         GameObject bubble = CreateImageObject(row.transform, "Bubble", entry.sender == ChatSenderSide.Incoming ? IncomingColor : PlayerColor);
         ConfigureBubbleSurface(bubble, bubbleWidth);
         VerticalLayoutGroup layout = bubble.AddComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(16, 16, 11, 11);
+        layout.padding = new RectOffset(18, 18, 14, 14);
         layout.childControlWidth = true;
         layout.childControlHeight = true;
         layout.childForceExpandWidth = true;
         layout.childForceExpandHeight = false;
         bubble.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        TextMeshProUGUI label = CreateTmp(bubble.transform, "Message Text", entry.text, 21f, TextAlignmentOptions.TopLeft, Color.white, FontStyles.Normal);
+        TextMeshProUGUI label = CreateTmp(bubble.transform, "Message Text", entry.text, 23f, TextAlignmentOptions.TopLeft, Color.white, FontStyles.Normal);
         label.enableWordWrapping = true;
         label.overflowMode = TextOverflowModes.Overflow;
         LayoutElement labelLayout = label.gameObject.AddComponent<LayoutElement>();
@@ -935,7 +936,7 @@ public sealed class ChatController : MonoBehaviour
         headerLayout.childForceExpandHeight = false;
         headerLayout.childAlignment = TextAnchor.MiddleLeft;
 
-        GameObject avatar = CreateImageObject(header.transform, "Avatar Placeholder", new Color(0.14f, 0.58f, 0.73f, 1f));
+        GameObject avatar = CreateImageObject(header.transform, "Avatar Placeholder", new Color32(28, 99, 128, 255));
         ConfigureCircleSurface(avatar);
         LayoutElement avatarLayout = avatar.AddComponent<LayoutElement>();
         avatarLayout.preferredWidth = 54f;
@@ -954,14 +955,10 @@ public sealed class ChatController : MonoBehaviour
 
         headerText = CreateTmp(identity.transform, "Contact Name", "TEST CONTACT", 26f, TextAlignmentOptions.Left, Color.white, FontStyles.Bold);
         headerText.gameObject.AddComponent<LayoutElement>().preferredHeight = 35f;
-        TextMeshProUGUI tag = CreateTmp(identity.transform, "Technical Demo Tag", "TECH DEMO ONLY / NOT CANON", 12f, TextAlignmentOptions.Left, MutedTextColor, FontStyles.Bold);
+        TextMeshProUGUI tag = CreateTmp(identity.transform, "Technical Demo Tag", "TECH DEMO ONLY / NOT CANON", 15f, TextAlignmentOptions.Left, MutedTextColor, FontStyles.Bold);
         tag.gameObject.AddComponent<LayoutElement>().preferredHeight = 20f;
 
-        GameObject status = CreateImageObject(header.transform, "Status Indicator", new Color(0.30f, 0.93f, 0.72f, 1f));
-        ConfigureCircleSurface(status);
-        LayoutElement statusLayout = status.AddComponent<LayoutElement>();
-        statusLayout.preferredWidth = 10f;
-        statusLayout.preferredHeight = 10f;
+
     }
 
     private void BuildTranscriptViewport(Transform parent)
@@ -1003,7 +1000,7 @@ public sealed class ChatController : MonoBehaviour
 
     private void BuildReplyArea(Transform parent)
     {
-        replyArea = CreateImageObject(parent, "ReplyArea", new Color(0.045f, 0.12f, 0.18f, 0.96f));
+        replyArea = CreateImageObject(parent, "ReplyArea", new Color32(16, 37, 54, 245));
         ConfigureSlicedSurface(replyArea);
         replyArea.AddComponent<LayoutElement>().preferredHeight = 164f;
 
@@ -1015,7 +1012,7 @@ public sealed class ChatController : MonoBehaviour
         layout.childForceExpandWidth = true;
         layout.childForceExpandHeight = false;
 
-        replyStatusText = CreateTmp(replyArea.transform, "Reply Status", "SELECT A REPLY", 12f, TextAlignmentOptions.Left, MutedTextColor, FontStyles.Bold);
+        replyStatusText = CreateTmp(replyArea.transform, "Reply Status", "ВЫБЕРИТЕ ОТВЕТ", 16f, TextAlignmentOptions.Left, MutedTextColor, FontStyles.Bold);
         replyStatusText.gameObject.AddComponent<LayoutElement>().preferredHeight = 18f;
 
         replyButtons = new Button[2];
@@ -1035,20 +1032,24 @@ public sealed class ChatController : MonoBehaviour
         LayoutElement cardLayout = card.AddComponent<LayoutElement>();
         cardLayout.preferredHeight = 54f;
         Button button = card.AddComponent<Button>();
-        ColorBlock colors = button.colors;
-        colors.normalColor = Color.white;
-        colors.highlightedColor = new Color(1.45f, 1.45f, 1.35f, 1f);
-        colors.pressedColor = new Color(0.70f, 0.88f, 0.96f, 1f);
-        colors.selectedColor = new Color(1.45f, 1.45f, 1.35f, 1f);
-        colors.disabledColor = new Color(0.42f, 0.50f, 0.58f, 0.80f);
-        colors.colorMultiplier = 1f;
-        button.colors = colors;
+        // Built-in Selectable states own the focus; no new selection/input policy.
+        Image surface = card.GetComponent<Image>();
+        surface.color = Color.white;
+        surface.sprite = GetReplyCardSprite(false, false);
+        button.transition = Selectable.Transition.SpriteSwap;
+        button.targetGraphic = surface;
+        SpriteState sprites = button.spriteState;
+        sprites.highlightedSprite = GetReplyCardSprite(true, false);
+        sprites.selectedSprite = sprites.highlightedSprite;
+        sprites.pressedSprite = sprites.highlightedSprite;
+        sprites.disabledSprite = GetReplyCardSprite(false, true);
+        button.spriteState = sprites;
 
-        label = CreateTmp(card.transform, "Reply Text", string.Empty, 18f, TextAlignmentOptions.Left, Color.white, FontStyles.Normal);
+        label = CreateTmp(card.transform, "Reply Text", string.Empty, 22f, TextAlignmentOptions.Left, Color.white, FontStyles.Normal);
         RectTransform labelRect = label.rectTransform;
         labelRect.anchorMin = Vector2.zero;
         labelRect.anchorMax = Vector2.one;
-        labelRect.offsetMin = new Vector2(15f, 0f);
+        labelRect.offsetMin = new Vector2(20f, 0f);
         labelRect.offsetMax = new Vector2(-40f, 0f);
         label.enableWordWrapping = true;
         label.overflowMode = TextOverflowModes.Ellipsis;
@@ -1061,6 +1062,48 @@ public sealed class ChatController : MonoBehaviour
         chevronRect.sizeDelta = new Vector2(32f, 0f);
         chevronRect.anchoredPosition = new Vector2(-7f, 0f);
         return button;
+    }
+
+    private static Sprite GetReplyCardSprite(bool focused, bool disabled)
+    {
+        int index = disabled ? 2 : focused ? 1 : 0;
+        if (runtimeReplySprites[index] != null) return runtimeReplySprites[index];
+
+        const int size = 64;
+        const int radius = 5;
+        int borderWidth = focused ? 2 : 1;
+        Color frame = focused ? new Color32(104, 213, 243, 255) : PhoneBorderColor;
+        Color plate = disabled ? new Color32(18, 43, 58, 255) : ReplyColor;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "ChatReplySurface" + index,
+            hideFlags = HideFlags.HideAndDontSave,
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp
+        };
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float cornerX = Mathf.Max(radius - x, x - (size - radius - 1), 0f);
+                float cornerY = Mathf.Max(radius - y, y - (size - radius - 1), 0f);
+                float distance = Mathf.Sqrt(cornerX * cornerX + cornerY * cornerY);
+                float alpha = Mathf.Clamp01(radius + 0.5f - distance);
+                bool border = x < borderWidth || y < borderWidth || x >= size - borderWidth || y >= size - borderWidth
+                    || distance > radius - borderWidth;
+                bool accent = focused && x < 5 && y >= 8 && y < size - 8;
+                Color pixel = border || accent ? frame : plate;
+                pixel.a *= alpha;
+                texture.SetPixel(x, y, pixel);
+            }
+        }
+        texture.Apply(false, true);
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f),
+            100f, 0, SpriteMeshType.FullRect, new Vector4(8f, 8f, 8f, 8f));
+        sprite.name = texture.name;
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        runtimeReplySprites[index] = sprite;
+        return sprite;
     }
 
     private static GameObject CreateLayoutObject(Transform parent, string name)
@@ -1123,7 +1166,7 @@ public sealed class ChatController : MonoBehaviour
             return runtimeSurfaceSprite;
         }
 
-        const int size = 32;
+        const int size = 64;
         const int radius = 8;
         Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
         {
@@ -1139,7 +1182,7 @@ public sealed class ChatController : MonoBehaviour
             {
                 float cornerX = Mathf.Max(radius - x, x - (size - radius - 1), 0f);
                 float cornerY = Mathf.Max(radius - y, y - (size - radius - 1), 0f);
-                float alpha = cornerX * cornerX + cornerY * cornerY <= radius * radius ? 1f : 0f;
+                float alpha = Mathf.Clamp01(radius + 0.5f - Mathf.Sqrt(cornerX * cornerX + cornerY * cornerY));
                 texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
             }
         }
@@ -1149,7 +1192,7 @@ public sealed class ChatController : MonoBehaviour
             texture,
             new Rect(0f, 0f, size, size),
             new Vector2(0.5f, 0.5f),
-            size,
+            100f,
             0,
             SpriteMeshType.FullRect,
             new Vector4(radius, radius, radius, radius));
@@ -1165,7 +1208,7 @@ public sealed class ChatController : MonoBehaviour
             return runtimeCircleSprite;
         }
 
-        const int size = 32;
+        const int size = 64;
         float radius = (size - 1) * 0.5f;
         Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
         {

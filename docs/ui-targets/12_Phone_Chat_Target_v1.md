@@ -1,9 +1,15 @@
 # Target 12 — телефон и чат, v1
 
-**APPROVED visual direction / DESIGN ONLY.** Пользователь утвердил визуальное
-направление 2026-10-14 ответом «нормально» на прямой вопрос об approval Target 12.
-Production-pass **не разрешён**: он требует отдельного явного согласования.
-**NO PRODUCTION CHANGE. TECH DEMO ONLY / NOT CANON.**
+**APPROVED visual direction.** Пользователь утвердил направление 2026-10-14.
+После отдельного явного approval полного bounded плана разрешён production
+candidate: existing presentation → targeted QA/runtime proof → independent
+Sol High review → scoped commit/push/PR/exact-head CI, **БЕЗ MERGE**.
+Это отдельное ручное исключение до native sync, не automatic dispatch или
+разрешение historical recovery/controller changes. **TECH DEMO ONLY / NOT CANON.**
+
+Исходный design-only pass и его доказательства ниже сохранены как история.
+Его `NO PRODUCTION CHANGE` / `DESIGN ONLY` не описывают новый runtime candidate.
+Approval не меняет четыре SVG/PNG originals или их исторические annotations.
 
 Четыре PNG/SVG originals сохранены побайтово. Встроенные в них подписи
 `NOT APPROVED` / «НА СОГЛАСОВАНИИ» — исторические аннотации исходного design
@@ -92,13 +98,12 @@ controller. Перед будущим pass проверить реальные r
 - Scenes, authored assets, API, serialized refs, Packages/ProjectSettings,
   Save format и accepted visual baselines этим pass не меняются.
 
-## Bounded brief после отдельного approval
+## Утверждённый bounded production brief
 
 **Входной gate:** visual direction утверждена пользователем 2026-10-14;
 independent review/CI исходного design head зафиксированы ниже. Текстовый
-approval follow-up требует собственного exact-head review/CI. Production-pass
-по-прежнему требует отдельного approval; эта запись не выдаёт такое разрешение
-и не открывает automatic dispatch.
+approval follow-up требует собственного exact-head review/CI. Отдельное явное approval production-плана получено
+2026-10-14, как указано выше; automatic dispatch и merge по-прежнему закрыты.
 
 1. На свежей согласованной базе сравнить существующий `ChatController`
    presentation с утверждённым target. Если полезной дельты/defect нет —
@@ -122,7 +127,7 @@ approval follow-up требует собственного exact-head review/CI.
 5. Scoped review candidate → independent review → exact-head CI.
    Не называть runtime accepted/DONE по статическому target.
 
-## Evidence этого design-pass
+## Историческое evidence design-pass
 
 SVG/XML parse, полный PNG decode/size и визуальная инспекция обоих originals
 1920×1080 выполнены. Clipping/overlap/нечитаемых labels в финальных макетах
@@ -161,4 +166,57 @@ hands-on keyboard/controller — для static design-only diff они не за
 Render/inspection/tests/E2E в текстовом approval follow-up не повторялись;
 исторические static проверки выше сохранены. Человеческое approval направления
 получено; это не runtime QA approval. Drive mirror — NOT SYNCED. Historical/native sync
-barriers сохранены; production implementation и merge не разрешены.
+barriers сохранены. Предыдущий design approval не разрешал production/merge;
+последующий bounded production approval указан выше. Merge не разрешён.
+
+
+## Runtime candidate — 2026-10-14
+
+Writer branch `polish/phone-chat-target12-109e54ab` от clean exact
+`109e54abbb9d42d00a9be0e18102f207898ec389`; remote base
+`47724821122219558e1447f5009e48786adcae3b`. PR #75 остаётся design-only,
+production идёт отдельным PR. Protected checkouts/control/archive не менялись.
+
+Одна material presentation-итерация: тихие navy fills, тонкий shell edge,
+более аккуратные procedural sliced corners, TMP15/16/22/23, русский choice/terminal
+label, убран декоративный green dot. Cyan frame+left edge переиспользуют штатный
+`Button.SpriteSwap` hover/selected/disabled, без нового focus owner/mapping/default.
+Phone640/anchors0.10…0.90, transcript mask/scroll, choices,0.45s, viewer и lifecycle
+сохранены; ни authored Sprite/scene/data, ни Save/Packages/ProjectSettings не меняются.
+
+Fresh before/after: по8 реальных originals1920×1080 без `-nographics`; оба
+bounded runs PASS, errors0. Все8 after originals открыты writer: TMP/Russian labels,
+readability, visibility, clipping/overlap, focus, Image/viewer и Reading-return
+без objective defects. Input proof — synthetic pointer events через существующий
+Button/EventSystem; selected получен pointer-down/up/exit, не keyboard auto-select.
+Viewer image no-op; X/Escape/scrim только закрывают viewer, same-state/audio;
+terminal disabled replies → exactly-once cleanup/release → returnScene.
+
+Capture-only helper вне repo временно компилировался в existing technical launcher;
+launcher затем восстановлен побайтово. После удаления helper final source прошёл
+compile/import и targeted `ChatPhoneSmokeTests.RunBatchMode` (1 suite PASS), включая
+новые presentation/Selectable assertions. Existing `run-unity-tests.ps1` targeted
+PlayMode **3/3**, XML сразу архивирован: special-mode owner integrity, failed Chat
+shell suppression release, wheel blocking. Full local suites без причины не запускались.
+
+Startup safety: PID31068 проверен как Unity Hub `unity.exe serve`, не Editor.
+До первого owned Unity access44 LocalLow files и оба полных PlayerPrefs namespaces
+quarantined/backed up вне repo; QA autosave=off до scene startup. После owned Editors
+exit44/44 hashes и полные registry names/values/types восстановлены точно.
+Private saves/registry dumps не публикуются. Три setup failures до before PASS
+сохранены: startup autosave race, early GameView readiness, overstrict unrelated
+Reading-selection check; runtime/gameplay под эти capture checks не исправлялся.
+Known Unity-generated YAML/TMP/ProjectSettings проверены и точечно восстановлены.
+
+Curated6 уникальных byte-identical PNG и index — `docs/visual-baselines/README.md`.
+Hover==selected и choices==viewer-close побайтово; дубли не коммитятся.
+Gameplay source SHA-256:
+`f643b14038c6286f6ebc90db6fb233726bb4458f6983a7eea21de13715937f19`.
+Helper/source/head/hash manifest, raw logs/XML и inspected file list — вне repo.
+Remote reviewer proof — existing exact-head CI `visual-review` artifact нового PR.
+
+**REVIEW CANDIDATE:** independent review и exact-head CI проверяют фактический
+production commit; публикация идёт отдельным PR, без merge.
+**NOT RUN:** full local EditMode/PlayMode/Smoke, standalone player, physical
+keyboard/controller, merge/native sync/historical recovery. Drive — NOT SYNCED.
+Approval статического направления не выдаётся за human/runtime final acceptance.

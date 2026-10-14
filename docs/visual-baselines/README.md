@@ -212,3 +212,40 @@ Recovery выполнен от exact master `390a02b38281e14efddc08b4c45712f5251
 Пересняты только шесть существующих Hotspot baselines через `tools/run-graphical-e2e.ps1 -Scenario Hotspot`, Unity `6000.5.7f1`, с графикой без `-nographics`: preflight и graphical exit 0, `status=PASS`, `playerPrefsRestored=true`, 19/19 свежих PNG с проверенными размерами. Implementer просмотрел все 19 кадров: authored/fallback background, initial laptop, notes focus, locked door focus, hover/exit, after laptop, unlocked door, Game Menu/return, completion → Reading и re-entry при 1280×720. Новых clipping/overlap, двойного focus, stale markers или конфликта с Reading shell не выявлено. Совпадение близкое по композиции, масштабу и визуальному весу; не pixel-identical: глифы процедурные, контуры/glow сглаживаются Unity UI/TMP.
 
 Проверки: `InteractiveHotspotPlayModeTests` 8/8 (virtual keyboard/gamepad/mouse; presentation и неизменные hit regions), связанные Main Menu/RMB regressions 7/7; `InteractiveHotspotEditModeTests` 3/3; smoke 30/30. Исходный double-emphasis defect отдельно воспроизведён failing regression до коррекции. Reviewer proof: exact-head GitHub `visual-review` artifact после CI и [дополнительные runtime-кадры/Target 09/manifest на Drive](https://drive.google.com/drive/folders/1hqGc7Gzh2NVplwkMEx7y4BY0LKHtuWGc). Это REVIEW CANDIDATE, не независимое visual approval. Standalone и human/physical-gamepad QA — NOT RUN; mandatory exact-head CI проверяется отдельно в PR.
+
+## Chat / Phone Target 12 — runtime candidate 2026-10-14
+
+Существующий ChatController: quiet navy, читаемые TMP labels, локальный cyan
+контур/край reply card в штатном Button hover/selected; без новых input mapping,
+default selection, scenes/assets, timers/audio/Save/routing. TECH DEMO ONLY / NOT CANON.
+Это **REVIEW CANDIDATE**, не independent acceptance / DONE.
+
+Свежий реальный Play Mode Unity6000.5.7f1, **1920×1080**, без -nographics.
+До/после получены по8 originals. Все8 after originals открыты writer: labels,
+контраст, clipping/overlap, focus, Image/viewer и возврат без objective defects.
+Ниже6 уникальных побайтовых копий; selected-after-pointer-exit совпадает с hover,
+same-state close совпадает с choices. Дубли в baseline не добавлены.
+
+| Baseline | Runtime state |
+| --- | --- |
+| chat_phone_typing.png | Authored IncomingTyping; replies скрыты |
+| chat_phone_choices.png | Revealed Text+Image и обе available replies, без reply selection |
+| chat_phone_reply_focus.png | Synthetic pointer hover через существующий Button; такой же selected вид получен pointer-down/up/exit |
+| chat_phone_media_viewer.png | Existing aspect-fit image, scrim и X; underlying reply input blocked |
+| chat_phone_terminal.png | Player справа, прежние replies disabled, existing0.45s terminal pacing |
+| chat_phone_return_reading.png | Ровно один returnScene после lease release; обычный Reading |
+
+Runtime mechanics проверены existing smoke + targeted PlayMode3/3. Viewer image
+no-op; X/Escape/scrim закрывают только viewer, transcript/audio сохраняются.
+QA helper временно компилировался в existing technical launcher, затем удалён;
+final-source compile/import+Chat smoke прошли уже без него. Helper только capture
+и existing Button events; authored content/geometry/timers не подменял.
+Gameplay ChatController blob: f7e4f936942c3a98e7e15e3274bae6d8d8da1203; SHA-256: f643b14038c6286f6ebc90db6fb233726bb4458f6983a7eea21de13715937f19.
+Source branch: polish/phone-chat-target12-109e54ab, approved source109e54ab…,
+remote base47724821…. Exact candidate head связывает existing CI visual-review manifest.
+До первого Unity access — полный external LocalLow/двух PlayerPrefs quarantine;
+после owned Editor exit восстановлены44/44 file hashes и полные names/values/types
+обоих namespaces. Private backups/real saves/registry dumps не публикуются.
+Physical keyboard/controller, standalone и full local suites: NOT RUN.
+Drive mirror: NOT SYNCED. Runtime helper/log/XML manifest архивирован вне repo;
+основной remote proof — existing exact-head GitHub visual-review artifact этого PR.

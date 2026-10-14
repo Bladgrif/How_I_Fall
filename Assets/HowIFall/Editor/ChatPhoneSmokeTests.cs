@@ -209,6 +209,7 @@ public static class ChatPhoneSmokeTests
                 "Delay must reveal the image automatically and then show replies.");
             Require(chat.IncomingSfxRequestCount == 2,
                 "The delayed incoming image reveal must request one additional incoming SFX.");
+            VerifyTarget12Presentation(canvasObject.transform);
             chat.AdvanceEntryPacing(10f);
             Require(chat.Transcript.Count == 2,
                 "A completed delayed entry must reveal exactly once.");
@@ -256,6 +257,8 @@ public static class ChatPhoneSmokeTests
                 "Selected player replies must use the right-aligned bubble presentation.");
             Require(!chat.AreReplyCardsInteractable,
                 "Selecting a reply must disable its cards before terminal completion.");
+            Require(canvasObject.transform.Find("PhoneRoot/PhoneShell/ReplyArea/Reply Status").GetComponent<TMPro.TextMeshProUGUI>().text == "ОТПРАВКА ОТВЕТА…",
+                "Terminal label describes existing local pacing, not network delivery.");
             dialogue.AdvanceDialogue();
             Require(chat.IsCompletionPending, "Generic dialogue advance must not be required or accepted during terminal presentation.");
             Require(!chat.TryChoose(0) && gameState.trustMasha == 3,
@@ -394,6 +397,43 @@ public static class ChatPhoneSmokeTests
             copy.entries.Add(clone);
         }
         return copy;
+    }
+
+    private static void VerifyTarget12Presentation(Transform canvas)
+    {
+        Transform shell = canvas.Find("PhoneRoot/PhoneShell");
+        RectTransform shellRect = shell.GetComponent<RectTransform>();
+        Require(shellRect.sizeDelta.x == 640f && shellRect.anchorMin == new Vector2(0.5f, 0.10f)
+            && shellRect.anchorMax == new Vector2(0.5f, 0.90f), "Target12 must preserve the existing phone composition.");
+        Require(shell.Find("Header/Status Indicator") == null, "Target12 must not imply a network/contact status.");
+        TMPro.TextMeshProUGUI tag = shell.Find("Header/Contact Identity/Technical Demo Tag").GetComponent<TMPro.TextMeshProUGUI>();
+        Require(tag.text == "TECH DEMO ONLY / NOT CANON" && tag.fontSize == 15f, "Readable technical-only header label.");
+        TMPro.TextMeshProUGUI status = shell.Find("ReplyArea/Reply Status").GetComponent<TMPro.TextMeshProUGUI>();
+        Require(status.text == "ВЫБЕРИТЕ ОТВЕТ" && status.fontSize == 16f, "Russian presentation-only choice label.");
+        foreach (Transform card in shell.Find("ReplyArea"))
+        {
+            UnityEngine.UI.Button button = card.GetComponent<UnityEngine.UI.Button>();
+            if (button == null) continue;
+            UnityEngine.UI.Image surface = card.GetComponent<UnityEngine.UI.Image>();
+            Require(button.transition == UnityEngine.UI.Selectable.Transition.SpriteSwap && button.targetGraphic == surface,
+                "Reply focus must reuse the existing Selectable state owner.");
+            Require(button.spriteState.highlightedSprite != null && button.spriteState.highlightedSprite == button.spriteState.selectedSprite
+                && button.spriteState.disabledSprite != null && button.spriteState.disabledSprite != button.spriteState.selectedSprite,
+                "Hover/selected share one focus presentation; disabled is distinct.");
+            Require(card.Find("Reply Text").GetComponent<TMPro.TextMeshProUGUI>().fontSize == 22f,
+                "Reply text must retain the readable Target12 size.");
+            var pointer = new UnityEngine.EventSystems.PointerEventData(null);
+            button.OnPointerEnter(pointer);
+            Require(surface.overrideSprite == button.spriteState.highlightedSprite, "Existing pointer enter must show focus frame/edge.");
+            button.OnPointerExit(pointer);
+            button.OnSelect(null);
+            Require(surface.overrideSprite == button.spriteState.selectedSprite, "Existing selected state must show the same focus frame/edge.");
+            button.OnDeselect(null);
+            Require(surface.overrideSprite == surface.sprite, "Deselect must return to the quiet resting surface.");
+            button.interactable = false;
+            Require(surface.overrideSprite == button.spriteState.disabledSprite, "Disabled replies must not retain a focus surface.");
+            button.interactable = true;
+        }
     }
 
     private static void ConfigureRouteUi(VNDialogueController dialogue, Transform parent)
