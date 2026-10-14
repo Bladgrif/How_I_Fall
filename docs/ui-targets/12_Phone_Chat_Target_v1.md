@@ -1,9 +1,14 @@
 # Target 12 — телефон и чат, v1
 
-**DESIGN ONLY / NOT APPROVED / REVIEW CANDIDATE.** Пользователь разрешил
-2026-10-14 этот bounded design-pass и публикацию для независимого ревью.
-Это **не** approval визуального направления или production implementation.
+**APPROVED visual direction / DESIGN ONLY.** Пользователь утвердил визуальное
+направление 2026-10-14 ответом «нормально» на прямой вопрос об approval Target 12.
+Production-pass **не разрешён**: он требует отдельного явного согласования.
 **NO PRODUCTION CHANGE. TECH DEMO ONLY / NOT CANON.**
+
+Четыре PNG/SVG originals сохранены побайтово. Встроенные в них подписи
+`NOT APPROVED` / «НА СОГЛАСОВАНИИ» — исторические аннотации исходного design
+capture до approval; текущий authority статуса — этот brief и target index.
+Смена статуса не требует перегенерации макета или изменения утверждённого вида.
 
 Исходная база: `47724821122219558e1447f5009e48786adcae3b`, проверена через
 `git ls-remote origin refs/heads/master` перед созданием ветки
@@ -89,9 +94,11 @@ controller. Перед будущим pass проверить реальные r
 
 ## Bounded brief после отдельного approval
 
-**Входной gate:** независимое ревью этих exact originals/diff; отдельное
-пользовательское approval направления и отдельное approval production-pass.
-Текущая запись не выдаёт такое разрешение и не открывает automatic dispatch.
+**Входной gate:** visual direction утверждена пользователем 2026-10-14;
+independent review/CI исходного design head зафиксированы ниже. Текстовый
+approval follow-up требует собственного exact-head review/CI. Production-pass
+по-прежнему требует отдельного approval; эта запись не выдаёт такое разрешение
+и не открывает automatic dispatch.
 
 1. На свежей согласованной базе сравнить существующий `ChatController`
    presentation с утверждённым target. Если полезной дельты/defect нет —
@@ -132,8 +139,12 @@ Segoe UI. SVG self-contained, без удалённых fonts/assets. Техни
 `D:\Codex\visualizations\2026\10\14\01a13976-7261-77d2-a409-9ef31b054ad2\phone-chat-design`.
 Remote originals — два PNG в task branch/PR; existing CI `visual-review`
 пакует реально изменённые `docs/ui-targets/*.png` с base/head manifest.
-SHA-256 originals/source identity передаются reviewer'у с публикацией;
-CI completion не объявляется заранее.
+SHA-256 originals/source identity переданы reviewer'у с публикацией.
+Независимый **CLEAN** review и CI **#280 success** относятся только к exact
+design head `7d5c3377f16d3b7157fb37dbc02031199068476e` в PR #75.
+Пользовательское visual-direction approval получено 2026-10-14 после этого
+ревью. Новый approval-status follow-up — **REVIEW CANDIDATE**, его собственные
+exact-head review/CI ещё pending; предыдущий CLEAN/GREEN на него не переносится.
 
 | Original | SHA-256 |
 | --- | --- |
@@ -146,7 +157,8 @@ SVG hashes относятся к canonical repository blobs с LF; Windows CRLF-
 семантически эквивалентны, но имеют другой bytehash. PNG hashes побайтовые.
 
 **NOT RUN:** Unity compile/import, EditMode/PlayMode/smoke, graphical E2E,
-hands-on keyboard/controller и человеческое эстетическое approval — для этого
-static design-only diff они не запускались. CI и independent review — следующие
-gates, не локальный PASS. Drive mirror — NOT SYNCED. Historical/native sync
+hands-on keyboard/controller — для static design-only diff они не запускались.
+Render/inspection/tests/E2E в текстовом approval follow-up не повторялись;
+исторические static проверки выше сохранены. Человеческое approval направления
+получено; это не runtime QA approval. Drive mirror — NOT SYNCED. Historical/native sync
 barriers сохранены; production implementation и merge не разрешены.
